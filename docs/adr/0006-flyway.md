@@ -27,4 +27,4 @@ Utilizar Flyway y almacenar scripts en `backend/src/main/resources/db/migration/
 
 ## Consideraciones pendientes
 
-Definir estrategia de conexión para migraciones en Neon, permisos, entornos de ensayo y pruebas automatizadas. No ejecutar todavía Flyway contra Neon: el backend aún carece de código y primera migración.
+Definir estrategia de conexión para migraciones en Neon, permisos, entornos de ensayo y pruebas automatizadas.

@@ -38,6 +38,7 @@ dependency-reduced-pom.xml
 **/.cache/
 **/coverage/
 *.tsbuildinfo
+expo-env.d.ts
 
 npm-debug.log*
 yarn-debug.log*

@@ -1,1 +1,12 @@
-# No implementado
+# Desarrollo web con Expo y Fast Refresh
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+
+# Instalar las dependencias del proyecto
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 7777
+
+CMD ["npx", "expo", "start", "--web", "--port", "7777"]

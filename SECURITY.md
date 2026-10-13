@@ -1,28 +1,23 @@
 # Política de seguridad
 
-## Comunicación de vulnerabilidades
+UrbanPulse es un proyecto universitario en desarrollo cuyo repositorio de código es **público**. El hecho de que su código sea visible no autoriza a compartir credenciales o datos personales.
 
-Si se detecta una vulnerabilidad de seguridad en UrbanPulse,
-deberá comunicarse de forma privada a los responsables del
-repositorio.
+## Comunicación privada de vulnerabilidades
 
-No se deben publicar vulnerabilidades que puedan comprometer
-el sistema ni incluir información sensible en Issues públicos.
+No publicar pruebas de explotación, tokens, credenciales ni datos personales en Issues o Pull Requests públicos. Comunicar el problema por un canal privado acordado con los responsables del proyecto. Si GitHub habilita la función de **notificación privada de vulnerabilidades** (_Private Vulnerability Reporting_) para este repositorio, utilizarla preferentemente. No se presupone que dicha función esté activada.
 
-## Gestión de credenciales
+## Secretos y configuración
 
-No se deben almacenar en el repositorio:
+- Nunca versionar `.env` reales, contraseñas, tokens de usuario, secretos JWT, claves privadas ni credenciales JDBC o S3 de Neon.
+- Usar archivos `.env.example` con valores ficticios para describir las variables esperadas.
+- Las variables Expo `EXPO_PUBLIC_*` se incorporan al cliente: **son públicas y nunca deben contener secretos**.
+- Aplicar mínimo privilegio, autorización en el backend y HTTPS en el despliegue.
+- No incluir datos personales reales ni fotografías sensibles en tests, ejemplos, capturas o Issues.
 
-- Contraseñas.
-- Tokens de acceso.
-- Claves privadas.
-- Credenciales de bases de datos.
-- Secretos de servicios externos.
+## Dependencias y desarrollo
 
-La configuración sensible deberá gestionarse mediante
-variables de entorno o mecanismos seguros equivalentes.
+El frontend dispone de `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit` y `npm run lint`. Estas comprobaciones no sustituyen a una revisión de seguridad.
 
-## Dependencias
+Inspeccionar `npm audit` y priorizar los avisos de riesgo elevado antes de distribuir una versión. Las salidas previas de npm informaron de vulnerabilidades; no constan aún resultados que demuestren que hayan desaparecido. No ejecutar `npm audit fix --force` de forma automática si pudiera romper la compatibilidad con Expo.
 
-Se procurará mantener actualizadas las dependencias del
-proyecto y corregir las vulnerabilidades conocidas.
+La configuración final de autenticación JWT, permisos, protección de evidencias, limitación de peticiones y gestión de claves sigue pendiente de implementación y verificación.

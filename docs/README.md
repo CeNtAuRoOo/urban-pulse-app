@@ -1,16 +1,16 @@
 # Documentación de UrbanPulse
 
-Este directorio contiene la documentación **viva** de la arquitectura, desarrollo, despliegue y contrato de la API REST.
+Este directorio recoge la documentación **viva** del proyecto. Distingue los componentes ya inicializados y probados de las funcionalidades y despliegues todavía previstos.
 
-## Índice
+| Documento                       | Contenido                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Arquitectura](architecture.md) | Arquitectura objetivo, C4, estructura real inicial de backend/frontend y decisiones técnicas. |
+| [Desarrollo](development.md)    | Instalación, variables, comandos reales, verificaciones y problemas frecuentes.               |
+| [Despliegue](deployment.md)     | Imágenes independientes, exportación web, distribución nativa y despliegue futuro.            |
+| [API](api/README.md)            | Contrato OpenAPI futuro; sin endpoints implementados.                                         |
+| [ADR](adr/README.md)            | Decisiones aceptadas, propuestas y pendientes.                                                |
+| [Diagramas](diagrams/README.md) | Diagramas C4 disponibles y otros diagramas de diseño pendientes.                              |
 
-| Documento                       | Contenido                                                                 |
-| ------------------------------- | ------------------------------------------------------------------------- |
-| [Arquitectura](architecture.md) | Visión del sistema, decisiones, calidad, seguridad e integraciones.       |
-| [Desarrollo](development.md)    | Preparación del entorno, convenciones y comprobaciones.                   |
-| [Despliegue](deployment.md)     | Estrategia de entrega para web, móvil, backend y servicios administrados. |
-| [API](api/README.md)            | Contrato OpenAPI y futuras convenciones de endpoints.                     |
-| [ADR](adr/README.md)            | Historial de decisiones arquitectónicas.                                  |
-| [Diagramas](diagrams/README.md) | Ubicación y convenciones para diagramas C4, ER y UML.                     |
+**Estado a 13/10/2026:** frontend universal inicializado; su desarrollo web, lint, TypeScript, exportación y Docker Compose (solo frontend) se han comprobado. Backend estructurado, pero **sin API funcional ni integración con Neon probadas**. No existen despliegues de producción ni workflows de CI/CD ejecutables todavía.
 
-**Estado:** documentación inicial anterior a la implementación. Las instrucciones identificadas como «previstas» todavía no han sido verificadas en una aplicación ejecutable.
+El [README principal](../README.md) ofrece los pasos mínimos de puesta en marcha.
