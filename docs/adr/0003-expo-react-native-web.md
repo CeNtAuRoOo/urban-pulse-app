@@ -17,7 +17,7 @@ UrbanPulse debe funcionar en navegadores y dispositivos Android/iOS. Todos los r
 
 ## Decisión
 
-Mantener una única base de código frontend con React Native, Expo y React Native Web; se recomienda TypeScript. La aplicación web se compilará para despliegue como recursos web; Android e iOS se compilarán como aplicaciones nativas. Ambas consumirán la API REST de Spring Boot.
+Mantener una única base de código frontend con **TypeScript**, React Native, Expo y React Native Web. Se utiliza **Expo Router** para navegación basada en archivos y **Metro** para empaquetado; no se introduce Vite. La aplicación web se exportará como SPA y se servirá independientemente del backend; Android e iOS se compilarán como aplicaciones nativas. Ambas consumirán la API REST de Spring Boot. El formato de distribución web queda documentado en [ADR-0008](0008-frontend-spa-nginx.md).
 
 ## Consecuencias
 
@@ -27,4 +27,4 @@ Mantener una única base de código frontend con React Native, Expo y React Nati
 
 ## Consideraciones pendientes
 
-Elegir navegación, librería de mapas, sistema de pruebas, mecanismo de actualización y estrategia de compilación nativa. La configuración de Expo para desarrollo con Docker está pendiente de implementar y probar.
+Expo Router y TypeScript ya están configurados; la ejecución web local, exportación web y `Dockerfile.dev` mediante Compose han sido comprobados (13/10/2026). Siguen pendientes: librería de mapas, pruebas funcionales, pruebas de dispositivos Android/iOS, actualización y compilación nativa. La imagen web **de producción** Nginx no se ha probado todavía.
