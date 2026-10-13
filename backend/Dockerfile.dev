@@ -1,0 +1,10 @@
+# Imagen de desarrollo del backend
+FROM maven:3.9.16-eclipse-temurin-25
+
+WORKDIR /app
+
+ENV SERVER_PORT=8888
+
+EXPOSE 8888
+
+CMD ["mvn", "spring-boot:run"]
