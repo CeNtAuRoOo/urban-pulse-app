@@ -1,0 +1,30 @@
+# Git
+.git
+
+# Editores
+.idea
+.vscode
+
+# Node
+node_modules
+
+# Expo
+.expo
+.expo-shared
+
+# Archivos generados
+dist
+coverage
+.cache
+
+# Logs
+*.log
+npm-debug.log*
+
+# Variables de entorno
+.env
+.env.*
+
+# Archivos temporales
+*.tmp
+*.temp

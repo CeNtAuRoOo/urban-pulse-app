@@ -1,0 +1,22 @@
+# Git
+.git
+
+# Editores
+.idea
+.vscode
+*.iml
+
+# Maven
+target
+
+# Logs
+*.log
+logs
+
+# Variables de entorno
+.env
+.env.*
+
+# Archivos temporales
+*.tmp
+*.temp

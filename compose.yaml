@@ -1,0 +1,30 @@
+name: urban-pulse-app
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./backend:/app
+      - maven-cache:/root/.m2
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./frontend:/app
+      - node-modules:/app/node_modules
+
+volumes:
+  maven-cache:
+  node-modules:
