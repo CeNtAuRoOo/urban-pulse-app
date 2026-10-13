@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "vscjava.vscode-java-pack",
+    "vmware.vscode-boot-dev-pack",
+    "esbenp.prettier-vscode",
+    "redhat.vscode-yaml",
+    "redhat.vscode-xml",
+    "EditorConfig.EditorConfig",
+    "ms-azuretools.vscode-containers",
+    "redocly.openapi-vs-code"
+  ]
+}
