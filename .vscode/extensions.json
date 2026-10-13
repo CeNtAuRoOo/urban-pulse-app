@@ -7,6 +7,7 @@
     "redhat.vscode-xml",
     "EditorConfig.EditorConfig",
     "ms-azuretools.vscode-containers",
-    "redocly.openapi-vs-code"
+    "redocly.openapi-vs-code",
+    "expo.vscode-expo-tools"
   ]
 }

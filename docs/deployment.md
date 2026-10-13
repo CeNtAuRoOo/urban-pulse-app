@@ -1,145 +1,147 @@
 # Guía de despliegue
 
-> **Estado:** estrategia objetivo, **no procedimiento operativo validado**. A 11/10/2026 no se han elegido proveedores para alojar el frontend web y el backend, ni existen aún los artefactos finales de las aplicaciones. Las instrucciones siguientes no deben presentarse como un despliegue realizado.
+> **Estado (13/10/2026):** estrategia y Dockerfiles preparados; **no existe un despliegue de producción validado**. Sí están probados el desarrollo web con Expo, la exportación estática web y el servicio frontend de Docker Compose. El hosting y los dominios públicos siguen sin elegirse.
 
-## 1. Objetivo
+## 1. Objetivo y separación de entornos
 
-Desplegar la aplicación web y la API REST **por separado**, conservar PostgreSQL y las evidencias en servicios administrados y distribuir Android/iOS como aplicaciones nativas. Reducir costes y facilitar la actualización independiente de cada parte.
+- **Desarrollo:** `compose.yaml` orquesta los servicios `frontend` (7777) y `backend` (8888) con volúmenes de código. PostgreSQL queda fuera de Compose, en Neon.
+- **Producción web:** un contenedor Docker independiente sirve los archivos SPA exportados por Expo mediante Nginx.
+- **Producción backend:** otro contenedor ejecutará el JAR de Spring Boot, una vez configurado y probado.
+- **Android/iOS:** se generarán compilaciones nativas a partir del mismo frontend; **no se desplegarán en contenedores Docker** en los dispositivos.
 
-## 2. Visión de los componentes
+Todo despliegue real deberá utilizar HTTPS hacia la API, secretos gestionados en el entorno y permisos mínimos.
 
-| Componente                          | Destino                                                              | Estado                                                      |
-| ----------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Frontend web (Expo Web)             | Contenedor independiente que sirve el build web; proveedor pendiente | No implementado                                             |
-| Backend API (Spring Boot)           | Contenedor Docker independiente; proveedor pendiente                 | Dockerfile base preparado, app no implementada              |
-| Android/iOS (Expo)                  | Compilaciones nativas instalables; distribución por definir          | No implementado                                             |
-| PostgreSQL                          | Neon PostgreSQL administrado                                         | Proveedor decidido; provisionamiento pendiente de confirmar |
-| Evidencias (fotografías)            | Neon Object Storage, bucket privado                                  | Propuesto; validar disponibilidad y permisos                |
-| Fuentes contextuales/notificaciones | Servicios externos por definir                                       | Pendiente                                                   |
+## 2. Componentes y estado
 
-**Importante:** `compose.yaml` se utilizará **solo para desarrollo**. No es el manifiesto de despliegue conjunto de producción.
+| Componente                    | Artefacto / proveedor                               | Estado                                                            |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| Frontend desarrollo web       | `frontend/Dockerfile.dev`, Expo/Metro, puerto 7777  | **Validado localmente y con Compose**                             |
+| Exportación web               | `npx expo export --platform web` → `frontend/dist/` | **Validada**                                                      |
+| Frontend producción web       | `frontend/Dockerfile` (Node 24 → Nginx)             | Creado; **imagen final no probada**                               |
+| Backend desarrollo            | `backend/Dockerfile.dev`, Spring Boot, puerto 8888  | Creado; arranque no validado                                      |
+| Backend producción            | `backend/Dockerfile` (Maven → JRE)                  | Creado; JAR funcional pendiente                                   |
+| PostgreSQL                    | Neon (administrado)                                 | Seleccionado; conexión real pendiente                             |
+| Almacenamiento de fotografías | Neon Object Storage, bucket privado                 | **Propuesto**, validar servicio                                   |
+| Aplicaciones Android/iOS      | Expo / React Native                                 | Compilación/distribución por definir; sin prueba funcional nativa |
+| Hosting web y backend         | Proveedores cloud distintos o separables            | Pendientes                                                        |
 
 ## 3. Diagrama de despliegue
 
-**[PENDIENTE: incorporar diagrama C4 Deployment]**
+**[PENDIENTE: incorporar C4 Deployment]** al seleccionar hosting, dominios, red, TLS y mecanismos de entrega. Archivo propuesto `docs/diagrams/deployment.drawio`; exportación SVG junto a él.
 
-Se elaborará cuando conozcamos el proveedor, las redes, los dominios públicos, TLS y el lugar de ejecución real de web/backend. Archivo propuesto: `docs/diagrams/deployment.drawio`.
+Los diagramas C4 actuales de contexto y contenedores se encuentran en [architecture.md](architecture.md).
 
-<!-- Cuando exista: ![C4 - Deployment](diagrams/deployment.svg) -->
+## 4. Frontend web: desarrollo frente a producción
 
-## 4. Requisitos previos al primer despliegue
+### 4.1. Desarrollo comprobado
 
-- Implementación y pruebas del backend y frontend.
-- Proveedores/planes seleccionados y credenciales de despliegue.
-- Gestión segura de secretos; sin valores reales en Git ni dentro de imágenes Docker.
-- Definir dominio y HTTPS para API y web, CORS, políticas de acceso y cabeceras.
-- Migraciones Flyway verificadas y separación entre base de pruebas y base compartida.
-- Decidir cómo revisar fotografías antes de mostrarlas a usuarios.
-- CI que construya y pruebe la versión antes de desplegarla.
+Desde la raíz:
+
+```bash
+docker compose up --build frontend
+```
+
+El contenedor ejecuta `npx expo start --web --port 7777`; se accede a <http://localhost:7777>. La fuente se monta como volumen y las dependencias permanecen en un volumen separado. La aplicación web también se ha probado sin Docker con el mismo puerto.
+
+### 4.2. Exportación comprobada
+
+Desde `frontend/`:
+
+```bash
+npx expo export --platform web
+```
+
+La configuración `app.json` contiene `web.output="single"`. La exportación web genera `dist/`, con HTML, JavaScript y recursos estáticos, pero **no equivale a desplegarlo**.
+
+### 4.3. Contenedor de producción (pendiente de validar)
+
+`frontend/Dockerfile` es multietapa: instala con `npm ci`, exporta la aplicación y copia `dist/` a Nginx. `frontend/nginx.conf` escucha en el puerto 7777 y utiliza `try_files ... /index.html` para soportar rutas SPA de Expo Router.
+
+Comandos propuestos de validación local desde la raíz, en PowerShell:
+
+```powershell
+docker build -f frontend/Dockerfile --build-arg EXPO_PUBLIC_API_URL=http://localhost:8888 -t urbanpulse-frontend:local frontend
+docker run --rm -p 7777:7777 urbanpulse-frontend:local
+```
+
+Abrir <http://localhost:7777>. **Todavía no se ha adjuntado evidencia de esta prueba.**
+
+### 4.4. Configuración pública en tiempo de build
+
+`EXPO_PUBLIC_API_URL` debe proporcionarse al construir la imagen. Se incorpora al bundle JavaScript y **no es un secreto**. En producción reemplazar por el endpoint HTTPS verdadero de la API; por ejemplo `https://api.ejemplo.invalid`, una URL **ficticia, no operativa**. Si cambia la URL, la imagen actual necesitará reconstruirse o evolucionar hacia otro sistema de configuración pública en ejecución.
+
+La API del backend deberá admitir el origen web mediante la política CORS que se defina. No usar el hostname Docker `backend` en código ejecutado por el navegador.
 
 ## 5. Backend Spring Boot: imagen independiente
 
-El repositorio ya contiene `backend/Dockerfile` multietapa: Maven construye un JAR y una imagen con JRE ejecuta la aplicación. El puerto previsto es **8888**.
+`backend/Dockerfile` usa Maven 3.9.16 y Java 25 para compilar el JAR y una imagen con JRE 25 para ejecutarlo. Puerto interno previsto: **8888**.
 
-Tras implementar y configurar el backend, comandos de referencia:
+Comando de referencia, **aún no validado**:
 
 ```bash
-# Desde la raíz del repositorio
-docker build -f backend/Dockerfile -t urban-pulse-backend:0.1.0 backend
-# Ejecutar con las variables necesarias, definidas por el entorno de destino.
+docker build -f backend/Dockerfile -t urbanpulse-backend:local backend
 ```
 
-El comando solo ilustra la futura construcción; hoy la aplicación no existe y no se garantiza que termine correctamente. No usar etiquetas inmutables ficticias como si hubiera una release publicada. No insertar variables secretas mediante instrucciones `ENV` o `ARG` del Dockerfile.
+El backend todavía no tiene API funcional ni conexión Neón comprobada. Necesitará PostgreSQL operativo, migraciones reales, configuración de permisos y pruebas antes de presentarse como desplegable.
 
-En producción se espera que el proveedor entregue variables de entorno para conexión JDBC/TLS, firma/verificación JWT y almacenamiento S3. La disponibilidad y el endpoint HTTPS de la API se verificarán tras el despliegue.
+En despliegue no incluir contraseñas ni claves mediante `ENV`, `ARG` o archivos versionados. Inyectar credenciales de Neon y claves de autenticación mediante mecanismos de secretos del proveedor de hosting.
 
-## 6. Frontend web: imagen y configuración independientes
+## 6. Distribución móvil
 
-El frontend tendrá una única base de código React Native + Expo. Para web se generarán archivos estáticos que podrá servir un contenedor independiente (por ejemplo, mediante un servidor web ligero). **El Dockerfile de producción está pendiente de definir**.
+Android e iOS reutilizan `frontend/src`. Expo permite iniciar un servidor para pruebas con Expo Go en bibliotecas compatibles o usar _development builds_ cuando se requieran módulos nativos adicionales. Las compilaciones finales serán artefactos móviles, no imágenes Docker.
 
-La URL consumida por el navegador deberá ser pública y usar HTTPS. Las variables `EXPO_PUBLIC_*` son visibles en el cliente tras construirlo: **nunca incluir secretos ni credenciales de Neon**. Se decidirá si la URL API se inyecta en tiempo de construcción o mediante configuración pública en tiempo de ejecución.
+**Pendientes:** pruebas reales en dispositivo, identificadores finales, permisos de ubicación/cámara, firma de apps y modalidad de distribución. El bundle de Android generado durante una sesión de Expo no demuestra que exista una aplicación Android ya validada.
 
-La compatibilidad entre cliente web y API requiere configurar CORS y utilizar rutas versionadas cuando el contrato lo necesite.
+Las aplicaciones móviles se conectarán a una URL HTTPS pública, no a `localhost` del ordenador de desarrollo.
 
-## 7. Aplicaciones Android e iOS
+## 7. Neon: PostgreSQL y fotografías
 
-Las aplicaciones móviles **no se ejecutarán como contenedores Docker** en los teléfonos. Se compilarán mediante las herramientas de Expo y se instalarán/distribuirán de acuerdo con las posibilidades de la asignatura.
+- **PostgreSQL elegido:** datos estructurados, acceso solo desde backend mediante JDBC/TLS y variables de entorno. Flyway gestionará migraciones; Hibernate verificará con `ddl-auto=validate`.
+- **Object Storage propuesto:** acceso a bucket privado, autorizaciones desde Spring Boot, metadatos en PostgreSQL y binarios fuera de la BD. Hay que verificar la disponibilidad y las operaciones compatibles S3.
+- **Backups y recuperación:** no diseñados todavía; no confundir la existencia de un servicio administrado con una garantía de recuperación adecuada.
 
-La configuración móvil debe apuntar a la API HTTPS accesible desde Internet, no a `localhost` ni al nombre de servicio Docker `backend`. El método de distribución (instalación de pruebas, tiendas u otra modalidad) está pendiente.
+## 8. Seguridad y configuración
 
-## 8. PostgreSQL y Object Storage en Neon
+| Dato                                  | Dónde debe estar                                                 |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| URL pública de API                    | `EXPO_PUBLIC_API_URL` en compilación web / configuración cliente |
+| JDBC, usuario y contraseña Neon       | Entorno seguro del backend, nunca frontend                       |
+| Claves de firma/validación JWT        | Entorno seguro del backend (cuando se implemente)                |
+| Credenciales S3 y permisos del bucket | Backend / servicio seguro; jamás bundle cliente                  |
+| Dominio público y CORS                | Configuración de hosting y backend por entorno                   |
 
-### PostgreSQL
+La API y los archivos privados no deben ser accesibles saltándose la autorización del backend. Validar formatos y tamaños de fotografías, acceso y eliminación, y tratamiento de información personal. Las evidencias no se publicarán por defecto.
 
-- Crear/provisionar proyecto, región y base según el plan gratuito vigente.
-- Facilitar al backend una conexión JDBC cifrada y credenciales de privilegio mínimo.
-- Tener en cuenta la latencia por suspensión/reanudación automática del cómputo.
-- Flyway ejecutará migraciones versionadas de modo controlado antes de utilizar la nueva versión de la aplicación.
-- Hibernate validará el esquema con `ddl-auto=validate`; no alterará las tablas de producción por sí mismo.
+## 9. CI/CD y controles previos
 
-### Evidencias
+Los workflows en `.github/workflows/` están pendientes. Propuesta al implementarlos:
 
-- Validar que Neon Object Storage esté disponible para el proyecto/región y configurar un bucket privado.
-- Las credenciales de objetos solo estarán en backend o en el mecanismo de emisión segura de permisos temporales.
-- Almacenar identificador y metadatos en PostgreSQL, contenido en Object Storage.
-- Definir política de visibilidad, revisión, retención y eliminación. Evitar objetos sin referencia si falla una parte de la operación.
+1. En PR: instalar dependencias con lockfile y ejecutar `npx expo install --check`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web`; añadir después tests.
+2. Cuando el backend esté preparado: `mvn test` / `mvn verify` y compilación JAR con configuración aislada.
+3. Verificar Dockerfiles de producción sin enviar secretos al build.
+4. Publicar imágenes inmutables y desplegar web/backend de forma independiente, con comprobaciones posteriores.
 
-## 9. Configuración y secretos
+Al fusionar un PR, los despliegues automáticos necesitarán autorización, credenciales seguras y permisos mínimos; no se activarán a ciegas.
 
-| Categoría               | Ejemplo de dato                   | Ubicación                              |
-| ----------------------- | --------------------------------- | -------------------------------------- |
-| URL y credenciales JDBC | host, base, usuario, contraseña   | Entorno seguro del backend             |
-| Configuración JWT       | claves, caducidades, emisores     | Entorno seguro del backend             |
-| Acceso Object Storage   | endpoint, bucket, credenciales S3 | Entorno seguro del backend             |
-| URL pública API         | `https://api.ejemplo.invalid`     | Configuración **pública** del frontend |
-| Control de origen web   | orígenes HTTPS permitidos         | Configuración backend                  |
+## 10. Pruebas previas a un despliegue real
 
-`api.ejemplo.invalid` es un **marcador de posición**: sustituirlo únicamente cuando exista un dominio real.
+- Imagen web de Nginx funcionando con rutas SPA recargadas directamente.
+- Acceso a la API por HTTPS desde web y móvil; CORS correcto.
+- Backend inicia y las migraciones crean/validan el esquema esperado.
+- JWT válidos e inválidos correctamente gestionados, con permisos comprobados.
+- Evidencias privadas consultables solo tras autorización; subida y descarga controladas.
+- Logs sin secretos; tratamiento de errores externos, revisión de vulnerabilidades.
+- Plan de versiones y rollback de imágenes. Revertir una imagen **no revierte** automáticamente el esquema SQL.
 
-No publicar `.env`, tokens ni copias de bases de datos. El archivo `.env.example` solo documentará nombres y valores no sensibles.
+## 11. Costes, riesgos y pendientes
 
-## 10. Estrategia CI/CD prevista
+Neon y el hosting tendrán límites de sus planes gratuitos; confirmar cuotas y política de suspensión antes de exponer el proyecto. No hay actualmente proveedores ni URLs finales para las aplicaciones web/backend. La política de copias de seguridad y recuperación permanece pendiente.
 
-Cuando exista código:
+Falta además resolver la licencia del repositorio público, probar la app en dispositivos y crear los workflows. Estas tareas no impiden continuar el desarrollo local, pero **sí impiden considerar completado el despliegue de producción**.
 
-1. Pull Request -> formateo/validación, pruebas, análisis y build.
-2. Revisión y fusión a `main` tras resultados correctos.
-3. Generar artefactos e imágenes con identificador de versión y commit.
-4. Publicar artefacto en un registro definido.
-5. Desplegar frontend y backend de forma independiente.
-6. Comprobar conectividad, estado del servicio y endpoints principales.
-7. Documentar rollback para cada proveedor.
-
-Los workflows estarán en `.github/workflows/` y **no se crean todavía**. No se debe activar el despliegue automático antes de configurar secrets y permisos mínimos.
-
-## 11. Verificaciones posteriores al despliegue
-
-- HTTPS y disponibilidad desde web y dispositivos.
-- API responde con el contrato acordado y errores consistentes.
-- JWT válidos aceptados e inválidos rechazados; accesos no autorizados bloqueados.
-- Conexión PostgreSQL y esquema verificado; migraciones aplicadas como se espera.
-- Escritura/lectura de imágenes en bucket privado con permisos correctos.
-- CORS, logs sin secretos, límites de subida y manejo de fallos externos.
-- Frontend y backend compatibles entre sí.
-
-## 12. Rollback, costes y limitaciones
-
-Cada imagen del backend y compilación web tendrá una versión identificable para volver a una anterior. **Las migraciones SQL no se revierten automáticamente** al revertir una imagen: los cambios de esquema deberán diseñarse para permitir despliegues y retrocesos seguros.
-
-Neon tiene cuotas y comportamientos específicos de sus planes gratuitos; antes del despliegue deben revisarse sus condiciones actuales. **No se presupone disponibilidad permanente ni ausencia de costes por exceso de cuota**. La estrategia de recuperación/copia de datos todavía no está diseñada y constituye un riesgo pendiente, aunque se posponga en la asignatura.
-
-## 13. Pendientes para convertir esta guía en operativa
-
-- Proveedores, dominios y URLs reales de frontend web y backend.
-- Dockerfile de producción del frontend.
-- Scripts de compilación/pruebas reales de Expo.
-- Base Neon y almacenamiento provisionados, más estrategia de backups.
-- Workflows CI/CD, registro de imágenes, secretos y permisos de despliegue.
-- Comprobaciones de salud implementadas, métricas y procedimiento de rollback probado.
-
-## 14. Documentos relacionados
+## 12. Documentación relacionada
 
 - [Arquitectura](architecture.md)
-- [Desarrollo](development.md)
+- [Guía de desarrollo](development.md)
 - [ADR](adr/README.md)
 - [Diagramas](diagrams/README.md)

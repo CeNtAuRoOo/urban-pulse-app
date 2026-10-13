@@ -1,18 +1,17 @@
-# Diagramas
+# Diagramas de UrbanPulse
 
-Se conservarán los originales **editables** de draw.io (`.drawio`) y, cuando se necesite visualizar directamente en GitHub, también una exportación `.svg` o `.png`. No incluir capturas sin el archivo fuente si es posible.
+Los diagramas de contexto y contenedores **sí existen** y están versionados como SVG. Ambos contienen información editable de diagrams.net/draw.io embebida: es posible abrirlos desde draw.io para modificarlos. **Todavía no se han añadido archivos `.drawio` independientes**; si se generan, conservar tanto los originales editables como una exportación visible en GitHub.
 
-## Diagramas previstos
+| Recurso                                | Estado                                | Finalidad                                                        |
+| -------------------------------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| [c4-context.svg](c4-context.svg)       | Disponible                            | C4 nivel 1: personas, UrbanPulse y sistemas externos             |
+| [c4-containers.svg](c4-containers.svg) | Disponible                            | C4 nivel 2: frontend web/móvil, backend, PostgreSQL y evidencias |
+| `deployment.drawio` y su exportación   | Pendiente                             | Despliegue cloud real cuando se elijan proveedores               |
+| `er-database.drawio`                   | Pendiente de incorporación/adaptación | Esquema relacional PostgreSQL                                    |
+| `incident-lifecycle.drawio`            | Pendiente                             | Máquina de estados de incidencia                                 |
+| `incident-flow.drawio`                 | Opcional                              | Secuencia de registro y evidencias                               |
+| Diagramas de clases/componentes        | Opcionales                            | Diseño detallado backend y frontend                              |
 
-| Archivo sugerido                | Tipo y finalidad                                                                   | Estado                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `c4-context.drawio`             | **C4 nivel 1:** actores y relaciones externas                                      | Ya existe                                                               |
-| `c4-containers.drawio`          | **C4 nivel 2:** web, móvil, API, PostgreSQL, almacenamiento y proveedores externos | Ya existe                                                               |
-| `deployment.drawio`             | **C4 Deployment:** ubicación efectiva de contenedores y servicios cloud            | Pendiente: falta elegir hosting de web/backend                          |
-| `incident-lifecycle.drawio`     | Máquina de estados para el ciclo de vida de una incidencia                         | Recomendado cuando se diseñe la lógica                                  |
-| `incident-flow.drawio`          | Diagrama dinámico o secuencia: registro y gestión de una incidencia                | Opcional, útil si hay varias integraciones                              |
-| `er-database.drawio`            | Modelo entidad-relación PostgreSQL                                                 | Ya existe un diagrama de relaciones; pendiente de adaptarlo             |
-| `class-diagram-backend.drawio`  | UML de clases del backend                                                          | Opcional; junto a implementación                                        |
-| `class-diagram-frontend.drawio` | UML/estructura del frontend                                                        | Opcional; React utiliza componentes y módulos, no necesariamente clases |
+**Revisión pendiente:** la descripción del almacén de evidencias en `c4-containers.svg` aún menciona vídeos/documentos; la primera fase del proyecto solo contempla fotografías. El proveedor Neon Object Storage sigue como propuesta hasta su validación técnica.
 
-En [architecture.md](../architecture.md) dejaremos marcadores para los diagramas C4 principales. Los diagramas ER y de clases son documentación del **diseño detallado**, no reemplazan los niveles 1 y 2 de C4.
+Los C4 principales se muestran en [architecture.md](../architecture.md). Los diagramas ER y de clases deben enlazarse cuando estén disponibles, sin inventar archivos todavía inexistentes.

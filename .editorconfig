@@ -17,13 +17,12 @@ indent_size = 4
 indent_size = 4
 
 
-# JavaScript
-[*.{js,jsx,ts,tsx}]
-indent_size = 4
+# Frontend
+[*.{js,jsx,ts,tsx,html,css}]
+indent_size = 2
 
-
-# Frontend / configuración
-[*.{html,css,ts,json,jsonc,yml,yaml,webmanifest}]
+# Configuración
+[*.{json,jsonc,yml,yaml,webmanifest}]
 indent_size = 2
 
 
