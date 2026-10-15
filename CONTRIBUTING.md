@@ -53,7 +53,7 @@ Ejemplos:
 ## Verificaciones por ámbito
 
 - **Frontend:** antes de abrir un PR, ejecutar desde `frontend/` las comprobaciones `npx expo install --check`, `npx tsc --noEmit` y `npm run lint`. Cuando proceda, comprobar `npx expo export --platform web`. Documentar cualquier advertencia de `npm audit` relevante para el cambio.
-- **Backend:** ejecutar `mvn test` / `mvn verify` cuando la configuración de base de datos, migraciones y pruebas necesarias estén preparadas. Si no es posible ejecutarlos todavía, indicarlo explícitamente en el PR.
+- **Backend:** ejecutar `mvn test` / `mvn verify` para las pruebas unitarias aisladas. Los tests de conexión externa `*IT` no se ejecutan por defecto; para verificar Neon `development` de forma expresa, usar `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test`. No ejecutar pruebas externas ni migraciones experimentales contra `production`; documentar los resultados reales y las limitaciones en el PR.
 - **Documentación/infraestructura:** comprobar rutas relativas, variables de ejemplo, `git diff --check` y ausencia de secretos; no afirmar que se han ejecutado pruebas no realizadas.
 
 Los comandos y resultados probados se mantienen en [la guía de desarrollo](docs/development.md).

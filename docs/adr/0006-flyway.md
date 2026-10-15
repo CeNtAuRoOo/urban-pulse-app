@@ -25,6 +25,12 @@ Utilizar Flyway y almacenar scripts en `backend/src/main/resources/db/migration/
 
 **Costes:** disciplina de migraciones compatibles y precaución con operaciones destructivas. La aplicación puede no arrancar si la base de datos no está configurada o si el esquema no coincide.
 
+## Configuración comprobada (15/10/2026)
+
+`spring.flyway.enabled=true` y `spring.flyway.locations=classpath:db/migration` están configurados; el backend conecta a la rama Neon `development` a través de JDBC directo. El rol `backend` tiene permisos para crear objetos en `public`.
+
+Flyway ya ha creado su tabla de control `flyway_schema_history` en `development`, aunque **no existe ningún script de migración de dominio** (la carpeta solo contiene `.gitkeep`). Esta tabla técnica no implica que se haya diseñado o creado el esquema de UrbanPulse. La prueba de conectividad deshabilita Flyway y la validación de Hibernate **solo durante ese test**; la configuración normal sigue activa.
+
 ## Consideraciones pendientes
 
-Definir estrategia de conexión para migraciones en Neon, permisos, entornos de ensayo y pruebas automatizadas.
+Crear `V1__create_initial_schema.sql`, probar las migraciones en `development` y aplicar las aprobadas posteriormente a `production` mediante conexión directa. Evitar ejecutar migraciones compartidas desde pruebas automatizadas ordinarias; valorar un rol exclusivo de migración y ramas o bases efímeras para CI. No modificar migraciones que ya hayan sido aplicadas.

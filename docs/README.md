@@ -11,6 +11,6 @@ Este directorio recoge la documentación **viva** del proyecto. Distingue los co
 | [ADR](adr/README.md)            | Decisiones aceptadas, propuestas y pendientes.                                                |
 | [Diagramas](diagrams/README.md) | Diagramas C4 disponibles y otros diagramas de diseño pendientes.                              |
 
-**Estado a 13/10/2026:** frontend universal inicializado; su desarrollo web, lint, TypeScript, exportación y Docker Compose (solo frontend) se han comprobado. Backend estructurado, pero **sin API funcional ni integración con Neon probadas**. No existen despliegues de producción ni workflows de CI/CD ejecutables todavía.
+**Estado a 15/10/2026:** frontend web validado; frontend y backend arrancan juntos con Docker Compose. La integración del backend con Neon PostgreSQL 18 y el acceso al bucket privado de Object Storage se han comprobado mediante `NeonConnectivityIT` en `development`. **Siguen sin existir endpoints de negocio, migraciones de esquema, pruebas de subida/descarga completa, despliegues de producción ni CI/CD ejecutable**.
 
 El [README principal](../README.md) ofrece los pasos mínimos de puesta en marcha.

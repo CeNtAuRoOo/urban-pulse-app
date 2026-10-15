@@ -1,6 +1,6 @@
 # ADR-0004: Almacenamiento de evidencias en Neon Object Storage
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado
 - **Fecha:** 2026-10-11
 - **Ámbito:** UrbanPulse
 
@@ -17,7 +17,7 @@ Las incidencias admiten fotografías. Su contenido binario no debe guardarse en 
 
 ## Decisión
 
-Se propone Neon Object Storage con un bucket **privado**. Spring Boot decidirá quién puede adjuntar o consultar fotografías y guardará en PostgreSQL la referencia estable al objeto y sus metadatos. No se almacenarán URLs públicas permanentes como único mecanismo de acceso. Inicialmente solo se admitirán imágenes.
+Se adopta Neon Object Storage con el bucket **privado** `incident-evidence`. Spring Boot decidirá quién puede adjuntar o consultar fotografías y guardará en PostgreSQL la referencia estable al objeto y sus metadatos. No se almacenarán URLs públicas permanentes como único mecanismo de acceso. Inicialmente solo se admitirán imágenes.
 
 ## Consecuencias
 
@@ -25,6 +25,13 @@ Se propone Neon Object Storage con un bucket **privado**. Spring Boot decidirá 
 
 **Riesgos:** dependencia de Neon, cuota gratuita, necesidad de limpiar objetos huérfanos y ausencia de transacción atómica entre SQL y Object Storage. La existencia de un proveedor común no elimina estas diferencias.
 
+## Aprovisionamiento y verificación (15/10/2026)
+
+- Bucket `incident-evidence` creado como **privado** en Neon Object Storage (AWS Frankfurt); visible en las ramas `production` y `development`, con aislamiento de cambios por rama.
+- Credenciales de almacenamiento con permisos de lectura/escritura diferenciadas por entorno; la credencial inicial de almacenamiento fue revocada. **Nunca se publicarán secretos ni se incluirán en el frontend.**
+- `backend/pom.xml` incorpora AWS SDK for Java 2.x **2.56.0** y su BOM. `StorageProperties` tipa y valida `storage.s3.*`; `StorageConfig` configura el `S3Client` con direccionamiento **path-style**.
+- La prueba explícita `NeonConnectivityIT` ha superado `HeadBucket` usando las credenciales de `development`: confirma acceso al bucket, **no demuestra todavía subida, descarga, borrado ni URLs firmadas**.
+
 ## Consideraciones pendientes
 
-Validar en una prueba técnica la disponibilidad regional, límites y compatibilidad de subida/lectura firmadas desde el SDK Java. Definir tamaños máximos, MIME aceptados, acceso a imágenes revisadas, borrado, tratamiento EXIF y mecanismo de subida. El acceso público a los datos de una incidencia no implica acceso público automático a su fotografía.
+Implementar y probar operaciones de subida, descarga, borrado y acceso autorizado (o URLs firmadas); definir tamaños máximos, MIME aceptados, revisión/anonimización, EXIF, retención y limpieza de objetos huérfanos. El acceso público a una incidencia no implica acceso público automático a su fotografía. La persistencia de metadatos SQL y de objetos no es atómica.

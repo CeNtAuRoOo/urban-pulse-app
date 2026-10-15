@@ -6,6 +6,10 @@ Registro de cambios relevantes de UrbanPulse. Se seguirá [Keep a Changelog](htt
 
 ### Added
 
+- Integración del backend de desarrollo con Neon PostgreSQL 18 (JDBC/HikariCP, JPA/Hibernate y Flyway) y Neon Object Storage (AWS SDK for Java 2.x 2.56.0, BOM, `StorageProperties` y `StorageConfig`).
+- Prueba manual `NeonConnectivityIT` para verificar conexión JDBC y acceso `HeadBucket` al bucket privado, sin modificar datos de negocio.
+- Configuración separada por entorno: `backend/.env.development` (privado) y secretos externos para despliegues de producción.
+
 - Estructura base de Spring Boot (Java 25, Maven, paquetes por capas y clase principal).
 - Configuración inicial para PostgreSQL/Neon, JPA/Hibernate, Flyway y Spring Security (sin API funcional).
 - Frontend universal Expo SDK 57, React Native, React Native Web, TypeScript y Expo Router, con pantalla inicial.
@@ -14,6 +18,9 @@ Registro de cambios relevantes de UrbanPulse. Se seguirá [Keep a Changelog](htt
 - Documentación de instalación, desarrollo, arquitectura y despliegue actualizada; ADR sobre exportación SPA y Nginx.
 
 ### Changed
+
+- ADR-0004 pasa a **Aceptado** tras aprovisionar el bucket privado y superar la prueba de acceso S3; permanecen pendientes las operaciones de fotografías.
+- Documentación de Neon, ramas `development`/`production`, rol `backend`, configuración de variables y política de tests externos bajo demanda.
 
 - Repositorio GitHub público; instrucciones de clonación y contribución actualizadas.
 - Guías y ADR ajustados a la estructura efectivamente creada y a los comandos verificados.
@@ -31,6 +38,7 @@ Registro de cambios relevantes de UrbanPulse. Se seguirá [Keep a Changelog](htt
 ### Verification
 
 - Frontend (13/10/2026): dependencias compatibles, `expo-doctor` 21/21, `tsc` y lint correctos, ejecución web, exportación `dist/`, y Compose de desarrollo.
-- Pendientes: pruebas Android/iOS en dispositivo, imagen Nginx de producción, backend/Neon, endpoints y pruebas funcionales.
+- Backend/Neon (15/10/2026): `docker compose up --build` (frontend + backend) y `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` superados (JDBC + `HeadBucket`).
+- Pendientes: Android/iOS en dispositivo, imagen Nginx de producción, esquema y migraciones de negocio, endpoints, subida/descarga de evidencias y pruebas funcionales.
 
 > Las entradas describen la propuesta de cambios para el próximo PR; no indican una versión liberada ni un despliegue realizado.

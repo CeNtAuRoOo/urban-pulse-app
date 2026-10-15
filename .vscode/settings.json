@@ -1,6 +1,8 @@
 {
-  "editor.formatOnSave": true,
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.compile.nullAnalysis.mode": "automatic",
 
+  "editor.formatOnSave": true,
   "prettier.requireConfig": true,
 
   "[java]": {
@@ -51,6 +53,5 @@
 
   "[xml]": {
     "editor.defaultFormatter": "redhat.vscode-xml"
-  },
-  "java.configuration.updateBuildConfiguration": "interactive"
+  }
 }
