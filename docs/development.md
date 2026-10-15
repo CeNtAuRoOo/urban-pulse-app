@@ -1,13 +1,13 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado (13/10/2026):** la base de **frontend web** está operativa en local y Docker Compose. El backend contiene el proyecto Spring Boot y su configuración inicial, pero sigue sin endpoints ni integración real con Neon. Esta guía diferencia comandos **comprobados** de procedimientos **pendientes**.
+> **Estado (15/10/2026):** frontend y backend arrancan juntos con Docker Compose. Las conexiones del backend con Neon PostgreSQL y Object Storage se han comprobado mediante un test manual de integración. Siguen pendientes los endpoints de negocio, las migraciones del dominio y las pruebas de operaciones completas con fotografías. Se distinguen comandos **comprobados** de procedimientos **pendientes**.
 
 ## 1. Requisitos
 
 - Git, VSCode o editor equivalente, Docker Engine/Desktop y Docker Compose v2.
 - Frontend sin Docker: Node.js compatible con Expo SDK 57, npm; los Dockerfiles utilizan **Node.js 24**.
 - Backend sin Docker: JDK 25 y Maven 3.9.16 o compatibles.
-- Acceso a credenciales de Neon PostgreSQL únicamente cuando se vaya a ejecutar realmente el backend.
+- Acceso privado a credenciales de **Neon PostgreSQL y Object Storage** de la rama `development` para arrancar el backend. No utilizar secretos ni endpoints de producción en pruebas locales.
 
 El repositorio es **público**. Clonarlo no requiere autenticación; enviar cambios sí exige los permisos o el flujo de contribución correspondiente.
 
@@ -32,7 +32,9 @@ urban-pulse-app/
 │   ├── src/main/resources/
 │   │   ├── application.properties
 │   │   └── db/migration/         # Sin migración SQL funcional
-│   ├── src/test/
+│   ├── src/test/java/es/grupo18/urbanpulse/NeonConnectivityIT.java
+│   ├── .env.development          # Privado e ignorado por Git (crear localmente)
+│   ├── .env.example
 │   ├── pom.xml
 │   ├── Dockerfile
 │   └── Dockerfile.dev
@@ -54,13 +56,13 @@ urban-pulse-app/
 
 ## 3. Variables de entorno
 
-Cada servicio dispone de un archivo `.env.example` versionado. El `.env` real se ignora en Git y nunca debe contener datos públicos por accidente.
+Cada servicio dispone de un `.env.example` versionado. Las variables **reales** de entorno se guardan en archivos privados ignorados por Git (`frontend/.env` y `backend/.env.development`). Los archivos de ejemplo no contienen secretos.
 
 Desde la raíz en PowerShell:
 
 ```powershell
 Copy-Item frontend/.env.example frontend/.env
-Copy-Item backend/.env.example backend/.env
+Copy-Item backend/.env.example backend/.env.development
 ```
 
 En Bash, usar `cp` de manera equivalente.
@@ -75,16 +77,25 @@ Es la dirección prevista para **el navegador en el mismo ordenador**. `EXPO_PUB
 
 En un móvil físico `localhost` designa el propio teléfono; debe utilizarse una dirección del equipo accesible por LAN o la API HTTPS publicada. En el emulador Android habitual puede emplearse `10.0.2.2` para acceder al equipo anfitrión, sujeto a configuración de red y seguridad de la plataforma.
 
-### Backend (`backend/.env`)
+### Backend (`backend/.env.development`)
 
 ```dotenv
 SERVER_PORT=8888
-SPRING_DATASOURCE_URL=jdbc:postgresql://HOST:5432/DATABASE?sslmode=require
-SPRING_DATASOURCE_USERNAME=USER
-SPRING_DATASOURCE_PASSWORD=PASSWORD
+
+SPRING_DATASOURCE_URL=jdbc:postgresql://HOST-DEVELOPMENT:5432/urban-pulse?sslmode=require
+SPRING_DATASOURCE_USERNAME=backend
+SPRING_DATASOURCE_PASSWORD=PASSWORD_DEVELOPMENT
+
+AWS_ENDPOINT_URL_S3=https://BRANCH-DEVELOPMENT.storage.c-7.eu-central-1.aws.neon.tech
+AWS_REGION=eu-central-1
+AWS_ACCESS_KEY_ID=ACCESS_KEY_DEVELOPMENT
+AWS_SECRET_ACCESS_KEY=SECRET_KEY_DEVELOPMENT
+STORAGE_BUCKET=incident-evidence
 ```
 
-**Sustituir** `HOST`, `DATABASE`, `USER`, `PASSWORD` por datos del proyecto Neon; son marcadores de posición. No están configurados de forma operativa. `application.properties` utiliza estas variables. Docker Compose las entrega al contenedor mediante `env_file`; ejecutar Spring Boot directamente con Maven **no carga por sí solo** el archivo `.env` convencional, de modo que hay que proporcionar las variables al proceso de otro modo.
+Los valores `HOST-DEVELOPMENT`, `BRANCH-DEVELOPMENT` y los secretos son **marcadores ficticios**; obtener los valores reales de Neon y no incorporarlos a commits ni PR. La base se llama exactamente `urban-pulse` (con guion) y el rol es `backend`. Los endpoints se corresponden con la rama Neon `development`; para `production`, utilizar un conjunto **diferente** de conexiones y secretos inyectados al desplegar (opcionalmente un archivo local privado `backend/.env.production`, que no debe entrar en imágenes ni Git).
+
+`compose.yaml` carga `backend/.env.development` mediante `env_file`. `application.properties` consume `SPRING_DATASOURCE_*` y mapea las variables S3 a `storage.s3.*`; `StorageProperties` las vincula y valida, y `StorageConfig` configura un cliente S3 con direccionamiento **path-style** y la cadena estándar de credenciales AWS. Spring Boot lanzado directamente con Maven **no carga automáticamente** un archivo `.env`: hay que exportar las variables o ejecutarlo desde Compose.
 
 ## 4. Frontend: instalación y ejecución local (comprobado)
 
@@ -126,7 +137,7 @@ docker compose exec frontend npm ci
 docker compose restart frontend
 ```
 
-Se recomienda probar el frontend **aislado** con `docker compose up --build frontend`, no ejecutar automáticamente todo Compose mientras el backend continúe sin conexión de base de datos funcional.
+Se puede iniciar únicamente el frontend con `docker compose up --build frontend` o ejecutar **ambos servicios** con `docker compose up --build`, una vez preparado `backend/.env.development`. Este último comando se ha verificado el 15/10/2026.
 
 La prueba Docker del 13/10/2026 terminó con compilación y ejecución del frontend. El aviso de descarga de React Native DevTools usó una versión de respaldo y no impidió el arranque.
 
@@ -158,28 +169,48 @@ Evitar `npm audit fix --force` sin comprobar compatibilidad con Expo SDK 57.
 
 **No hay aún pruebas unitarias o E2E de funcionalidades**, ni clientes API reales. Estas pruebas se incorporarán con los primeros casos de uso.
 
-## 7. Backend: base y ejecución pendiente
+## 7. Backend: ejecución e integración con Neon (comprobado)
 
-`backend/pom.xml` contiene Spring Boot 4.1.1, Java 25, Web MVC, Validation, Spring Data JPA, PostgreSQL, Flyway, Spring Security con soporte para validar JWT, Lombok y dependencias de test.
+`backend/pom.xml` usa Spring Boot 4.1.1 y Java 25, Web MVC, Validation, JPA/Hibernate, controlador PostgreSQL, Flyway, soporte de validación JWT de Spring Security, Lombok y dependencias de tests. Para Object Storage incorpora AWS SDK for Java 2.x **2.56.0** (BOM y módulo S3) y el procesador de metadatos de `@ConfigurationProperties`.
 
-`BackendApplication.java` está creada y correctamente situada para el escaneo de subpaquetes. `application.properties` configura `SERVER_PORT` (por defecto 8888), JDBC por entorno, HikariCP, Flyway y `spring.jpa.hibernate.ddl-auto=validate`; no hay perfil `dev` adicional. **No existen todavía endpoints de dominio ni pruebas automáticas backend.**
+- `StorageProperties` vincula y valida `storage.s3.endpoint`, `storage.s3.region` y `storage.s3.bucket`.
+- `StorageConfig` registra `S3Client` contra el endpoint Neon, usa direccionamiento **path-style** y obtiene credenciales desde las variables estándar `AWS_*`.
+- `application.properties` configura `SERVER_PORT` (8888 por defecto), JDBC, HikariCP (máximo 5 conexiones), `spring.jpa.hibernate.ddl-auto=validate`, Flyway y `spring.sql.init.mode=never`. No existe perfil Spring de desarrollo adicional.
+- El esquema de negocio **no existe aún**. Flyway ha generado su tabla técnica `flyway_schema_history` en `development`; sigue faltando `V1__create_initial_schema.sql`.
 
-Al provisionar Neon y crear la primera migración real se podrán probar:
-
-```bash
-cd backend
-mvn test
-mvn verify
-mvn spring-boot:run
-```
-
-Desde Compose, una vez listo:
+Desde la raíz, con `backend/.env.development` configurado:
 
 ```bash
-docker compose up --build backend
+docker compose up --build
 ```
 
-**Estos comandos no se han validado aún.** El backend puede no arrancar sin PostgreSQL accesible, el esquema adecuado y la configuración de seguridad requerida.
+**Comprobado el 15/10/2026:** frontend y backend arrancan mediante Docker Compose. Esto no valida endpoints de negocio (todavía no implementados) ni la imagen Docker de producción. Para backend solo: `docker compose up --build backend`.
+
+### 7.1. Test de conectividad real (comprobado; ejecución explícita)
+
+Desde la raíz:
+
+```bash
+docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
+```
+
+**Comprobado el 15/10/2026:** `NeonConnectivityIT` supera dos pruebas en `development`: una consulta JDBC que verifica `current_database() = 'urban-pulse'` y `current_user = 'backend'`, y `HeadBucket` sobre el bucket privado `incident-evidence`. Durante ese test se desactivan Flyway y la validación de Hibernate exclusivamente en su contexto; **no modifica tablas ni objetos**. `HeadBucket` no comprueba subida/descarga/borrado, y el test no prueba un despliegue en producción. **Atención:** el nombre de base, el rol y el bucket son iguales en las dos ramas de Neon. El test no verifica por sí mismo el ID de rama; antes de ejecutarlo hay que confirmar que las URL efectivas de JDBC y S3 apuntan a `development`.
+
+### 7.2. Política de tests y consumo del plan gratuito
+
+- **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
+- **Integración local de persistencia:** cuando existan entidades/migraciones, preferir una base efímera de pruebas (por ejemplo PostgreSQL en contenedor), no el `development` compartido. No apuntar nunca a `production`.
+- **Integración real con Neon (`*IT`):** ejecutar solo bajo demanda en `development` y con credenciales autorizadas. `NeonConnectivityIT` se conserva como prueba de humo de conectividad.
+
+Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. Si más adelante se configura Failsafe en `integration-test`/`verify` habrá que revisar la política. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
+
+Desde el contenedor, ejecutar solo los tests habituales (cuando existan):
+
+```bash
+docker compose run --rm backend mvn -B test
+```
+
+Al implementar entidades y repositorios se añadirán pruebas automatizadas aisladas y migraciones Flyway versionadas. Una vez creadas, las primeras migraciones se probarán en `development`, no directamente en `production`.
 
 ## 8. Producción web (configuración creada, prueba pendiente)
 
@@ -201,7 +232,7 @@ Se sigue el flujo [CONTRIBUTING.md](../CONTRIBUTING.md): una rama por cambio, co
 ```bash
 git status
 git diff --check
-git add .
+git add -- backend/ docs/ README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
 git diff --cached --name-only
 git commit -m "docs: actualizar guías de desarrollo"
 ```
@@ -215,12 +246,14 @@ Comprobar que no se han añadido secretos, datos personales reales ni directorio
 - `localhost` falla en móvil: utilizar la IP de la máquina alcanzable desde el dispositivo o una URL pública; comprobar firewall/HTTPS.
 - Puerto 7777 ocupado: detener el servidor Expo/Docker anterior antes de lanzar otro.
 - Docker actualiza el código pero no las dependencias: sincronizar el volumen `node-modules` con `npm ci`.
-- Backend falla sin Neon: comprobar `.env`, conexión JDBC/TLS, esquema Flyway y configuración del backend; no confundir con un error del frontend.
+- Backend falla sin Neon: comprobar `backend/.env.development`, conexión JDBC/TLS, credenciales S3, `storage.s3.*`, permisos y migraciones Flyway; no confundir con un error del frontend.
+- `NeonConnectivityIT` no aparece en `mvn test`: es normal; invocarlo con `-Dtest=NeonConnectivityIT` y **solo** contra `development`.
+- `HeadBucket` correcto no implica subida/descarga: esas operaciones se probarán al desarrollar el servicio de fotografías.
 - Clonación: la lectura del repositorio público no requiere permisos; para enviar cambios sí hay que autenticar y respetar GitHub Flow.
 
 ## 11. Próximas pruebas y referencias
 
-Pendientes: imagen Nginx de producción, arranque backend, tests con PostgreSQL, app móvil en dispositivo, Fast Refresh sistemático, tests de integración y workflows GitHub Actions.
+Pendientes: imagen Nginx de producción, modelo y migraciones reales, pruebas de persistencia aisladas, operaciones completas S3, aplicación móvil en dispositivo, Fast Refresh sistemático, funcionalidad de negocio y workflows GitHub Actions.
 
 - [Arquitectura](architecture.md)
 - [Despliegue](deployment.md)

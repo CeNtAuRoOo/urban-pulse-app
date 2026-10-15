@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado (13/10/2026):** arquitectura objetivo con **base de frontend inicializada y comprobada en web** y estructura inicial de Spring Boot creada. Esto no significa que existan ya endpoints REST, una base Neon configurada, aplicaciones móviles validadas ni un despliegue de producción. Las decisiones se registran en los [ADR](adr/README.md).
+> **Estado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose comprobados; Neon PostgreSQL y Object Storage aprovisionados y accesibles desde Spring Boot en `development`. **No existen aún endpoints de negocio, esquema relacional del dominio, flujo de fotografías ni despliegue de producción**. Las decisiones se registran en los [ADR](adr/README.md).
 
 ## 1. Alcance y principios
 
@@ -12,14 +12,14 @@ Impulsores: integridad y trazabilidad, controles de acceso, mantenibilidad, comp
 
 ## 2. Contenedores lógicos y tecnologías
 
-| Elemento                 | Tecnología                                                  | Estado                                                     |
-| ------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| Aplicación web           | Expo SDK 57 / React Native Web / TypeScript / Expo Router   | **Pantalla inicial y desarrollo web comprobados**          |
-| Aplicaciones Android/iOS | Expo / React Native                                         | Código compartido; **sin prueba funcional en dispositivo** |
-| API REST                 | Java 25 / Spring Boot 4.1.1 / Maven / Spring Security / JPA | Estructura y dependencias; **sin endpoints implementados** |
-| Base de datos            | PostgreSQL administrado por Neon                            | Proveedor elegido; conexión y esquema pendientes           |
-| Almacén de evidencias    | Neon Object Storage (S3)                                    | **Propuesto**, no aprovisionado ni integrado               |
-| Sistemas externos        | Mapas, geocodificación, activos urbanos y notificaciones    | Proveedores definitivos pendientes                         |
+| Elemento                 | Tecnología                                                  | Estado                                                         |
+| ------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------- |
+| Aplicación web           | Expo SDK 57 / React Native Web / TypeScript / Expo Router   | **Pantalla inicial y desarrollo web comprobados**              |
+| Aplicaciones Android/iOS | Expo / React Native                                         | Código compartido; **sin prueba funcional en dispositivo**     |
+| API REST                 | Java 25 / Spring Boot 4.1.1 / Maven / Spring Security / JPA | Estructura y dependencias; **sin endpoints implementados**     |
+| Base de datos            | PostgreSQL administrado por Neon                            | Neon PostgreSQL 18; JDBC probado; esquema de negocio pendiente |
+| Almacén de evidencias    | Neon Object Storage (S3)                                    | Bucket privado aprovisionado y cliente S3 comprobado           |
+| Sistemas externos        | Mapas, geocodificación, activos urbanos y notificaciones    | Proveedores definitivos pendientes                             |
 
 Las aplicaciones web y móvil consumirán únicamente la API REST del backend. Ni las credenciales de PostgreSQL ni las del almacenamiento de objetos deberán estar presentes en el frontend.
 
@@ -37,7 +37,7 @@ El contenedor C4 es una **unidad lógica o ejecutable**, no necesariamente un co
 
 Los SVG actuales son editables desde diagrams.net porque contienen información de draw.io embebida; aún no se dispone de archivos `.drawio` separados en el repositorio.
 
-**Revisión pendiente del C4 de contenedores:** la descripción del almacén de evidencias todavía menciona vídeos y documentos; la primera fase se limita a fotografías. Mantener como propuesta Neon Object Storage hasta validar el ADR-0004.
+**Revisión pendiente del C4 de contenedores:** la descripción del almacén de evidencias todavía menciona vídeos y documentos; la primera fase se limita a fotografías. El ADR-0004 ya está aceptado; el dibujo se actualizará al detallar el flujo de evidencias.
 
 ### 3.3. Diagramas pendientes
 
@@ -82,7 +82,7 @@ En `src/app/` irán las rutas y layouts, mientras los componentes y la lógica r
 
 ## 5. Backend: estructura existente
 
-La aplicación principal está en `es.grupo18.urbanpulse.BackendApplication`, anotada con `@SpringBootApplication`. Los subpaquetes iniciales son `config`, `controller`, `dto`, `entity`, `repository` y `service`. Están vacíos por ahora y representan una **organización por capas**.
+La aplicación principal está en `es.grupo18.urbanpulse.BackendApplication`, anotada con `@SpringBootApplication`. Los subpaquetes iniciales son `config`, `controller`, `dto`, `entity`, `repository` y `service`. `config` ya contiene `StorageConfig` y `StorageProperties`; las capas de negocio siguen vacías y representan una **organización por capas**.
 
 Flujo objetivo: `Controller -> Service -> Repository -> PostgreSQL`, usando DTO para entrada/salida y entidades JPA para persistencia. Las integraciones externas se encapsularán y las reglas de autorización se aplicarán en Spring Security y en los casos de uso pertinentes.
 
@@ -90,7 +90,7 @@ Flujo objetivo: `Controller -> Service -> Repository -> PostgreSQL`, usando DTO 
 
 **Migraciones:** se reserva `backend/src/main/resources/db/migration/`.
 
-El backend aún no se ha arrancado satisfactoriamente con Neon ni se han implementado controladores o pruebas funcionales.
+El backend **arranca en Docker Compose** con Neon `development` y la prueba `NeonConnectivityIT` verifica JDBC (`SELECT current_database(), current_user`) y acceso S3 (`HeadBucket`). Las URL de entorno determinan la rama Neon utilizada; la prueba no comprueba el ID de rama de forma independiente. El `pom.xml` incorpora AWS SDK for Java 2.x 2.56.0 con BOM y procesador de metadatos `@ConfigurationProperties`; `StorageProperties` valida los datos del bucket. Aún no existen controladores de negocio, entidades JPA, repositorios funcionales ni pruebas de subida/descarga.
 
 ## 6. Dominio y estados previstos
 
@@ -104,11 +104,13 @@ La entidad central será `Incident`. El alcance inicial considera usuarios, evid
 - Claves y contraseñas fuera de Git; `EXPO_PUBLIC_*` solo para configuración **pública** integrada en el cliente.
 - Futura política de CORS para los orígenes web realmente desplegados.
 
-El almacenamiento de evidencias se propone privado. Aunque los datos de una incidencia sean visibles, no deben publicarse automáticamente fotografías con información personal. El backend deberá autorizar su acceso, validar formato y tamaño y definir revisión/anonimización y tratamiento EXIF.
+El almacenamiento de evidencias utiliza un bucket privado `incident-evidence`. Aunque los datos de una incidencia sean visibles, no deben publicarse automáticamente fotografías con información personal. El backend deberá autorizar su acceso, validar formato y tamaño y definir revisión/anonimización y tratamiento EXIF.
 
 ## 8. Persistencia y resiliencia
 
-Neon PostgreSQL es el proveedor elegido. Flyway es responsable de **crear/evolucionar el esquema**; Hibernate con `ddl-auto=validate` solo verifica la compatibilidad. JPA/Hibernate se usará para operaciones habituales. El pool Hikari está inicialmente limitado a cinco conexiones máximas por instancia, con mínimo inactivo cero, para reducir consumo inactivo; habrá que comprobar su funcionamiento real con Neon.
+Neon PostgreSQL **18** es el proveedor elegido y ya aprovisionado en AWS Frankfurt. El proyecto `urban-pulse-app` contiene una base `urban-pulse` en las ramas Neon `production` (predeterminada) y `development` (desarrollo). Los roles PostgreSQL `owner` y `backend` separan administración y acceso de aplicación. La protección automática de `production` no está disponible en el plan gratuito actual. Neon Object Storage dispone del bucket privado `incident-evidence` en ambas ramas; las credenciales S3 son distintas por entorno.
+
+Neon PostgreSQL es el proveedor elegido. Flyway es responsable de **crear/evolucionar el esquema**; Hibernate con `ddl-auto=validate` solo verifica la compatibilidad. JPA/Hibernate se usará para operaciones habituales. El pool Hikari está inicialmente limitado a cinco conexiones máximas por instancia, con mínimo inactivo cero, para reducir consumo inactivo; el arranque y una consulta JDBC real ya se han comprobado con Neon. En `development` existe la tabla técnica `flyway_schema_history`, **sin migraciones de dominio**; `production` permanece sin tablas de negocio. Debe evitarse introducir migraciones experimentales en producción.
 
 Se mantendrán metadatos y referencias de fotografías en PostgreSQL y binarios en Object Storage cuando se implemente la funcionalidad. La coordinación de ambos almacenes requerirá gestionar inconsistencias y objetos huérfanos. Un fallo de enriquecimiento contextual no debería impedir registrar una incidencia, salvo que una regla explícita indique lo contrario.
 
@@ -117,7 +119,8 @@ Se mantendrán metadatos y referencias de fotografías en PostgreSQL y binarios 
 - **Desarrollo web validado:** `npx expo start --web --port 7777`; `docker compose up --build frontend`; ambos en `http://localhost:7777`.
 - **Exportación web validada:** `npx expo export --platform web`, que genera `dist/`.
 - **Análisis estático validado:** `npx expo install --check`, Expo Doctor (21/21), `npx tsc --noEmit` y `npm run lint`.
-- **Aún no validados:** Nginx/imagen final de producción, pruebas E2E, pruebas nativas sobre dispositivos, integración API-Neon, arranque backend y despliegue cloud.
+- **Integración validada en desarrollo (15/10/2026):** `docker compose up --build` inicia frontend y backend; `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` supera JDBC y `HeadBucket` privado. El test `*IT` es manual y no se ejecuta en los tests Surefire por defecto.
+- **Aún no validados:** Nginx/imagen final de producción, pruebas E2E, pruebas nativas sobre dispositivos, funcionalidad real de la API, operaciones completas de fotografías y despliegue cloud.
 - **Arquitectura de producción prevista:** contenedor web Nginx independiente, contenedor Java independiente y apps nativas distribuidas fuera de Docker; proveedor de hosting y dominios pendientes.
 
 El repositorio ya es **público**. La ausencia actual de `LICENSE` se documenta en el README; el grupo aún no ha elegido licencia.

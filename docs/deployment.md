@@ -1,6 +1,6 @@
 # Guía de despliegue
 
-> **Estado (13/10/2026):** estrategia y Dockerfiles preparados; **no existe un despliegue de producción validado**. Sí están probados el desarrollo web con Expo, la exportación estática web y el servicio frontend de Docker Compose. El hosting y los dominios públicos siguen sin elegirse.
+> **Estado (15/10/2026):** Docker Compose inicia frontend y backend en desarrollo; el backend ha superado una prueba manual de conectividad con Neon PostgreSQL y Object Storage. **No existe todavía un despliegue de producción validado**, ni imagen final de frontend Nginx verificada. Hosting y dominios públicos pendientes.
 
 ## 1. Objetivo y separación de entornos
 
@@ -18,10 +18,10 @@ Todo despliegue real deberá utilizar HTTPS hacia la API, secretos gestionados e
 | Frontend desarrollo web       | `frontend/Dockerfile.dev`, Expo/Metro, puerto 7777  | **Validado localmente y con Compose**                             |
 | Exportación web               | `npx expo export --platform web` → `frontend/dist/` | **Validada**                                                      |
 | Frontend producción web       | `frontend/Dockerfile` (Node 24 → Nginx)             | Creado; **imagen final no probada**                               |
-| Backend desarrollo            | `backend/Dockerfile.dev`, Spring Boot, puerto 8888  | Creado; arranque no validado                                      |
-| Backend producción            | `backend/Dockerfile` (Maven → JRE)                  | Creado; JAR funcional pendiente                                   |
-| PostgreSQL                    | Neon (administrado)                                 | Seleccionado; conexión real pendiente                             |
-| Almacenamiento de fotografías | Neon Object Storage, bucket privado                 | **Propuesto**, validar servicio                                   |
+| Backend desarrollo            | `backend/Dockerfile.dev`, Spring Boot, puerto 8888  | Creado; arranque en Compose comprobado                            |
+| Backend producción            | `backend/Dockerfile` (Maven → JRE)                  | Creado; imagen de producción no verificada                        |
+| PostgreSQL                    | Neon (administrado)                                 | PostgreSQL 18; JDBC de desarrollo verificado                      |
+| Almacenamiento de fotografías | Neon Object Storage, bucket privado                 | Bucket privado y HeadBucket de desarrollo verificados             |
 | Aplicaciones Android/iOS      | Expo / React Native                                 | Compilación/distribución por definir; sin prueba funcional nativa |
 | Hosting web y backend         | Proveedores cloud distintos o separables            | Pendientes                                                        |
 
@@ -76,13 +76,13 @@ La API del backend deberá admitir el origen web mediante la política CORS que 
 
 `backend/Dockerfile` usa Maven 3.9.16 y Java 25 para compilar el JAR y una imagen con JRE 25 para ejecutarlo. Puerto interno previsto: **8888**.
 
-Comando de referencia, **aún no validado**:
+Comando de referencia para la imagen **de producción, aún no validado**:
 
 ```bash
 docker build -f backend/Dockerfile -t urbanpulse-backend:local backend
 ```
 
-El backend todavía no tiene API funcional ni conexión Neón comprobada. Necesitará PostgreSQL operativo, migraciones reales, configuración de permisos y pruebas antes de presentarse como desplegable.
+El backend arranca en **desarrollo** con PostgreSQL y Object Storage de Neon, pero **todavía no tiene API de negocio**. La imagen final de producción, las migraciones reales y las comprobaciones de despliegue siguen pendientes. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
 
 En despliegue no incluir contraseñas ni claves mediante `ENV`, `ARG` o archivos versionados. Inyectar credenciales de Neon y claves de autenticación mediante mecanismos de secretos del proveedor de hosting.
 
@@ -96,9 +96,11 @@ Las aplicaciones móviles se conectarán a una URL HTTPS pública, no a `localho
 
 ## 7. Neon: PostgreSQL y fotografías
 
-- **PostgreSQL elegido:** datos estructurados, acceso solo desde backend mediante JDBC/TLS y variables de entorno. Flyway gestionará migraciones; Hibernate verificará con `ddl-auto=validate`.
-- **Object Storage propuesto:** acceso a bucket privado, autorizaciones desde Spring Boot, metadatos en PostgreSQL y binarios fuera de la BD. Hay que verificar la disponibilidad y las operaciones compatibles S3.
-- **Backups y recuperación:** no diseñados todavía; no confundir la existencia de un servicio administrado con una garantía de recuperación adecuada.
+- **Proyecto** `urban-pulse-app`, **AWS Frankfurt**, PostgreSQL **18**, base `urban-pulse` en ramas Neon `production` (principal) y `development` (desarrollo). `production` no se puede proteger automáticamente con el plan gratuito disponible; extremar precauciones.
+- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; solo existe por ahora `flyway_schema_history` en desarrollo, **no el esquema del dominio**. Las migraciones deben probarse primero en desarrollo.
+- **Object Storage:** bucket `incident-evidence` **privado**, ramificado junto a los datos. El backend utiliza AWS SDK for Java 2.x y credenciales distintas por entorno. `HeadBucket` en `development` está comprobado; **no se han probado ni implementado todavía operaciones reales de fotografías ni URLs firmadas**.
+- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*` y `STORAGE_BUCKET` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
+- **Backups y recuperación:** no hay un procedimiento de restauración validado ni una política de snapshots programados; la retención de historial de Neon es limitada (6 horas en la configuración comprobada). Definir copias verificables antes de emplear datos importantes.
 
 ## 8. Seguridad y configuración
 
@@ -117,7 +119,7 @@ La API y los archivos privados no deben ser accesibles saltándose la autorizaci
 Los workflows en `.github/workflows/` están pendientes. Propuesta al implementarlos:
 
 1. En PR: instalar dependencias con lockfile y ejecutar `npx expo install --check`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web`; añadir después tests.
-2. Cuando el backend esté preparado: `mvn test` / `mvn verify` y compilación JAR con configuración aislada.
+2. Backend: ejecutar `mvn test` / `mvn verify` con **tests unitarios aislados**, sin credenciales de Neon. No activar `NeonConnectivityIT` ni otras pruebas externas en CI por defecto; reservarlas a verificaciones manuales o entornos efímeros autorizados.
 3. Verificar Dockerfiles de producción sin enviar secretos al build.
 4. Publicar imágenes inmutables y desplegar web/backend de forma independiente, con comprobaciones posteriores.
 
@@ -127,7 +129,7 @@ Al fusionar un PR, los despliegues automáticos necesitarán autorización, cred
 
 - Imagen web de Nginx funcionando con rutas SPA recargadas directamente.
 - Acceso a la API por HTTPS desde web y móvil; CORS correcto.
-- Backend inicia y las migraciones crean/validan el esquema esperado.
+- Backend inicia con la configuración de producción, y las migraciones aprobadas crean/validan el esquema esperado (sin probar sobre datos reales sensibles).
 - JWT válidos e inválidos correctamente gestionados, con permisos comprobados.
 - Evidencias privadas consultables solo tras autorización; subida y descarga controladas.
 - Logs sin secretos; tratamiento de errores externos, revisión de vulnerabilidades.
