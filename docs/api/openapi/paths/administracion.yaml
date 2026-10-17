@@ -1,0 +1,164 @@
+/external-sources:
+  get:
+    tags:
+      - Administración
+    summary: Listar fuentes externas
+    description: Estado de disponibilidad de proveedores y última sincronización.
+    operationId: getExternalSources
+    x-roles:
+      - ADMIN
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/administracion.yaml#/ExternalSourceDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  post:
+    tags:
+      - Administración
+    summary: Registrar fuente de datos
+    description:
+      Registra metadatos públicos de la fuente; las claves de integración van fuera del contrato
+      y del repositorio.
+    operationId: postExternalSources
+    x-roles:
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/administracion.yaml#/ExternalSourceRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/administracion.yaml#/ExternalSourceDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/external-sources/{sourceId}:
+  patch:
+    tags:
+      - Administración
+    summary: Configurar fuente
+    description: Activa/desactiva y ajusta configuración permitida de una fuente.
+    operationId: patchExternalSourcesSourceId
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/SourceId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/administracion.yaml#/ExternalSourcePatchRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/administracion.yaml#/ExternalSourceDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/audit-events:
+  get:
+    tags:
+      - Administración
+    summary: Consultar auditoría
+    description: Acciones administrativas y cambios relevantes, con correlación por requestId.
+    operationId: getAuditEvents
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - $ref: "../components/parameters.yaml#/FromDate"
+      - $ref: "../components/parameters.yaml#/ToDate"
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Actor.
+      - name: resourceType
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Tipo de recurso.
+      - name: resourceId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Recurso.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/administracion.yaml#/AuditPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

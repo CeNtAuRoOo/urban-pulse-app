@@ -7,10 +7,12 @@ Este directorio recoge la documentación **viva** del proyecto. Distingue los co
 | [Arquitectura](architecture.md) | Arquitectura objetivo, C4, estructura real inicial de backend/frontend y decisiones técnicas. |
 | [Desarrollo](development.md)    | Instalación, variables, comandos reales, verificaciones y problemas frecuentes.               |
 | [Despliegue](deployment.md)     | Imágenes independientes, exportación web, distribución nativa y despliegue futuro.            |
-| [API](api/README.md)            | Contrato OpenAPI futuro; sin endpoints implementados.                                         |
+| [API](api/README.md)            | Contrato OpenAPI inicial modular, pendiente de revisión por tag; sin endpoints implementados. |
 | [ADR](adr/README.md)            | Decisiones aceptadas, propuestas y pendientes.                                                |
 | [Diagramas](diagrams/README.md) | Diagramas C4 disponibles y otros diagramas de diseño pendientes.                              |
 
 **Estado a 15/10/2026:** frontend web validado; frontend y backend arrancan juntos con Docker Compose. La integración del backend con Neon PostgreSQL 18 y el acceso al bucket privado de Object Storage se han comprobado mediante `NeonConnectivityIT` en `development`. **Siguen sin existir endpoints de negocio, migraciones de esquema, pruebas de subida/descarga completa, despliegues de producción ni CI/CD ejecutable**.
 
 El [README principal](../README.md) ofrece los pasos mínimos de puesta en marcha.
+
+**Diseño de API:** ya existe un borrador OpenAPI 3.0.3 organizado por tags. La [guía de la API](api/README.md) explica la estructura, la fuente de verdad y cómo revisar cada módulo antes de implementarlo.

@@ -1,0 +1,87 @@
+InvitationRequest:
+  type: object
+  properties:
+    role:
+      $ref: "./usuarios.yaml#/UserRole"
+    email:
+      type: string
+      format: email
+      description: Correo autorizado opcional; política definitiva pendiente.
+    expiresAt:
+      type: string
+      format: date-time
+  required:
+    - role
+  description: "PROPUESTA ADR-0007: invitaciones de un solo uso para roles municipales."
+  additionalProperties: false
+
+InvitationDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    role:
+      $ref: "./usuarios.yaml#/UserRole"
+    email:
+      type: string
+      format: email
+    status:
+      type: string
+      enum:
+        - ACTIVE
+        - REDEEMED
+        - REVOKED
+        - EXPIRED
+    createdAt:
+      type: string
+      format: date-time
+    expiresAt:
+      type: string
+      format: date-time
+    redeemedAt:
+      type: string
+      format: date-time
+    invitationCode:
+      type: string
+      description: Solo aparece una vez, inmediatamente al crear la invitación; nunca en listados.
+  required:
+    - id
+    - role
+    - status
+    - createdAt
+    - expiresAt
+
+InvitationCreatedDTO:
+  allOf:
+    - $ref: "./invitaciones.yaml#/InvitationDTO"
+    - type: object
+      properties:
+        invitationCode:
+          type: string
+          description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
+      required:
+        - invitationCode
+  description: Respuesta de creación de invitación con código entregado una sola vez.
+
+StaffRegistrationRequest:
+  type: object
+  properties:
+    invitationCode:
+      type: string
+    displayName:
+      type: string
+      minLength: 2
+      maxLength: 120
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+      minLength: 8
+  required:
+    - invitationCode
+    - displayName
+    - email
+    - password
+  additionalProperties: false

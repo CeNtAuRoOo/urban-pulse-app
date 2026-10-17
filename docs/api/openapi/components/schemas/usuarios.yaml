@@ -1,0 +1,84 @@
+UserSummaryDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: usr_1
+    displayName:
+      type: string
+      example: Ana Pérez
+    role:
+      $ref: "./usuarios.yaml#/UserRole"
+  required:
+    - id
+    - displayName
+    - role
+
+UserRole:
+  type: string
+  enum:
+    - CITIZEN
+    - OPERATOR
+    - TECHNICIAN
+    - ADMIN
+    - ANALYST
+  description: Rol asignado por el backend; nunca editable en el registro ciudadano.
+
+UserDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: usr_1
+    displayName:
+      type: string
+    email:
+      type: string
+      format: email
+      description: Visible únicamente para el titular o personal autorizado.
+    role:
+      $ref: "./usuarios.yaml#/UserRole"
+    active:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - displayName
+    - role
+    - active
+    - createdAt
+
+UpdateProfileRequest:
+  type: object
+  properties:
+    displayName:
+      type: string
+      minLength: 2
+      maxLength: 120
+  description: Solo admite el nombre público; no permite modificar roles.
+  additionalProperties: false
+
+AdminUpdateUserRequest:
+  type: object
+  properties:
+    active:
+      type: boolean
+    role:
+      $ref: "./usuarios.yaml#/UserRole"
+  description: Acción administrativa auditable; no utilizar para el registro.
+  additionalProperties: false
+
+UsersPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./usuarios.yaml#/UserDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+  required:
+    - data
+    - pagination

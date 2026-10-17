@@ -1,0 +1,440 @@
+/incidents/{incidentId}/reviews:
+  post:
+    tags:
+      - Tramitación
+    summary: Validar, rechazar o pedir información
+    description:
+      Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a REJECTED;
+      REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
+    operationId: postIncidentsIncidentIdReviews
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tramitacion.yaml#/ReviewRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tramitacion.yaml#/ReviewDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar revisiones
+    description: Historial de decisiones y motivos para trazabilidad.
+    operationId: getIncidentsIncidentIdReviews
+    x-roles:
+      - OPERATOR
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/tramitacion.yaml#/ReviewDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/priority-decisions:
+  post:
+    tags:
+      - Tramitación
+    summary: Establecer prioridad
+    description:
+      Prioridad manual o asistida con justificación y referencia opcional a evaluación; siempre confirmada
+      por personal autorizado.
+    operationId: postIncidentsIncidentIdPriorityDecisions
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tramitacion.yaml#/PriorityRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tramitacion.yaml#/PriorityDecisionDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Tramitación
+    summary: Historial de prioridades
+    description: Conserva todas las decisiones de prioridad y su fuente.
+    operationId: getIncidentsIncidentIdPriorityDecisions
+    x-roles:
+      - OPERATOR
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/tramitacion.yaml#/PriorityDecisionDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/assignments:
+  post:
+    tags:
+      - Tramitación
+    summary: Asignar o reasignar
+    description:
+      Crea asignación temporal a departamento y opcionalmente técnico/equipo. La primera asignación
+      requiere VALIDATED y transiciona a ASSIGNED.
+    operationId: postIncidentsIncidentIdAssignments
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tramitacion.yaml#/AssignmentRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tramitacion.yaml#/AssignmentDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar asignaciones
+    description: Historial de asignaciones, incluidas las ya finalizadas.
+    operationId: getIncidentsIncidentIdAssignments
+    x-roles:
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/tramitacion.yaml#/AssignmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/status-changes:
+  post:
+    tags:
+      - Tramitación
+    summary: Registrar transición de estado
+    description:
+      Cambia el estado respetando una máquina de estados auditada. La resolución requiere notas;
+      VALIDATED/REJECTED/ASSIGNED se gestionan mediante revisión/asignación.
+    operationId: postIncidentsIncidentIdStatusChanges
+    x-roles:
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tramitacion.yaml#/StatusChangeRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tramitacion.yaml#/StatusChangeDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar cambios de estado
+    description: Historial ordenado de transiciones, actores, motivos y fechas.
+    operationId: getIncidentsIncidentIdStatusChanges
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/tramitacion.yaml#/StatusChangeDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/comments:
+  post:
+    tags:
+      - Tramitación
+    summary: Añadir comentario
+    description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
+    operationId: postIncidentsIncidentIdComments
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tramitacion.yaml#/CommentRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tramitacion.yaml#/CommentDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Tramitación
+    summary: Listar comentarios
+    description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
+    operationId: getIncidentsIncidentIdComments
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/tramitacion.yaml#/CommentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/assigned-to-me:
+  get:
+    tags:
+      - Tramitación
+    summary: Mi cola de trabajo
+    description: Incidencias asignadas al técnico autenticado, sin revelar tareas de otros técnicos.
+    operationId: getIncidentsAssignedToMe
+    x-roles:
+      - TECHNICIAN
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/incidencias.yaml#/IncidentStatus"
+        description: Estado del trabajo.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

@@ -1,0 +1,74 @@
+ReportRequest:
+  type: object
+  properties:
+    from:
+      type: string
+      format: date
+    to:
+      type: string
+      format: date
+    districtId:
+      type: string
+    format:
+      type: string
+      enum:
+        - CSV
+        - PDF
+    groupBy:
+      type: string
+      enum:
+        - STATUS
+        - CATEGORY
+        - DISTRICT
+        - MONTH
+  required:
+    - from
+    - to
+    - format
+  additionalProperties: false
+
+ReportDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    status:
+      type: string
+      enum:
+        - QUEUED
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+    format:
+      type: string
+      enum:
+        - CSV
+        - PDF
+    createdAt:
+      type: string
+      format: date-time
+    completedAt:
+      type: string
+      format: date-time
+    requestedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    errorMessage:
+      type: string
+  required:
+    - id
+    - status
+    - format
+    - createdAt
+
+ReportsPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./informes.yaml#/ReportDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+  required:
+    - data
+    - pagination

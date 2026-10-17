@@ -1,0 +1,62 @@
+BadRequest:
+  description: Solicitud sintácticamente incorrecta o parámetros inválidos.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+Unauthorized:
+  description: No se ha proporcionado un JWT válido.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+Forbidden:
+  description: Permisos insuficientes o recurso no accesible para este usuario.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+NotFound:
+  description: Recurso inexistente o no visible para este usuario.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+Conflict:
+  description: Regla de negocio, conflicto de estado, dato duplicado o concurrencia.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+ValidationError:
+  description: La estructura es correcta, pero los datos incumplen las validaciones.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+TooManyRequests:
+  description: Se ha superado el límite de solicitudes.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+InternalError:
+  description: Error inesperado del servidor.
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+ServiceUnavailable:
+  description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"

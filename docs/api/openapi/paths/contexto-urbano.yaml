@@ -1,0 +1,250 @@
+/incidents/{incidentId}/urban-context:
+  get:
+    tags:
+      - Contexto urbano
+    summary: Consultar contexto asociado
+    description:
+      Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE sin
+      ocultar la incidencia.
+    operationId: getIncidentsIncidentIdUrbanContext
+    x-roles:
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/contexto-urbano.yaml#/UrbanContextDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/asset-candidates:
+  get:
+    tags:
+      - Contexto urbano
+    summary: Candidatos a activo urbano
+    description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe ambigüedad.
+    operationId: getIncidentsIncidentIdAssetCandidates
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetCandidateDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/asset-association:
+  put:
+    tags:
+      - Contexto urbano
+    summary: Confirmar activo urbano
+    description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
+    operationId: putIncidentsIncidentIdAssetAssociation
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/urban-assets:
+  get:
+    tags:
+      - Contexto urbano
+    summary: Buscar activos urbanos
+    description: Filtra activos por tipo o proximidad.
+    operationId: getUrbanAssets
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Tipo de activo.
+      - name: latitude
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+        description: Latitud central.
+      - name: longitude
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+        description: Longitud central.
+      - name: radiusMeters
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 1
+          maximum: 5000
+        description: Radio de búsqueda.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/urban-assets/{assetId}:
+  get:
+    tags:
+      - Contexto urbano
+    summary: Consultar activo urbano
+    description: Devuelve geometría, procedencia y metadatos permitidos.
+    operationId: getUrbanAssetsAssetId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/AssetId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/external-observations:
+  get:
+    tags:
+      - Contexto urbano
+    summary: Consultar observaciones normalizadas
+    description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
+    operationId: getExternalObservations
+    x-roles:
+      - OPERATOR
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/FromDate"
+      - $ref: "../components/parameters.yaml#/ToDate"
+      - name: sourceId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Identificador del proveedor.
+      - name: metric
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Variable registrada.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/contexto-urbano.yaml#/ExternalObservationDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
