@@ -92,6 +92,8 @@ Flujo objetivo: `Controller -> Service -> Repository -> PostgreSQL`, usando DTO 
 
 El backend **arranca en Docker Compose** con Neon `development` y la prueba `NeonConnectivityIT` verifica JDBC (`SELECT current_database(), current_user`) y acceso S3 (`HeadBucket`). Las URL de entorno determinan la rama Neon utilizada; la prueba no comprueba el ID de rama de forma independiente. El `pom.xml` incorpora AWS SDK for Java 2.x 2.56.0 con BOM y procesador de metadatos `@ConfigurationProperties`; `StorageProperties` valida los datos del bucket. Aún no existen controladores de negocio, entidades JPA, repositorios funcionales ni pruebas de subida/descarga.
 
+**Contrato REST de diseño:** se ha creado la primera especificación OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones separadas por tag en `api/openapi/paths/` y DTOs compartidos en `api/openapi/components/`. Cada tag se revisará y acordará antes de su implementación. Este contrato es un **borrador** y no acredita que existan controladores ni endpoints operativos. Véase la [guía de la API](api/README.md) para el flujo de revisión y la generación de un OpenAPI unificado.
+
 ## 6. Dominio y estados previstos
 
 La entidad central será `Incident`. El alcance inicial considera usuarios, evidencias, asignaciones, historial de estados, activos urbanos y datos contextuales, sujeto a refinamiento. Los estados previstos incluyen `REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED` y `CLOSED`; las transiciones válidas y las reglas de auditoría deberán especificarse antes de implementar.

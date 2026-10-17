@@ -1,0 +1,254 @@
+LocationDTO:
+  type: object
+  properties:
+    coordinates:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+    formattedAddress:
+      type: string
+      description: Dirección normalizada (puede estar ausente si falla la geocodificación).
+    neighborhood:
+      type: string
+      description: Barrio deducido de la posición.
+    districtId:
+      type: string
+      description: Distrito obtenido por geocodificación.
+    districtName:
+      type: string
+      description: Nombre del distrito.
+    geocodingStatus:
+      type: string
+      enum:
+        - PENDING
+        - AVAILABLE
+        - UNAVAILABLE
+      description: Resultado del enriquecimiento de localización.
+  required:
+    - coordinates
+    - geocodingStatus
+
+IncidentStatus:
+  type: string
+  enum:
+    - REPORTED
+    - VALIDATED
+    - REJECTED
+    - ASSIGNED
+    - IN_PROGRESS
+    - RESOLVED
+    - REOPENED
+    - CLOSED
+  description: Ciclo de vida de una incidencia. Transiciones exactas pendientes de confirmación del equipo.
+
+IncidentPriority:
+  type: string
+  enum:
+    - LOW
+    - MEDIUM
+    - HIGH
+    - CRITICAL
+  description: Escala de prioridad propuesta; el enunciado no concreta niveles.
+
+CreateIncidentRequest:
+  type: object
+  properties:
+    title:
+      type: string
+      description: Título breve.
+      example: Semáforo averiado
+      minLength: 5
+      maxLength: 150
+    description:
+      type: string
+      description: Descripción detallada.
+      example: El semáforo no funciona en el cruce desde esta mañana.
+      minLength: 10
+      maxLength: 5000
+    coordinates:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+    categoryId:
+      type: string
+      description: Opcional; el sistema puede ayudar a clasificar después.
+      example: cat_traffic
+  required:
+    - title
+    - description
+    - coordinates
+  example:
+    title: Semáforo averiado
+    description: El semáforo del cruce no funciona desde esta mañana.
+    coordinates:
+      latitude: 36.7213
+      longitude: -4.4214
+      accuracyMeters: 8
+    categoryId: cat_traffic
+  additionalProperties: false
+
+UpdateIncidentRequest:
+  type: object
+  properties:
+    title:
+      type: string
+      minLength: 5
+      maxLength: 150
+    description:
+      type: string
+      minLength: 10
+      maxLength: 5000
+    categoryId:
+      type: string
+    coordinates:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+  description: "Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado."
+  additionalProperties: false
+
+IncidentSummaryDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: inc_001
+    title:
+      type: string
+    category:
+      $ref: "./catalogos.yaml#/CategoryDTO"
+    status:
+      $ref: "./incidencias.yaml#/IncidentStatus"
+    priority:
+      $ref: "./incidencias.yaml#/IncidentPriority"
+    location:
+      $ref: "./incidencias.yaml#/LocationDTO"
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    attachmentCount:
+      type: integer
+      minimum: 0
+  required:
+    - id
+    - title
+    - status
+    - location
+    - createdAt
+    - updatedAt
+    - attachmentCount
+
+IncidentDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: inc_001
+    title:
+      type: string
+    description:
+      type: string
+    category:
+      $ref: "./catalogos.yaml#/CategoryDTO"
+    reporter:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    status:
+      $ref: "./incidencias.yaml#/IncidentStatus"
+    priority:
+      $ref: "./incidencias.yaml#/IncidentPriority"
+    prioritySource:
+      type: string
+      enum:
+        - MANUAL
+        - ASSISTED
+      description: Ausente hasta priorización.
+    priorityJustification:
+      type: string
+    location:
+      $ref: "./incidencias.yaml#/LocationDTO"
+    urbanAsset:
+      $ref: "./contexto-urbano.yaml#/UrbanAssetAssociationDTO"
+    currentAssignment:
+      $ref: "./tramitacion.yaml#/AssignmentDTO"
+    contextStatus:
+      type: string
+      enum:
+        - PENDING
+        - AVAILABLE
+        - PARTIAL
+        - UNAVAILABLE
+    attachmentCount:
+      type: integer
+      minimum: 0
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    resolvedAt:
+      type: string
+      format: date-time
+    closedAt:
+      type: string
+      format: date-time
+    version:
+      type: integer
+      description: Versión de control de concurrencia; propuesta.
+      minimum: 0
+  required:
+    - id
+    - title
+    - description
+    - status
+    - location
+    - contextStatus
+    - attachmentCount
+    - createdAt
+    - updatedAt
+  description:
+    Detalle. Los datos del informante y campos internos se incluyen solo si el rol/propiedad lo
+    permite.
+
+IncidentPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./incidencias.yaml#/IncidentSummaryDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+  required:
+    - data
+    - pagination
+
+HistoryEventDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    eventType:
+      type: string
+      enum:
+        - CREATED
+        - REVIEWED
+        - PRIORITIZED
+        - ASSIGNED
+        - STATUS_CHANGED
+        - COMMENTED
+        - ATTACHMENT_ADDED
+        - ASSET_LINKED
+    occurredAt:
+      type: string
+      format: date-time
+    actor:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    summary:
+      type: string
+    details:
+      type: object
+      additionalProperties: true
+      description: Datos públicos o internos según permisos; sin información sensible.
+  required:
+    - id
+    - eventType
+    - occurredAt
+    - summary

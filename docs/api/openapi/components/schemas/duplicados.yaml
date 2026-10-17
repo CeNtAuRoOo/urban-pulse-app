@@ -1,0 +1,50 @@
+DuplicateSuggestionDTO:
+  type: object
+  properties:
+    incident:
+      $ref: "./incidencias.yaml#/IncidentSummaryDTO"
+    score:
+      type: number
+      description: Probabilidad o similitud normalizada.
+      minimum: 0
+      maximum: 1
+    reasons:
+      type: array
+      items:
+        type: string
+      description: Proximidad, tiempo y/o semántica.
+  required:
+    - incident
+    - score
+    - reasons
+
+DuplicateLinkRequest:
+  type: object
+  properties:
+    candidateIncidentId:
+      type: string
+    reason:
+      type: string
+  required:
+    - candidateIncidentId
+  additionalProperties: false
+
+DuplicateLinkDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    candidateIncidentId:
+      type: string
+    linkedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    linkedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - candidateIncidentId
+    - linkedAt

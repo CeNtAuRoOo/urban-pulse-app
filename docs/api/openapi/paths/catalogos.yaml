@@ -1,0 +1,281 @@
+/categories:
+  get:
+    tags:
+      - Catálogos
+    summary: Listar categories
+    description: Catálogo disponible para los clientes autenticados.
+    operationId: getCategories
+    x-roles:
+      - AUTHENTICATED
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/catalogos.yaml#/CategoryDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  post:
+    tags:
+      - Catálogos
+    summary: Crear categoría
+    description: Alta administrativa del catálogo.
+    operationId: postCategories
+    x-roles:
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/catalogos.yaml#/CategoryWriteRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/CategoryDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/categories/{categoryId}:
+  get:
+    tags:
+      - Catálogos
+    summary: Consultar categoría
+    description: Detalle del elemento de catálogo.
+    operationId: getCategoriesCategoryId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/CategoryId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/CategoryDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  patch:
+    tags:
+      - Catálogos
+    summary: Actualizar categoría
+    description: Actualización administrativa, sin borrar referencias históricas.
+    operationId: patchCategoriesCategoryId
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/CategoryId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/catalogos.yaml#/CategoryPatchRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/CategoryDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/departments:
+  get:
+    tags:
+      - Catálogos
+    summary: Listar departments
+    description: Catálogo disponible para los clientes autenticados.
+    operationId: getDepartments
+    x-roles:
+      - AUTHENTICATED
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/catalogos.yaml#/DepartmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  post:
+    tags:
+      - Catálogos
+    summary: Crear departamento
+    description: Alta administrativa del catálogo.
+    operationId: postDepartments
+    x-roles:
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/catalogos.yaml#/DepartmentWriteRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/DepartmentDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/departments/{departmentId}:
+  get:
+    tags:
+      - Catálogos
+    summary: Consultar departamento
+    description: Detalle del elemento de catálogo.
+    operationId: getDepartmentsDepartmentId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/DepartmentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/DepartmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  patch:
+    tags:
+      - Catálogos
+    summary: Actualizar departamento
+    description: Actualización administrativa, sin borrar referencias históricas.
+    operationId: patchDepartmentsDepartmentId
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/DepartmentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/catalogos.yaml#/DepartmentPatchRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/catalogos.yaml#/DepartmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

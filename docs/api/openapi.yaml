@@ -1,1 +1,4765 @@
-# No implementado
+openapi: 3.0.3
+info:
+  title: UrbanPulse API REST
+  version: 0.1.0
+  description: Contrato inicial design-first para la plataforma cloud de gestión de incidencias urbanas UrbanPulse. Cubre el núcleo de incidencias y los casos de uso complementarios previstos en el enunciado. Las rutas y la estructura de DTOs son propuestas de diseño; las políticas de autorización, transiciones de estado, límites de ficheros, procesamiento asíncrono y otros detalles deben ratificarse antes de implementar. No representa una API ya desplegada.
+  contact:
+    name: Equipo UrbanPulse
+servers:
+  - url: http://localhost:8888/api/v1
+    description: Backend local en desarrollo (ruta /api/v1 propuesta, aún no implementada).
+security:
+  - BearerAuth: []
+tags:
+  - name: Autenticación
+    description: Registro y acceso mediante credenciales/JWT.
+  - name: Usuarios
+    description: Perfil y gestión administrativa de usuarios.
+  - name: Invitaciones
+    description: Propuesta de incorporación controlada de personal municipal.
+  - name: Catálogos
+    description: Categorías y departamentos.
+  - name: Incidencias
+    description: Registro, consulta, edición y seguimiento.
+  - name: Evidencias
+    description: Fotografías privadas asociadas a incidencias.
+  - name: Tramitación
+    description: Revisión, prioridad, asignaciones, estados y colaboración.
+  - name: Duplicados
+    description: Detección y confirmación de avisos relacionados.
+  - name: Contexto urbano
+    description: Datos geográficos, activos y observaciones externas.
+  - name: Mapas
+    description: Representación cartográfica de incidencias.
+  - name: Notificaciones
+    description: Bandeja y preferencias de avisos.
+  - name: Analítica
+    description: Métricas y análisis territorial.
+  - name: Informes
+    description: Generación y descarga de informes.
+  - name: Asistencia inteligente
+    description: Evaluación asistida y experimentos de modelos.
+  - name: Conocimiento
+    description: Documentos y consultas RAG con citas.
+  - name: Administración
+    description: Fuentes externas, auditoría y administración técnica.
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Autenticación
+      summary: Registrar ciudadano
+      description: Crea una cuenta con rol CITIZEN. La petición no admite seleccionar roles privilegiados.
+      operationId: postAuthRegister
+      security: []
+      x-roles:
+        - PUBLIC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/login:
+    post:
+      tags:
+        - Autenticación
+      summary: Iniciar sesión
+      description: Valida credenciales y emite un JWT Bearer. Duración, renovación y revocación aún por definir.
+      operationId: postAuthLogin
+      security: []
+      x-roles:
+        - PUBLIC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/me:
+    get:
+      tags:
+        - Usuarios
+      summary: Consultar mi perfil
+      description: Devuelve los datos personales del usuario autenticado.
+      operationId: getUsersMe
+      x-roles:
+        - AUTHENTICATED
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Usuarios
+      summary: Modificar mi perfil
+      description: Actualiza únicamente atributos permitidos del perfil; no modifica roles.
+      operationId: patchUsersMe
+      x-roles:
+        - AUTHENTICATED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users:
+    get:
+      tags:
+        - Usuarios
+      summary: Listar usuarios
+      description: Listado restringido al administrador; filtros y paginación.
+      operationId: getUsers
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/UserRole'
+          description: Filtrar por rol.
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filtrar por actividad.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{userId}:
+    get:
+      tags:
+        - Usuarios
+      summary: Consultar usuario
+      description: Información del usuario para administración; no pública.
+      operationId: getUsersUserId
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Usuarios
+      summary: Administrar usuario
+      description: Cambia estado o rol de una cuenta de forma auditada; no expone operaciones de autoelevación.
+      operationId: patchUsersUserId
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateUserRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /staff-invitations:
+    post:
+      tags:
+        - Invitaciones
+      summary: Crear invitación municipal
+      description: 'PROPUESTA ADR-0007: el código solo se muestra en esta respuesta y se almacena protegido.'
+      operationId: postStaffInvitations
+      x-roles:
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationCreatedDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Invitaciones
+      summary: Listar invitaciones
+      description: Devuelve metadatos, nunca el código original en claro.
+      operationId: getStaffInvitations
+      x-roles:
+        - ADMIN
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvitationDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/staff-registrations:
+    post:
+      tags:
+        - Invitaciones
+      summary: Canjear invitación
+      description: 'PROPUESTA ADR-0007: canje atómico de un solo uso; reglas de elegibilidad por definir.'
+      operationId: postAuthStaffRegistrations
+      security: []
+      x-roles:
+        - PUBLIC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffRegistrationRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /staff-invitations/{invitationId}/revocations:
+    post:
+      tags:
+        - Invitaciones
+      summary: Revocar invitación
+      description: Invalida una invitación activa. Operación administrativa auditada.
+      operationId: postStaffInvitationsInvitationIdRevocations
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        '204':
+          description: Operación correcta, sin cuerpo de respuesta.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /categories:
+    get:
+      tags:
+        - Catálogos
+      summary: Listar categories
+      description: Catálogo disponible para los clientes autenticados.
+      operationId: getCategories
+      x-roles:
+        - AUTHENTICATED
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Catálogos
+      summary: Crear categoría
+      description: Alta administrativa del catálogo.
+      operationId: postCategories
+      x-roles:
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryWriteRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /categories/{categoryId}:
+    get:
+      tags:
+        - Catálogos
+      summary: Consultar categoría
+      description: Detalle del elemento de catálogo.
+      operationId: getCategoriesCategoryId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Catálogos
+      summary: Actualizar categoría
+      description: Actualización administrativa, sin borrar referencias históricas.
+      operationId: patchCategoriesCategoryId
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryPatchRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /departments:
+    get:
+      tags:
+        - Catálogos
+      summary: Listar departments
+      description: Catálogo disponible para los clientes autenticados.
+      operationId: getDepartments
+      x-roles:
+        - AUTHENTICATED
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DepartmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Catálogos
+      summary: Crear departamento
+      description: Alta administrativa del catálogo.
+      operationId: postDepartments
+      x-roles:
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentWriteRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /departments/{departmentId}:
+    get:
+      tags:
+        - Catálogos
+      summary: Consultar departamento
+      description: Detalle del elemento de catálogo.
+      operationId: getDepartmentsDepartmentId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Catálogos
+      summary: Actualizar departamento
+      description: Actualización administrativa, sin borrar referencias históricas.
+      operationId: patchDepartmentsDepartmentId
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentPatchRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents:
+    post:
+      tags:
+        - Incidencias
+      summary: Registrar incidencia
+      description: Registra inmediatamente en REPORTED y genera la primera entrada de auditoría. Geocodificación, duplicados, activos y contexto urbano son enriquecimientos opcionales que no bloquean la creación. Las fotografías se adjuntan después.
+      operationId: postIncidents
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncidentRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Incidencias
+      summary: Buscar incidencias
+      description: Listado paginado. Al ciudadano solo se le muestran incidencias autorizadas; el personal puede usar filtros de búsqueda ampliados.
+      operationId: getIncidents
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/IncidentStatus'
+          description: Estado.
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Categoría.
+        - name: districtId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Distrito.
+        - name: departmentId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Departamento asignado.
+        - name: priority
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/IncidentPriority'
+          description: Prioridad.
+        - name: createdFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Inicio de creación.
+        - name: createdTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Fin de creación.
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - -createdAt
+              - priority
+              - -priority
+          description: Orden permitido.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/mine:
+    get:
+      tags:
+        - Incidencias
+      summary: Mis incidencias
+      description: Solo incidencias creadas por la identidad del JWT; no se acepta userId de terceros.
+      operationId: getIncidentsMine
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}:
+    get:
+      tags:
+        - Incidencias
+      summary: Consultar incidencia
+      description: Detalle con dirección si se ha resuelto, clasificación, fechas y estado. Los campos sujetos a privacidad se filtran por permisos.
+      operationId: getIncidentsIncidentId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Incidencias
+      summary: Corregir incidencia
+      description: 'Propuesta: permitir ajustes al titular mientras REPORTED y edición limitada al operador según reglas del dominio. Auditar modificaciones.'
+      operationId: patchIncidentsIncidentId
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncidentRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/history:
+    get:
+      tags:
+        - Incidencias
+      summary: Consultar historial
+      description: 'Historial visible para el solicitante: sucesos internos no deben filtrarse al ciudadano.'
+      operationId: getIncidentsIncidentIdHistory
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryEventDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/attachments:
+    post:
+      tags:
+        - Evidencias
+      summary: Adjuntar fotografía
+      description: Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar compensación ante fallos parciales y EXIF sensible.
+      operationId: postIncidentsIncidentIdAttachments
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        description: Subida autenticada; solo fotografías según ADR-0004. Tamaño máximo aún por acordar.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG o WebP.
+                description:
+                  type: string
+                  description: Texto alternativo opcional.
+                  maxLength: 300
+              required:
+                - file
+              additionalProperties: false
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Evidencias
+      summary: Listar fotografías
+      description: Lista metadatos sin revelar URLs S3 públicas permanentes.
+      operationId: getIncidentsIncidentIdAttachments
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttachmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/attachments/{attachmentId}:
+    get:
+      tags:
+        - Evidencias
+      summary: Consultar metadatos de fotografía
+      description: Metadatos de evidencia bajo autorización por incidencia.
+      operationId: getIncidentsIncidentIdAttachmentsAttachmentId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/AttachmentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/attachments/{attachmentId}/content:
+    get:
+      tags:
+        - Evidencias
+      summary: Descargar fotografía privada
+      description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
+      operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/AttachmentId'
+      responses:
+        '200':
+          description: Binario de imagen autorizado.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/reviews:
+    post:
+      tags:
+        - Tramitación
+      summary: Validar, rechazar o pedir información
+      description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
+      operationId: postIncidentsIncidentIdReviews
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar revisiones
+      description: Historial de decisiones y motivos para trazabilidad.
+      operationId: getIncidentsIncidentIdReviews
+      x-roles:
+        - OPERATOR
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/priority-decisions:
+    post:
+      tags:
+        - Tramitación
+      summary: Establecer prioridad
+      description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; siempre confirmada por personal autorizado.
+      operationId: postIncidentsIncidentIdPriorityDecisions
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriorityRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriorityDecisionDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Tramitación
+      summary: Historial de prioridades
+      description: Conserva todas las decisiones de prioridad y su fuente.
+      operationId: getIncidentsIncidentIdPriorityDecisions
+      x-roles:
+        - OPERATOR
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriorityDecisionDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/assignments:
+    post:
+      tags:
+        - Tramitación
+      summary: Asignar o reasignar
+      description: Crea asignación temporal a departamento y opcionalmente técnico/equipo. La primera asignación requiere VALIDATED y transiciona a ASSIGNED.
+      operationId: postIncidentsIncidentIdAssignments
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar asignaciones
+      description: Historial de asignaciones, incluidas las ya finalizadas.
+      operationId: getIncidentsIncidentIdAssignments
+      x-roles:
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssignmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/status-changes:
+    post:
+      tags:
+        - Tramitación
+      summary: Registrar transición de estado
+      description: Cambia el estado respetando una máquina de estados auditada. La resolución requiere notas; VALIDATED/REJECTED/ASSIGNED se gestionan mediante revisión/asignación.
+      operationId: postIncidentsIncidentIdStatusChanges
+      x-roles:
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusChangeRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusChangeDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar cambios de estado
+      description: Historial ordenado de transiciones, actores, motivos y fechas.
+      operationId: getIncidentsIncidentIdStatusChanges
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatusChangeDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/comments:
+    post:
+      tags:
+        - Tramitación
+      summary: Añadir comentario
+      description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
+      operationId: postIncidentsIncidentIdComments
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Tramitación
+      summary: Listar comentarios
+      description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
+      operationId: getIncidentsIncidentIdComments
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/assigned-to-me:
+    get:
+      tags:
+        - Tramitación
+      summary: Mi cola de trabajo
+      description: Incidencias asignadas al técnico autenticado, sin revelar tareas de otros técnicos.
+      operationId: getIncidentsAssignedToMe
+      x-roles:
+        - TECHNICIAN
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/IncidentStatus'
+          description: Estado del trabajo.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/duplicate-candidates:
+    get:
+      tags:
+        - Duplicados
+      summary: Sugerir incidencias duplicadas
+      description: Candidatos basados en posición, tiempo y semántica; no se rechaza automáticamente el reporte.
+      operationId: getIncidentsIncidentIdDuplicateCandidates
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DuplicateSuggestionDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/duplicate-links:
+    post:
+      tags:
+        - Duplicados
+      summary: Vincular duplicado confirmado
+      description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
+      operationId: postIncidentsIncidentIdDuplicateLinks
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateLinkRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateLinkDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/urban-context:
+    get:
+      tags:
+        - Contexto urbano
+      summary: Consultar contexto asociado
+      description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE sin ocultar la incidencia.
+      operationId: getIncidentsIncidentIdUrbanContext
+      x-roles:
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrbanContextDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/asset-candidates:
+    get:
+      tags:
+        - Contexto urbano
+      summary: Candidatos a activo urbano
+      description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe ambigüedad.
+      operationId: getIncidentsIncidentIdAssetCandidates
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UrbanAssetCandidateDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/asset-association:
+    put:
+      tags:
+        - Contexto urbano
+      summary: Confirmar activo urbano
+      description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
+      operationId: putIncidentsIncidentIdAssetAssociation
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UrbanAssetAssociationRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrbanAssetAssociationDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /urban-assets:
+    get:
+      tags:
+        - Contexto urbano
+      summary: Buscar activos urbanos
+      description: Filtra activos por tipo o proximidad.
+      operationId: getUrbanAssets
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Tipo de activo.
+        - name: latitude
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Latitud central.
+        - name: longitude
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Longitud central.
+        - name: radiusMeters
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5000
+          description: Radio de búsqueda.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UrbanAssetDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /urban-assets/{assetId}:
+    get:
+      tags:
+        - Contexto urbano
+      summary: Consultar activo urbano
+      description: Devuelve geometría, procedencia y metadatos permitidos.
+      operationId: getUrbanAssetsAssetId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrbanAssetDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /external-observations:
+    get:
+      tags:
+        - Contexto urbano
+      summary: Consultar observaciones normalizadas
+      description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
+      operationId: getExternalObservations
+      x-roles:
+        - OPERATOR
+        - ADMIN
+        - ANALYST
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: sourceId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Identificador del proveedor.
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Variable registrada.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalObservationDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /map/incidents:
+    get:
+      tags:
+        - Mapas
+      summary: Obtener incidencias del mapa
+      description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son obligatorios para evitar consultas ilimitadas.
+      operationId: getMapIncidents
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - name: minLat
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Límite sur.
+        - name: minLon
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Límite oeste.
+        - name: maxLat
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Límite norte.
+        - name: maxLon
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Límite este.
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/IncidentStatus'
+          description: Estado opcional.
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Categoría opcional.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapIncidentsDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications:
+    get:
+      tags:
+        - Notificaciones
+      summary: Consultar bandeja
+      description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
+      operationId: getNotifications
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: read
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filtrar leídas/no leídas.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications/{notificationId}:
+    patch:
+      tags:
+        - Notificaciones
+      summary: Marcar como leída
+      description: Actualiza el indicador de lectura de una notificación propia.
+      operationId: patchNotificationsNotificationId
+      x-roles:
+        - AUTHENTICATED
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                read:
+                  type: boolean
+              required:
+                - read
+              additionalProperties: false
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/me/notification-preferences:
+    get:
+      tags:
+        - Notificaciones
+      summary: Consultar preferencias
+      description: Canales configurados para el usuario.
+      operationId: getUsersMeNotificationPreferences
+      x-roles:
+        - AUTHENTICATED
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Notificaciones
+      summary: Actualizar preferencias
+      description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los proveedores.
+      operationId: putUsersMeNotificationPreferences
+      x-roles:
+        - AUTHENTICATED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /analytics/statistics:
+    get:
+      tags:
+        - Analítica
+      summary: Estadísticas territoriales
+      description: Agregados por estado, categoría, distrito y tiempos de resolución.
+      operationId: getAnalyticsStatistics
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: districtId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Distrito opcional.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zones/{zoneId}/analysis:
+    get:
+      tags:
+        - Analítica
+      summary: Análisis de zona y periodo
+      description: Agrega incidencias y observaciones contextuales del distrito/zona.
+      operationId: getZonesZoneIdAnalysis
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/ZoneId'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneAnalysisDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /analytics/hotspots:
+    get:
+      tags:
+        - Analítica
+      summary: Consultar concentraciones espaciales
+      description: Consulta resultados de detección de zonas de concentración; las puntuaciones deben interpretarse con cautela.
+      operationId: getAnalyticsHotspots
+      x-roles:
+        - ANALYST
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HotspotDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /analytics/correlations:
+    get:
+      tags:
+        - Analítica
+      summary: Consultar correlaciones históricas
+      description: Relaciona tendencias de incidencias con variables urbanas; no implica causalidad.
+      operationId: getAnalyticsCorrelations
+      x-roles:
+        - ANALYST
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: districtId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Distrito.
+        - name: variable
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Variable urbana.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CorrelationDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports:
+    post:
+      tags:
+        - Informes
+      summary: Solicitar generación de informe
+      description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
+      operationId: postReports
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '202':
+          description: Solicitud aceptada para procesamiento asíncrono.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Informes
+      summary: Listar informes
+      description: Informes solicitados por usuarios autorizados.
+      operationId: getReports
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportsPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/{reportId}:
+    get:
+      tags:
+        - Informes
+      summary: Consultar estado del informe
+      description: Estado de creación, fechas y error de generación si procede.
+      operationId: getReportsReportId
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/{reportId}/file:
+    get:
+      tags:
+        - Informes
+      summary: Descargar informe terminado
+      description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
+      operationId: getReportsReportIdFile
+      x-roles:
+        - ANALYST
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Informe exportado.
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /ai/incident-assessments:
+    post:
+      tags:
+        - Asistencia inteligente
+      summary: Solicitar evaluación asistida
+      description: Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; conserva confianza y procedencia del modelo.
+      operationId: postAiIncidentAssessments
+      x-roles:
+        - OPERATOR
+        - ANALYST
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIAssessmentRequest'
+      responses:
+        '202':
+          description: Solicitud aceptada para procesamiento asíncrono.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIAssessmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /ai/incident-assessments/{assessmentId}:
+    get:
+      tags:
+        - Asistencia inteligente
+      summary: Consultar evaluación asistida
+      description: Devuelve recomendaciones, confianza y estado del cálculo.
+      operationId: getAiIncidentAssessmentsAssessmentId
+      x-roles:
+        - OPERATOR
+        - ANALYST
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIAssessmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /ai/training-jobs:
+    post:
+      tags:
+        - Asistencia inteligente
+      summary: Entrenar o evaluar modelo
+      description: Trabajo asíncrono de experimentación de clasificación, prioridad o hotspots.
+      operationId: postAiTrainingJobs
+      x-roles:
+        - ANALYST
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingRequest'
+      responses:
+        '202':
+          description: Solicitud aceptada para procesamiento asíncrono.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJobDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /ai/training-jobs/{trainingId}:
+    get:
+      tags:
+        - Asistencia inteligente
+      summary: Consultar entrenamiento
+      description: Devuelve resultado, modelo e indicadores de evaluación si el proceso terminó.
+      operationId: getAiTrainingJobsTrainingId
+      x-roles:
+        - ANALYST
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/TrainingId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJobDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /knowledge/documents:
+    post:
+      tags:
+        - Conocimiento
+      summary: Incorporar documento
+      description: Sube procedimiento versionado para indexación posterior. Su autorización y retención se concretarán al abordar RAG.
+      operationId: postKnowledgeDocuments
+      x-roles:
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Procedimiento o normativa PDF.
+                title:
+                  type: string
+                version:
+                  type: string
+                source:
+                  type: string
+              required:
+                - file
+                - title
+                - version
+              additionalProperties: false
+      responses:
+        '202':
+          description: Solicitud aceptada para procesamiento asíncrono.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+        - Conocimiento
+      summary: Listar documentos
+      description: Catálogo de documentos indexados y versiones.
+      operationId: getKnowledgeDocuments
+      x-roles:
+        - OPERATOR
+        - ANALYST
+        - ADMIN
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KnowledgeDocumentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /knowledge/queries:
+    post:
+      tags:
+        - Conocimiento
+      summary: Consultar procedimientos con RAG
+      description: Responde con citas documentales verificables; marca insuficiencia de evidencia y no suplanta decisiones humanas.
+      operationId: postKnowledgeQueries
+      x-roles:
+        - OPERATOR
+        - TECHNICIAN
+        - ANALYST
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeQueryRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeAnswerDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /external-sources:
+    get:
+      tags:
+        - Administración
+      summary: Listar fuentes externas
+      description: Estado de disponibilidad de proveedores y última sincronización.
+      operationId: getExternalSources
+      x-roles:
+        - ADMIN
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalSourceDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Administración
+      summary: Registrar fuente de datos
+      description: Registra metadatos públicos de la fuente; las claves de integración van fuera del contrato y del repositorio.
+      operationId: postExternalSources
+      x-roles:
+        - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalSourceRequest'
+      responses:
+        '201':
+          description: Recurso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalSourceDTO'
+          headers:
+            Location:
+              description: Ruta al nuevo recurso, cuando esté disponible.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /external-sources/{sourceId}:
+    patch:
+      tags:
+        - Administración
+      summary: Configurar fuente
+      description: Activa/desactiva y ajusta configuración permitida de una fuente.
+      operationId: patchExternalSourcesSourceId
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalSourcePatchRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalSourceDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audit-events:
+    get:
+      tags:
+        - Administración
+      summary: Consultar auditoría
+      description: Acciones administrativas y cambios relevantes, con correlación por requestId.
+      operationId: getAuditEvents
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: actorId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Actor.
+        - name: resourceType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Tipo de recurso.
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Recurso.
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditPageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT del backend, según ADR-0005. Roles y permisos se verifican en servidor.
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Identificador URI del tipo de problema.
+          example: about:blank
+        title:
+          type: string
+          description: Resumen legible del problema.
+        status:
+          type: integer
+          description: Código HTTP asociado.
+        code:
+          type: string
+          description: Código estable para tratamiento programático.
+          example: INVALID_TRANSITION
+        detail:
+          type: string
+          description: Explicación sin datos sensibles.
+        instance:
+          type: string
+          description: Ruta de la petición que originó el error.
+        requestId:
+          type: string
+          description: Identificador correlacionable con los registros del servidor.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+          description: Errores de campos, cuando corresponda.
+      required:
+        - title
+        - status
+        - code
+        - detail
+      description: Formato de error uniforme inspirado en Problem Details (RFC 9457).
+    FieldError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Nombre del campo.
+        code:
+          type: string
+          description: Código de validación.
+        message:
+          type: string
+          description: Motivo legible.
+      required:
+        - field
+        - code
+        - message
+    PageMetadata:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          example: 20
+        totalItems:
+          type: integer
+          description: Número total de resultados.
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      required:
+        - page
+        - pageSize
+        - totalItems
+        - totalPages
+    CoordinatesDTO:
+      type: object
+      properties:
+        latitude:
+          type: number
+          description: Latitud WGS84, grados.
+          minimum: -90
+          maximum: 90
+          example: 36.7213
+        longitude:
+          type: number
+          description: Longitud WGS84, grados.
+          minimum: -180
+          maximum: 180
+          example: -4.4214
+        accuracyMeters:
+          type: number
+          description: Precisión estimada de la posición en metros.
+          minimum: 0
+          example: 8
+      required:
+        - latitude
+        - longitude
+      description: Coordenadas geográficas; la precisión es opcional.
+    LocationDTO:
+      type: object
+      properties:
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+        formattedAddress:
+          type: string
+          description: Dirección normalizada (puede estar ausente si falla la geocodificación).
+        neighborhood:
+          type: string
+          description: Barrio deducido de la posición.
+        districtId:
+          type: string
+          description: Distrito obtenido por geocodificación.
+        districtName:
+          type: string
+          description: Nombre del distrito.
+        geocodingStatus:
+          type: string
+          enum:
+            - PENDING
+            - AVAILABLE
+            - UNAVAILABLE
+          description: Resultado del enriquecimiento de localización.
+      required:
+        - coordinates
+        - geocodingStatus
+    UserSummaryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: usr_1
+        displayName:
+          type: string
+          example: Ana Pérez
+        role:
+          $ref: '#/components/schemas/UserRole'
+      required:
+        - id
+        - displayName
+        - role
+    UserRole:
+      type: string
+      enum:
+        - CITIZEN
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+        - ANALYST
+      description: Rol asignado por el backend; nunca editable en el registro ciudadano.
+    UserDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: usr_1
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+          description: Visible únicamente para el titular o personal autorizado.
+        role:
+          $ref: '#/components/schemas/UserRole'
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - displayName
+        - role
+        - active
+        - createdAt
+    RegisterRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          description: Contraseña enviada solo por TLS; jamás se devuelve en DTO.
+          minLength: 8
+      required:
+        - displayName
+        - email
+        - password
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - email
+        - password
+      additionalProperties: false
+    TokenDTO:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT firmado.
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Duración del token en segundos.
+          minimum: 1
+        user:
+          $ref: '#/components/schemas/UserDTO'
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - user
+    UpdateProfileRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+      description: Solo admite el nombre público; no permite modificar roles.
+      additionalProperties: false
+    AdminUpdateUserRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/UserRole'
+      description: Acción administrativa auditable; no utilizar para el registro.
+      additionalProperties: false
+    InvitationRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/UserRole'
+        email:
+          type: string
+          format: email
+          description: Correo autorizado opcional; política definitiva pendiente.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - role
+      description: 'PROPUESTA ADR-0007: invitaciones de un solo uso para roles municipales.'
+      additionalProperties: false
+    InvitationDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - REDEEMED
+            - REVOKED
+            - EXPIRED
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: string
+          format: date-time
+        invitationCode:
+          type: string
+          description: Solo aparece una vez, inmediatamente al crear la invitación; nunca en listados.
+      required:
+        - id
+        - role
+        - status
+        - createdAt
+        - expiresAt
+    InvitationCreatedDTO:
+      allOf:
+        - $ref: '#/components/schemas/InvitationDTO'
+        - type: object
+          properties:
+            invitationCode:
+              type: string
+              description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
+          required:
+            - invitationCode
+      description: Respuesta de creación de invitación con código entregado una sola vez.
+    StaffRegistrationRequest:
+      type: object
+      properties:
+        invitationCode:
+          type: string
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+      required:
+        - invitationCode
+        - displayName
+        - email
+        - password
+      additionalProperties: false
+    CategoryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: cat_traffic
+        name:
+          type: string
+          example: Tráfico y semáforos
+        description:
+          type: string
+        active:
+          type: boolean
+      required:
+        - id
+        - name
+        - active
+    CategoryWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      required:
+        - name
+      additionalProperties: false
+    CategoryPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      description: Cambia uno o varios atributos de la categoría.
+      additionalProperties: false
+      minProperties: 1
+    DepartmentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: dep_mobility
+        name:
+          type: string
+          example: Movilidad
+        description:
+          type: string
+        active:
+          type: boolean
+      required:
+        - id
+        - name
+        - active
+    DepartmentWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      required:
+        - name
+      additionalProperties: false
+    DepartmentPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      description: Cambia uno o varios atributos del departamento.
+      additionalProperties: false
+      minProperties: 1
+    IncidentStatus:
+      type: string
+      enum:
+        - REPORTED
+        - VALIDATED
+        - REJECTED
+        - ASSIGNED
+        - IN_PROGRESS
+        - RESOLVED
+        - REOPENED
+        - CLOSED
+      description: Ciclo de vida de una incidencia. Transiciones exactas pendientes de confirmación del equipo.
+    IncidentPriority:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+        - CRITICAL
+      description: Escala de prioridad propuesta; el enunciado no concreta niveles.
+    CreateIncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Título breve.
+          example: Semáforo averiado
+          minLength: 5
+          maxLength: 150
+        description:
+          type: string
+          description: Descripción detallada.
+          example: El semáforo no funciona en el cruce desde esta mañana.
+          minLength: 10
+          maxLength: 5000
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+        categoryId:
+          type: string
+          description: Opcional; el sistema puede ayudar a clasificar después.
+          example: cat_traffic
+      required:
+        - title
+        - description
+        - coordinates
+      example:
+        title: Semáforo averiado
+        description: El semáforo del cruce no funciona desde esta mañana.
+        coordinates:
+          latitude: 36.7213
+          longitude: -4.4214
+          accuracyMeters: 8
+        categoryId: cat_traffic
+      additionalProperties: false
+    UpdateIncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 150
+        description:
+          type: string
+          minLength: 10
+          maxLength: 5000
+        categoryId:
+          type: string
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+      description: 'Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado.'
+      additionalProperties: false
+    IncidentSummaryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: inc_001
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryDTO'
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        location:
+          $ref: '#/components/schemas/LocationDTO'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        attachmentCount:
+          type: integer
+          minimum: 0
+      required:
+        - id
+        - title
+        - status
+        - location
+        - createdAt
+        - updatedAt
+        - attachmentCount
+    IncidentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: inc_001
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryDTO'
+        reporter:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        prioritySource:
+          type: string
+          enum:
+            - MANUAL
+            - ASSISTED
+          description: Ausente hasta priorización.
+        priorityJustification:
+          type: string
+        location:
+          $ref: '#/components/schemas/LocationDTO'
+        urbanAsset:
+          $ref: '#/components/schemas/UrbanAssetAssociationDTO'
+        currentAssignment:
+          $ref: '#/components/schemas/AssignmentDTO'
+        contextStatus:
+          type: string
+          enum:
+            - PENDING
+            - AVAILABLE
+            - PARTIAL
+            - UNAVAILABLE
+        attachmentCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          description: Versión de control de concurrencia; propuesta.
+          minimum: 0
+      required:
+        - id
+        - title
+        - description
+        - status
+        - location
+        - contextStatus
+        - attachmentCount
+        - createdAt
+        - updatedAt
+      description: Detalle. Los datos del informante y campos internos se incluyen solo si el rol/propiedad lo permite.
+    IncidentPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentSummaryDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+    AttachmentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: att_123
+        incidentId:
+          type: string
+        fileName:
+          type: string
+        contentType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/webp
+        sizeBytes:
+          type: integer
+          minimum: 0
+        uploadedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+          description: Descripción accesible de la fotografía.
+      required:
+        - id
+        - incidentId
+        - fileName
+        - contentType
+        - sizeBytes
+        - createdAt
+    ReviewRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - VALIDATE
+            - REJECT
+            - REQUEST_INFORMATION
+        reason:
+          type: string
+          description: Obligatorio en rechazo o solicitud de información.
+          minLength: 3
+          maxLength: 2000
+        categoryId:
+          type: string
+          description: Permite confirmar o corregir la clasificación.
+      required:
+        - decision
+      additionalProperties: false
+    ReviewDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        decision:
+          type: string
+          enum:
+            - VALIDATE
+            - REJECT
+            - REQUEST_INFORMATION
+        reason:
+          type: string
+        reviewedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        reviewedAt:
+          type: string
+          format: date-time
+        resultingStatus:
+          $ref: '#/components/schemas/IncidentStatus'
+      required:
+        - id
+        - incidentId
+        - decision
+        - reviewedBy
+        - reviewedAt
+        - resultingStatus
+    PriorityRequest:
+      type: object
+      properties:
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - ASSISTED
+        justification:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        assessmentId:
+          type: string
+          description: Referencia a evaluación de IA, si aplica.
+      required:
+        - priority
+        - source
+        - justification
+      additionalProperties: false
+    PriorityDecisionDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - ASSISTED
+        justification:
+          type: string
+        assessmentId:
+          type: string
+        decidedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        decidedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - priority
+        - source
+        - justification
+        - decidedBy
+        - decidedAt
+    AssignmentRequest:
+      type: object
+      properties:
+        departmentId:
+          type: string
+        technicianId:
+          type: string
+          description: Opcional.
+        teamId:
+          type: string
+          description: Opcional. Se formalizará al definir equipos.
+        reason:
+          type: string
+          maxLength: 1000
+      required:
+        - departmentId
+      additionalProperties: false
+    AssignmentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        department:
+          $ref: '#/components/schemas/DepartmentDTO'
+        technician:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        teamId:
+          type: string
+        assignedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        reason:
+          type: string
+        assignedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - department
+        - assignedBy
+        - assignedAt
+    StatusChangeRequest:
+      type: object
+      properties:
+        toStatus:
+          type: string
+          enum:
+            - IN_PROGRESS
+            - RESOLVED
+            - REOPENED
+            - CLOSED
+          description: Validación y asignación tienen operaciones propias.
+        reason:
+          type: string
+          description: Motivo exigible en reapertura/cierre, según reglas a acordar.
+          maxLength: 2000
+        resolutionNotes:
+          type: string
+          description: Obligatoria al pasar a RESOLVED; detalle de la actuación.
+          maxLength: 5000
+      required:
+        - toStatus
+      additionalProperties: false
+    StatusChangeDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        fromStatus:
+          $ref: '#/components/schemas/IncidentStatus'
+        toStatus:
+          $ref: '#/components/schemas/IncidentStatus'
+        reason:
+          type: string
+        resolutionNotes:
+          type: string
+        changedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        changedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - fromStatus
+        - toStatus
+        - changedBy
+        - changedAt
+    CommentRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        visibility:
+          type: string
+          enum:
+            - PUBLIC
+            - INTERNAL
+          description: INTERNAL solo para personal municipal.
+      required:
+        - body
+        - visibility
+      additionalProperties: false
+    CommentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        body:
+          type: string
+        visibility:
+          type: string
+          enum:
+            - PUBLIC
+            - INTERNAL
+        author:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - body
+        - visibility
+        - author
+        - createdAt
+    HistoryEventDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+          enum:
+            - CREATED
+            - REVIEWED
+            - PRIORITIZED
+            - ASSIGNED
+            - STATUS_CHANGED
+            - COMMENTED
+            - ATTACHMENT_ADDED
+            - ASSET_LINKED
+        occurredAt:
+          type: string
+          format: date-time
+        actor:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          description: Datos públicos o internos según permisos; sin información sensible.
+      required:
+        - id
+        - eventType
+        - occurredAt
+        - summary
+    DuplicateSuggestionDTO:
+      type: object
+      properties:
+        incident:
+          $ref: '#/components/schemas/IncidentSummaryDTO'
+        score:
+          type: number
+          description: Probabilidad o similitud normalizada.
+          minimum: 0
+          maximum: 1
+        reasons:
+          type: array
+          items:
+            type: string
+          description: Proximidad, tiempo y/o semántica.
+      required:
+        - incident
+        - score
+        - reasons
+    DuplicateLinkRequest:
+      type: object
+      properties:
+        candidateIncidentId:
+          type: string
+        reason:
+          type: string
+      required:
+        - candidateIncidentId
+      additionalProperties: false
+    DuplicateLinkDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        candidateIncidentId:
+          type: string
+        linkedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        linkedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - candidateIncidentId
+        - linkedAt
+    UrbanAssetDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          example: BUS_STOP_3948
+        type:
+          type: string
+          example: BUS_STOP
+        name:
+          type: string
+        source:
+          type: string
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Metadatos heterogéneos del proveedor.
+      required:
+        - id
+        - type
+        - source
+        - coordinates
+    UrbanAssetCandidateDTO:
+      type: object
+      properties:
+        asset:
+          $ref: '#/components/schemas/UrbanAssetDTO'
+        distanceMeters:
+          type: number
+          minimum: 0
+          example: 7
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.87
+      required:
+        - asset
+        - distanceMeters
+        - confidence
+    UrbanAssetAssociationRequest:
+      type: object
+      properties:
+        assetId:
+          type: string
+        reason:
+          type: string
+          maxLength: 2000
+      required:
+        - assetId
+      additionalProperties: false
+    UrbanAssetAssociationDTO:
+      type: object
+      properties:
+        asset:
+          $ref: '#/components/schemas/UrbanAssetDTO'
+        distanceMeters:
+          type: number
+          minimum: 0
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        associationMethod:
+          type: string
+          enum:
+            - INFERRED
+            - EXPLICIT
+            - OPERATOR_CONFIRMED
+        confirmedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        associatedAt:
+          type: string
+          format: date-time
+      required:
+        - asset
+        - associationMethod
+        - associatedAt
+    ExternalObservationDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        metric:
+          type: string
+          example: temperature
+        value:
+          oneOf:
+            - type: number
+            - type: string
+            - type: boolean
+        unit:
+          type: string
+          example: C
+        quality:
+          type: string
+          enum:
+            - GOOD
+            - ESTIMATED
+            - UNKNOWN
+            - POOR
+        status:
+          type: string
+          enum:
+            - CURRENT
+            - STALE
+            - UNAVAILABLE
+        observedAt:
+          type: string
+          format: date-time
+        ingestedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+      required:
+        - id
+        - sourceId
+        - metric
+        - value
+        - quality
+        - status
+        - observedAt
+        - ingestedAt
+    UrbanContextDTO:
+      type: object
+      properties:
+        incidentId:
+          type: string
+        status:
+          type: string
+          enum:
+            - PENDING
+            - AVAILABLE
+            - PARTIAL
+            - UNAVAILABLE
+        generatedAt:
+          type: string
+          format: date-time
+        observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalObservationDTO'
+        nearbyAssets:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrbanAssetCandidateDTO'
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Fuentes que no pudieron aportar datos.
+      required:
+        - incidentId
+        - status
+        - generatedAt
+        - observations
+        - nearbyAssets
+        - warnings
+      description: La falta de proveedores externos no impide registrar incidencias ni provoca un error del reporte.
+    MapFeatureDTO:
+      type: object
+      properties:
+        incidentId:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        coordinates:
+          $ref: '#/components/schemas/CoordinatesDTO'
+        categoryId:
+          type: string
+      required:
+        - incidentId
+        - title
+        - status
+        - coordinates
+    MapIncidentsDTO:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MapFeatureDTO'
+        count:
+          type: integer
+          minimum: 0
+      required:
+        - items
+        - count
+    NotificationDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          example: INCIDENT_STATUS_CHANGED
+        title:
+          type: string
+        message:
+          type: string
+        incidentId:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        channel:
+          type: string
+          enum:
+            - IN_APP
+            - EMAIL
+            - PUSH
+        deliveryStatus:
+          type: string
+          enum:
+            - PENDING
+            - SENT
+            - FAILED
+      required:
+        - id
+        - type
+        - title
+        - message
+        - read
+        - createdAt
+        - channel
+        - deliveryStatus
+    NotificationPreferencesDTO:
+      type: object
+      properties:
+        inApp:
+          type: boolean
+        email:
+          type: boolean
+        push:
+          type: boolean
+      required:
+        - inApp
+        - email
+        - push
+    NotificationPreferencesRequest:
+      type: object
+      properties:
+        inApp:
+          type: boolean
+        email:
+          type: boolean
+        push:
+          type: boolean
+      required:
+        - inApp
+        - email
+        - push
+      additionalProperties: false
+    StatisticsDTO:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        totalIncidents:
+          type: integer
+          minimum: 0
+        byStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountBucketDTO'
+        byCategory:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountBucketDTO'
+        byDistrict:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountBucketDTO'
+        averageResolutionHours:
+          type: number
+          minimum: 0
+      required:
+        - from
+        - to
+        - totalIncidents
+        - byStatus
+        - byCategory
+        - byDistrict
+    CountBucketDTO:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+      required:
+        - key
+        - label
+        - count
+    ZoneAnalysisDTO:
+      type: object
+      properties:
+        zoneId:
+          type: string
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        statistics:
+          $ref: '#/components/schemas/StatisticsDTO'
+        observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalObservationDTO'
+      required:
+        - zoneId
+        - from
+        - to
+        - statistics
+        - observations
+    HotspotDTO:
+      type: object
+      properties:
+        zoneId:
+          type: string
+        center:
+          $ref: '#/components/schemas/CoordinatesDTO'
+        incidentCount:
+          type: integer
+          minimum: 0
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+      required:
+        - zoneId
+        - center
+        - incidentCount
+        - score
+    CorrelationDTO:
+      type: object
+      properties:
+        variable:
+          type: string
+        correlation:
+          type: number
+          minimum: -1
+          maximum: 1
+        sampleSize:
+          type: integer
+          minimum: 0
+        explanation:
+          type: string
+          description: Indica limitaciones; correlación no implica causalidad.
+      required:
+        - variable
+        - correlation
+        - sampleSize
+    ReportRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        districtId:
+          type: string
+        format:
+          type: string
+          enum:
+            - CSV
+            - PDF
+        groupBy:
+          type: string
+          enum:
+            - STATUS
+            - CATEGORY
+            - DISTRICT
+            - MONTH
+      required:
+        - from
+        - to
+        - format
+      additionalProperties: false
+    ReportDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - PROCESSING
+            - COMPLETED
+            - FAILED
+        format:
+          type: string
+          enum:
+            - CSV
+            - PDF
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        requestedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        errorMessage:
+          type: string
+      required:
+        - id
+        - status
+        - format
+        - createdAt
+    AIAssessmentRequest:
+      type: object
+      properties:
+        incidentId:
+          type: string
+        tasks:
+          type: array
+          items:
+            type: string
+            enum:
+              - CLASSIFICATION
+              - PRIORITIZATION
+              - SUMMARY
+              - RECOMMENDATION
+          minItems: 1
+          uniqueItems: true
+      required:
+        - incidentId
+        - tasks
+      additionalProperties: false
+    AIRecommendationDTO:
+      type: object
+      properties:
+        text:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        reasoningSummary:
+          type: string
+          description: Justificación resumida, no cadena interna de razonamiento.
+      required:
+        - text
+        - confidence
+    AIAssessmentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        incidentId:
+          type: string
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - PROCESSING
+            - COMPLETED
+            - FAILED
+        suggestedCategoryId:
+          type: string
+        suggestedPriority:
+          $ref: '#/components/schemas/IncidentPriority'
+        summary:
+          type: string
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIRecommendationDTO'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        modelId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - status
+        - createdAt
+    TrainingRequest:
+      type: object
+      properties:
+        task:
+          type: string
+          enum:
+            - CLASSIFICATION
+            - PRIORITIZATION
+            - HOTSPOT_DETECTION
+        datasetRef:
+          type: string
+          description: Conjunto de datos aprobado. No incluir información personal en crudo.
+        parameters:
+          type: object
+          additionalProperties: true
+      required:
+        - task
+        - datasetRef
+      additionalProperties: false
+    TrainingJobDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        task:
+          type: string
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - COMPLETED
+            - FAILED
+        modelId:
+          type: string
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+          description: Métricas de evaluación.
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - task
+        - status
+        - createdAt
+    KnowledgeDocumentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        version:
+          type: string
+        source:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        indexingStatus:
+          type: string
+          enum:
+            - PENDING
+            - INDEXED
+            - FAILED
+      required:
+        - id
+        - title
+        - version
+        - uploadedAt
+        - indexingStatus
+    KnowledgeQueryRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 5
+          maxLength: 2000
+        incidentId:
+          type: string
+          description: Permite contextualizar una consulta.
+        maxCitations:
+          type: integer
+          minimum: 1
+          maximum: 20
+      required:
+        - question
+      additionalProperties: false
+    KnowledgeCitationDTO:
+      type: object
+      properties:
+        documentId:
+          type: string
+        documentTitle:
+          type: string
+        documentVersion:
+          type: string
+        excerpt:
+          type: string
+          description: Fragmento recuperado.
+        section:
+          type: string
+      required:
+        - documentId
+        - documentTitle
+        - documentVersion
+        - excerpt
+    KnowledgeAnswerDTO:
+      type: object
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeCitationDTO'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        insufficientEvidence:
+          type: boolean
+          description: Verdadero si la documentación recuperada no basta para responder.
+      required:
+        - answer
+        - citations
+        - insufficientEvidence
+    ExternalSourceDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - WEATHER
+            - TRAFFIC
+            - MOBILITY
+            - EVENTS
+            - ENVIRONMENT
+            - TERRITORY
+            - OTHER
+        enabled:
+          type: boolean
+        lastSuccessfulSyncAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - AVAILABLE
+            - DEGRADED
+            - UNAVAILABLE
+            - UNKNOWN
+      required:
+        - id
+        - name
+        - type
+        - enabled
+        - status
+    ExternalSourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - WEATHER
+            - TRAFFIC
+            - MOBILITY
+            - EVENTS
+            - ENVIRONMENT
+            - TERRITORY
+            - OTHER
+        enabled:
+          type: boolean
+      required:
+        - name
+        - type
+      additionalProperties: false
+    ExternalSourcePatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - WEATHER
+            - TRAFFIC
+            - MOBILITY
+            - EVENTS
+            - ENVIRONMENT
+            - TERRITORY
+            - OTHER
+        enabled:
+          type: boolean
+      description: Modifica parcialmente una fuente de datos.
+      additionalProperties: false
+      minProperties: 1
+    AuditEventDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        actor:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        action:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+        summary:
+          type: string
+      required:
+        - id
+        - action
+        - resourceType
+        - resourceId
+        - occurredAt
+    UsersPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+    NotificationsPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+    ReportsPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+    AuditPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+  parameters:
+    IncidentId:
+      name: incidentId
+      in: path
+      required: true
+      description: 'Identificador público opaco: incidentId.'
+      schema:
+        type: string
+        minLength: 1
+    AttachmentId:
+      name: attachmentId
+      in: path
+      required: true
+      description: 'Identificador público opaco: attachmentId.'
+      schema:
+        type: string
+        minLength: 1
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: 'Identificador público opaco: userId.'
+      schema:
+        type: string
+        minLength: 1
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      description: 'Identificador público opaco: categoryId.'
+      schema:
+        type: string
+        minLength: 1
+    DepartmentId:
+      name: departmentId
+      in: path
+      required: true
+      description: 'Identificador público opaco: departmentId.'
+      schema:
+        type: string
+        minLength: 1
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      description: 'Identificador público opaco: assetId.'
+      schema:
+        type: string
+        minLength: 1
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      description: 'Identificador público opaco: reportId.'
+      schema:
+        type: string
+        minLength: 1
+    AssessmentId:
+      name: assessmentId
+      in: path
+      required: true
+      description: 'Identificador público opaco: assessmentId.'
+      schema:
+        type: string
+        minLength: 1
+    TrainingId:
+      name: trainingId
+      in: path
+      required: true
+      description: 'Identificador público opaco: trainingId.'
+      schema:
+        type: string
+        minLength: 1
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      description: 'Identificador público opaco: documentId.'
+      schema:
+        type: string
+        minLength: 1
+    SourceId:
+      name: sourceId
+      in: path
+      required: true
+      description: 'Identificador público opaco: sourceId.'
+      schema:
+        type: string
+        minLength: 1
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      description: 'Identificador público opaco: invitationId.'
+      schema:
+        type: string
+        minLength: 1
+    ZoneId:
+      name: zoneId
+      in: path
+      required: true
+      description: 'Identificador público opaco: zoneId.'
+      schema:
+        type: string
+        minLength: 1
+    Page:
+      name: page
+      in: query
+      description: Página a partir de 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: Elementos por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    FromDate:
+      name: from
+      in: query
+      description: Fecha inicial inclusive.
+      schema:
+        type: string
+        format: date
+    ToDate:
+      name: to
+      in: query
+      description: Fecha final inclusive.
+      schema:
+        type: string
+        format: date
+  responses:
+    BadRequest:
+      description: Solicitud sintácticamente incorrecta o parámetros inválidos.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Unauthorized:
+      description: No se ha proporcionado un JWT válido.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Forbidden:
+      description: Permisos insuficientes o recurso no accesible para este usuario.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFound:
+      description: Recurso inexistente o no visible para este usuario.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Conflict:
+      description: Regla de negocio, conflicto de estado, dato duplicado o concurrencia.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    ValidationError:
+      description: La estructura es correcta, pero los datos incumplen las validaciones.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    TooManyRequests:
+      description: Se ha superado el límite de solicitudes.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    InternalError:
+      description: Error inesperado del servidor.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    ServiceUnavailable:
+      description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'

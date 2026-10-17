@@ -1,0 +1,119 @@
+StatisticsDTO:
+  type: object
+  properties:
+    from:
+      type: string
+      format: date
+    to:
+      type: string
+      format: date
+    totalIncidents:
+      type: integer
+      minimum: 0
+    byStatus:
+      type: array
+      items:
+        $ref: "./analitica.yaml#/CountBucketDTO"
+    byCategory:
+      type: array
+      items:
+        $ref: "./analitica.yaml#/CountBucketDTO"
+    byDistrict:
+      type: array
+      items:
+        $ref: "./analitica.yaml#/CountBucketDTO"
+    averageResolutionHours:
+      type: number
+      minimum: 0
+  required:
+    - from
+    - to
+    - totalIncidents
+    - byStatus
+    - byCategory
+    - byDistrict
+
+CountBucketDTO:
+  type: object
+  properties:
+    key:
+      type: string
+    label:
+      type: string
+    count:
+      type: integer
+      minimum: 0
+  required:
+    - key
+    - label
+    - count
+
+ZoneAnalysisDTO:
+  type: object
+  properties:
+    zoneId:
+      type: string
+    from:
+      type: string
+      format: date
+    to:
+      type: string
+      format: date
+    statistics:
+      $ref: "./analitica.yaml#/StatisticsDTO"
+    observations:
+      type: array
+      items:
+        $ref: "./contexto-urbano.yaml#/ExternalObservationDTO"
+  required:
+    - zoneId
+    - from
+    - to
+    - statistics
+    - observations
+
+HotspotDTO:
+  type: object
+  properties:
+    zoneId:
+      type: string
+    center:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+    incidentCount:
+      type: integer
+      minimum: 0
+    score:
+      type: number
+      minimum: 0
+      maximum: 1
+    periodStart:
+      type: string
+      format: date-time
+    periodEnd:
+      type: string
+      format: date-time
+  required:
+    - zoneId
+    - center
+    - incidentCount
+    - score
+
+CorrelationDTO:
+  type: object
+  properties:
+    variable:
+      type: string
+    correlation:
+      type: number
+      minimum: -1
+      maximum: 1
+    sampleSize:
+      type: integer
+      minimum: 0
+    explanation:
+      type: string
+      description: Indica limitaciones; correlación no implica causalidad.
+  required:
+    - variable
+    - correlation
+    - sampleSize

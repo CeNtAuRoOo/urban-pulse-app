@@ -1,0 +1,118 @@
+ExternalSourceDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    type:
+      type: string
+      enum:
+        - WEATHER
+        - TRAFFIC
+        - MOBILITY
+        - EVENTS
+        - ENVIRONMENT
+        - TERRITORY
+        - OTHER
+    enabled:
+      type: boolean
+    lastSuccessfulSyncAt:
+      type: string
+      format: date-time
+    status:
+      type: string
+      enum:
+        - AVAILABLE
+        - DEGRADED
+        - UNAVAILABLE
+        - UNKNOWN
+  required:
+    - id
+    - name
+    - type
+    - enabled
+    - status
+
+ExternalSourceRequest:
+  type: object
+  properties:
+    name:
+      type: string
+    type:
+      type: string
+      enum:
+        - WEATHER
+        - TRAFFIC
+        - MOBILITY
+        - EVENTS
+        - ENVIRONMENT
+        - TERRITORY
+        - OTHER
+    enabled:
+      type: boolean
+  required:
+    - name
+    - type
+  additionalProperties: false
+
+ExternalSourcePatchRequest:
+  type: object
+  properties:
+    name:
+      type: string
+    type:
+      type: string
+      enum:
+        - WEATHER
+        - TRAFFIC
+        - MOBILITY
+        - EVENTS
+        - ENVIRONMENT
+        - TERRITORY
+        - OTHER
+    enabled:
+      type: boolean
+  description: Modifica parcialmente una fuente de datos.
+  additionalProperties: false
+  minProperties: 1
+
+AuditEventDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    actor:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    action:
+      type: string
+    resourceType:
+      type: string
+    resourceId:
+      type: string
+    occurredAt:
+      type: string
+      format: date-time
+    requestId:
+      type: string
+    summary:
+      type: string
+  required:
+    - id
+    - action
+    - resourceType
+    - resourceId
+    - occurredAt
+
+AuditPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./administracion.yaml#/AuditEventDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+  required:
+    - data
+    - pagination

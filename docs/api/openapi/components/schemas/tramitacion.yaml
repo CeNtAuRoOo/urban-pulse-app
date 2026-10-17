@@ -1,0 +1,249 @@
+ReviewRequest:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - VALIDATE
+        - REJECT
+        - REQUEST_INFORMATION
+    reason:
+      type: string
+      description: Obligatorio en rechazo o solicitud de información.
+      minLength: 3
+      maxLength: 2000
+    categoryId:
+      type: string
+      description: Permite confirmar o corregir la clasificación.
+  required:
+    - decision
+  additionalProperties: false
+
+ReviewDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    decision:
+      type: string
+      enum:
+        - VALIDATE
+        - REJECT
+        - REQUEST_INFORMATION
+    reason:
+      type: string
+    reviewedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    reviewedAt:
+      type: string
+      format: date-time
+    resultingStatus:
+      $ref: "./incidencias.yaml#/IncidentStatus"
+  required:
+    - id
+    - incidentId
+    - decision
+    - reviewedBy
+    - reviewedAt
+    - resultingStatus
+
+PriorityRequest:
+  type: object
+  properties:
+    priority:
+      $ref: "./incidencias.yaml#/IncidentPriority"
+    source:
+      type: string
+      enum:
+        - MANUAL
+        - ASSISTED
+    justification:
+      type: string
+      minLength: 3
+      maxLength: 2000
+    assessmentId:
+      type: string
+      description: Referencia a evaluación de IA, si aplica.
+  required:
+    - priority
+    - source
+    - justification
+  additionalProperties: false
+
+PriorityDecisionDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    priority:
+      $ref: "./incidencias.yaml#/IncidentPriority"
+    source:
+      type: string
+      enum:
+        - MANUAL
+        - ASSISTED
+    justification:
+      type: string
+    assessmentId:
+      type: string
+    decidedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    decidedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - priority
+    - source
+    - justification
+    - decidedBy
+    - decidedAt
+
+AssignmentRequest:
+  type: object
+  properties:
+    departmentId:
+      type: string
+    technicianId:
+      type: string
+      description: Opcional.
+    teamId:
+      type: string
+      description: Opcional. Se formalizará al definir equipos.
+    reason:
+      type: string
+      maxLength: 1000
+  required:
+    - departmentId
+  additionalProperties: false
+
+AssignmentDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    department:
+      $ref: "./catalogos.yaml#/DepartmentDTO"
+    technician:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    teamId:
+      type: string
+    assignedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    reason:
+      type: string
+    assignedAt:
+      type: string
+      format: date-time
+    endedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - department
+    - assignedBy
+    - assignedAt
+
+StatusChangeRequest:
+  type: object
+  properties:
+    toStatus:
+      type: string
+      enum:
+        - IN_PROGRESS
+        - RESOLVED
+        - REOPENED
+        - CLOSED
+      description: Validación y asignación tienen operaciones propias.
+    reason:
+      type: string
+      description: Motivo exigible en reapertura/cierre, según reglas a acordar.
+      maxLength: 2000
+    resolutionNotes:
+      type: string
+      description: Obligatoria al pasar a RESOLVED; detalle de la actuación.
+      maxLength: 5000
+  required:
+    - toStatus
+  additionalProperties: false
+
+StatusChangeDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    fromStatus:
+      $ref: "./incidencias.yaml#/IncidentStatus"
+    toStatus:
+      $ref: "./incidencias.yaml#/IncidentStatus"
+    reason:
+      type: string
+    resolutionNotes:
+      type: string
+    changedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    changedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - fromStatus
+    - toStatus
+    - changedBy
+    - changedAt
+
+CommentRequest:
+  type: object
+  properties:
+    body:
+      type: string
+      minLength: 1
+      maxLength: 4000
+    visibility:
+      type: string
+      enum:
+        - PUBLIC
+        - INTERNAL
+      description: INTERNAL solo para personal municipal.
+  required:
+    - body
+    - visibility
+  additionalProperties: false
+
+CommentDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    body:
+      type: string
+    visibility:
+      type: string
+      enum:
+        - PUBLIC
+        - INTERNAL
+    author:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    createdAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - body
+    - visibility
+    - author
+    - createdAt

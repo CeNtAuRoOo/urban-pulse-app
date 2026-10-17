@@ -1,0 +1,85 @@
+NotificationDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+      example: INCIDENT_STATUS_CHANGED
+    title:
+      type: string
+    message:
+      type: string
+    incidentId:
+      type: string
+    read:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+    deliveredAt:
+      type: string
+      format: date-time
+    channel:
+      type: string
+      enum:
+        - IN_APP
+        - EMAIL
+        - PUSH
+    deliveryStatus:
+      type: string
+      enum:
+        - PENDING
+        - SENT
+        - FAILED
+  required:
+    - id
+    - type
+    - title
+    - message
+    - read
+    - createdAt
+    - channel
+    - deliveryStatus
+
+NotificationPreferencesDTO:
+  type: object
+  properties:
+    inApp:
+      type: boolean
+    email:
+      type: boolean
+    push:
+      type: boolean
+  required:
+    - inApp
+    - email
+    - push
+
+NotificationPreferencesRequest:
+  type: object
+  properties:
+    inApp:
+      type: boolean
+    email:
+      type: boolean
+    push:
+      type: boolean
+  required:
+    - inApp
+    - email
+    - push
+  additionalProperties: false
+
+NotificationsPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./notificaciones.yaml#/NotificationDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+  required:
+    - data
+    - pagination

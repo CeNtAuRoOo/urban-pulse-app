@@ -1,0 +1,151 @@
+IncidentId:
+  name: incidentId
+  in: path
+  required: true
+  description: "Identificador público opaco: incidentId."
+  schema:
+    type: string
+    minLength: 1
+
+AttachmentId:
+  name: attachmentId
+  in: path
+  required: true
+  description: "Identificador público opaco: attachmentId."
+  schema:
+    type: string
+    minLength: 1
+
+UserId:
+  name: userId
+  in: path
+  required: true
+  description: "Identificador público opaco: userId."
+  schema:
+    type: string
+    minLength: 1
+
+CategoryId:
+  name: categoryId
+  in: path
+  required: true
+  description: "Identificador público opaco: categoryId."
+  schema:
+    type: string
+    minLength: 1
+
+DepartmentId:
+  name: departmentId
+  in: path
+  required: true
+  description: "Identificador público opaco: departmentId."
+  schema:
+    type: string
+    minLength: 1
+
+AssetId:
+  name: assetId
+  in: path
+  required: true
+  description: "Identificador público opaco: assetId."
+  schema:
+    type: string
+    minLength: 1
+
+ReportId:
+  name: reportId
+  in: path
+  required: true
+  description: "Identificador público opaco: reportId."
+  schema:
+    type: string
+    minLength: 1
+
+AssessmentId:
+  name: assessmentId
+  in: path
+  required: true
+  description: "Identificador público opaco: assessmentId."
+  schema:
+    type: string
+    minLength: 1
+
+TrainingId:
+  name: trainingId
+  in: path
+  required: true
+  description: "Identificador público opaco: trainingId."
+  schema:
+    type: string
+    minLength: 1
+
+DocumentId:
+  name: documentId
+  in: path
+  required: true
+  description: "Identificador público opaco: documentId."
+  schema:
+    type: string
+    minLength: 1
+
+SourceId:
+  name: sourceId
+  in: path
+  required: true
+  description: "Identificador público opaco: sourceId."
+  schema:
+    type: string
+    minLength: 1
+
+InvitationId:
+  name: invitationId
+  in: path
+  required: true
+  description: "Identificador público opaco: invitationId."
+  schema:
+    type: string
+    minLength: 1
+
+ZoneId:
+  name: zoneId
+  in: path
+  required: true
+  description: "Identificador público opaco: zoneId."
+  schema:
+    type: string
+    minLength: 1
+
+Page:
+  name: page
+  in: query
+  description: Página a partir de 1.
+  schema:
+    type: integer
+    minimum: 1
+    default: 1
+
+PageSize:
+  name: pageSize
+  in: query
+  description: Elementos por página.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+
+FromDate:
+  name: from
+  in: query
+  description: Fecha inicial inclusive.
+  schema:
+    type: string
+    format: date
+
+ToDate:
+  name: to
+  in: query
+  description: Fecha final inclusive.
+  schema:
+    type: string
+    format: date

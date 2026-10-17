@@ -1,0 +1,139 @@
+/staff-invitations:
+  post:
+    tags:
+      - Invitaciones
+    summary: Crear invitación municipal
+    description: "PROPUESTA ADR-0007: el código solo se muestra en esta respuesta y se almacena protegido."
+    operationId: postStaffInvitations
+    x-roles:
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/invitaciones.yaml#/InvitationRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/invitaciones.yaml#/InvitationCreatedDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Invitaciones
+    summary: Listar invitaciones
+    description: Devuelve metadatos, nunca el código original en claro.
+    operationId: getStaffInvitations
+    x-roles:
+      - ADMIN
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/invitaciones.yaml#/InvitationDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/auth/staff-registrations:
+  post:
+    tags:
+      - Invitaciones
+    summary: Canjear invitación
+    description: "PROPUESTA ADR-0007: canje atómico de un solo uso; reglas de elegibilidad por definir."
+    operationId: postAuthStaffRegistrations
+    security: []
+    x-roles:
+      - PUBLIC
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/invitaciones.yaml#/StaffRegistrationRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/staff-invitations/{invitationId}/revocations:
+  post:
+    tags:
+      - Invitaciones
+    summary: Revocar invitación
+    description: Invalida una invitación activa. Operación administrativa auditada.
+    operationId: postStaffInvitationsInvitationIdRevocations
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/InvitationId"
+    responses:
+      "204":
+        description: Operación correcta, sin cuerpo de respuesta.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

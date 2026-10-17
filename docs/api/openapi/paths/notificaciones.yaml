@@ -1,0 +1,151 @@
+/notifications:
+  get:
+    tags:
+      - Notificaciones
+    summary: Consultar bandeja
+    description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
+    operationId: getNotifications
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - name: read
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar leídas/no leídas.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/notificaciones.yaml#/NotificationsPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/notifications/{notificationId}:
+  patch:
+    tags:
+      - Notificaciones
+    summary: Marcar como leída
+    description: Actualiza el indicador de lectura de una notificación propia.
+    operationId: patchNotificationsNotificationId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              read:
+                type: boolean
+            required:
+              - read
+            additionalProperties: false
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/notificaciones.yaml#/NotificationDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/users/me/notification-preferences:
+  get:
+    tags:
+      - Notificaciones
+    summary: Consultar preferencias
+    description: Canales configurados para el usuario.
+    operationId: getUsersMeNotificationPreferences
+    x-roles:
+      - AUTHENTICATED
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/notificaciones.yaml#/NotificationPreferencesDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  put:
+    tags:
+      - Notificaciones
+    summary: Actualizar preferencias
+    description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los proveedores.
+    operationId: putUsersMeNotificationPreferences
+    x-roles:
+      - AUTHENTICATED
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/notificaciones.yaml#/NotificationPreferencesRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/notificaciones.yaml#/NotificationPreferencesDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

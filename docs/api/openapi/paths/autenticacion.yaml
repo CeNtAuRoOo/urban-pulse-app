@@ -1,0 +1,76 @@
+/auth/register:
+  post:
+    tags:
+      - Autenticación
+    summary: Registrar ciudadano
+    description: Crea una cuenta con rol CITIZEN. La petición no admite seleccionar roles privilegiados.
+    operationId: postAuthRegister
+    security: []
+    x-roles:
+      - PUBLIC
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/autenticacion.yaml#/RegisterRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+
+/auth/login:
+  post:
+    tags:
+      - Autenticación
+    summary: Iniciar sesión
+    description: Valida credenciales y emite un JWT Bearer. Duración, renovación y revocación aún por definir.
+    operationId: postAuthLogin
+    security: []
+    x-roles:
+      - PUBLIC
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/autenticacion.yaml#/LoginRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/autenticacion.yaml#/TokenDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"

@@ -31,7 +31,7 @@ Se utilizará el siguiente formato:
 
 `tipo(scope): descripción del cambio`
 
-El scope indica la parte del proyecto afectada (backend o frontend). Será opcional para cambios generales que afecten a todo el proyecto.
+El scope indica la parte del proyecto afectada (por ejemplo, `backend`, `frontend` o `api`). Será opcional para cambios generales que afecten a todo el proyecto.
 
 Ejemplos:
 
@@ -47,6 +47,7 @@ Ejemplos:
 - `test(backend): añadir pruebas del servicio de incidencias`
 
 - `docs: actualizar la documentación de arquitectura`
+- `docs(api): añadir la primera especificación OpenAPI modular`
 - `test: añadir pruebas de integración entre frontend y backend`
 - `ci: configurar GitHub Actions para ejecutar las pruebas`
 
@@ -54,13 +55,14 @@ Ejemplos:
 
 - **Frontend:** antes de abrir un PR, ejecutar desde `frontend/` las comprobaciones `npx expo install --check`, `npx tsc --noEmit` y `npm run lint`. Cuando proceda, comprobar `npx expo export --platform web`. Documentar cualquier advertencia de `npm audit` relevante para el cambio.
 - **Backend:** ejecutar `mvn test` / `mvn verify` para las pruebas unitarias aisladas. Los tests de conexión externa `*IT` no se ejecutan por defecto; para verificar Neon `development` de forma expresa, usar `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test`. No ejecutar pruebas externas ni migraciones experimentales contra `production`; documentar los resultados reales y las limitaciones en el PR.
+- **Contrato API:** una tarea por tag. Revisar la especificación en `docs/api/openapi/paths/` y sus DTOs **antes de implementar**; documentar las decisiones pendientes y comprobar posibles efectos sobre otros tags. Validar la entrada `docs/api/openapi/base-openapi.yaml` y, si se mantiene `docs/api/openapi.yaml`, regenerar la copia completa desde las fuentes modulares. Consultar las instrucciones y los comandos **propuestos** en [docs/api/README.md](docs/api/README.md).
 - **Documentación/infraestructura:** comprobar rutas relativas, variables de ejemplo, `git diff --check` y ausencia de secretos; no afirmar que se han ejecutado pruebas no realizadas.
 
 Los comandos y resultados probados se mantienen en [la guía de desarrollo](docs/development.md).
 
 ## Pull Requests
 
-Cada Pull Request deberá describir los cambios realizados, su motivación y las pruebas ejecutadas.
+Cada Pull Request deberá describir los cambios realizados, su motivación y las pruebas ejecutadas. Para un PR de un tag, señalar expresamente **qué operaciones y DTOs se han revisado**, qué decisiones quedan abiertas, qué pruebas se han realizado y si las operaciones están **solo documentadas o también implementadas**.
 
 No se deben fusionar cambios que rompan el funcionamiento del proyecto.
 

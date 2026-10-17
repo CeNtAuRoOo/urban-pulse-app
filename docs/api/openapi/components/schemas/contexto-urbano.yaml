@@ -1,0 +1,172 @@
+UrbanAssetDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: BUS_STOP_3948
+    type:
+      type: string
+      example: BUS_STOP
+    name:
+      type: string
+    source:
+      type: string
+    coordinates:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+    metadata:
+      type: object
+      additionalProperties: true
+      description: Metadatos heterogéneos del proveedor.
+  required:
+    - id
+    - type
+    - source
+    - coordinates
+
+UrbanAssetCandidateDTO:
+  type: object
+  properties:
+    asset:
+      $ref: "./contexto-urbano.yaml#/UrbanAssetDTO"
+    distanceMeters:
+      type: number
+      minimum: 0
+      example: 7
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+      example: 0.87
+  required:
+    - asset
+    - distanceMeters
+    - confidence
+
+UrbanAssetAssociationRequest:
+  type: object
+  properties:
+    assetId:
+      type: string
+    reason:
+      type: string
+      maxLength: 2000
+  required:
+    - assetId
+  additionalProperties: false
+
+UrbanAssetAssociationDTO:
+  type: object
+  properties:
+    asset:
+      $ref: "./contexto-urbano.yaml#/UrbanAssetDTO"
+    distanceMeters:
+      type: number
+      minimum: 0
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    associationMethod:
+      type: string
+      enum:
+        - INFERRED
+        - EXPLICIT
+        - OPERATOR_CONFIRMED
+    confirmedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    associatedAt:
+      type: string
+      format: date-time
+  required:
+    - asset
+    - associationMethod
+    - associatedAt
+
+ExternalObservationDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    sourceId:
+      type: string
+    metric:
+      type: string
+      example: temperature
+    value:
+      oneOf:
+        - type: number
+        - type: string
+        - type: boolean
+    unit:
+      type: string
+      example: C
+    quality:
+      type: string
+      enum:
+        - GOOD
+        - ESTIMATED
+        - UNKNOWN
+        - POOR
+    status:
+      type: string
+      enum:
+        - CURRENT
+        - STALE
+        - UNAVAILABLE
+    observedAt:
+      type: string
+      format: date-time
+    ingestedAt:
+      type: string
+      format: date-time
+    expiresAt:
+      type: string
+      format: date-time
+    coordinates:
+      $ref: "./comunes.yaml#/CoordinatesDTO"
+  required:
+    - id
+    - sourceId
+    - metric
+    - value
+    - quality
+    - status
+    - observedAt
+    - ingestedAt
+
+UrbanContextDTO:
+  type: object
+  properties:
+    incidentId:
+      type: string
+    status:
+      type: string
+      enum:
+        - PENDING
+        - AVAILABLE
+        - PARTIAL
+        - UNAVAILABLE
+    generatedAt:
+      type: string
+      format: date-time
+    observations:
+      type: array
+      items:
+        $ref: "./contexto-urbano.yaml#/ExternalObservationDTO"
+    nearbyAssets:
+      type: array
+      items:
+        $ref: "./contexto-urbano.yaml#/UrbanAssetCandidateDTO"
+    warnings:
+      type: array
+      items:
+        type: string
+      description: Fuentes que no pudieron aportar datos.
+  required:
+    - incidentId
+    - status
+    - generatedAt
+    - observations
+    - nearbyAssets
+    - warnings
+  description: La falta de proveedores externos no impide registrar incidencias ni provoca un error del reporte.

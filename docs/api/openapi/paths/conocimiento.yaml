@@ -1,0 +1,128 @@
+/knowledge/documents:
+  post:
+    tags:
+      - Conocimiento
+    summary: Incorporar documento
+    description:
+      Sube procedimiento versionado para indexación posterior. Su autorización y retención se concretarán
+      al abordar RAG.
+    operationId: postKnowledgeDocuments
+    x-roles:
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
+                description: Procedimiento o normativa PDF.
+              title:
+                type: string
+              version:
+                type: string
+              source:
+                type: string
+            required:
+              - file
+              - title
+              - version
+            additionalProperties: false
+    responses:
+      "202":
+        description: Solicitud aceptada para procesamiento asíncrono.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/conocimiento.yaml#/KnowledgeDocumentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Conocimiento
+    summary: Listar documentos
+    description: Catálogo de documentos indexados y versiones.
+    operationId: getKnowledgeDocuments
+    x-roles:
+      - OPERATOR
+      - ANALYST
+      - ADMIN
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/conocimiento.yaml#/KnowledgeDocumentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/knowledge/queries:
+  post:
+    tags:
+      - Conocimiento
+    summary: Consultar procedimientos con RAG
+    description:
+      Responde con citas documentales verificables; marca insuficiencia de evidencia y no suplanta
+      decisiones humanas.
+    operationId: postKnowledgeQueries
+    x-roles:
+      - OPERATOR
+      - TECHNICIAN
+      - ANALYST
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/conocimiento.yaml#/KnowledgeQueryRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/conocimiento.yaml#/KnowledgeAnswerDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

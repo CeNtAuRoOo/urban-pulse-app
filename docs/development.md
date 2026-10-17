@@ -48,6 +48,16 @@ urban-pulse-app/
 │   ├── Dockerfile
 │   └── Dockerfile.dev
 ├── docs/
+│   ├── api/
+│   │   ├── README.md            # Guía y revisión por tags
+│   │   ├── openapi.yaml         # Copia completa; no editar manualmente
+│   │   └── openapi/
+│   │       ├── base-openapi.yaml # Entrada modular
+│   │       ├── paths/          # Endpoints en 16 archivos por tag
+│   │       └── components/     # Esquemas, parámetros, respuestas, seguridad
+│   ├── architecture.md
+│   ├── development.md
+│   └── deployment.md
 ├── compose.yaml                  # Solo entorno de desarrollo
 └── README.md
 ```
@@ -236,6 +246,8 @@ git add -- backend/ docs/ README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
 git diff --cached --name-only
 git commit -m "docs: actualizar guías de desarrollo"
 ```
+
+**Para tareas de API (design-first):** tratar cada tag como una tarea independiente. Antes del código, revisar `docs/api/openapi/paths/<tag>.yaml` y los DTOs de `components/schemas/`, acordar cambios de contrato y verificar su impacto en otros tags. La fuente de verdad es `docs/api/openapi/base-openapi.yaml` más sus archivos referenciados. `docs/api/openapi.yaml` es la copia monolítica actual: si se conserva, regenerarla con Redocly y no editarla a mano. Los comandos de validación y la lista de comprobaciones para cada tag están en la [guía de la API](api/README.md). La revisión documental no equivale a disponer de endpoints implementados.
 
 Comprobar que no se han añadido secretos, datos personales reales ni directorios generados (`node_modules`, `dist`, `target`, `.env`). Confirmar además que `frontend/package-lock.json` esté versionado: `git ls-files frontend/package-lock.json`.
 
