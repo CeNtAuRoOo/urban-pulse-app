@@ -1,0 +1,177 @@
+/users/me:
+  get:
+    tags:
+      - Usuarios
+    summary: Consultar mi perfil
+    description: Devuelve los datos personales del usuario autenticado.
+    operationId: getUsersMe
+    x-roles:
+      - AUTHENTICATED
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  patch:
+    tags:
+      - Usuarios
+    summary: Modificar mi perfil
+    description: Actualiza únicamente atributos permitidos del perfil; no modifica roles.
+    operationId: patchUsersMe
+    x-roles:
+      - AUTHENTICATED
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/usuarios.yaml#/UpdateProfileRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/users:
+  get:
+    tags:
+      - Usuarios
+    summary: Listar usuarios
+    description: Listado restringido al administrador; filtros y paginación.
+    operationId: getUsers
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - name: role
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/usuarios.yaml#/UserRole"
+        description: Filtrar por rol.
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar por actividad.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UsersPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/users/{userId}:
+  get:
+    tags:
+      - Usuarios
+    summary: Consultar usuario
+    description: Información del usuario para administración; no pública.
+    operationId: getUsersUserId
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/UserId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  patch:
+    tags:
+      - Usuarios
+    summary: Administrar usuario
+    description: Cambia estado o rol de una cuenta de forma auditada; no expone operaciones de autoelevación.
+    operationId: patchUsersUserId
+    x-roles:
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/UserId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/usuarios.yaml#/AdminUpdateUserRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

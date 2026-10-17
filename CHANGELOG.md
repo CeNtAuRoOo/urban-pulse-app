@@ -6,6 +6,9 @@ Registro de cambios relevantes de UrbanPulse. Se seguirá [Keep a Changelog](htt
 
 ### Added
 
+- Primera propuesta de contrato REST **OpenAPI 3.0.3**, modular por 16 tags (`docs/api/openapi/`), con esquemas y componentes compartidos. Contrato **pendiente de revisión por tag**, sin endpoints implementados.
+- Flujo documental **design-first** para revisar y acordar cada tag antes de desarrollar sus operaciones y DTOs.
+
 - Integración del backend de desarrollo con Neon PostgreSQL 18 (JDBC/HikariCP, JPA/Hibernate y Flyway) y Neon Object Storage (AWS SDK for Java 2.x 2.56.0, BOM, `StorageProperties` y `StorageConfig`).
 - Prueba manual `NeonConnectivityIT` para verificar conexión JDBC y acceso `HeadBucket` al bucket privado, sin modificar datos de negocio.
 - Configuración separada por entorno: `backend/.env.development` (privado) y secretos externos para despliegues de producción.

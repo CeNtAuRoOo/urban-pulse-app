@@ -1,0 +1,139 @@
+/reports:
+  post:
+    tags:
+      - Informes
+    summary: Solicitar generación de informe
+    description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
+    operationId: postReports
+    x-roles:
+      - ANALYST
+      - OPERATOR
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/informes.yaml#/ReportRequest"
+    responses:
+      "202":
+        description: Solicitud aceptada para procesamiento asíncrono.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/informes.yaml#/ReportDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Informes
+    summary: Listar informes
+    description: Informes solicitados por usuarios autorizados.
+    operationId: getReports
+    x-roles:
+      - ANALYST
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/informes.yaml#/ReportsPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/reports/{reportId}:
+  get:
+    tags:
+      - Informes
+    summary: Consultar estado del informe
+    description: Estado de creación, fechas y error de generación si procede.
+    operationId: getReportsReportId
+    x-roles:
+      - ANALYST
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/ReportId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/informes.yaml#/ReportDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/reports/{reportId}/file:
+  get:
+    tags:
+      - Informes
+    summary: Descargar informe terminado
+    description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
+    operationId: getReportsReportIdFile
+    x-roles:
+      - ANALYST
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/ReportId"
+    responses:
+      "200":
+        description: Informe exportado.
+        content:
+          text/csv:
+            schema:
+              type: string
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

@@ -1,0 +1,162 @@
+/incidents/{incidentId}/attachments:
+  post:
+    tags:
+      - Evidencias
+    summary: Adjuntar fotografía
+    description:
+      Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar
+      compensación ante fallos parciales y EXIF sensible.
+    operationId: postIncidentsIncidentIdAttachments
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      description: Subida autenticada; solo fotografías según ADR-0004. Tamaño máximo aún por acordar.
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
+                description: JPEG, PNG o WebP.
+              description:
+                type: string
+                description: Texto alternativo opcional.
+                maxLength: 300
+            required:
+              - file
+            additionalProperties: false
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/evidencias.yaml#/AttachmentDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Evidencias
+    summary: Listar fotografías
+    description: Lista metadatos sin revelar URLs S3 públicas permanentes.
+    operationId: getIncidentsIncidentIdAttachments
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/evidencias.yaml#/AttachmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/attachments/{attachmentId}:
+  get:
+    tags:
+      - Evidencias
+    summary: Consultar metadatos de fotografía
+    description: Metadatos de evidencia bajo autorización por incidencia.
+    operationId: getIncidentsIncidentIdAttachmentsAttachmentId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/AttachmentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/evidencias.yaml#/AttachmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/attachments/{attachmentId}/content:
+  get:
+    tags:
+      - Evidencias
+    summary: Descargar fotografía privada
+    description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
+    operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/AttachmentId"
+    responses:
+      "200":
+        description: Binario de imagen autorizado.
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

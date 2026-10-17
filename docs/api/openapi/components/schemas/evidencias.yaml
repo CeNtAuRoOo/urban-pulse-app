@@ -1,0 +1,34 @@
+AttachmentDTO:
+  type: object
+  properties:
+    id:
+      type: string
+      example: att_123
+    incidentId:
+      type: string
+    fileName:
+      type: string
+    contentType:
+      type: string
+      enum:
+        - image/jpeg
+        - image/png
+        - image/webp
+    sizeBytes:
+      type: integer
+      minimum: 0
+    uploadedBy:
+      $ref: "./usuarios.yaml#/UserSummaryDTO"
+    createdAt:
+      type: string
+      format: date-time
+    description:
+      type: string
+      description: Descripción accesible de la fotografía.
+  required:
+    - id
+    - incidentId
+    - fileName
+    - contentType
+    - sizeBytes
+    - createdAt

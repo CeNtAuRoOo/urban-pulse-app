@@ -1,0 +1,278 @@
+/incidents:
+  post:
+    tags:
+      - Incidencias
+    summary: Registrar incidencia
+    description:
+      Registra inmediatamente en REPORTED y genera la primera entrada de auditoría. Geocodificación,
+      duplicados, activos y contexto urbano son enriquecimientos opcionales que no bloquean la creación. Las
+      fotografías se adjuntan después.
+    operationId: postIncidents
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/incidencias.yaml#/CreateIncidentRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  get:
+    tags:
+      - Incidencias
+    summary: Buscar incidencias
+    description:
+      Listado paginado. Al ciudadano solo se le muestran incidencias autorizadas; el personal puede
+      usar filtros de búsqueda ampliados.
+    operationId: getIncidents
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/incidencias.yaml#/IncidentStatus"
+        description: Estado.
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Categoría.
+      - name: districtId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Distrito.
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Departamento asignado.
+      - name: priority
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/incidencias.yaml#/IncidentPriority"
+        description: Prioridad.
+      - name: createdFrom
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: Inicio de creación.
+      - name: createdTo
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: Fin de creación.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - createdAt
+            - -createdAt
+            - priority
+            - -priority
+        description: Orden permitido.
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/mine:
+  get:
+    tags:
+      - Incidencias
+    summary: Mis incidencias
+    description: Solo incidencias creadas por la identidad del JWT; no se acepta userId de terceros.
+    operationId: getIncidentsMine
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+      - ANALYST
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentPageDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}:
+  get:
+    tags:
+      - Incidencias
+    summary: Consultar incidencia
+    description:
+      Detalle con dirección si se ha resuelto, clasificación, fechas y estado. Los campos sujetos
+      a privacidad se filtran por permisos.
+    operationId: getIncidentsIncidentId
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+  patch:
+    tags:
+      - Incidencias
+    summary: Corregir incidencia
+    description:
+      "Propuesta: permitir ajustes al titular mientras REPORTED y edición limitada al operador según
+      reglas del dominio. Auditar modificaciones."
+    operationId: patchIncidentsIncidentId
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/incidencias.yaml#/UpdateIncidentRequest"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/incidencias.yaml#/IncidentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/history:
+  get:
+    tags:
+      - Incidencias
+    summary: Consultar historial
+    description: "Historial visible para el solicitante: sucesos internos no deben filtrarse al ciudadano."
+    operationId: getIncidentsIncidentIdHistory
+    x-roles:
+      - AUTHENTICATED
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/incidencias.yaml#/HistoryEventDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

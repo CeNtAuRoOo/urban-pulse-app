@@ -1,0 +1,56 @@
+RegisterRequest:
+  type: object
+  properties:
+    displayName:
+      type: string
+      minLength: 2
+      maxLength: 120
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+      description: Contraseña enviada solo por TLS; jamás se devuelve en DTO.
+      minLength: 8
+  required:
+    - displayName
+    - email
+    - password
+  additionalProperties: false
+
+LoginRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+  required:
+    - email
+    - password
+  additionalProperties: false
+
+TokenDTO:
+  type: object
+  properties:
+    accessToken:
+      type: string
+      description: JWT firmado.
+    tokenType:
+      type: string
+      enum:
+        - Bearer
+    expiresIn:
+      type: integer
+      description: Duración del token en segundos.
+      minimum: 1
+    user:
+      $ref: "./usuarios.yaml#/UserDTO"
+  required:
+    - accessToken
+    - tokenType
+    - expiresIn
+    - user

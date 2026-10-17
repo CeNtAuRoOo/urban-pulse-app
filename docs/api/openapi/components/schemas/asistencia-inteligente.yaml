@@ -1,0 +1,131 @@
+AIAssessmentRequest:
+  type: object
+  properties:
+    incidentId:
+      type: string
+    tasks:
+      type: array
+      items:
+        type: string
+        enum:
+          - CLASSIFICATION
+          - PRIORITIZATION
+          - SUMMARY
+          - RECOMMENDATION
+      minItems: 1
+      uniqueItems: true
+  required:
+    - incidentId
+    - tasks
+  additionalProperties: false
+
+AIRecommendationDTO:
+  type: object
+  properties:
+    text:
+      type: string
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    reasoningSummary:
+      type: string
+      description: Justificación resumida, no cadena interna de razonamiento.
+  required:
+    - text
+    - confidence
+
+AIAssessmentDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    incidentId:
+      type: string
+    status:
+      type: string
+      enum:
+        - QUEUED
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+    suggestedCategoryId:
+      type: string
+    suggestedPriority:
+      $ref: "./incidencias.yaml#/IncidentPriority"
+    summary:
+      type: string
+    recommendations:
+      type: array
+      items:
+        $ref: "./asistencia-inteligente.yaml#/AIRecommendationDTO"
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    modelId:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    completedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - status
+    - createdAt
+
+TrainingRequest:
+  type: object
+  properties:
+    task:
+      type: string
+      enum:
+        - CLASSIFICATION
+        - PRIORITIZATION
+        - HOTSPOT_DETECTION
+    datasetRef:
+      type: string
+      description: Conjunto de datos aprobado. No incluir información personal en crudo.
+    parameters:
+      type: object
+      additionalProperties: true
+  required:
+    - task
+    - datasetRef
+  additionalProperties: false
+
+TrainingJobDTO:
+  type: object
+  properties:
+    id:
+      type: string
+    task:
+      type: string
+    status:
+      type: string
+      enum:
+        - QUEUED
+        - RUNNING
+        - COMPLETED
+        - FAILED
+    modelId:
+      type: string
+    metrics:
+      type: object
+      additionalProperties:
+        type: number
+      description: Métricas de evaluación.
+    createdAt:
+      type: string
+      format: date-time
+    completedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - task
+    - status
+    - createdAt

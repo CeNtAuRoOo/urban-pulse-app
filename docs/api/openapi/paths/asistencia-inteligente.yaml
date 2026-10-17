@@ -1,0 +1,143 @@
+/ai/incident-assessments:
+  post:
+    tags:
+      - Asistencia inteligente
+    summary: Solicitar evaluación asistida
+    description:
+      Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; conserva
+      confianza y procedencia del modelo.
+    operationId: postAiIncidentAssessments
+    x-roles:
+      - OPERATOR
+      - ANALYST
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/asistencia-inteligente.yaml#/AIAssessmentRequest"
+    responses:
+      "202":
+        description: Solicitud aceptada para procesamiento asíncrono.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/asistencia-inteligente.yaml#/AIAssessmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/ai/incident-assessments/{assessmentId}:
+  get:
+    tags:
+      - Asistencia inteligente
+    summary: Consultar evaluación asistida
+    description: Devuelve recomendaciones, confianza y estado del cálculo.
+    operationId: getAiIncidentAssessmentsAssessmentId
+    x-roles:
+      - OPERATOR
+      - ANALYST
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/AssessmentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/asistencia-inteligente.yaml#/AIAssessmentDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/ai/training-jobs:
+  post:
+    tags:
+      - Asistencia inteligente
+    summary: Entrenar o evaluar modelo
+    description: Trabajo asíncrono de experimentación de clasificación, prioridad o hotspots.
+    operationId: postAiTrainingJobs
+    x-roles:
+      - ANALYST
+      - ADMIN
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/asistencia-inteligente.yaml#/TrainingRequest"
+    responses:
+      "202":
+        description: Solicitud aceptada para procesamiento asíncrono.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/asistencia-inteligente.yaml#/TrainingJobDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/ai/training-jobs/{trainingId}:
+  get:
+    tags:
+      - Asistencia inteligente
+    summary: Consultar entrenamiento
+    description: Devuelve resultado, modelo e indicadores de evaluación si el proceso terminó.
+    operationId: getAiTrainingJobsTrainingId
+    x-roles:
+      - ANALYST
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/TrainingId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/asistencia-inteligente.yaml#/TrainingJobDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"

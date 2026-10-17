@@ -1,0 +1,78 @@
+/incidents/{incidentId}/duplicate-candidates:
+  get:
+    tags:
+      - Duplicados
+    summary: Sugerir incidencias duplicadas
+    description: Candidatos basados en posición, tiempo y semántica; no se rechaza automáticamente el reporte.
+    operationId: getIncidentsIncidentIdDuplicateCandidates
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    responses:
+      "200":
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../components/schemas/duplicados.yaml#/DuplicateSuggestionDTO"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/incidents/{incidentId}/duplicate-links:
+  post:
+    tags:
+      - Duplicados
+    summary: Vincular duplicado confirmado
+    description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
+    operationId: postIncidentsIncidentIdDuplicateLinks
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/duplicados.yaml#/DuplicateLinkRequest"
+    responses:
+      "201":
+        description: Recurso creado.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/duplicados.yaml#/DuplicateLinkDTO"
+        headers:
+          Location:
+            description: Ruta al nuevo recurso, cuando esté disponible.
+            schema:
+              type: string
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
