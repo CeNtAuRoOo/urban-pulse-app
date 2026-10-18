@@ -1,18 +1,19 @@
 # Documentación de UrbanPulse
 
-Este directorio recoge la documentación **viva** del proyecto. Distingue los componentes ya inicializados y probados de las funcionalidades y despliegues todavía previstos.
+Este directorio contiene documentación **viva**, separando las decisiones de diseño acordadas de la funcionalidad realmente implementada.
 
-| Documento                       | Contenido                                                                                     |
-| ------------------------------- | --------------------------------------------------------------------------------------------- |
-| [Arquitectura](architecture.md) | Arquitectura objetivo, C4, estructura real inicial de backend/frontend y decisiones técnicas. |
-| [Desarrollo](development.md)    | Instalación, variables, comandos reales, verificaciones y problemas frecuentes.               |
-| [Despliegue](deployment.md)     | Imágenes independientes, exportación web, distribución nativa y despliegue futuro.            |
-| [API](api/README.md)            | Contrato OpenAPI inicial modular, pendiente de revisión por tag; sin endpoints implementados. |
-| [ADR](adr/README.md)            | Decisiones aceptadas, propuestas y pendientes.                                                |
-| [Diagramas](diagrams/README.md) | Diagramas C4 disponibles y otros diagramas de diseño pendientes.                              |
+| Documento                               | Contenido                                                                                                                           |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [Modelo de dominio v1](domain-model.md) | Entidades, roles, ciclo de vida, asignaciones, limitaciones y **revisión obligatoria por tag** antes de implementar.                |
+| [Diagramas](diagrams/README.md)         | C4 con fuente `c4.drawio`; modelo relacional de cuatro páginas y catálogo de clases Java simplificado, con fuentes y exportaciones. |
+| [Arquitectura](architecture.md)         | Arquitectura objetivo y estado real de frontend, backend, Neon y almacenamiento; decisiones relevantes de dominio.                  |
+| [Diseño de API](api/README.md)          | OpenAPI modular **borrador**; revisión design-first por tag y sincronización con los diagramas.                                     |
+| [ADR](adr/README.md)                    | Decisiones aceptadas, propuesta técnica y asuntos pendientes.                                                                       |
+| [Desarrollo](development.md)            | Entorno y comandos de instalación, ejecución y verificaciones comprobadas.                                                          |
+| [Despliegue](deployment.md)             | Objetivo de contenedores independientes y despliegue futuro.                                                                        |
 
-**Estado a 15/10/2026:** frontend web validado; frontend y backend arrancan juntos con Docker Compose. La integración del backend con Neon PostgreSQL 18 y el acceso al bucket privado de Object Storage se han comprobado mediante `NeonConnectivityIT` en `development`. **Siguen sin existir endpoints de negocio, migraciones de esquema, pruebas de subida/descarga completa, despliegues de producción ni CI/CD ejecutable**.
+**Estado técnico comprobado a 15/10/2026:** frontend web y arranque conjunto de frontend/backend por Docker Compose; conectividad JDBC con Neon PostgreSQL 18 y acceso al bucket S3 privado desde el backend de desarrollo. **No existen endpoints de negocio, entidades JPA, migraciones del esquema del dominio, flujo real de fotografías, despliegue de producción ni CI/CD ejecutable.**
 
-El [README principal](../README.md) ofrece los pasos mínimos de puesta en marcha.
+**Novedad de diseño (18/10/2026):** los diagramas `relacional.drawio` y `clases-simplificado.drawio` representan una **primera versión del dominio compartido**, no un modelo completamente ratificado. El equipo **no implementará el conjunto de entidades de golpe**: la persona responsable de cada tag deberá revisar simultáneamente el OpenAPI y las dos vistas del dominio, completar los detalles que necesite y versionar los cambios como parte de su PR. Véase [modelo de dominio](domain-model.md) y [guía de contribución](../CONTRIBUTING.md).
 
-**Diseño de API:** ya existe un borrador OpenAPI 3.0.3 organizado por tags. La [guía de la API](api/README.md) explica la estructura, la fuente de verdad y cómo revisar cada módulo antes de implementarlo.
+El [README principal](../README.md) recoge los pasos mínimos de puesta en marcha. La existencia de diagramas/ADR/DTO en el contrato no equivale a tener funcionalidad implementada.

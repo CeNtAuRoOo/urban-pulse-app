@@ -1,138 +1,110 @@
 # Arquitectura de UrbanPulse
 
-> **Estado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose comprobados; Neon PostgreSQL y Object Storage aprovisionados y accesibles desde Spring Boot en `development`. **No existen aún endpoints de negocio, esquema relacional del dominio, flujo de fotografías ni despliegue de producción**. Las decisiones se registran en los [ADR](adr/README.md).
+> **Estado técnico comprobado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose; Neon PostgreSQL y Neon Object Storage accesibles desde Spring Boot en `development`. **Sin endpoints de negocio, entidades JPA, migraciones SQL del dominio ni flujo funcional de fotografías.** El **modelo de dominio v1** documentado el 18/10/2026 es un **borrador compartido**, no un diseño íntegramente validado ni código implementado. Véase [modelo de dominio](domain-model.md).
 
 ## 1. Alcance y principios
 
-UrbanPulse gestionará incidencias urbanas reportadas por ciudadanos, con ubicación, estados, historial, asignaciones y fotografías. El personal municipal podrá validarlas y gestionarlas, y se incorporarán fuentes contextuales para apoyar la priorización y el análisis. **La funcionalidad de negocio sigue pendiente de implementación.**
+UrbanPulse permitirá reportar incidencias urbanas con ubicación, estado, fotografías e historial; validarlas, priorizarlas y distribuirlas a departamentos y personal municipal; y, progresivamente, enriquecerse con activos y observaciones de fuentes externas. La funcionalidad de negocio sigue pendiente de implementación.
 
-La web y las aplicaciones móviles compartirán una base de código y admitirán las mismas funciones según el rol; el uso preferente de móvil por ciudadanos y web por operarios no limitará sus permisos.
+Las aplicaciones web y móvil compartirán una base de código (Expo / React Native / React Native Web) y **las mismas autorizaciones según rol**, sin depender de si acceden por web o móvil. La aplicación nativa se probará en una fase posterior.
 
-Impulsores: integridad y trazabilidad, controles de acceso, mantenibilidad, compatibilidad web/móvil, evolución cloud y minimización de costes para un proyecto universitario. Se comienza con un backend monolítico por capas; no se introducen microservicios ni colas sin una necesidad justificada.
+**Impulsores:** integridad/trazabilidad, privacidad, control de acceso, mantenibilidad, compatibilidad web/móvil, evolución cloud y minimización de costes universitarios. Partimos de un **monolito por capas**: no se añaden microservicios, colas ni cachés sin necesidad comprobada. El documento del proyecto mantiene algunas funciones avanzadas de IA, analítica predictiva y RAG **fuera del alcance de esta fase**; disponer de tags OpenAPI correspondientes no las convierte en trabajo ya aprobado.
 
 ## 2. Contenedores lógicos y tecnologías
 
-| Elemento                 | Tecnología                                                  | Estado                                                         |
-| ------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------- |
-| Aplicación web           | Expo SDK 57 / React Native Web / TypeScript / Expo Router   | **Pantalla inicial y desarrollo web comprobados**              |
-| Aplicaciones Android/iOS | Expo / React Native                                         | Código compartido; **sin prueba funcional en dispositivo**     |
-| API REST                 | Java 25 / Spring Boot 4.1.1 / Maven / Spring Security / JPA | Estructura y dependencias; **sin endpoints implementados**     |
-| Base de datos            | PostgreSQL administrado por Neon                            | Neon PostgreSQL 18; JDBC probado; esquema de negocio pendiente |
-| Almacén de evidencias    | Neon Object Storage (S3)                                    | Bucket privado aprovisionado y cliente S3 comprobado           |
-| Sistemas externos        | Mapas, geocodificación, activos urbanos y notificaciones    | Proveedores definitivos pendientes                             |
+| Componente               | Tecnología                                                     | Estado                                                                             |
+| ------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Aplicación web           | Expo SDK 57, React Native Web, TypeScript, Expo Router         | Pantalla inicial y desarrollo web verificados                                      |
+| Aplicaciones Android/iOS | Expo / React Native                                            | Código compartido, sin prueba funcional completa en dispositivo                    |
+| API REST                 | Java 25 / Spring Boot 4.1.1 / Maven / Spring Security / JPA    | Proyecto y configuración existentes; sin endpoints de negocio                      |
+| Base principal           | Neon PostgreSQL 18                                             | JDBC verificado en `development`; esquema de dominio pendiente                     |
+| Fotografías              | Neon Object Storage, API compatible con S3                     | Bucket privado y conectividad `HeadBucket` comprobados; subida/descarga pendientes |
+| Proveedores externos     | Mapas, geocodificación, inventario de activos y notificaciones | Selección e integración pendientes                                                 |
 
-Las aplicaciones web y móvil consumirán únicamente la API REST del backend. Ni las credenciales de PostgreSQL ni las del almacenamiento de objetos deberán estar presentes en el frontend.
+El cliente solo consume la API REST: no conoce ni utiliza credenciales de PostgreSQL o Object Storage. Las claves privadas se mantienen fuera del código y del frontend.
 
-## 3. Diagramas C4
+## 3. Arquitectura C4 y modelo de dominio
 
-### 3.1. Contexto (nivel 1)
+### 3.1. C4 nivel 1: contexto
 
-![Diagrama C4 de contexto](diagrams/c4-context.svg)
+![C4 - Contexto](diagrams/c4-context.svg)
 
-### 3.2. Contenedores (nivel 2)
+### 3.2. C4 nivel 2: contenedores
 
-![Diagrama C4 de contenedores](diagrams/c4-containers.svg)
+![C4 - Contenedores](diagrams/c4-containers.svg)
 
-El contenedor C4 es una **unidad lógica o ejecutable**, no necesariamente un contenedor Docker. PostgreSQL y evidencias pueden aparecer dentro del límite lógico de UrbanPulse aunque sus servicios estén administrados en Neon.
+Ambos diagramas se conservan como SVG y **también se incorpora** su fuente editable independiente [`diagrams/c4.drawio`](diagrams/c4.drawio). Un contenedor C4 representa una unidad lógica ejecutable/almacén, no necesariamente un Docker container. Los sistemas administrados de Neon pueden aparecer dentro del límite lógico del sistema.
 
-Los SVG actuales son editables desde diagrams.net porque contienen información de draw.io embebida; aún no se dispone de archivos `.drawio` separados en el repositorio.
+**Pendiente:** `c4-containers.svg` todavía menciona vídeos/documentos; la etapa inicial solo considera **fotografías** (ADR-0004, aceptado). No se redibuja en este PR.
 
-**Revisión pendiente del C4 de contenedores:** la descripción del almacén de evidencias todavía menciona vídeos y documentos; la primera fase se limita a fotografías. El ADR-0004 ya está aceptado; el dibujo se actualizará al detallar el flujo de evidencias.
+### 3.3. Modelo de dominio lógico (versión base v1)
 
-### 3.3. Diagramas pendientes
+- **[Relacional multipágina](diagrams/relacional.drawio):** tablas previstas, campos principales, PK, FK y cardinalidades, en cuatro páginas (incidencias; tramitación; identidad/organización; territorio/contexto).
+- **[Catálogo de clases simplificado](diagrams/clases-simplificado.drawio):** clases Java previstas con campos/tipos, enumeraciones, objetos de valor `@Embeddable` y DTO; **una página sin relaciones intencionadamente**, puesto que estas se estudian en el ER.
+- Las imágenes SVG exportadas están indexadas en [diagramas](diagrams/README.md).
 
-- C4 Deployment: cuando se elijan proveedores de hosting, redes, HTTPS y dominios.
-- Modelo entidad-relación: cuando se diseñe PostgreSQL.
-- Diagrama dinámico/secuencia: subida autorizada de fotografías y registro de incidencias.
-- Ciclo de vida de incidencia y transiciones auditadas.
-- Diagramas de diseño detallado (clases/componentes), si aportan valor frente al propio código.
+**Estado: primera propuesta completa de representación, no validación completa del dominio.** Una decisión de que una clase aparezca en el dibujo **no** obliga a implementarla ahora ni significa que su persistencia/campos/DTO ya estén aprobados. El equipo revisará el modelo **por tag** junto con el OpenAPI modular, empezando por los casos de uso que efectivamente construya cada compañero; cada PR ajustará diagramas, documentación, contrato, pruebas y migraciones pertinentes. Detalles en [modelo de dominio y proceso de revisión](domain-model.md).
 
-Consulta [diagramas](diagrams/README.md).
+### 3.4. Diagramas todavía pendientes
 
-## 4. Frontend universal: estructura existente
+- C4 Deployment: definir proveedor real, HTTPS, dominio y redes.
+- Secuencia/dinámico de subida autorizada de fotos y registro de incidencias.
+- Máquina de estados explícita (matriz de transiciones); el enum ya aparece en el diagrama, pero **no** se han validado todas las transiciones.
 
-`frontend/` contiene un proyecto Expo con React Native, React Native Web, React y TypeScript. Utiliza **Metro** para empaquetar y **Expo Router** para navegación basada en archivos. No utiliza Vite ni necesita un frontend web separado.
+## 4. Frontend universal: estructura y estado
 
-```text
-frontend/
-├── assets/                       # Iconos y recursos gráficos provisionales
-├── src/
-│   ├── app/
-│   │   ├── _layout.tsx           # Stack raíz de Expo Router
-│   │   └── index.tsx             # Pantalla inicial, probada en web
-│   ├── components/               # Futuros componentes reutilizables
-│   ├── config/                   # Configuración del cliente
-│   ├── constants/                # Constantes / tema futuro
-│   ├── features/                 # Funcionalidades agrupadas por dominio
-│   ├── services/                 # Cliente HTTP hacia Spring Boot
-│   └── types/                    # Tipos TypeScript compartidos
-├── app.json                      # Expo: nombre, rutas, web SPA y recursos
-├── package.json                  # Dependencias y scripts npm
-├── package-lock.json             # Lockfile local utilizado por npm ci / Docker
-├── tsconfig.json                 # TypeScript estricto; alias @/
-├── eslint.config.js              # ESLint con configuración Expo
-├── Dockerfile.dev                # Metro para desarrollo web
-├── Dockerfile                    # Exportación web + Nginx en dos etapas
-└── nginx.conf                    # Servidor web y fallback de rutas SPA
-```
+`frontend/` incluye Expo Router con `src/app/_layout.tsx`, `src/app/index.tsx`, `src/components`, `src/features`, `src/services` y `src/types`, además de configuración de Expo, TypeScript y ESLint. Se utiliza **Metro**, no Vite. `web.output="single"` genera una SPA exportable y se ha verificado `npx expo export --platform web`; el Dockerfile de producción utiliza Nginx, pero **la imagen final de producción no se ha validado**.
 
-Expo SDK 57 utiliza las versiones declaradas en `package.json` (React 19.2.3, React Native 0.86.3, TypeScript 6.0.3). `expo install --check` y `expo-doctor` se ejecutaron satisfactoriamente. La salida web seleccionada en `app.json` es `web.output="single"` (SPA): el frontend web puede servirse mediante Nginx sin un servidor de renderizado de Expo en producción.
-
-En `src/app/` irán las rutas y layouts, mientras los componentes y la lógica reutilizable estarán fuera de esa carpeta. Las carpetas de dominio todavía están vacías intencionadamente. No se implementan consumo de API, formularios, control de sesión ni permisos visuales.
+El frontend aún no dispone de formularios de incidencias, cliente API funcional, inicio de sesión ni reglas de permisos visuales. Esas reglas no sustituirán a la autorización del backend.
 
 ## 5. Backend: estructura existente
 
-La aplicación principal está en `es.grupo18.urbanpulse.BackendApplication`, anotada con `@SpringBootApplication`. Los subpaquetes iniciales son `config`, `controller`, `dto`, `entity`, `repository` y `service`. `config` ya contiene `StorageConfig` y `StorageProperties`; las capas de negocio siguen vacías y representan una **organización por capas**.
+Clase principal: `es.grupo18.urbanpulse.BackendApplication`. Subpaquetes `config`, `controller`, `dto`, `entity`, `repository` y `service`. En `config` existen `StorageConfig` y `StorageProperties`; `controller`, `dto`, `entity`, `repository` y `service` **siguen vacíos para negocio**.
 
-Flujo objetivo: `Controller -> Service -> Repository -> PostgreSQL`, usando DTO para entrada/salida y entidades JPA para persistencia. Las integraciones externas se encapsularán y las reglas de autorización se aplicarán en Spring Security y en los casos de uso pertinentes.
+Organización objetivo: `Controller → Service → Repository → PostgreSQL`, con DTO de intercambio independientes de entidades JPA. El backend escucha en el puerto **8888** (configurable), utiliza HikariCP, `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y configuración externa de servicios. El SDK S3 configura el acceso al bucket privado.
 
-`backend/src/main/resources/application.properties` contiene puerto 8888, propiedades JDBC por variables de entorno, HikariCP, `spring.jpa.hibernate.ddl-auto=validate`, `open-in-view=false`, Flyway y `spring.sql.init.mode=never`. No existe perfil `dev` específico, por decisión actual del equipo.
+**Persistencia:** Flyway gestionará migraciones versionadas dentro de `backend/src/main/resources/db/migration/`; el script inicial del dominio **todavía no existe**. `ddl-auto=validate` no crea tablas. No ejecutar migraciones experimentales sobre la rama `production` de Neon. Los futuros tests de persistencia deben aislarse de la base compartida, mientras `NeonConnectivityIT` seguirá como prueba manual de humo.
 
-**Migraciones:** se reserva `backend/src/main/resources/db/migration/`.
+**Contrato REST:** existe un borrador OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones por tag y esquemas reutilizables. [`api/openapi.yaml`](api/openapi.yaml) es una copia monolítica; si se modifica el contrato habrá que **regenerarla** desde la fuente modular. El contrato no demuestra la existencia de endpoints.
 
-El backend **arranca en Docker Compose** con Neon `development` y la prueba `NeonConnectivityIT` verifica JDBC (`SELECT current_database(), current_user`) y acceso S3 (`HeadBucket`). Las URL de entorno determinan la rama Neon utilizada; la prueba no comprueba el ID de rama de forma independiente. El `pom.xml` incorpora AWS SDK for Java 2.x 2.56.0 con BOM y procesador de metadatos `@ConfigurationProperties`; `StorageProperties` valida los datos del bucket. Aún no existen controladores de negocio, entidades JPA, repositorios funcionales ni pruebas de subida/descarga.
+## 6. Dominio operativo previsto y decisiones aceptadas
 
-**Contrato REST de diseño:** se ha creado la primera especificación OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones separadas por tag en `api/openapi/paths/` y DTOs compartidos en `api/openapi/components/`. Cada tag se revisará y acordará antes de su implementación. Este contrato es un **borrador** y no acredita que existan controladores ni endpoints operativos. Véase la [guía de la API](api/README.md) para el flujo de revisión y la generación de un OpenAPI unificado.
+**Incidencia central (`Incident`):** informante, categoría opcional, coordenadas y datos geográficos derivados (opcionales), fotografías, historial de estados, prioridad justificada y departamento responsable opcional. La ausencia de datos externos **no bloquea** la creación.
 
-## 6. Dominio y estados previstos
+**Roles y ámbito (ADR-0009):** `User` común con catálogo `Role`; roles globales `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y roles departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN` mediante `DepartmentMembership`. `OPERATOR` es municipal/transversal y **no necesita departamento**; coordinadores y técnicos solo operan sobre departamentos autorizados. Equipos `Team` reutilizables y desactivables conservan sus `TeamMembership` históricos.
 
-La entidad central será `Incident`. El alcance inicial considera usuarios, evidencias, asignaciones, historial de estados, activos urbanos y datos contextuales, sujeto a refinamiento. Los estados previstos incluyen `REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED` y `CLOSED`; las transiciones válidas y las reglas de auditoría deberán especificarse antes de implementar.
+**Tramitación (ADR-0010):** `IncidentStatus` propone `REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED_TO_DEPARTMENT`, `WORK_ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED`, `CLOSED`. Un operador puede dejar una incidencia `VALIDATED` sin asignarle todavía departamento. La derivación se refleja en `Incident.assignedDepartment` y `StatusChange`; **`Assignment` solo aparece al distribuir trabajo a un equipo o técnico**, con historial de reasignaciones y como máximo una activa. `StatusChange` audita los cambios de estado; `AuditEvent` otros cambios importantes (por ejemplo una transferencia departamental). La **matriz completa de transiciones y los permisos por operación quedan pendientes**.
 
-## 7. Seguridad y autorización objetivo
+**Prioridades:** escala `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; decisiones `PriorityDecision` auditables. **Duplicados:** el sistema ofrece `DuplicateSuggestionDTO` calculadas, nunca decisiones automáticas; solo un operador autorizado confirma `DuplicateLink` conservando ambos reportes. La detección semántica con IA queda para una fase futura.
 
-- Registro ordinario de ciudadanos; altas de personal controladas mediante invitaciones (ADR-0007, **propuesto**).
-- JWT firmados con validación de Spring Security; su emisión, rotación, revocación y almacenamiento aún no están implementados.
-- Autorización por rol, propiedad y estado cuando corresponda; el frontend no sustituye las comprobaciones de seguridad del backend.
-- Claves y contraseñas fuera de Git; `EXPO_PUBLIC_*` solo para configuración **pública** integrada en el cliente.
-- Futura política de CORS para los orígenes web realmente desplegados.
+**Identidad/seguridad:** autenticación por credenciales/JWT de Spring Security (ADR-0005) aún sin implementar. Invitaciones controladas de personal **aprobadas como mecanismo** (ADR-0007); un usuario con cuenta existente podrá incorporar un nuevo rol sin crear una segunda cuenta, tras verificar identidad/autorización. `UserRole` y `DepartmentMembership` diferencian roles globales de departamentales; se aplicarán permisos por rol, departamento, titularidad y estado.
 
-El almacenamiento de evidencias utiliza un bucket privado `incident-evidence`. Aunque los datos de una incidencia sean visibles, no deben publicarse automáticamente fotografías con información personal. El backend deberá autorizar su acceso, validar formato y tamaño y definir revisión/anonimización y tratamiento EXIF.
+**Identificadores:** UUIDv7 como convención de diseño de PK (`Role.code` como clave natural estable), pendiente de validar generador JPA/PostgreSQL (ADR-0011).
 
-## 8. Persistencia y resiliencia
+**Contexto urbano:** `UrbanAsset`, `UrbanAssetAssociation`, `ExternalSource` y `ExternalObservation` son un **esqueleto provisional** a completar cuando se investiguen datos y proveedores. `UrbanContextViewDTO` no necesita tabla propia; no se eligen integraciones ni PostGIS de forma anticipada.
 
-Neon PostgreSQL **18** es el proveedor elegido y ya aprovisionado en AWS Frankfurt. El proyecto `urban-pulse-app` contiene una base `urban-pulse` en las ramas Neon `production` (predeterminada) y `development` (desarrollo). Los roles PostgreSQL `owner` y `backend` separan administración y acceso de aplicación. La protección automática de `production` no está disponible en el plan gratuito actual. Neon Object Storage dispone del bucket privado `incident-evidence` en ambas ramas; las credenciales S3 son distintas por entorno.
+## 7. Seguridad, almacenamiento y resiliencia
 
-Neon PostgreSQL es el proveedor elegido. Flyway es responsable de **crear/evolucionar el esquema**; Hibernate con `ddl-auto=validate` solo verifica la compatibilidad. JPA/Hibernate se usará para operaciones habituales. El pool Hikari está inicialmente limitado a cinco conexiones máximas por instancia, con mínimo inactivo cero, para reducir consumo inactivo; el arranque y una consulta JDBC real ya se han comprobado con Neon. En `development` existe la tabla técnica `flyway_schema_history`, **sin migraciones de dominio**; `production` permanece sin tablas de negocio. Debe evitarse introducir migraciones experimentales en producción.
+- Las decisiones de roles/autorización deben aplicarse **en Spring Security y los servicios**, no exclusivamente en el frontend ni mediante la extensión documental `x-roles` de OpenAPI.
+- JWT: definir emisión, vencimiento, renovación/revocación y almacenamiento seguro; no se han aprobado todos sus parámetros.
+- Evidencias: bucket S3 privado `incident-evidence`; metadatos en PostgreSQL, binarios fuera. Autorizar acceso incluso si los datos de la incidencia son visibles; decidir MIME/tamaño, EXIF, retención, limpieza de huérfanos y tratamiento de fallos entre SQL y objeto.
+- Información contextual: un proveedor externo puede fallar sin impedir la creación de una incidencia (degradación controlada). No se deduce disponibilidad de proveedores de que aparezcan en un diagrama.
+- Secretos fuera de Git; `EXPO_PUBLIC_*` solo para valores públicos del cliente; revisar CORS/HTTPS antes del despliegue.
 
-Se mantendrán metadatos y referencias de fotografías en PostgreSQL y binarios en Object Storage cuando se implemente la funcionalidad. La coordinación de ambos almacenes requerirá gestionar inconsistencias y objetos huérfanos. Un fallo de enriquecimiento contextual no debería impedir registrar una incidencia, salvo que una regla explícita indique lo contrario.
+## 8. Verificaciones técnicas comprobadas y próximas etapas
 
-## 9. Entornos, pruebas y evolución
+- Frontend web: `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit`, `npm run lint`, exportación web y Compose de desarrollo comprobados el 13/10/2026.
+- Docker Compose conjunto: frontend + backend ejecutados con éxito el 15/10/2026.
+- Backend + Neon `development`: prueba explícita `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` con JDBC y `HeadBucket` superados el 15/10/2026 (no verifica subida/descarga ni ID de rama por sí misma).
+- **Pendiente:** pruebas funcionales/contrato/seguridad, entidades y migraciones, Android/iOS en dispositivo, imagen Nginx de producción, CI/CD y despliegue real.
 
-- **Desarrollo web validado:** `npx expo start --web --port 7777`; `docker compose up --build frontend`; ambos en `http://localhost:7777`.
-- **Exportación web validada:** `npx expo export --platform web`, que genera `dist/`.
-- **Análisis estático validado:** `npx expo install --check`, Expo Doctor (21/21), `npx tsc --noEmit` y `npm run lint`.
-- **Integración validada en desarrollo (15/10/2026):** `docker compose up --build` inicia frontend y backend; `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` supera JDBC y `HeadBucket` privado. El test `*IT` es manual y no se ejecuta en los tests Surefire por defecto.
-- **Aún no validados:** Nginx/imagen final de producción, pruebas E2E, pruebas nativas sobre dispositivos, funcionalidad real de la API, operaciones completas de fotografías y despliegue cloud.
-- **Arquitectura de producción prevista:** contenedor web Nginx independiente, contenedor Java independiente y apps nativas distribuidas fuera de Docker; proveedor de hosting y dominios pendientes.
+El próximo trabajo **no** será implementar todas las entidades: cada PR funcional comienza revisando el [tag de API](api/README.md) y las [dos vistas del dominio](domain-model.md), pacta las decisiones concretas, implementa su parte, la prueba y documenta el resultado. La rama `main` debe conservar el estado realmente verificado.
 
-El repositorio ya es **público**. La ausencia actual de `LICENSE` se documenta en el README; el grupo aún no ha elegido licencia.
+## 9. Referencias
 
-## 10. ADR y referencias
-
+- [Modelo de dominio y proceso por tag](domain-model.md)
+- [Diagramas](diagrams/README.md)
 - [ADR y decisiones](adr/README.md)
+- [Diseño de API](api/README.md)
 - [Guía de desarrollo](development.md)
 - [Despliegue](deployment.md)
-- [Documentación de la API](api/README.md)
-- [Diagramas](diagrams/README.md)
-
-La selección dinámica de campos con `fields` no está aprobada y no forma parte del contrato API actual.
