@@ -24,8 +24,12 @@ Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https:
 
 ### Changed
 
+- Ajuste de coherencia de OpenAPI 0.2.0: roles globales/departamentales acotados en esquemas, invitaciones validadas por ámbito, UUID internos diferenciados de IDs externos, propiedades opcionales de `StatusChangeDTO` y endpoints IA prematuros fuera del contrato activo; bundle/HTML sincronizados.
+
+- Sincronizados el contrato OpenAPI `0.2.0` y el modelo de dominio v1: roles por ámbito, dos fases de asignación, invitaciones, duplicados y UUID; flujo unificado por tag.
+
 - ADR-0007 de invitaciones municipales pasa a **Aceptado** como mecanismo de incorporación, contemplando cuentas ya existentes y roles departamentales; su política concreta queda para el tag correspondiente.
-- ADR-0005, índice de ADR, guías de arquitectura, diagramas, API y contribución alineados con el flujo de verificación del dominio **por tag**. El contrato OpenAPI **no** se modifica en este PR documental; se enumeran discrepancias conocidas con el dominio v1.
+- ADR-0005, índice de ADR, guías de arquitectura, diagramas, API y contribución alineados con el flujo de verificación del dominio **por tag**. En el PR previo el contrato OpenAPI no se modificaba; esta entrada describe ese hito anterior.
 - El estado inicial de una incidencia puede permanecer en `VALIDATED`; el modelo desglosa `ASSIGNED` en `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED` (decisión documentada, aún sin implementación).
 - ADR-0004 pasa a **Aceptado** tras aprovisionar el bucket privado y superar la prueba de acceso S3; permanecen pendientes las operaciones de fotografías.
 - Documentación de Neon, ramas `development`/`production`, rol `backend`, configuración de variables y política de tests externos bajo demanda.

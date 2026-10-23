@@ -3,9 +3,10 @@ AttachmentDTO:
   properties:
     id:
       type: string
-      example: att_123
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     fileName:
       type: string
     contentType:

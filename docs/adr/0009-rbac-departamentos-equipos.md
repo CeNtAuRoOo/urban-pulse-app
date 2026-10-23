@@ -37,6 +37,6 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 - Matriz de operaciones autorizadas para cada rol/ámbito; reglas de alta, revocación y promoción.
 - Si se permite más de una pertenencia activa del mismo rol a un departamento y qué restricciones SQL impiden duplicados.
 - Reglas de desactivación y conservación de integrantes antiguos, transferencias de técnicos y asignaciones abiertas.
-- Mapeo JPA, FK/índices y DTO de roles/pertenencias; actualizar OpenAPI `usuarios`, `administracion`, `invitaciones`, `tramitacion` y `catalogos` cuando se implemente su alcance.
+- Mapeo JPA, FK/índices y DTO de roles/pertenencias; los esquemas base de OpenAPI ya están alineados; refinar autorización y gestión CRUD de equipos/pertenencias cuando se implemente su alcance.
 
 **Estado de entrega:** el modelo está documentado en `docs/diagrams` y `docs/domain-model.md`; no hay entidades JPA ni permisos implementados.

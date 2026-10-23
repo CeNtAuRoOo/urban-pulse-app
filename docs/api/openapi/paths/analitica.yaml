@@ -1,23 +1,23 @@
 /analytics/statistics:
   get:
     tags:
-      - Analítica
+    - Analítica
     summary: Estadísticas territoriales
     description: Agregados por estado, categoría, distrito y tiempos de resolución.
     operationId: getAnalyticsStatistics
     x-roles:
-      - ANALYST
-      - OPERATOR
-      - ADMIN
+    - OPERATOR
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
-      - name: districtId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Distrito opcional.
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
+    - name: districtId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Distrito opcional.
     responses:
       "200":
         description: Operación correcta.
@@ -41,18 +41,17 @@
 /zones/{zoneId}/analysis:
   get:
     tags:
-      - Analítica
+    - Analítica
     summary: Análisis de zona y periodo
     description: Agrega incidencias y observaciones contextuales del distrito/zona.
     operationId: getZonesZoneIdAnalysis
     x-roles:
-      - ANALYST
-      - OPERATOR
-      - ADMIN
+    - OPERATOR
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/ZoneId"
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
+    - $ref: "../components/parameters.yaml#/ZoneId"
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
     responses:
       "200":
         description: Operación correcta.
@@ -76,18 +75,16 @@
 /analytics/hotspots:
   get:
     tags:
-      - Analítica
+    - Analítica
     summary: Consultar concentraciones espaciales
-    description:
-      Consulta resultados de detección de zonas de concentración; las puntuaciones deben interpretarse
-      con cautela.
+    description: Consulta resultados de detección de zonas de concentración; las puntuaciones deben 
+      interpretarse con cautela.
     operationId: getAnalyticsHotspots
     x-roles:
-      - ANALYST
-      - ADMIN
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
     responses:
       "200":
         description: Operación correcta.
@@ -113,28 +110,28 @@
 /analytics/correlations:
   get:
     tags:
-      - Analítica
+    - Analítica
     summary: Consultar correlaciones históricas
     description: Relaciona tendencias de incidencias con variables urbanas; no implica causalidad.
     operationId: getAnalyticsCorrelations
     x-roles:
-      - ANALYST
-      - ADMIN
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
-      - name: districtId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Distrito.
-      - name: variable
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Variable urbana.
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
+    - name: districtId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Distrito.
+    - name: variable
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Variable urbana.
     responses:
       "200":
         description: Operación correcta.

@@ -30,7 +30,7 @@ No elegir aún de forma definitiva si genera UUIDv7 el backend o PostgreSQL: hac
 ## Verificaciones pendientes
 
 - Definir generador único y coherencia Hibernate/Flyway.
-- Evaluar índices, formatos en OpenAPI (`string`, `format: uuid`), claves compuestas, unicidad e integridad referencial por entidad.
+- Evaluar índices, formatos en OpenAPI (`string`, `format: uuid` ya incorporado a las referencias a entidades en el contrato base), claves compuestas, unicidad e integridad referencial por entidad.
 - Confirmar funcionamiento en base PostgreSQL de pruebas aislada y posteriormente en Neon `development`; no modificar `production` durante esta fase documental.
 
 **Estado de entrega:** diseño dibujado, no tabla ni migración aplicada.

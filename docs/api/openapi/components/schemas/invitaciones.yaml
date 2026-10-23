@@ -1,37 +1,27 @@
 InvitationRequest:
-  type: object
-  properties:
-    role:
-      $ref: "./usuarios.yaml#/UserRole"
-    email:
-      type: string
-      format: email
-      description: Correo autorizado opcional; política definitiva pendiente.
-    expiresAt:
-      type: string
-      format: date-time
-  required:
-    - role
-  description: "PROPUESTA ADR-0007: invitaciones de un solo uso para roles municipales."
-  additionalProperties: false
-
+  oneOf:
+  - $ref: ./invitaciones.yaml#/GlobalInvitationRequest
+  - $ref: ./invitaciones.yaml#/DepartmentInvitationRequest
+  description: 'ADR-0007/0009: el ámbito del rol determina si se exige departmentId. No se admite otro ámbito
+    ni departamento para roles globales.'
 InvitationDTO:
   type: object
   properties:
     id:
       type: string
+      format: uuid
     role:
-      $ref: "./usuarios.yaml#/UserRole"
+      $ref: ./usuarios.yaml#/RoleCode
     email:
       type: string
       format: email
     status:
       type: string
       enum:
-        - ACTIVE
-        - REDEEMED
-        - REVOKED
-        - EXPIRED
+      - ACTIVE
+      - REDEEMED
+      - REVOKED
+      - EXPIRED
     createdAt:
       type: string
       format: date-time
@@ -41,27 +31,31 @@ InvitationDTO:
     redeemedAt:
       type: string
       format: date-time
-    invitationCode:
+    departmentId:
       type: string
-      description: Solo aparece una vez, inmediatamente al crear la invitación; nunca en listados.
+      format: uuid
+      description: Departamento destinatario; obligatorio cuando role sea DEPARTMENT_COORDINATOR o 
+        TECHNICIAN y ausente para roles GLOBAL.
   required:
-    - id
-    - role
-    - status
-    - createdAt
-    - expiresAt
+  - id
+  - role
+  - status
+  - createdAt
+  - expiresAt
 
+  description: 'Metadatos de invitación: departmentId solo existe para roles departamentales; está ausente
+    para roles globales. El código se revela únicamente en InvitationCreatedDTO.'
 InvitationCreatedDTO:
   allOf:
-    - $ref: "./invitaciones.yaml#/InvitationDTO"
-    - type: object
-      properties:
-        invitationCode:
-          type: string
-          description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
-      required:
-        - invitationCode
-  description: Respuesta de creación de invitación con código entregado una sola vez.
+  - $ref: "./invitaciones.yaml#/InvitationDTO"
+  - type: object
+    properties:
+      invitationCode:
+        type: string
+        description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
+    required:
+    - invitationCode
+  description: Código devuelto únicamente al crear la invitación; nunca se persiste en claro.
 
 StaffRegistrationRequest:
   type: object
@@ -80,8 +74,55 @@ StaffRegistrationRequest:
       format: password
       minLength: 8
   required:
-    - invitationCode
-    - displayName
-    - email
-    - password
+  - invitationCode
+  - displayName
+  - email
+  - password
   additionalProperties: false
+  description: Alta de cuenta nueva con invitación. Si el email ya pertenece a una cuenta, no se crea 
+    otra; el canje autenticado usa /users/me/staff-invitation-redemptions.
+ExistingAccountInvitationRedemptionRequest:
+  type: object
+  properties:
+    invitationCode:
+      type: string
+  required:
+  - invitationCode
+  additionalProperties: false
+GlobalInvitationRequest:
+  type: object
+  properties:
+    role:
+      $ref: ./usuarios.yaml#/GlobalRoleCode
+    email:
+      type: string
+      format: email
+      description: Correo autorizado opcional; política definitiva pendiente.
+    expiresAt:
+      type: string
+      format: date-time
+  required:
+  - role
+  additionalProperties: false
+  description: Invitación para un rol global; no admite departmentId.
+DepartmentInvitationRequest:
+  type: object
+  properties:
+    role:
+      $ref: ./usuarios.yaml#/DepartmentRoleCode
+    departmentId:
+      type: string
+      format: uuid
+      description: Departamento de adscripción al canjear la invitación.
+    email:
+      type: string
+      format: email
+      description: Correo autorizado opcional; política definitiva pendiente.
+    expiresAt:
+      type: string
+      format: date-time
+  required:
+  - role
+  - departmentId
+  additionalProperties: false
+  description: Invitación para un rol departamental; requiere departmentId.

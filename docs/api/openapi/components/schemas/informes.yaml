@@ -9,22 +9,23 @@ ReportRequest:
       format: date
     districtId:
       type: string
+      format: uuid
     format:
       type: string
       enum:
-        - CSV
-        - PDF
+      - CSV
+      - PDF
     groupBy:
       type: string
       enum:
-        - STATUS
-        - CATEGORY
-        - DISTRICT
-        - MONTH
+      - STATUS
+      - CATEGORY
+      - DISTRICT
+      - MONTH
   required:
-    - from
-    - to
-    - format
+  - from
+  - to
+  - format
   additionalProperties: false
 
 ReportDTO:
@@ -35,15 +36,15 @@ ReportDTO:
     status:
       type: string
       enum:
-        - QUEUED
-        - PROCESSING
-        - COMPLETED
-        - FAILED
+      - QUEUED
+      - PROCESSING
+      - COMPLETED
+      - FAILED
     format:
       type: string
       enum:
-        - CSV
-        - PDF
+      - CSV
+      - PDF
     createdAt:
       type: string
       format: date-time
@@ -55,10 +56,10 @@ ReportDTO:
     errorMessage:
       type: string
   required:
-    - id
-    - status
-    - format
-    - createdAt
+  - id
+  - status
+  - format
+  - createdAt
 
 ReportsPageDTO:
   type: object
@@ -70,5 +71,5 @@ ReportsPageDTO:
     pagination:
       $ref: "./comunes.yaml#/PageMetadata"
   required:
-    - data
-    - pagination
+  - data
+  - pagination
