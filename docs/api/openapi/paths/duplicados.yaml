@@ -3,7 +3,8 @@
     tags:
       - Duplicados
     summary: Sugerir incidencias duplicadas
-    description: Candidatos basados en posición, tiempo y semántica; no se rechaza automáticamente el reporte.
+    description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría 
+      si está disponible). La confirmación siempre corresponde al personal municipal.
     operationId: getIncidentsIncidentIdDuplicateCandidates
     x-roles:
       - OPERATOR

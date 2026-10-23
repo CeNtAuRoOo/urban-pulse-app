@@ -1,59 +1,59 @@
 /map/incidents:
   get:
     tags:
-      - Mapas
+    - Mapas
     summary: Obtener incidencias del mapa
-    description:
-      Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son obligatorios
-      para evitar consultas ilimitadas.
+    description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son 
+      obligatorios para evitar consultas ilimitadas.
     operationId: getMapIncidents
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     parameters:
-      - name: minLat
-        in: query
-        required: true
-        schema:
-          type: number
-          minimum: -90
-          maximum: 90
-        description: Límite sur.
-      - name: minLon
-        in: query
-        required: true
-        schema:
-          type: number
-          minimum: -180
-          maximum: 180
-        description: Límite oeste.
-      - name: maxLat
-        in: query
-        required: true
-        schema:
-          type: number
-          minimum: -90
-          maximum: 90
-        description: Límite norte.
-      - name: maxLon
-        in: query
-        required: true
-        schema:
-          type: number
-          minimum: -180
-          maximum: 180
-        description: Límite este.
-      - name: status
-        in: query
-        required: false
-        schema:
-          $ref: "../components/schemas/incidencias.yaml#/IncidentStatus"
-        description: Estado opcional.
-      - name: categoryId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Categoría opcional.
+    - name: minLat
+      in: query
+      required: true
+      schema:
+        type: number
+        minimum: -90
+        maximum: 90
+      description: Límite sur.
+    - name: minLon
+      in: query
+      required: true
+      schema:
+        type: number
+        minimum: -180
+        maximum: 180
+      description: Límite oeste.
+    - name: maxLat
+      in: query
+      required: true
+      schema:
+        type: number
+        minimum: -90
+        maximum: 90
+      description: Límite norte.
+    - name: maxLon
+      in: query
+      required: true
+      schema:
+        type: number
+        minimum: -180
+        maximum: 180
+      description: Límite este.
+    - name: status
+      in: query
+      required: false
+      schema:
+        $ref: "../components/schemas/incidencias.yaml#/IncidentStatus"
+      description: Estado opcional.
+    - name: categoryId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Categoría opcional.
     responses:
       "200":
         description: Operación correcta.

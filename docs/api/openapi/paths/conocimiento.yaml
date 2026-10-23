@@ -3,9 +3,8 @@
     tags:
       - Conocimiento
     summary: Incorporar documento
-    description:
-      Sube procedimiento versionado para indexación posterior. Su autorización y retención se concretarán
-      al abordar RAG.
+    description: Sube procedimiento versionado para indexación posterior. Su autorización y retención se 
+      concretarán al abordar RAG.
     operationId: postKnowledgeDocuments
     x-roles:
       - ADMIN
@@ -61,7 +60,6 @@
     operationId: getKnowledgeDocuments
     x-roles:
       - OPERATOR
-      - ANALYST
       - ADMIN
     responses:
       "200":
@@ -90,14 +88,12 @@
     tags:
       - Conocimiento
     summary: Consultar procedimientos con RAG
-    description:
-      Responde con citas documentales verificables; marca insuficiencia de evidencia y no suplanta
-      decisiones humanas.
+    description: Responde con citas documentales verificables; marca insuficiencia de evidencia y no 
+      suplanta decisiones humanas.
     operationId: postKnowledgeQueries
     x-roles:
       - OPERATOR
       - TECHNICIAN
-      - ANALYST
       - ADMIN
     requestBody:
       required: true

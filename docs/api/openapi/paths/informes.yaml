@@ -6,7 +6,6 @@
     description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
     operationId: postReports
     x-roles:
-      - ANALYST
       - OPERATOR
       - ADMIN
     requestBody:
@@ -44,7 +43,6 @@
     description: Informes solicitados por usuarios autorizados.
     operationId: getReports
     x-roles:
-      - ANALYST
       - OPERATOR
       - ADMIN
     parameters:
@@ -78,7 +76,6 @@
     description: Estado de creación, fechas y error de generación si procede.
     operationId: getReportsReportId
     x-roles:
-      - ANALYST
       - OPERATOR
       - ADMIN
     parameters:
@@ -111,7 +108,6 @@
     description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
     operationId: getReportsReportIdFile
     x-roles:
-      - ANALYST
       - OPERATOR
       - ADMIN
     parameters:

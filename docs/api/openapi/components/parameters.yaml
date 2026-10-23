@@ -2,56 +2,50 @@ IncidentId:
   name: incidentId
   in: path
   required: true
-  description: "Identificador público opaco: incidentId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): incidentId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 AttachmentId:
   name: attachmentId
   in: path
   required: true
-  description: "Identificador público opaco: attachmentId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): attachmentId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 UserId:
   name: userId
   in: path
   required: true
-  description: "Identificador público opaco: userId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): userId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 CategoryId:
   name: categoryId
   in: path
   required: true
-  description: "Identificador público opaco: categoryId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): categoryId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 DepartmentId:
   name: departmentId
   in: path
   required: true
-  description: "Identificador público opaco: departmentId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): departmentId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 AssetId:
   name: assetId
   in: path
   required: true
-  description: "Identificador público opaco: assetId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): assetId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 ReportId:
   name: reportId
   in: path
@@ -92,20 +86,18 @@ SourceId:
   name: sourceId
   in: path
   required: true
-  description: "Identificador público opaco: sourceId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): sourceId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 InvitationId:
   name: invitationId
   in: path
   required: true
-  description: "Identificador público opaco: invitationId."
+  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): invitationId."
   schema:
     type: string
-    minLength: 1
-
+    format: uuid
 ZoneId:
   name: zoneId
   in: path
@@ -149,3 +141,11 @@ ToDate:
   schema:
     type: string
     format: date
+AssignmentId:
+  name: assignmentId
+  in: path
+  required: true
+  description: Identificador UUID de una asignación de trabajo.
+  schema:
+    type: string
+    format: uuid

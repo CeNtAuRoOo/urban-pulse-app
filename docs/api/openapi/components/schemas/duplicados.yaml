@@ -1,11 +1,10 @@
 DuplicateSuggestionDTO:
   type: object
   properties:
-    incident:
-      $ref: "./incidencias.yaml#/IncidentSummaryDTO"
     score:
       type: number
-      description: Probabilidad o similitud normalizada.
+      description: Puntuación de similitud heurística; no es una probabilidad calibrada ni una decisión 
+        automática.
       minimum: 0
       maximum: 1
     reasons:
@@ -13,16 +12,21 @@ DuplicateSuggestionDTO:
       items:
         type: string
       description: Proximidad, tiempo y/o semántica.
+    candidateIncidentId:
+      type: string
+      format: uuid
   required:
-    - incident
+    - candidateIncidentId
     - score
     - reasons
-
+  description: DTO calculado por proximidad espacial/temporal, sin almacenamiento ni confirmación 
+    automática.
 DuplicateLinkRequest:
   type: object
   properties:
     candidateIncidentId:
       type: string
+      format: uuid
     reason:
       type: string
   required:
@@ -34,10 +38,13 @@ DuplicateLinkDTO:
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     candidateIncidentId:
       type: string
+      format: uuid
     linkedBy:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     linkedAt:
@@ -48,3 +55,5 @@ DuplicateLinkDTO:
     - incidentId
     - candidateIncidentId
     - linkedAt
+    - linkedBy
+  description: Relación confirmada por persona autorizada, sin eliminar reportes originales.

@@ -2,13 +2,13 @@ openapi: 3.0.3
 
 info:
   title: UrbanPulse API REST
-  version: 0.1.0
+  version: 0.2.0
   description:
-    Contrato inicial design-first para la plataforma cloud de gestión de incidencias urbanas UrbanPulse.
-    Cubre el núcleo de incidencias y los casos de uso complementarios previstos en el enunciado. Las rutas y la
-    estructura de DTOs son propuestas de diseño; las políticas de autorización, transiciones de estado, límites
-    de ficheros, procesamiento asíncrono y otros detalles deben ratificarse antes de implementar. No representa
-    una API ya desplegada.
+    Contrato de diseño sincronizado con el modelo de dominio UrbanPulse v1 y
+    ADR-0007/0009/0010/0011. Ambos forman una única referencia compartida; se refinan juntos por tag
+    antes de implementar. Sin endpoints de negocio desplegados. Contexto urbano y funciones avanzadas
+    pendientes de investigación. Las rutas de evaluaciones IA con motor, modelo y estado asíncrono no
+    forman parte de la versión activa; quedan como borrador exploratorio hasta definir su contrato.
 
   contact:
     name: Equipo UrbanPulse
@@ -25,7 +25,7 @@ tags:
     description: Perfil y gestión administrativa de usuarios.
 
   - name: Invitaciones
-    description: Propuesta de incorporación controlada de personal municipal.
+    description: Canje y emisión controlados según ADR-0007 (aceptado).
 
   - name: Catálogos
     description: Categorías y departamentos.
@@ -37,7 +37,9 @@ tags:
     description: Fotografías privadas asociadas a incidencias.
 
   - name: Tramitación
-    description: Revisión, prioridad, asignaciones, estados y colaboración.
+    description:
+      Validación, derivación departamental, asignación de trabajos, cambios de estado y
+      colaboración.
 
   - name: Duplicados
     description: Detección y confirmación de avisos relacionados.
@@ -56,12 +58,6 @@ tags:
 
   - name: Informes
     description: Generación y descarga de informes.
-
-  - name: Asistencia inteligente
-    description: Evaluación asistida y experimentos de modelos.
-
-  - name: Conocimiento
-    description: Documentos y consultas RAG con citas.
 
   - name: Administración
     description: Fuentes externas, auditoría y administración técnica.
@@ -97,6 +93,8 @@ paths:
   /auth/staff-registrations:
     $ref: "./paths/invitaciones.yaml#/~1auth~1staff-registrations"
 
+  /users/me/staff-invitation-redemptions:
+    $ref: ./paths/invitaciones.yaml#/~1users~1me~1staff-invitation-redemptions
   /staff-invitations/{invitationId}/revocations:
     $ref: "./paths/invitaciones.yaml#/~1staff-invitations~1{invitationId}~1revocations"
 
@@ -141,9 +139,13 @@ paths:
   /incidents/{incidentId}/priority-decisions:
     $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1priority-decisions"
 
+  /incidents/{incidentId}/department:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1department
   /incidents/{incidentId}/assignments:
     $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1assignments"
 
+  /incidents/{incidentId}/assignments/{assignmentId}/acceptance:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1assignments~1{assignmentId}~1acceptance
   /incidents/{incidentId}/status-changes:
     $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1status-changes"
 
@@ -195,9 +197,6 @@ paths:
   /zones/{zoneId}/analysis:
     $ref: "./paths/analitica.yaml#/~1zones~1{zoneId}~1analysis"
 
-  /analytics/hotspots:
-    $ref: "./paths/analitica.yaml#/~1analytics~1hotspots"
-
   /analytics/correlations:
     $ref: "./paths/analitica.yaml#/~1analytics~1correlations"
 
@@ -209,24 +208,6 @@ paths:
 
   /reports/{reportId}/file:
     $ref: "./paths/informes.yaml#/~1reports~1{reportId}~1file"
-
-  /ai/incident-assessments:
-    $ref: "./paths/asistencia-inteligente.yaml#/~1ai~1incident-assessments"
-
-  /ai/incident-assessments/{assessmentId}:
-    $ref: "./paths/asistencia-inteligente.yaml#/~1ai~1incident-assessments~1{assessmentId}"
-
-  /ai/training-jobs:
-    $ref: "./paths/asistencia-inteligente.yaml#/~1ai~1training-jobs"
-
-  /ai/training-jobs/{trainingId}:
-    $ref: "./paths/asistencia-inteligente.yaml#/~1ai~1training-jobs~1{trainingId}"
-
-  /knowledge/documents:
-    $ref: "./paths/conocimiento.yaml#/~1knowledge~1documents"
-
-  /knowledge/queries:
-    $ref: "./paths/conocimiento.yaml#/~1knowledge~1queries"
 
   /external-sources:
     $ref: "./paths/administracion.yaml#/~1external-sources"
@@ -254,8 +235,6 @@ components:
       $ref: "./components/schemas/incidencias.yaml#/LocationDTO"
     UserSummaryDTO:
       $ref: "./components/schemas/usuarios.yaml#/UserSummaryDTO"
-    UserRole:
-      $ref: "./components/schemas/usuarios.yaml#/UserRole"
     UserDTO:
       $ref: "./components/schemas/usuarios.yaml#/UserDTO"
     RegisterRequest:
@@ -360,32 +339,12 @@ components:
       $ref: "./components/schemas/analitica.yaml#/CountBucketDTO"
     ZoneAnalysisDTO:
       $ref: "./components/schemas/analitica.yaml#/ZoneAnalysisDTO"
-    HotspotDTO:
-      $ref: "./components/schemas/analitica.yaml#/HotspotDTO"
     CorrelationDTO:
       $ref: "./components/schemas/analitica.yaml#/CorrelationDTO"
     ReportRequest:
       $ref: "./components/schemas/informes.yaml#/ReportRequest"
     ReportDTO:
       $ref: "./components/schemas/informes.yaml#/ReportDTO"
-    AIAssessmentRequest:
-      $ref: "./components/schemas/asistencia-inteligente.yaml#/AIAssessmentRequest"
-    AIRecommendationDTO:
-      $ref: "./components/schemas/asistencia-inteligente.yaml#/AIRecommendationDTO"
-    AIAssessmentDTO:
-      $ref: "./components/schemas/asistencia-inteligente.yaml#/AIAssessmentDTO"
-    TrainingRequest:
-      $ref: "./components/schemas/asistencia-inteligente.yaml#/TrainingRequest"
-    TrainingJobDTO:
-      $ref: "./components/schemas/asistencia-inteligente.yaml#/TrainingJobDTO"
-    KnowledgeDocumentDTO:
-      $ref: "./components/schemas/conocimiento.yaml#/KnowledgeDocumentDTO"
-    KnowledgeQueryRequest:
-      $ref: "./components/schemas/conocimiento.yaml#/KnowledgeQueryRequest"
-    KnowledgeCitationDTO:
-      $ref: "./components/schemas/conocimiento.yaml#/KnowledgeCitationDTO"
-    KnowledgeAnswerDTO:
-      $ref: "./components/schemas/conocimiento.yaml#/KnowledgeAnswerDTO"
     ExternalSourceDTO:
       $ref: "./components/schemas/administracion.yaml#/ExternalSourceDTO"
     ExternalSourceRequest:
@@ -402,6 +361,28 @@ components:
       $ref: "./components/schemas/informes.yaml#/ReportsPageDTO"
     AuditPageDTO:
       $ref: "./components/schemas/administracion.yaml#/AuditPageDTO"
+    RoleCode:
+      $ref: ./components/schemas/usuarios.yaml#/RoleCode
+    RoleScope:
+      $ref: ./components/schemas/usuarios.yaml#/RoleScope
+    DepartmentMembershipDTO:
+      $ref: ./components/schemas/usuarios.yaml#/DepartmentMembershipDTO
+    DepartmentReferralRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/DepartmentReferralRequest
+    TeamWorkAssignmentRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/TeamWorkAssignmentRequest
+    TechnicianWorkAssignmentRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/TechnicianWorkAssignmentRequest
+    ExistingAccountInvitationRedemptionRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
+    GlobalRoleCode:
+      $ref: ./components/schemas/usuarios.yaml#/GlobalRoleCode
+    DepartmentRoleCode:
+      $ref: ./components/schemas/usuarios.yaml#/DepartmentRoleCode
+    GlobalInvitationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/GlobalInvitationRequest
+    DepartmentInvitationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/DepartmentInvitationRequest
   parameters:
     IncidentId:
       $ref: "./components/parameters.yaml#/IncidentId"
@@ -437,6 +418,8 @@ components:
       $ref: "./components/parameters.yaml#/FromDate"
     ToDate:
       $ref: "./components/parameters.yaml#/ToDate"
+    AssignmentId:
+      $ref: ./components/parameters.yaml#/AssignmentId
   responses:
     BadRequest:
       $ref: "./components/responses.yaml#/BadRequest"

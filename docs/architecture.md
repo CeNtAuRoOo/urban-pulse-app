@@ -43,7 +43,7 @@ Ambos diagramas se conservan como SVG y **también se incorpora** su fuente edit
 - **[Catálogo de clases simplificado](diagrams/clases-simplificado.drawio):** clases Java previstas con campos/tipos, enumeraciones, objetos de valor `@Embeddable` y DTO; **una página sin relaciones intencionadamente**, puesto que estas se estudian en el ER.
 - Las imágenes SVG exportadas están indexadas en [diagramas](diagrams/README.md).
 
-**Estado: primera propuesta completa de representación, no validación completa del dominio.** Una decisión de que una clase aparezca en el dibujo **no** obliga a implementarla ahora ni significa que su persistencia/campos/DTO ya estén aprobados. El equipo revisará el modelo **por tag** junto con el OpenAPI modular, empezando por los casos de uso que efectivamente construya cada compañero; cada PR ajustará diagramas, documentación, contrato, pruebas y migraciones pertinentes. Detalles en [modelo de dominio y proceso de revisión](domain-model.md).
+**Estado: versión base del dominio sincronizada con OpenAPI 0.2.0; no validación exhaustiva ni implementación.** Una decisión de que una clase aparezca en el dibujo **no** obliga a implementarla ahora ni significa que su persistencia/campos/DTO ya estén aprobados. El equipo revisará el **dominio–OpenAPI como una sola unidad por tag**, empezando por los casos de uso que efectivamente construya cada compañero; cada PR ajustará diagramas, documentación, contrato, pruebas y migraciones pertinentes. Detalles en [modelo de dominio y proceso de revisión](domain-model.md), junto con la [integración dominio–OpenAPI](api/domain-openapi.md).
 
 ### 3.4. Diagramas todavía pendientes
 
@@ -65,7 +65,7 @@ Organización objetivo: `Controller → Service → Repository → PostgreSQL`, 
 
 **Persistencia:** Flyway gestionará migraciones versionadas dentro de `backend/src/main/resources/db/migration/`; el script inicial del dominio **todavía no existe**. `ddl-auto=validate` no crea tablas. No ejecutar migraciones experimentales sobre la rama `production` de Neon. Los futuros tests de persistencia deben aislarse de la base compartida, mientras `NeonConnectivityIT` seguirá como prueba manual de humo.
 
-**Contrato REST:** existe un borrador OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones por tag y esquemas reutilizables. [`api/openapi.yaml`](api/openapi.yaml) es una copia monolítica; si se modifica el contrato habrá que **regenerarla** desde la fuente modular. El contrato no demuestra la existencia de endpoints.
+**Contrato REST:** existe un borrador OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones por tag y esquemas reutilizables. [`api/openapi.yaml`](api/openapi.yaml) es una copia monolítica; si se modifica el contrato habrá que **regenerarla**, junto con `api/openapi.html`, desde la fuente modular. El contrato no demuestra la existencia de endpoints.
 
 ## 6. Dominio operativo previsto y decisiones aceptadas
 

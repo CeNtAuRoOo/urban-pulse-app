@@ -3,7 +3,8 @@
     tags:
       - Invitaciones
     summary: Crear invitación municipal
-    description: "PROPUESTA ADR-0007: el código solo se muestra en esta respuesta y se almacena protegido."
+    description: "ADR-0007 aceptado: invitación de un solo uso; rol GLOBAL o rol DEPARTMENT con departamento.
+      Código revelado solo al crearla."
     operationId: postStaffInvitations
     x-roles:
       - ADMIN
@@ -75,7 +76,8 @@
     tags:
       - Invitaciones
     summary: Canjear invitación
-    description: "PROPUESTA ADR-0007: canje atómico de un solo uso; reglas de elegibilidad por definir."
+    description: "Canje de invitación al registrar una cuenta nueva. Si el correo corresponde a una cuenta
+      existente, utilizar el canje autenticado sin crear usuario duplicado."
     operationId: postAuthStaffRegistrations
     security: []
     x-roles:
@@ -137,3 +139,40 @@
         $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+/users/me/staff-invitation-redemptions:
+  post:
+    tags:
+      - Invitaciones
+    summary: Canjear invitación con cuenta existente
+    description: Añade el rol global o pertenencia departamental autorizados a la cuenta autenticada. 
+      Canje atómico y auditable; no cambia identidad/correo.
+    operationId: postUsersMeStaffInvitationRedemptions
+    x-roles:
+      - AUTHENTICATED
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
+    responses:
+      '200':
+        description: Operación correcta.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/usuarios.yaml#/UserDTO
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '422':
+        $ref: ../components/responses.yaml#/ValidationError
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
