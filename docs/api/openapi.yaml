@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.1.0
-  description: Contrato inicial design-first para la plataforma cloud de gestión de incidencias urbanas UrbanPulse. Cubre el núcleo de incidencias y los casos de uso complementarios previstos en el enunciado. Las rutas y la estructura de DTOs son propuestas de diseño; las políticas de autorización, transiciones de estado, límites de ficheros, procesamiento asíncrono y otros detalles deben ratificarse antes de implementar. No representa una API ya desplegada.
+  version: 0.2.0
+  description: Contrato de diseño sincronizado con el modelo de dominio UrbanPulse v1 y ADR-0007/0009/0010/0011. Ambos forman una única referencia compartida; se refinan juntos por tag antes de implementar. Sin endpoints de negocio desplegados. Contexto urbano y funciones avanzadas pendientes de investigación. Las rutas de evaluaciones IA con motor, modelo y estado asíncrono no forman parte de la versión activa; quedan como borrador exploratorio hasta definir su contrato.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -16,7 +16,7 @@ tags:
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
-    description: Propuesta de incorporación controlada de personal municipal.
+    description: Canje y emisión controlados según ADR-0007 (aceptado).
   - name: Catálogos
     description: Categorías y departamentos.
   - name: Incidencias
@@ -24,7 +24,7 @@ tags:
   - name: Evidencias
     description: Fotografías privadas asociadas a incidencias.
   - name: Tramitación
-    description: Revisión, prioridad, asignaciones, estados y colaboración.
+    description: Validación, derivación departamental, asignación de trabajos, cambios de estado y colaboración.
   - name: Duplicados
     description: Detección y confirmación de avisos relacionados.
   - name: Contexto urbano
@@ -37,10 +37,6 @@ tags:
     description: Métricas y análisis territorial.
   - name: Informes
     description: Generación y descarga de informes.
-  - name: Asistencia inteligente
-    description: Evaluación asistida y experimentos de modelos.
-  - name: Conocimiento
-    description: Documentos y consultas RAG con citas.
   - name: Administración
     description: Fuentes externas, auditoría y administración técnica.
 paths:
@@ -198,7 +194,7 @@ paths:
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/UserRole'
+            $ref: '#/components/schemas/RoleCode'
           description: Filtrar por rol.
         - name: active
           in: query
@@ -259,7 +255,7 @@ paths:
       tags:
         - Usuarios
       summary: Administrar usuario
-      description: Cambia estado o rol de una cuenta de forma auditada; no expone operaciones de autoelevación.
+      description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las adscripciones departamentales tienen reglas propias.
       operationId: patchUsersUserId
       x-roles:
         - ADMIN
@@ -297,7 +293,7 @@ paths:
       tags:
         - Invitaciones
       summary: Crear invitación municipal
-      description: 'PROPUESTA ADR-0007: el código solo se muestra en esta respuesta y se almacena protegido.'
+      description: 'ADR-0007 aceptado: invitación de un solo uso; rol GLOBAL o rol DEPARTMENT con departamento. Código revelado solo al crearla.'
       operationId: postStaffInvitations
       x-roles:
         - ADMIN
@@ -367,7 +363,7 @@ paths:
       tags:
         - Invitaciones
       summary: Canjear invitación
-      description: 'PROPUESTA ADR-0007: canje atómico de un solo uso; reglas de elegibilidad por definir.'
+      description: Canje de invitación al registrar una cuenta nueva. Si el correo corresponde a una cuenta existente, utilizar el canje autenticado sin crear usuario duplicado.
       operationId: postAuthStaffRegistrations
       security: []
       x-roles:
@@ -392,6 +388,42 @@ paths:
                 type: string
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/me/staff-invitation-redemptions:
+    post:
+      tags:
+        - Invitaciones
+      summary: Canjear invitación con cuenta existente
+      description: Añade el rol global o pertenencia departamental autorizados a la cuenta autenticada. Canje atómico y auditable; no cambia identidad/correo.
+      operationId: postUsersMeStaffInvitationRedemptions
+      x-roles:
+        - AUTHENTICATED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExistingAccountInvitationRedemptionRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -749,7 +781,7 @@ paths:
       tags:
         - Incidencias
       summary: Buscar incidencias
-      description: Listado paginado. Al ciudadano solo se le muestran incidencias autorizadas; el personal puede usar filtros de búsqueda ampliados.
+      description: Búsqueda paginada. Los coordinadores acceden únicamente a incidencias de sus departamentos activos; el departamento de cada resultado se comprueba en el backend. Filtros opcionales.
       operationId: getIncidents
       x-roles:
         - AUTHENTICATED
@@ -767,18 +799,21 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Categoría.
         - name: districtId
           in: query
           required: false
           schema:
             type: string
+            format: uuid
           description: Distrito.
         - name: departmentId
           in: query
           required: false
           schema:
             type: string
+            format: uuid
           description: Departamento asignado.
         - name: priority
           in: query
@@ -838,11 +873,7 @@ paths:
       description: Solo incidencias creadas por la identidad del JWT; no se acepta userId de terceros.
       operationId: getIncidentsMine
       x-roles:
-        - CITIZEN
-        - OPERATOR
-        - TECHNICIAN
-        - ADMIN
-        - ANALYST
+        - AUTHENTICATED
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -1176,7 +1207,6 @@ paths:
       x-roles:
         - OPERATOR
         - ADMIN
-        - ANALYST
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
@@ -1253,7 +1283,6 @@ paths:
       x-roles:
         - OPERATOR
         - ADMIN
-        - ANALYST
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
@@ -1277,16 +1306,53 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/department:
+    put:
+      tags:
+        - Tramitación
+      summary: Derivar o transferir incidencia a departamento
+      description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. Una incidencia VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir trabajo activo requiere finalizar la asignación anterior.
+      operationId: putIncidentsIncidentIdDepartment
+      x-roles:
+        - OPERATOR
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentReferralRequest'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /incidents/{incidentId}/assignments:
     post:
       tags:
         - Tramitación
-      summary: Asignar o reasignar
-      description: Crea asignación temporal a departamento y opcionalmente técnico/equipo. La primera asignación requiere VALIDATED y transiciona a ASSIGNED.
+      summary: Asignar o reasignar trabajo a equipo o técnico
+      description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha de estar derivada previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o Technician y una asignación activa por incidencia.
       operationId: postIncidentsIncidentIdAssignments
       x-roles:
-        - OPERATOR
-        - ADMIN
+        - DEPARTMENT_COORDINATOR
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       requestBody:
@@ -1325,13 +1391,13 @@ paths:
       tags:
         - Tramitación
       summary: Consultar asignaciones
-      description: Historial de asignaciones, incluidas las ya finalizadas.
+      description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; acceso restringido por departamento, asignación y permisos.
       operationId: getIncidentsIncidentIdAssignments
       x-roles:
         - OPERATOR
+        - DEPARTMENT_COORDINATOR
         - TECHNICIAN
         - ADMIN
-        - ANALYST
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
@@ -1355,15 +1421,47 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/assignments/{assignmentId}/acceptance:
+    post:
+      tags:
+        - Tramitación
+      summary: Aceptar trabajo asignado
+      description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra acceptedBy/acceptedAt sin pasar automáticamente a IN_PROGRESS.
+      operationId: postIncidentsIncidentIdAssignmentsAssignmentIdAcceptance
+      x-roles:
+        - TECHNICIAN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: Operación correcta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /incidents/{incidentId}/status-changes:
     post:
       tags:
         - Tramitación
       summary: Registrar transición de estado
-      description: Cambia el estado respetando una máquina de estados auditada. La resolución requiere notas; VALIDATED/REJECTED/ASSIGNED se gestionan mediante revisión/asignación.
+      description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y WORK_ASSIGNED se gestionan mediante sus operaciones específicas.
       operationId: postIncidentsIncidentIdStatusChanges
       x-roles:
         - OPERATOR
+        - DEPARTMENT_COORDINATOR
         - TECHNICIAN
         - ADMIN
       parameters:
@@ -1513,7 +1611,7 @@ paths:
       tags:
         - Tramitación
       summary: Mi cola de trabajo
-      description: Incidencias asignadas al técnico autenticado, sin revelar tareas de otros técnicos.
+      description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento responsable. El servicio comprueba pertenencia y visibilidad.
       operationId: getIncidentsAssignedToMe
       x-roles:
         - TECHNICIAN
@@ -1550,7 +1648,7 @@ paths:
       tags:
         - Duplicados
       summary: Sugerir incidencias duplicadas
-      description: Candidatos basados en posición, tiempo y semántica; no se rechaza automáticamente el reporte.
+      description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría si está disponible). La confirmación siempre corresponde al personal municipal.
       operationId: getIncidentsIncidentIdDuplicateCandidates
       x-roles:
         - OPERATOR
@@ -1633,7 +1731,6 @@ paths:
         - OPERATOR
         - TECHNICIAN
         - ADMIN
-        - ANALYST
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
@@ -1828,7 +1925,6 @@ paths:
       x-roles:
         - OPERATOR
         - ADMIN
-        - ANALYST
       parameters:
         - $ref: '#/components/parameters/FromDate'
         - $ref: '#/components/parameters/ToDate'
@@ -1837,6 +1933,7 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Identificador del proveedor.
         - name: metric
           in: query
@@ -1918,6 +2015,7 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Categoría opcional.
       responses:
         '200':
@@ -1990,6 +2088,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -2094,7 +2193,6 @@ paths:
       description: Agregados por estado, categoría, distrito y tiempos de resolución.
       operationId: getAnalyticsStatistics
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       parameters:
@@ -2105,6 +2203,7 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Distrito opcional.
       responses:
         '200':
@@ -2133,7 +2232,6 @@ paths:
       description: Agrega incidencias y observaciones contextuales del distrito/zona.
       operationId: getZonesZoneIdAnalysis
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       parameters:
@@ -2159,40 +2257,6 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
-  /analytics/hotspots:
-    get:
-      tags:
-        - Analítica
-      summary: Consultar concentraciones espaciales
-      description: Consulta resultados de detección de zonas de concentración; las puntuaciones deben interpretarse con cautela.
-      operationId: getAnalyticsHotspots
-      x-roles:
-        - ANALYST
-        - ADMIN
-      parameters:
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
-      responses:
-        '200':
-          description: Operación correcta.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/HotspotDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
   /analytics/correlations:
     get:
       tags:
@@ -2201,7 +2265,6 @@ paths:
       description: Relaciona tendencias de incidencias con variables urbanas; no implica causalidad.
       operationId: getAnalyticsCorrelations
       x-roles:
-        - ANALYST
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/FromDate'
@@ -2211,6 +2274,7 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Distrito.
         - name: variable
           in: query
@@ -2247,7 +2311,6 @@ paths:
       description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
       operationId: postReports
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       requestBody:
@@ -2284,7 +2347,6 @@ paths:
       description: Informes solicitados por usuarios autorizados.
       operationId: getReports
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       parameters:
@@ -2317,7 +2379,6 @@ paths:
       description: Estado de creación, fechas y error de generación si procede.
       operationId: getReportsReportId
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       parameters:
@@ -2349,7 +2410,6 @@ paths:
       description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
       operationId: getReportsReportIdFile
       x-roles:
-        - ANALYST
         - OPERATOR
         - ADMIN
       parameters:
@@ -2373,266 +2433,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /ai/incident-assessments:
-    post:
-      tags:
-        - Asistencia inteligente
-      summary: Solicitar evaluación asistida
-      description: Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; conserva confianza y procedencia del modelo.
-      operationId: postAiIncidentAssessments
-      x-roles:
-        - OPERATOR
-        - ANALYST
-        - ADMIN
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AIAssessmentRequest'
-      responses:
-        '202':
-          description: Solicitud aceptada para procesamiento asíncrono.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AIAssessmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /ai/incident-assessments/{assessmentId}:
-    get:
-      tags:
-        - Asistencia inteligente
-      summary: Consultar evaluación asistida
-      description: Devuelve recomendaciones, confianza y estado del cálculo.
-      operationId: getAiIncidentAssessmentsAssessmentId
-      x-roles:
-        - OPERATOR
-        - ANALYST
-        - ADMIN
-      parameters:
-        - $ref: '#/components/parameters/AssessmentId'
-      responses:
-        '200':
-          description: Operación correcta.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AIAssessmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /ai/training-jobs:
-    post:
-      tags:
-        - Asistencia inteligente
-      summary: Entrenar o evaluar modelo
-      description: Trabajo asíncrono de experimentación de clasificación, prioridad o hotspots.
-      operationId: postAiTrainingJobs
-      x-roles:
-        - ANALYST
-        - ADMIN
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TrainingRequest'
-      responses:
-        '202':
-          description: Solicitud aceptada para procesamiento asíncrono.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingJobDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /ai/training-jobs/{trainingId}:
-    get:
-      tags:
-        - Asistencia inteligente
-      summary: Consultar entrenamiento
-      description: Devuelve resultado, modelo e indicadores de evaluación si el proceso terminó.
-      operationId: getAiTrainingJobsTrainingId
-      x-roles:
-        - ANALYST
-        - ADMIN
-      parameters:
-        - $ref: '#/components/parameters/TrainingId'
-      responses:
-        '200':
-          description: Operación correcta.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingJobDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /knowledge/documents:
-    post:
-      tags:
-        - Conocimiento
-      summary: Incorporar documento
-      description: Sube procedimiento versionado para indexación posterior. Su autorización y retención se concretarán al abordar RAG.
-      operationId: postKnowledgeDocuments
-      x-roles:
-        - ADMIN
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                  description: Procedimiento o normativa PDF.
-                title:
-                  type: string
-                version:
-                  type: string
-                source:
-                  type: string
-              required:
-                - file
-                - title
-                - version
-              additionalProperties: false
-      responses:
-        '202':
-          description: Solicitud aceptada para procesamiento asíncrono.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KnowledgeDocumentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    get:
-      tags:
-        - Conocimiento
-      summary: Listar documentos
-      description: Catálogo de documentos indexados y versiones.
-      operationId: getKnowledgeDocuments
-      x-roles:
-        - OPERATOR
-        - ANALYST
-        - ADMIN
-      responses:
-        '200':
-          description: Operación correcta.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/KnowledgeDocumentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /knowledge/queries:
-    post:
-      tags:
-        - Conocimiento
-      summary: Consultar procedimientos con RAG
-      description: Responde con citas documentales verificables; marca insuficiencia de evidencia y no suplanta decisiones humanas.
-      operationId: postKnowledgeQueries
-      x-roles:
-        - OPERATOR
-        - TECHNICIAN
-        - ANALYST
-        - ADMIN
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KnowledgeQueryRequest'
-      responses:
-        '200':
-          description: Operación correcta.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KnowledgeAnswerDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
   /external-sources:
@@ -2762,6 +2562,7 @@ paths:
           required: false
           schema:
             type: string
+            format: uuid
           description: Actor.
         - name: resourceType
           in: query
@@ -2917,6 +2718,7 @@ components:
         districtId:
           type: string
           description: Distrito obtenido por geocodificación.
+          format: uuid
         districtName:
           type: string
           description: Nombre del distrito.
@@ -2935,50 +2737,48 @@ components:
       properties:
         id:
           type: string
-          example: usr_1
+          format: uuid
         displayName:
           type: string
           example: Ana Pérez
-        role:
-          $ref: '#/components/schemas/UserRole'
       required:
         - id
         - displayName
-        - role
-    UserRole:
-      type: string
-      enum:
-        - CITIZEN
-        - OPERATOR
-        - TECHNICIAN
-        - ADMIN
-        - ANALYST
-      description: Rol asignado por el backend; nunca editable en el registro ciudadano.
+      description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de incidencias.
     UserDTO:
       type: object
       properties:
         id:
           type: string
-          example: usr_1
+          format: uuid
         displayName:
           type: string
         email:
           type: string
           format: email
           description: Visible únicamente para el titular o personal autorizado.
-        role:
-          $ref: '#/components/schemas/UserRole'
         active:
           type: boolean
         createdAt:
           type: string
           format: date-time
+        roles:
+          type: array
+          description: Roles GLOBAL concedidos mediante UserRole. Los roles DEPARTMENT se consultan a través de departmentMemberships.
+          items:
+            $ref: '#/components/schemas/GlobalRoleCode'
+          uniqueItems: true
+        departmentMemberships:
+          type: array
+          description: Adscripciones departamentales, visibles según autorización.
+          items:
+            $ref: '#/components/schemas/DepartmentMembershipDTO'
       required:
         - id
         - displayName
-        - role
         - active
         - createdAt
+        - roles
     RegisterRequest:
       type: object
       properties:
@@ -3047,33 +2847,22 @@ components:
       properties:
         active:
           type: boolean
-        role:
-          $ref: '#/components/schemas/UserRole'
-      description: Acción administrativa auditable; no utilizar para el registro.
+      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio cuando se implementen.
       additionalProperties: false
+      minProperties: 1
     InvitationRequest:
-      type: object
-      properties:
-        role:
-          $ref: '#/components/schemas/UserRole'
-        email:
-          type: string
-          format: email
-          description: Correo autorizado opcional; política definitiva pendiente.
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-        - role
-      description: 'PROPUESTA ADR-0007: invitaciones de un solo uso para roles municipales.'
-      additionalProperties: false
+      oneOf:
+        - $ref: '#/components/schemas/GlobalInvitationRequest'
+        - $ref: '#/components/schemas/DepartmentInvitationRequest'
+      description: 'ADR-0007/0009: el ámbito del rol determina si se exige departmentId. No se admite otro ámbito ni departamento para roles globales.'
     InvitationDTO:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         role:
-          $ref: '#/components/schemas/UserRole'
+          $ref: '#/components/schemas/RoleCode'
         email:
           type: string
           format: email
@@ -3093,15 +2882,17 @@ components:
         redeemedAt:
           type: string
           format: date-time
-        invitationCode:
+        departmentId:
           type: string
-          description: Solo aparece una vez, inmediatamente al crear la invitación; nunca en listados.
+          format: uuid
+          description: Departamento destinatario; obligatorio cuando role sea DEPARTMENT_COORDINATOR o TECHNICIAN y ausente para roles GLOBAL.
       required:
         - id
         - role
         - status
         - createdAt
         - expiresAt
+      description: 'Metadatos de invitación: departmentId solo existe para roles departamentales; está ausente para roles globales. El código se revela únicamente en InvitationCreatedDTO.'
     InvitationCreatedDTO:
       allOf:
         - $ref: '#/components/schemas/InvitationDTO'
@@ -3112,7 +2903,7 @@ components:
               description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
           required:
             - invitationCode
-      description: Respuesta de creación de invitación con código entregado una sola vez.
+      description: Código devuelto únicamente al crear la invitación; nunca se persiste en claro.
     StaffRegistrationRequest:
       type: object
       properties:
@@ -3135,12 +2926,13 @@ components:
         - email
         - password
       additionalProperties: false
+      description: Alta de cuenta nueva con invitación. Si el email ya pertenece a una cuenta, no se crea otra; el canje autenticado usa /users/me/staff-invitation-redemptions.
     CategoryDTO:
       type: object
       properties:
         id:
           type: string
-          example: cat_traffic
+          format: uuid
         name:
           type: string
           example: Tráfico y semáforos
@@ -3187,7 +2979,7 @@ components:
       properties:
         id:
           type: string
-          example: dep_mobility
+          format: uuid
         name:
           type: string
           example: Movilidad
@@ -3235,12 +3027,13 @@ components:
         - REPORTED
         - VALIDATED
         - REJECTED
-        - ASSIGNED
+        - ASSIGNED_TO_DEPARTMENT
+        - WORK_ASSIGNED
         - IN_PROGRESS
         - RESOLVED
         - REOPENED
         - CLOSED
-      description: Ciclo de vida de una incidencia. Transiciones exactas pendientes de confirmación del equipo.
+      description: 'ADR-0010: validación y derivación pueden estar separadas; el trabajo se distribuye después. La matriz completa de transiciones permanece pendiente.'
     IncidentPriority:
       type: string
       enum:
@@ -3248,40 +3041,30 @@ components:
         - MEDIUM
         - HIGH
         - CRITICAL
-      description: Escala de prioridad propuesta; el enunciado no concreta niveles.
+      description: Escala acordada para UrbanPulse; LOW, MEDIUM, HIGH, CRITICAL.
     CreateIncidentRequest:
       type: object
       properties:
         title:
           type: string
           description: Título breve.
-          example: Semáforo averiado
           minLength: 5
           maxLength: 150
         description:
           type: string
           description: Descripción detallada.
-          example: El semáforo no funciona en el cruce desde esta mañana.
           minLength: 10
           maxLength: 5000
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
         categoryId:
           type: string
-          description: Opcional; el sistema puede ayudar a clasificar después.
-          example: cat_traffic
+          format: uuid
+          description: Categoría opcional; puede decidirse durante revisión.
       required:
         - title
         - description
         - coordinates
-      example:
-        title: Semáforo averiado
-        description: El semáforo del cruce no funciona desde esta mañana.
-        coordinates:
-          latitude: 36.7213
-          longitude: -4.4214
-          accuracyMeters: 8
-        categoryId: cat_traffic
       additionalProperties: false
     UpdateIncidentRequest:
       type: object
@@ -3296,6 +3079,8 @@ components:
           maxLength: 5000
         categoryId:
           type: string
+          format: uuid
+          description: Categoría opcional; puede decidirse durante revisión.
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
       description: 'Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado.'
@@ -3305,7 +3090,7 @@ components:
       properties:
         id:
           type: string
-          example: inc_001
+          format: uuid
         title:
           type: string
         category:
@@ -3338,7 +3123,7 @@ components:
       properties:
         id:
           type: string
-          example: inc_001
+          format: uuid
         title:
           type: string
         description:
@@ -3391,6 +3176,8 @@ components:
           type: integer
           description: Versión de control de concurrencia; propuesta.
           minimum: 0
+        assignedDepartment:
+          $ref: '#/components/schemas/DepartmentDTO'
       required:
         - id
         - title
@@ -3401,7 +3188,7 @@ components:
         - attachmentCount
         - createdAt
         - updatedAt
-      description: Detalle. Los datos del informante y campos internos se incluyen solo si el rol/propiedad lo permite.
+      description: El departamento actual se devuelve en assignedDepartment; currentAssignment representa solamente trabajo activo (ADR-0010).
     IncidentPageDTO:
       type: object
       properties:
@@ -3419,9 +3206,10 @@ components:
       properties:
         id:
           type: string
-          example: att_123
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         fileName:
           type: string
         contentType:
@@ -3464,7 +3252,7 @@ components:
           maxLength: 2000
         categoryId:
           type: string
-          description: Permite confirmar o corregir la clasificación.
+          format: uuid
       required:
         - decision
       additionalProperties: false
@@ -3473,8 +3261,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         decision:
           type: string
           enum:
@@ -3511,9 +3301,6 @@ components:
           type: string
           minLength: 3
           maxLength: 2000
-        assessmentId:
-          type: string
-          description: Referencia a evaluación de IA, si aplica.
       required:
         - priority
         - source
@@ -3524,8 +3311,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         priority:
           $ref: '#/components/schemas/IncidentPriority'
         source:
@@ -3534,8 +3323,6 @@ components:
             - MANUAL
             - ASSISTED
         justification:
-          type: string
-        assessmentId:
           type: string
         decidedBy:
           $ref: '#/components/schemas/UserSummaryDTO'
@@ -3551,35 +3338,24 @@ components:
         - decidedBy
         - decidedAt
     AssignmentRequest:
-      type: object
-      properties:
-        departmentId:
-          type: string
-        technicianId:
-          type: string
-          description: Opcional.
-        teamId:
-          type: string
-          description: Opcional. Se formalizará al definir equipos.
-        reason:
-          type: string
-          maxLength: 1000
-      required:
-        - departmentId
-      additionalProperties: false
+      oneOf:
+        - $ref: '#/components/schemas/TeamWorkAssignmentRequest'
+        - $ref: '#/components/schemas/TechnicianWorkAssignmentRequest'
+      description: 'ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
     AssignmentDTO:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
-        department:
-          $ref: '#/components/schemas/DepartmentDTO'
+          format: uuid
         technician:
           $ref: '#/components/schemas/UserSummaryDTO'
         teamId:
           type: string
+          format: uuid
         assignedBy:
           $ref: '#/components/schemas/UserSummaryDTO'
         reason:
@@ -3590,12 +3366,17 @@ components:
         endedAt:
           type: string
           format: date-time
+        acceptedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        acceptedAt:
+          type: string
+          format: date-time
       required:
         - id
         - incidentId
-        - department
         - assignedBy
         - assignedAt
+      description: Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa como máximo (endedAt ausente).
     StatusChangeRequest:
       type: object
       properties:
@@ -3606,7 +3387,7 @@ components:
             - RESOLVED
             - REOPENED
             - CLOSED
-          description: Validación y asignación tienen operaciones propias.
+          description: Solo transiciones operativas. Validación, derivación y designación de trabajo tienen sus propias operaciones.
         reason:
           type: string
           description: Motivo exigible en reapertura/cierre, según reglas a acordar.
@@ -3623,8 +3404,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         fromStatus:
           $ref: '#/components/schemas/IncidentStatus'
         toStatus:
@@ -3641,10 +3424,9 @@ components:
       required:
         - id
         - incidentId
-        - fromStatus
         - toStatus
-        - changedBy
         - changedAt
+      description: fromStatus se omite en el registro inicial si no existía estado previo; changedBy se omite para eventos internos del sistema. El resto de los cambios debe respetar la trazabilidad y autorización previstas.
     CommentRequest:
       type: object
       properties:
@@ -3667,8 +3449,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         body:
           type: string
         visibility:
@@ -3693,13 +3477,17 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         eventType:
           type: string
           enum:
             - CREATED
             - REVIEWED
             - PRIORITIZED
-            - ASSIGNED
+            - DEPARTMENT_ASSIGNED
+            - DEPARTMENT_TRANSFERRED
+            - WORK_ASSIGNED
+            - WORK_REASSIGNED
             - STATUS_CHANGED
             - COMMENTED
             - ATTACHMENT_ADDED
@@ -3723,11 +3511,9 @@ components:
     DuplicateSuggestionDTO:
       type: object
       properties:
-        incident:
-          $ref: '#/components/schemas/IncidentSummaryDTO'
         score:
           type: number
-          description: Probabilidad o similitud normalizada.
+          description: Puntuación de similitud heurística; no es una probabilidad calibrada ni una decisión automática.
           minimum: 0
           maximum: 1
         reasons:
@@ -3735,15 +3521,20 @@ components:
           items:
             type: string
           description: Proximidad, tiempo y/o semántica.
+        candidateIncidentId:
+          type: string
+          format: uuid
       required:
-        - incident
+        - candidateIncidentId
         - score
         - reasons
+      description: DTO calculado por proximidad espacial/temporal, sin almacenamiento ni confirmación automática.
     DuplicateLinkRequest:
       type: object
       properties:
         candidateIncidentId:
           type: string
+          format: uuid
         reason:
           type: string
       required:
@@ -3754,10 +3545,13 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         incidentId:
           type: string
+          format: uuid
         candidateIncidentId:
           type: string
+          format: uuid
         linkedBy:
           $ref: '#/components/schemas/UserSummaryDTO'
         linkedAt:
@@ -3768,18 +3562,18 @@ components:
         - incidentId
         - candidateIncidentId
         - linkedAt
+        - linkedBy
+      description: Relación confirmada por persona autorizada, sin eliminar reportes originales.
     UrbanAssetDTO:
       type: object
       properties:
         id:
           type: string
-          example: BUS_STOP_3948
+          format: uuid
         type:
           type: string
           example: BUS_STOP
         name:
-          type: string
-        source:
           type: string
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
@@ -3787,11 +3581,19 @@ components:
           type: object
           additionalProperties: true
           description: Metadatos heterogéneos del proveedor.
+        sourceId:
+          type: string
+          format: uuid
+          description: Identificador de ExternalSource cuando existe fuente registrada; asociación opcional.
+        externalId:
+          type: string
+          description: Identificador original del activo en su fuente; no equivale al UUID interno.
       required:
         - id
         - type
-        - source
         - coordinates
+        - externalId
+      description: 'Activo urbano local: id UUID interno; externalId identifica al activo en un proveedor. Relación sourceId opcional, integración aún provisional.'
     UrbanAssetCandidateDTO:
       type: object
       properties:
@@ -3815,6 +3617,7 @@ components:
       properties:
         assetId:
           type: string
+          format: uuid
         reason:
           type: string
           maxLength: 2000
@@ -3853,8 +3656,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         sourceId:
           type: string
+          format: uuid
         metric:
           type: string
           example: temperature
@@ -3904,6 +3709,7 @@ components:
       properties:
         incidentId:
           type: string
+          format: uuid
         status:
           type: string
           enum:
@@ -3940,6 +3746,7 @@ components:
       properties:
         incidentId:
           type: string
+          format: uuid
         title:
           type: string
         status:
@@ -3950,6 +3757,7 @@ components:
           $ref: '#/components/schemas/CoordinatesDTO'
         categoryId:
           type: string
+          format: uuid
       required:
         - incidentId
         - title
@@ -3973,6 +3781,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         type:
           type: string
           example: INCIDENT_STATUS_CHANGED
@@ -3982,6 +3791,7 @@ components:
           type: string
         incidentId:
           type: string
+          format: uuid
         read:
           type: boolean
         createdAt:
@@ -4109,31 +3919,6 @@ components:
         - to
         - statistics
         - observations
-    HotspotDTO:
-      type: object
-      properties:
-        zoneId:
-          type: string
-        center:
-          $ref: '#/components/schemas/CoordinatesDTO'
-        incidentCount:
-          type: integer
-          minimum: 0
-        score:
-          type: number
-          minimum: 0
-          maximum: 1
-        periodStart:
-          type: string
-          format: date-time
-        periodEnd:
-          type: string
-          format: date-time
-      required:
-        - zoneId
-        - center
-        - incidentCount
-        - score
     CorrelationDTO:
       type: object
       properties:
@@ -4164,6 +3949,7 @@ components:
           format: date
         districtId:
           type: string
+          format: uuid
         format:
           type: string
           enum:
@@ -4213,220 +3999,12 @@ components:
         - status
         - format
         - createdAt
-    AIAssessmentRequest:
-      type: object
-      properties:
-        incidentId:
-          type: string
-        tasks:
-          type: array
-          items:
-            type: string
-            enum:
-              - CLASSIFICATION
-              - PRIORITIZATION
-              - SUMMARY
-              - RECOMMENDATION
-          minItems: 1
-          uniqueItems: true
-      required:
-        - incidentId
-        - tasks
-      additionalProperties: false
-    AIRecommendationDTO:
-      type: object
-      properties:
-        text:
-          type: string
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        reasoningSummary:
-          type: string
-          description: Justificación resumida, no cadena interna de razonamiento.
-      required:
-        - text
-        - confidence
-    AIAssessmentDTO:
-      type: object
-      properties:
-        id:
-          type: string
-        incidentId:
-          type: string
-        status:
-          type: string
-          enum:
-            - QUEUED
-            - PROCESSING
-            - COMPLETED
-            - FAILED
-        suggestedCategoryId:
-          type: string
-        suggestedPriority:
-          $ref: '#/components/schemas/IncidentPriority'
-        summary:
-          type: string
-        recommendations:
-          type: array
-          items:
-            $ref: '#/components/schemas/AIRecommendationDTO'
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        modelId:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - incidentId
-        - status
-        - createdAt
-    TrainingRequest:
-      type: object
-      properties:
-        task:
-          type: string
-          enum:
-            - CLASSIFICATION
-            - PRIORITIZATION
-            - HOTSPOT_DETECTION
-        datasetRef:
-          type: string
-          description: Conjunto de datos aprobado. No incluir información personal en crudo.
-        parameters:
-          type: object
-          additionalProperties: true
-      required:
-        - task
-        - datasetRef
-      additionalProperties: false
-    TrainingJobDTO:
-      type: object
-      properties:
-        id:
-          type: string
-        task:
-          type: string
-        status:
-          type: string
-          enum:
-            - QUEUED
-            - RUNNING
-            - COMPLETED
-            - FAILED
-        modelId:
-          type: string
-        metrics:
-          type: object
-          additionalProperties:
-            type: number
-          description: Métricas de evaluación.
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - task
-        - status
-        - createdAt
-    KnowledgeDocumentDTO:
-      type: object
-      properties:
-        id:
-          type: string
-        title:
-          type: string
-        version:
-          type: string
-        source:
-          type: string
-        uploadedAt:
-          type: string
-          format: date-time
-        indexingStatus:
-          type: string
-          enum:
-            - PENDING
-            - INDEXED
-            - FAILED
-      required:
-        - id
-        - title
-        - version
-        - uploadedAt
-        - indexingStatus
-    KnowledgeQueryRequest:
-      type: object
-      properties:
-        question:
-          type: string
-          minLength: 5
-          maxLength: 2000
-        incidentId:
-          type: string
-          description: Permite contextualizar una consulta.
-        maxCitations:
-          type: integer
-          minimum: 1
-          maximum: 20
-      required:
-        - question
-      additionalProperties: false
-    KnowledgeCitationDTO:
-      type: object
-      properties:
-        documentId:
-          type: string
-        documentTitle:
-          type: string
-        documentVersion:
-          type: string
-        excerpt:
-          type: string
-          description: Fragmento recuperado.
-        section:
-          type: string
-      required:
-        - documentId
-        - documentTitle
-        - documentVersion
-        - excerpt
-    KnowledgeAnswerDTO:
-      type: object
-      properties:
-        answer:
-          type: string
-        citations:
-          type: array
-          items:
-            $ref: '#/components/schemas/KnowledgeCitationDTO'
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        insufficientEvidence:
-          type: boolean
-          description: Verdadero si la documentación recuperada no basta para responder.
-      required:
-        - answer
-        - citations
-        - insufficientEvidence
     ExternalSourceDTO:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
         type:
@@ -4503,6 +4081,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         actor:
           $ref: '#/components/schemas/UserSummaryDTO'
         action:
@@ -4511,6 +4090,7 @@ components:
           type: string
         resourceId:
           type: string
+          description: Identificador heterogéneo de recurso auditado; puede no ser UUID y se conserva como string.
         occurredAt:
           type: string
           format: date-time
@@ -4572,55 +4152,182 @@ components:
       required:
         - data
         - pagination
+    RoleCode:
+      type: string
+      enum:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+        - DEPARTMENT_COORDINATOR
+        - TECHNICIAN
+      description: Catálogo completo de roles; para usos por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
+    RoleScope:
+      type: string
+      enum:
+        - GLOBAL
+        - DEPARTMENT
+    DepartmentMembershipDTO:
+      type: object
+      description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.
+      properties:
+        department:
+          $ref: '#/components/schemas/DepartmentDTO'
+        role:
+          $ref: '#/components/schemas/DepartmentRoleCode'
+        joinedAt:
+          type: string
+          format: date-time
+        leftAt:
+          type: string
+          format: date-time
+      required:
+        - department
+        - role
+        - joinedAt
+    DepartmentReferralRequest:
+      type: object
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          description: Justificación opcional de la derivación o transferencia. El evento queda auditado.
+      required:
+        - departmentId
+      additionalProperties: false
+      description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de trabajo.
+    TeamWorkAssignmentRequest:
+      type: object
+      properties:
+        teamId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 1000
+      required:
+        - teamId
+      additionalProperties: false
+    TechnicianWorkAssignmentRequest:
+      type: object
+      properties:
+        technicianId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 1000
+      required:
+        - technicianId
+      additionalProperties: false
+    ExistingAccountInvitationRedemptionRequest:
+      type: object
+      properties:
+        invitationCode:
+          type: string
+      required:
+        - invitationCode
+      additionalProperties: false
+    GlobalRoleCode:
+      type: string
+      enum:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      description: Roles globales definidos en ADR-0009; no implican pertenencia departamental.
+    DepartmentRoleCode:
+      type: string
+      enum:
+        - DEPARTMENT_COORDINATOR
+        - TECHNICIAN
+      description: 'Roles departamentales: requieren DepartmentMembership activa para actuar.'
+    GlobalInvitationRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/GlobalRoleCode'
+        email:
+          type: string
+          format: email
+          description: Correo autorizado opcional; política definitiva pendiente.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - role
+      additionalProperties: false
+      description: Invitación para un rol global; no admite departmentId.
+    DepartmentInvitationRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/DepartmentRoleCode'
+        departmentId:
+          type: string
+          format: uuid
+          description: Departamento de adscripción al canjear la invitación.
+        email:
+          type: string
+          format: email
+          description: Correo autorizado opcional; política definitiva pendiente.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - role
+        - departmentId
+      additionalProperties: false
+      description: Invitación para un rol departamental; requiere departmentId.
   parameters:
     IncidentId:
       name: incidentId
       in: path
       required: true
-      description: 'Identificador público opaco: incidentId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): incidentId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     AttachmentId:
       name: attachmentId
       in: path
       required: true
-      description: 'Identificador público opaco: attachmentId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): attachmentId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     UserId:
       name: userId
       in: path
       required: true
-      description: 'Identificador público opaco: userId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): userId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     CategoryId:
       name: categoryId
       in: path
       required: true
-      description: 'Identificador público opaco: categoryId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): categoryId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     DepartmentId:
       name: departmentId
       in: path
       required: true
-      description: 'Identificador público opaco: departmentId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): departmentId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     AssetId:
       name: assetId
       in: path
       required: true
-      description: 'Identificador público opaco: assetId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): assetId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     ReportId:
       name: reportId
       in: path
@@ -4657,18 +4364,18 @@ components:
       name: sourceId
       in: path
       required: true
-      description: 'Identificador público opaco: sourceId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): sourceId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     InvitationId:
       name: invitationId
       in: path
       required: true
-      description: 'Identificador público opaco: invitationId.'
+      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): invitationId.'
       schema:
         type: string
-        minLength: 1
+        format: uuid
     ZoneId:
       name: zoneId
       in: path
@@ -4708,6 +4415,14 @@ components:
       schema:
         type: string
         format: date
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      description: Identificador UUID de una asignación de trabajo.
+      schema:
+        type: string
+        format: uuid
   responses:
     BadRequest:
       description: Solicitud sintácticamente incorrecta o parámetros inválidos.

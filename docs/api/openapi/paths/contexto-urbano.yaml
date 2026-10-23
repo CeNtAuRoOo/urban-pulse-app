@@ -1,19 +1,17 @@
 /incidents/{incidentId}/urban-context:
   get:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Consultar contexto asociado
-    description:
-      Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE sin
-      ocultar la incidencia.
+    description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE 
+      sin ocultar la incidencia.
     operationId: getIncidentsIncidentIdUrbanContext
     x-roles:
-      - OPERATOR
-      - TECHNICIAN
-      - ADMIN
-      - ANALYST
+    - OPERATOR
+    - TECHNICIAN
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+    - $ref: "../components/parameters.yaml#/IncidentId"
     responses:
       "200":
         description: Operación correcta.
@@ -37,15 +35,16 @@
 /incidents/{incidentId}/asset-candidates:
   get:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Candidatos a activo urbano
-    description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe ambigüedad.
+    description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe 
+      ambigüedad.
     operationId: getIncidentsIncidentIdAssetCandidates
     x-roles:
-      - OPERATOR
-      - ADMIN
+    - OPERATOR
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+    - $ref: "../components/parameters.yaml#/IncidentId"
     responses:
       "200":
         description: Operación correcta.
@@ -71,15 +70,15 @@
 /incidents/{incidentId}/asset-association:
   put:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Confirmar activo urbano
     description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
     operationId: putIncidentsIncidentIdAssetAssociation
     x-roles:
-      - OPERATOR
-      - ADMIN
+    - OPERATOR
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+    - $ref: "../components/parameters.yaml#/IncidentId"
     requestBody:
       required: true
       content:
@@ -111,43 +110,43 @@
 /urban-assets:
   get:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Buscar activos urbanos
     description: Filtra activos por tipo o proximidad.
     operationId: getUrbanAssets
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     parameters:
-      - name: type
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Tipo de activo.
-      - name: latitude
-        in: query
-        required: false
-        schema:
-          type: number
-          minimum: -90
-          maximum: 90
-        description: Latitud central.
-      - name: longitude
-        in: query
-        required: false
-        schema:
-          type: number
-          minimum: -180
-          maximum: 180
-        description: Longitud central.
-      - name: radiusMeters
-        in: query
-        required: false
-        schema:
-          type: number
-          minimum: 1
-          maximum: 5000
-        description: Radio de búsqueda.
+    - name: type
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Tipo de activo.
+    - name: latitude
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: -90
+        maximum: 90
+      description: Latitud central.
+    - name: longitude
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: -180
+        maximum: 180
+      description: Longitud central.
+    - name: radiusMeters
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 1
+        maximum: 5000
+      description: Radio de búsqueda.
     responses:
       "200":
         description: Operación correcta.
@@ -173,14 +172,14 @@
 /urban-assets/{assetId}:
   get:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Consultar activo urbano
     description: Devuelve geometría, procedencia y metadatos permitidos.
     operationId: getUrbanAssetsAssetId
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     parameters:
-      - $ref: "../components/parameters.yaml#/AssetId"
+    - $ref: "../components/parameters.yaml#/AssetId"
     responses:
       "200":
         description: Operación correcta.
@@ -204,29 +203,29 @@
 /external-observations:
   get:
     tags:
-      - Contexto urbano
+    - Contexto urbano
     summary: Consultar observaciones normalizadas
     description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
     operationId: getExternalObservations
     x-roles:
-      - OPERATOR
-      - ADMIN
-      - ANALYST
+    - OPERATOR
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
-      - name: sourceId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Identificador del proveedor.
-      - name: metric
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Variable registrada.
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
+    - name: sourceId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Identificador del proveedor.
+    - name: metric
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Variable registrada.
     responses:
       "200":
         description: Operación correcta.

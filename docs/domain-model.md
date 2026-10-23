@@ -4,7 +4,7 @@
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es **«UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas»** (_Descripción inicial del proyecto_). Las decisiones acordadas para el equipo se documentan en los [ADR](adr/README.md). El [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son **propuestas de diseño revisables**: cuando difieren entre sí, se debe resolver la discrepancia en el PR del tag afectado, no asumir automáticamente que uno de ellos está implementado.
+La referencia de requisitos es **«UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas»** (_Descripción inicial del proyecto_). Las decisiones acordadas para el equipo se documentan en los [ADR](adr/README.md). El [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son **propuestas de diseño revisables**: las decisiones base se han sincronizado entre sí (OpenAPI `0.2.0`); al implementar un tag se valida conjuntamente el diseño y se actualizan todas las vistas si surge una decisión adicional. Esto no implica código ejecutable.
 
 **Fuera de esta fase:** los apartados opcionales del enunciado marcados en rojo, especialmente el actor analista avanzado, entrenamiento/evaluación de modelos, _hotspots_ predictivos y los documentos/consultas RAG. El análisis estadístico operativo y los informes no desaparecen por ello; sus resultados pueden construirse con consultas sin introducir entidades analíticas prematuramente. La prioridad asistida puede evolucionar desde reglas sin incorporar todavía IA.
 
@@ -83,14 +83,14 @@ Ejemplo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED �
 - Respetar unicidad y restricciones de negocio (`User.email` normalizado, `Attachment.objectKey`, par canónico de duplicados, exclusión `Team`/técnico en `Assignment`, pertenencia de personal al departamento, un trabajo activo por incidencia) en servicios **y**, cuando proceda, en PostgreSQL.
 - Las cardinalidades dibujadas y las FK son **hipótesis revisables**; contrastarlas con DTOs, integridad referencial, requisitos, datos de prueba y operaciones reales.
 
-## 5. Proceso obligatorio al implementar un tag
+## 5. Proceso obligatorio: dominio y OpenAPI como una única unidad por tag
 
 Este documento **complementa** el flujo design-first de [la guía de API](api/README.md) y de [CONTRIBUTING](../CONTRIBUTING.md); no se propone crear todas las entidades en un único PR.
 
 1. **Consultar el enunciado y requisitos afectados.** Identificar alcance obligatorio, opcional aplazado y decisiones ya registradas en ADR.
 2. **Revisar el OpenAPI modular del tag** (`api/openapi/paths/<tag>.yaml` y esquemas correspondientes). Separar contratos de lectura/escritura de conceptos persistentes.
 3. **Revisar ambas vistas del dominio:** tablas/FK/cardinalidades del `relacional.drawio` y campos/tipos/enums/embeddables del `clases-simplificado.drawio`, incluso si la misma entidad aparece en otros tags.
-4. **Acordar cambios del dominio**: obligaciones, nulabilidad, límites, cardinalidades, historial, permisos por rol y ámbito, invariantes, transiciones, datos contextuales y privacidad. Si hay discrepancia con OpenAPI, modificar de forma coordinada los artefactos implicados; **no considerar aprobado el esquema por estar dibujado**.
+4. **Acordar cambios del dominio**: obligaciones, nulabilidad, límites, cardinalidades, historial, permisos por rol y ámbito, invariantes, transiciones, datos contextuales y privacidad. Si la implementación exige una decisión adicional, modificar conjuntamente el contrato y los diagramas afectados; **no considerar aprobado el esquema por estar dibujado**.
 5. **Diseñar la persistencia y las migraciones Flyway** correspondientes al alcance implementado; no usar `ddl-auto=update`. Añadir entidades JPA y repositorios, DTO y servicios según el caso de uso. Usar pruebas aisladas para invariantes, mapeos, autorización y operaciones.
 6. **Actualizar documentación y comunicar impactos:** los **dos diagramas** cuando proceda (original editable y exportaciones), este documento, ADR relevantes, OpenAPI del tag y su bundle si se conserva, tests y CHANGELOG. Coordinar las modificaciones de entidades compartidas con otros compañeros.
 7. **Describir el estado del tag en el PR:** componentes de dominio revisados, decisiones tomadas/pendientes, archivos afectados, tests y si la funcionalidad está implementada o solo diseñada. La aprobación del PR consolida **ese alcance**, no la totalidad del dominio v1.
@@ -109,16 +109,15 @@ Este documento **complementa** el flujo design-first de [la guía de API](api/RE
 | Analítica, Informes                                   | Consultas y proyecciones; persistencia adicional **solo** con caso de uso justificado                                              |
 | Asistencia inteligente, Conocimiento                  | Funciones avanzadas aplazadas cuando correspondan al alcance marcado en rojo; no implementar RAG por existir un tag en el borrador |
 
-## 6. Desajustes conocidos con el contrato OpenAPI actual
+## 6. Consistencia del dominio con OpenAPI
 
-No se corrigen los YAML en este PR **documental**, para mantener el proceso ya acordado de revisión por tag:
+El modelo lógico v1 y OpenAPI `0.2.0` son **vistas de una única referencia de diseño**. Se han alineado los dos estados de asignación, la separación operador/coordinador/técnico, la adscripción departamental, la aceptación y reasignación de trabajos, las invitaciones y los duplicados. Los identificadores de entidad se declaran UUID (el generador UUIDv7 concreto sigue sin probarse en JPA).
 
-- `IncidentStatus` del borrador aún utiliza `ASSIGNED` en lugar de `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`; operaciones, filtros y respuestas relacionados necesitan revisión.
-- `UserDTO` / `UserSummaryDTO` todavía reflejan un único `role`; el diseño de `Role`, `UserRole`, `RoleScope` y `DepartmentMembership` distingue roles globales de departamentales. Se debe acordar la representación pública y los permisos.
-- La asignación de trabajo en `tramitacion.yaml` incluye `departmentId`, `teamId` y `technicianId`; el modelo v1 separa **derivación municipal** (`Incident.assignedDepartment`) y **destinatario del trabajo** (`Assignment`). Revisar endpoints, DTOs y reglas de autorización.
-- Las invitaciones del borrador no reflejan por completo el posible rol departamental, ni el canje por una cuenta existente. Consultar ADR-0007.
-- Las respuestas de `DuplicateSuggestionDTO` y los DTOs contextuales pueden diferir del diagrama simplificado; **la forma final de la API se decide en el tag**.
-- IDs de ejemplo como `inc_001`, `usr_1` en OpenAPI son ilustrativos; deberán adecuarse a la convención elegida cuando se revise el contrato.
+El contrato mantiene los DTO independientes de los objetos JPA, de forma que una tabla o `@Embeddable` no tenga que reflejarse literalmente como un esquema JSON. El análisis territorial, los proveedores de contexto urbano y las capacidades avanzadas opcionales **siguen pendientes de investigación**; no se inventan contratos cerrados para ellas.
+
+Para comenzar una tarea, consultar **a la vez** [el contrato modular](api/README.md), [su integración con el dominio](api/domain-openapi.md), ambas vistas gráficas y los ADR. Si se detecta una nueva decisión, el cambio del contrato y del diagrama afectado deben formar parte del **mismo PR**.
+
+**Ajustes de coherencia del contrato 0.2.0:** los roles expuestos se acotan por ámbito en los DTO, `StatusChangeDTO` omite actor o estado de origen cuando no existen y `UrbanAssetDTO` distingue UUID local, identificador externo y referencia opcional a la fuente. Los endpoints de evaluación IA basados en `modelId` y estados de procesamiento no están activos: se mantienen como diseño exploratorio hasta decidir la integración. Estas correcciones no cambian las entidades del modelo.
 
 ## 7. Decisiones documentadas y límites de esta entrega
 
@@ -128,4 +127,4 @@ No se corrigen los YAML en este PR **documental**, para mantener el proceso ya a
 - [ADR-0010](adr/0010-ciclo-vida-y-asignaciones.md): distinción entre derivación al departamento y asignación de trabajos.
 - [ADR-0011](adr/0011-identificadores-uuidv7.md): estrategia base de identificadores.
 
-**Alcance de este PR:** documentación, diagramas versionados por el equipo y decisiones de diseño; **sin** modificar SQL, entidades Spring Boot, endpoints o esquemas OpenAPI. La ausencia de implementación no equivale a que el diseño esté validado funcionalmente.
+**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base, sin SQL, entidades JPA ni endpoints implementados. Los diagramas actuales permanecen inalterados; sus detalles se validan de forma incremental.

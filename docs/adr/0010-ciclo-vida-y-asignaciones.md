@@ -41,6 +41,6 @@ El enum de diseño `IncidentStatus` contiene:
 - Qué sucede si un departamento no tiene coordinador o si el trabajo queda sin técnico disponible.
 - Índice único parcial para una asignación activa, concurrencia, reversión ante error y criterios de cierre/reasignación.
 - Qué eventos son visibles al ciudadano y cuáles son internos.
-- Modificar coherentemente el OpenAPI modular: aún contiene `ASSIGNED`, representa la derivación y la asignación en una sola petición y debe revisarse junto con el modelo del tag.
+- El OpenAPI modular `0.2.0` ya distingue derivación departamental y asignación de trabajo; concretar la matriz de transiciones y permisos de cada operación al implementar el tag.
 
 **Estado de entrega:** representación conceptual/documental, no migración ni lógica de negocio ya implementada.

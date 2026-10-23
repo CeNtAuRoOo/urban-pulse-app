@@ -3,53 +3,51 @@ UserSummaryDTO:
   properties:
     id:
       type: string
-      example: usr_1
+      format: uuid
     displayName:
       type: string
       example: Ana Pérez
-    role:
-      $ref: "./usuarios.yaml#/UserRole"
   required:
-    - id
-    - displayName
-    - role
-
-UserRole:
-  type: string
-  enum:
-    - CITIZEN
-    - OPERATOR
-    - TECHNICIAN
-    - ADMIN
-    - ANALYST
-  description: Rol asignado por el backend; nunca editable en el registro ciudadano.
-
+  - id
+  - displayName
+  description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de 
+    incidencias.
 UserDTO:
   type: object
   properties:
     id:
       type: string
-      example: usr_1
+      format: uuid
     displayName:
       type: string
     email:
       type: string
       format: email
       description: Visible únicamente para el titular o personal autorizado.
-    role:
-      $ref: "./usuarios.yaml#/UserRole"
     active:
       type: boolean
     createdAt:
       type: string
       format: date-time
+    roles:
+      type: array
+      description: Roles GLOBAL concedidos mediante UserRole. Los roles DEPARTMENT se consultan a través 
+        de departmentMemberships.
+      items:
+        $ref: ./usuarios.yaml#/GlobalRoleCode
+      uniqueItems: true
+    departmentMemberships:
+      type: array
+      description: Adscripciones departamentales, visibles según autorización.
+      items:
+        $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:
-    - id
-    - displayName
-    - role
-    - active
-    - createdAt
+  - id
+  - displayName
+  - active
+  - createdAt
 
+  - roles
 UpdateProfileRequest:
   type: object
   properties:
@@ -65,11 +63,12 @@ AdminUpdateUserRequest:
   properties:
     active:
       type: boolean
-    role:
-      $ref: "./usuarios.yaml#/UserRole"
-  description: Acción administrativa auditable; no utilizar para el registro.
+  description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza 
+    invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio cuando se 
+    implementen.
   additionalProperties: false
 
+  minProperties: 1
 UsersPageDTO:
   type: object
   properties:
@@ -80,5 +79,51 @@ UsersPageDTO:
     pagination:
       $ref: "./comunes.yaml#/PageMetadata"
   required:
-    - data
-    - pagination
+  - data
+  - pagination
+RoleCode:
+  type: string
+  enum:
+  - CITIZEN
+  - OPERATOR
+  - ADMIN
+  - DEPARTMENT_COORDINATOR
+  - TECHNICIAN
+  description: 'Catálogo completo de roles; para usos por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.'
+RoleScope:
+  type: string
+  enum:
+  - GLOBAL
+  - DEPARTMENT
+DepartmentMembershipDTO:
+  type: object
+  description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. 
+    Las fechas conservan historial.
+  properties:
+    department:
+      $ref: ./catalogos.yaml#/DepartmentDTO
+    role:
+      $ref: ./usuarios.yaml#/DepartmentRoleCode
+    joinedAt:
+      type: string
+      format: date-time
+    leftAt:
+      type: string
+      format: date-time
+  required:
+  - department
+  - role
+  - joinedAt
+GlobalRoleCode:
+  type: string
+  enum:
+  - CITIZEN
+  - OPERATOR
+  - ADMIN
+  description: Roles globales definidos en ADR-0009; no implican pertenencia departamental.
+DepartmentRoleCode:
+  type: string
+  enum:
+  - DEPARTMENT_COORDINATOR
+  - TECHNICIAN
+  description: 'Roles departamentales: requieren DepartmentMembership activa para actuar.'

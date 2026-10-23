@@ -3,7 +3,7 @@ CategoryDTO:
   properties:
     id:
       type: string
-      example: cat_traffic
+      format: uuid
     name:
       type: string
       example: Tráfico y semáforos
@@ -53,7 +53,7 @@ DepartmentDTO:
   properties:
     id:
       type: string
-      example: dep_mobility
+      format: uuid
     name:
       type: string
       example: Movilidad

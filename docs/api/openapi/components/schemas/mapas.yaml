@@ -3,6 +3,7 @@ MapFeatureDTO:
   properties:
     incidentId:
       type: string
+      format: uuid
     title:
       type: string
     status:
@@ -13,11 +14,12 @@ MapFeatureDTO:
       $ref: "./comunes.yaml#/CoordinatesDTO"
     categoryId:
       type: string
+      format: uuid
   required:
-    - incidentId
-    - title
-    - status
-    - coordinates
+  - incidentId
+  - title
+  - status
+  - coordinates
 
 MapIncidentsDTO:
   type: object
@@ -30,5 +32,5 @@ MapIncidentsDTO:
       type: integer
       minimum: 0
   required:
-    - items
-    - count
+  - items
+  - count

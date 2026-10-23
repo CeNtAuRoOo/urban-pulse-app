@@ -3,13 +3,11 @@
     tags:
       - Asistencia inteligente
     summary: Solicitar evaluación asistida
-    description:
-      Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; conserva
-      confianza y procedencia del modelo.
+    description: Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; 
+      conserva confianza y procedencia del modelo.
     operationId: postAiIncidentAssessments
     x-roles:
       - OPERATOR
-      - ANALYST
       - ADMIN
     requestBody:
       required: true
@@ -48,7 +46,6 @@
     operationId: getAiIncidentAssessmentsAssessmentId
     x-roles:
       - OPERATOR
-      - ANALYST
       - ADMIN
     parameters:
       - $ref: "../components/parameters.yaml#/AssessmentId"
@@ -80,7 +77,6 @@
     description: Trabajo asíncrono de experimentación de clasificación, prioridad o hotspots.
     operationId: postAiTrainingJobs
     x-roles:
-      - ANALYST
       - ADMIN
     requestBody:
       required: true
@@ -118,7 +114,6 @@
     description: Devuelve resultado, modelo e indicadores de evaluación si el proceso terminó.
     operationId: getAiTrainingJobsTrainingId
     x-roles:
-      - ANALYST
       - ADMIN
     parameters:
       - $ref: "../components/parameters.yaml#/TrainingId"

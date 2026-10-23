@@ -3,18 +3,19 @@ ExternalSourceDTO:
   properties:
     id:
       type: string
+      format: uuid
     name:
       type: string
     type:
       type: string
       enum:
-        - WEATHER
-        - TRAFFIC
-        - MOBILITY
-        - EVENTS
-        - ENVIRONMENT
-        - TERRITORY
-        - OTHER
+      - WEATHER
+      - TRAFFIC
+      - MOBILITY
+      - EVENTS
+      - ENVIRONMENT
+      - TERRITORY
+      - OTHER
     enabled:
       type: boolean
     lastSuccessfulSyncAt:
@@ -23,16 +24,16 @@ ExternalSourceDTO:
     status:
       type: string
       enum:
-        - AVAILABLE
-        - DEGRADED
-        - UNAVAILABLE
-        - UNKNOWN
+      - AVAILABLE
+      - DEGRADED
+      - UNAVAILABLE
+      - UNKNOWN
   required:
-    - id
-    - name
-    - type
-    - enabled
-    - status
+  - id
+  - name
+  - type
+  - enabled
+  - status
 
 ExternalSourceRequest:
   type: object
@@ -42,18 +43,18 @@ ExternalSourceRequest:
     type:
       type: string
       enum:
-        - WEATHER
-        - TRAFFIC
-        - MOBILITY
-        - EVENTS
-        - ENVIRONMENT
-        - TERRITORY
-        - OTHER
+      - WEATHER
+      - TRAFFIC
+      - MOBILITY
+      - EVENTS
+      - ENVIRONMENT
+      - TERRITORY
+      - OTHER
     enabled:
       type: boolean
   required:
-    - name
-    - type
+  - name
+  - type
   additionalProperties: false
 
 ExternalSourcePatchRequest:
@@ -64,13 +65,13 @@ ExternalSourcePatchRequest:
     type:
       type: string
       enum:
-        - WEATHER
-        - TRAFFIC
-        - MOBILITY
-        - EVENTS
-        - ENVIRONMENT
-        - TERRITORY
-        - OTHER
+      - WEATHER
+      - TRAFFIC
+      - MOBILITY
+      - EVENTS
+      - ENVIRONMENT
+      - TERRITORY
+      - OTHER
     enabled:
       type: boolean
   description: Modifica parcialmente una fuente de datos.
@@ -82,6 +83,7 @@ AuditEventDTO:
   properties:
     id:
       type: string
+      format: uuid
     actor:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     action:
@@ -90,6 +92,8 @@ AuditEventDTO:
       type: string
     resourceId:
       type: string
+      description: Identificador heterogéneo de recurso auditado; puede no ser UUID y se conserva como 
+        string.
     occurredAt:
       type: string
       format: date-time
@@ -98,11 +102,11 @@ AuditEventDTO:
     summary:
       type: string
   required:
-    - id
-    - action
-    - resourceType
-    - resourceId
-    - occurredAt
+  - id
+  - action
+  - resourceType
+  - resourceId
+  - occurredAt
 
 AuditPageDTO:
   type: object
@@ -114,5 +118,5 @@ AuditPageDTO:
     pagination:
       $ref: "./comunes.yaml#/PageMetadata"
   required:
-    - data
-    - pagination
+  - data
+  - pagination

@@ -1,21 +1,21 @@
 /notifications:
   get:
     tags:
-      - Notificaciones
+    - Notificaciones
     summary: Consultar bandeja
     description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
     operationId: getNotifications
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     parameters:
-      - $ref: "../components/parameters.yaml#/Page"
-      - $ref: "../components/parameters.yaml#/PageSize"
-      - name: read
-        in: query
-        required: false
-        schema:
-          type: boolean
-        description: Filtrar leídas/no leídas.
+    - $ref: "../components/parameters.yaml#/Page"
+    - $ref: "../components/parameters.yaml#/PageSize"
+    - name: read
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Filtrar leídas/no leídas.
     responses:
       "200":
         description: Operación correcta.
@@ -39,18 +39,19 @@
 /notifications/{notificationId}:
   patch:
     tags:
-      - Notificaciones
+    - Notificaciones
     summary: Marcar como leída
     description: Actualiza el indicador de lectura de una notificación propia.
     operationId: patchNotificationsNotificationId
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     parameters:
-      - name: notificationId
-        in: path
-        required: true
-        schema:
-          type: string
+    - name: notificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     requestBody:
       required: true
       content:
@@ -61,7 +62,7 @@
               read:
                 type: boolean
             required:
-              - read
+            - read
             additionalProperties: false
     responses:
       "200":
@@ -88,12 +89,12 @@
 /users/me/notification-preferences:
   get:
     tags:
-      - Notificaciones
+    - Notificaciones
     summary: Consultar preferencias
     description: Canales configurados para el usuario.
     operationId: getUsersMeNotificationPreferences
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     responses:
       "200":
         description: Operación correcta.
@@ -116,12 +117,13 @@
 
   put:
     tags:
-      - Notificaciones
+    - Notificaciones
     summary: Actualizar preferencias
-    description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los proveedores.
+    description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los 
+      proveedores.
     operationId: putUsersMeNotificationPreferences
     x-roles:
-      - AUTHENTICATED
+    - AUTHENTICATED
     requestBody:
       required: true
       content:

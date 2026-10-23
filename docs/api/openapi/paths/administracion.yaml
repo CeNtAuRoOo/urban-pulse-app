@@ -1,12 +1,12 @@
 /external-sources:
   get:
     tags:
-      - Administración
+    - Administración
     summary: Listar fuentes externas
     description: Estado de disponibilidad de proveedores y última sincronización.
     operationId: getExternalSources
     x-roles:
-      - ADMIN
+    - ADMIN
     responses:
       "200":
         description: Operación correcta.
@@ -31,14 +31,13 @@
 
   post:
     tags:
-      - Administración
+    - Administración
     summary: Registrar fuente de datos
-    description:
-      Registra metadatos públicos de la fuente; las claves de integración van fuera del contrato
-      y del repositorio.
+    description: Registra metadatos públicos de la fuente; las claves de integración van fuera del 
+      contrato y del repositorio.
     operationId: postExternalSources
     x-roles:
-      - ADMIN
+    - ADMIN
     requestBody:
       required: true
       content:
@@ -75,14 +74,14 @@
 /external-sources/{sourceId}:
   patch:
     tags:
-      - Administración
+    - Administración
     summary: Configurar fuente
     description: Activa/desactiva y ajusta configuración permitida de una fuente.
     operationId: patchExternalSourcesSourceId
     x-roles:
-      - ADMIN
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/SourceId"
+    - $ref: "../components/parameters.yaml#/SourceId"
     requestBody:
       required: true
       content:
@@ -114,35 +113,36 @@
 /audit-events:
   get:
     tags:
-      - Administración
+    - Administración
     summary: Consultar auditoría
     description: Acciones administrativas y cambios relevantes, con correlación por requestId.
     operationId: getAuditEvents
     x-roles:
-      - ADMIN
+    - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/Page"
-      - $ref: "../components/parameters.yaml#/PageSize"
-      - $ref: "../components/parameters.yaml#/FromDate"
-      - $ref: "../components/parameters.yaml#/ToDate"
-      - name: actorId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Actor.
-      - name: resourceType
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Tipo de recurso.
-      - name: resourceId
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Recurso.
+    - $ref: "../components/parameters.yaml#/Page"
+    - $ref: "../components/parameters.yaml#/PageSize"
+    - $ref: "../components/parameters.yaml#/FromDate"
+    - $ref: "../components/parameters.yaml#/ToDate"
+    - name: actorId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Actor.
+    - name: resourceType
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Tipo de recurso.
+    - name: resourceId
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Recurso.
     responses:
       "200":
         description: Operación correcta.

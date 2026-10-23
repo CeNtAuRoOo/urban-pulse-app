@@ -1,10 +1,12 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: especificación inicial pendiente de revisión por tag
+## Estado: dominio y API alineados como versión base
 
-UrbanPulse sigue un enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. La primera versión de OpenAPI **3.0.3** (versión del contrato `0.1.0`) propone **16 tags, 53 rutas, 72 operaciones y 80 esquemas/DTO reutilizables**. Estas cifras describen el borrador existente, **no funcionalidades implementadas** ni aprobadas individualmente.
+UrbanPulse sigue un enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El OpenAPI **3.0.3** (versión del contrato `0.2.0`) está sincronizado en sus decisiones base con el [dominio v1](../domain-model.md) y los ADR. Su catálogo de rutas y DTO sigue siendo **diseño**, no código ejecutado ni validación exhaustiva de cada caso de uso.
 
 Desde el 18/10/2026 se dispone además de un [**modelo de dominio lógico v1**](../domain-model.md), con [diagrama relacional y catálogo de clases](../diagrams/README.md). **Los dos artefactos son versiones base revisables.** En particular, la aparición de una clase en UML no demuestra que sea una entidad Java existente, ni la aparición de un endpoint demuestra que haya un controlador funcional. La aprobación de un PR de tag valida **el alcance de ese tag** y sus entidades involucradas, no todo el modelo.
+
+**Ajustes de consistencia antes de implementar:** los códigos de rol se restringen según su ámbito (`GlobalRoleCode` / `DepartmentRoleCode`), los identificadores de entidades del contexto urbano se distinguen de los IDs externos, y `StatusChangeDTO` admite que `fromStatus` o `changedBy` estén ausentes. Se han desactivado los dos endpoints de evaluación IA que presuponían un motor y una ejecución asíncrona no acordados: sus archivos YAML quedan solo como exploración no incluida en el contrato activo.
 
 ## Fuente editable y organización del contrato
 
@@ -63,22 +65,13 @@ Cada tag es una **unidad de revisión e implementación**, no el compromiso de i
 
 Un tag se considera revisado cuando su PR se aprueba con sus cambios coherentes. Coordinar los cambios en entidades compartidas antes de fusionar PR concurrentes.
 
-## Diferencias conocidas entre el OpenAPI inicial y el dominio v1
+## Alineación entre OpenAPI y dominio
 
-Estas diferencias se documentan **sin modificar todavía los YAML de contrato** en el presente PR, precisamente porque se revisarán por funcionalidad:
+Desde esta revisión, **los dos diagramas y el contrato modular representan una única versión base de diseño**. Se han armonizado roles globales/departamentales, estados de la incidencia, derivación versus trabajo, invitaciones, duplicados e identificadores UUID. Consulta el [documento de integración](domain-openapi.md), que mantiene la tabla de correspondencia entre decisiones y operaciones.
 
-| Tema             | Situación del contrato actual                                                 | Diseño del dominio v1 / acción cuando se implemente                                                                                                         |
-| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ciclo de vida    | Enum `IncidentStatus` con `ASSIGNED`                                          | Sustituido conceptualmente por `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`; revisar rutas, filtros, DTO y transiciones en `Incidencias`/`Tramitación`.       |
-| Roles            | `UserDTO`/`UserSummaryDTO` con un `role`, `UserRole` sin ámbito departamental | `Role`, `UserRole` (roles globales), `DepartmentMembership` (roles departamentales); acordar exposición en DTO y política de permisos.                      |
-| Asignación       | `AssignmentRequest` contiene `departmentId`, `teamId`, `technicianId`         | Derivación a departamento mediante `Incident.assignedDepartment`, distribución concreta a `Team` o técnico en `Assignment`; revisar recursos y operaciones. |
-| Invitaciones     | Invitación inicial ligada a un rol, con reglas incompletas                    | ADR-0007 **aceptado**: rol con ámbito, posible departamento y canje por una cuenta ya existente.                                                            |
-| Identificadores  | IDs ilustrativos de cadena (p. ej. `usr_1`, `inc_001`)                        | Convención propuesta UUIDv7 (ADR-0011); adecuar ejemplos y esquemas `format: uuid` al revisar.                                                              |
-| Duplicados       | Sugerencias y enlaces como contratos distintos                                | `DuplicateSuggestionDTO` calculado (no persiste); `DuplicateLink` solo con confirmación humana. Adaptar representación final por tag.                       |
-| Contexto externo | DTOs y operaciones en borrador                                                | Dominio **provisional**; no seleccionar proveedores ni materializar estructuras definitivas hasta estudiarlo.                                               |
-| IA/RAG           | Tags presentes en borrador                                                    | Funcionalidades avanzadas marcadas opcionales en el enunciado se posponen, no se convierten automáticamente en backlog de la primera fase.                  |
+El proceso de implementación sigue siendo incremental: al elegir un tag **no se buscan discrepancias conocidas entre dos diseños desactualizados**, sino que se verifica y concreta conjuntamente el alcance del dominio y API. Toda decisión nueva o corrección posterior modifica ambas vistas, y se revisa su efecto sobre otros tags en el mismo PR.
 
-No debe confundirse un ADR de diseño aceptado con la revisión del **detalle de un endpoint**: formatos y reglas operativas deben validarse en el tag.
+Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. No se han creado entidades JPA, migraciones ni endpoints implementados con esta alineación.
 
 ## Validación y visualización
 
@@ -87,6 +80,7 @@ Desde la raíz del repositorio, si se dispone de Node/npm y acceso a Redocly CLI
 ```bash
 npx @redocly/cli lint docs/api/openapi/base-openapi.yaml
 npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
 Son **comandos propuestos, no pruebas ejecutadas para este PR**. El bundle sobrescribe `docs/api/openapi.yaml`; revisar `git diff` y que no haya divergencia del modular. Para Swagger Editor u otros visores sin soporte de `$ref` externos, abrir la especificación unificada regenerada.
@@ -110,3 +104,5 @@ Son **comandos propuestos, no pruebas ejecutadas para este PR**. El bundle sobre
 - [ADR-0007: Invitaciones](../adr/0007-invitaciones-personal.md)
 - [ADR-0009: RBAC y departamentos](../adr/0009-rbac-departamentos-equipos.md)
 - [ADR-0010: Tramitación](../adr/0010-ciclo-vida-y-asignaciones.md)
+
+**Referencia unificada:** [Integración entre dominio y OpenAPI](domain-openapi.md).

@@ -3,13 +3,11 @@ UrbanAssetDTO:
   properties:
     id:
       type: string
-      example: BUS_STOP_3948
+      format: uuid
     type:
       type: string
       example: BUS_STOP
     name:
-      type: string
-    source:
       type: string
     coordinates:
       $ref: "./comunes.yaml#/CoordinatesDTO"
@@ -17,12 +15,20 @@ UrbanAssetDTO:
       type: object
       additionalProperties: true
       description: Metadatos heterogéneos del proveedor.
+    sourceId:
+      type: string
+      format: uuid
+      description: Identificador de ExternalSource cuando existe fuente registrada; asociación opcional.
+    externalId:
+      type: string
+      description: Identificador original del activo en su fuente; no equivale al UUID interno.
   required:
-    - id
-    - type
-    - source
-    - coordinates
-
+  - id
+  - type
+  - coordinates
+  - externalId
+  description: 'Activo urbano local: id UUID interno; externalId identifica al activo en un proveedor. Relación
+    sourceId opcional, integración aún provisional.'
 UrbanAssetCandidateDTO:
   type: object
   properties:
@@ -38,20 +44,21 @@ UrbanAssetCandidateDTO:
       maximum: 1
       example: 0.87
   required:
-    - asset
-    - distanceMeters
-    - confidence
+  - asset
+  - distanceMeters
+  - confidence
 
 UrbanAssetAssociationRequest:
   type: object
   properties:
     assetId:
       type: string
+      format: uuid
     reason:
       type: string
       maxLength: 2000
   required:
-    - assetId
+  - assetId
   additionalProperties: false
 
 UrbanAssetAssociationDTO:
@@ -69,50 +76,52 @@ UrbanAssetAssociationDTO:
     associationMethod:
       type: string
       enum:
-        - INFERRED
-        - EXPLICIT
-        - OPERATOR_CONFIRMED
+      - INFERRED
+      - EXPLICIT
+      - OPERATOR_CONFIRMED
     confirmedBy:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     associatedAt:
       type: string
       format: date-time
   required:
-    - asset
-    - associationMethod
-    - associatedAt
+  - asset
+  - associationMethod
+  - associatedAt
 
 ExternalObservationDTO:
   type: object
   properties:
     id:
       type: string
+      format: uuid
     sourceId:
       type: string
+      format: uuid
     metric:
       type: string
       example: temperature
     value:
       oneOf:
-        - type: number
-        - type: string
-        - type: boolean
+      - type: number
+      - type: string
+      - type: boolean
     unit:
       type: string
       example: C
     quality:
       type: string
       enum:
-        - GOOD
-        - ESTIMATED
-        - UNKNOWN
-        - POOR
+      - GOOD
+      - ESTIMATED
+      - UNKNOWN
+      - POOR
     status:
       type: string
       enum:
-        - CURRENT
-        - STALE
-        - UNAVAILABLE
+      - CURRENT
+      - STALE
+      - UNAVAILABLE
     observedAt:
       type: string
       format: date-time
@@ -125,27 +134,28 @@ ExternalObservationDTO:
     coordinates:
       $ref: "./comunes.yaml#/CoordinatesDTO"
   required:
-    - id
-    - sourceId
-    - metric
-    - value
-    - quality
-    - status
-    - observedAt
-    - ingestedAt
+  - id
+  - sourceId
+  - metric
+  - value
+  - quality
+  - status
+  - observedAt
+  - ingestedAt
 
 UrbanContextDTO:
   type: object
   properties:
     incidentId:
       type: string
+      format: uuid
     status:
       type: string
       enum:
-        - PENDING
-        - AVAILABLE
-        - PARTIAL
-        - UNAVAILABLE
+      - PENDING
+      - AVAILABLE
+      - PARTIAL
+      - UNAVAILABLE
     generatedAt:
       type: string
       format: date-time
@@ -163,10 +173,11 @@ UrbanContextDTO:
         type: string
       description: Fuentes que no pudieron aportar datos.
   required:
-    - incidentId
-    - status
-    - generatedAt
-    - observations
-    - nearbyAssets
-    - warnings
-  description: La falta de proveedores externos no impide registrar incidencias ni provoca un error del reporte.
+  - incidentId
+  - status
+  - generatedAt
+  - observations
+  - nearbyAssets
+  - warnings
+  description: La falta de proveedores externos no impide registrar incidencias ni provoca un error del 
+    reporte.

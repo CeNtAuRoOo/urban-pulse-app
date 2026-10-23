@@ -1,6 +1,6 @@
 # Guía de contribución
 
-Este documento establece las normas para contribuir a UrbanPulse. El repositorio se desarrolla de forma incremental, con un **contrato OpenAPI** y un **modelo de dominio inicial** que se revisan juntos al implementar cada funcionalidad.
+Este documento establece las normas para contribuir a UrbanPulse. El repositorio se desarrolla de forma incremental, con un **dominio–OpenAPI sincronizado** cuyas vistas se revisan como una sola especificación al implementar cada funcionalidad.
 
 ## Flujo de trabajo
 
@@ -41,7 +41,7 @@ El `scope` es opcional para cambios generales. Ejemplos:
 - `docs(adr): registrar decisiones de roles y asignaciones`
 - `ci: configurar comprobaciones automatizadas`
 
-## Modelo de dominio y contrato: revisión obligatoria por tag
+## Dominio–OpenAPI: revisión conjunta obligatoria por tag
 
 La documentación [del modelo de dominio v1](docs/domain-model.md) contiene las decisiones y entidades previstas; **no es código implementado ni una validación integral de todas las entidades**. En [diagramas](docs/diagrams/README.md) hay:
 
@@ -55,7 +55,7 @@ Antes de implementar una funcionalidad:
 1. Comprobar los casos de uso del enunciado y su alcance, incluidos los apartados opcionales aplazados.
 2. Leer `docs/api/openapi/paths/<tag>.yaml`, los DTO de `components/schemas/` y la guía [`docs/api/README.md`](docs/api/README.md).
 3. Examinar **ambos diagramas**; verificar campos, tipos, cardinalidades, nulabilidad, relaciones, persistencia, permisos y reglas de negocio de las entidades afectadas.
-4. Resolver divergencias entre OpenAPI y dominio a partir de los requisitos y los [ADR](docs/adr/README.md), sin tratar automáticamente los datos de un dibujo como decisiones cerradas.
+4. Resolver nuevas decisiones o divergencias detectadas durante la implementación a partir de los requisitos y los [ADR](docs/adr/README.md), sin tratar automáticamente los datos de un dibujo como decisiones cerradas.
 5. Actualizar en el mismo PR los esquemas OpenAPI modulares, diagramas `.drawio` y sus exportaciones, el [modelo de dominio](docs/domain-model.md), los ADR y las pruebas que correspondan. No alterar recursos ajenos sin coordinación.
 6. Implementar **solo el subconjunto requerido** de entidades JPA, migraciones Flyway, servicios, controladores y frontend. No usar `ddl-auto=update`; probar migraciones en entorno aislado/`development`, nunca de forma experimental en `production`.
 7. Explicar qué se validó, qué se implementó y qué quedó pendiente. Aprobar un tag **no valida automáticamente todo el modelo**.
@@ -66,7 +66,7 @@ Para decisiones con impacto arquitectónico no resueltas por los ADR vigentes, d
 
 - **Frontend:** en `frontend/`, ejecutar `npx expo install --check`, `npx tsc --noEmit` y `npm run lint`; cuando aplique, `npx expo export --platform web`. Documentar advertencias relevantes de dependencias.
 - **Backend:** ejecutar `mvn test`/`mvn verify` para tests aislados. Los tests externos `*IT` se invocan expresamente, por ejemplo `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test`, confirmando que se apunta a Neon `development`. **No** ejecutar tests externos o migraciones contra `production`.
-- **Contrato API:** tras revisar el tag, ejecutar (si se dispone de la herramienta) `npx @redocly/cli lint docs/api/openapi/base-openapi.yaml` y regenerar `docs/api/openapi.yaml` desde el modular cuando cambie el contrato; revisar el diff.
+- **Contrato API:** tras revisar el tag, ejecutar (si se dispone de la herramienta) `npx @redocly/cli lint docs/api/openapi/base-openapi.yaml` y regenerar `docs/api/openapi.yaml` desde el modular y `docs/api/openapi.html` desde el bundle; revisar ambos diffs. Consultar [la guía unificada](docs/api/domain-openapi.md).
 - **Diagramas y documentación:** abrir los `.drawio` en diagrams.net; comprobar las cuatro páginas ER y la página de clases, exportaciones y vínculos Markdown. Ejecutar `git diff --check`, verificar que no se incluyen secretos, datos personales reales ni ficheros generados ajenos al cambio.
 
 La [guía de desarrollo](docs/development.md) distingue qué comandos se han probado realmente. No afirmar que se ejecutaron nuevas comprobaciones si no fue así.

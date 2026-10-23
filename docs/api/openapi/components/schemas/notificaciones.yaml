@@ -3,6 +3,7 @@ NotificationDTO:
   properties:
     id:
       type: string
+      format: uuid
     type:
       type: string
       example: INCIDENT_STATUS_CHANGED
@@ -12,6 +13,7 @@ NotificationDTO:
       type: string
     incidentId:
       type: string
+      format: uuid
     read:
       type: boolean
     createdAt:

@@ -79,7 +79,7 @@
         in: query
         required: false
         schema:
-          $ref: "../components/schemas/usuarios.yaml#/UserRole"
+          $ref: ../components/schemas/usuarios.yaml#/RoleCode
         description: Filtrar por rol.
       - name: active
         in: query
@@ -142,7 +142,8 @@
     tags:
       - Usuarios
     summary: Administrar usuario
-    description: Cambia estado o rol de una cuenta de forma auditada; no expone operaciones de autoelevación.
+    description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las 
+      adscripciones departamentales tienen reglas propias.
     operationId: patchUsersUserId
     x-roles:
       - ADMIN

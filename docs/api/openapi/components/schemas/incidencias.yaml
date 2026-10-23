@@ -12,6 +12,7 @@ LocationDTO:
     districtId:
       type: string
       description: Distrito obtenido por geocodificación.
+      format: uuid
     districtName:
       type: string
       description: Nombre del distrito.
@@ -32,12 +33,14 @@ IncidentStatus:
     - REPORTED
     - VALIDATED
     - REJECTED
-    - ASSIGNED
+    - ASSIGNED_TO_DEPARTMENT
+    - WORK_ASSIGNED
     - IN_PROGRESS
     - RESOLVED
     - REOPENED
     - CLOSED
-  description: Ciclo de vida de una incidencia. Transiciones exactas pendientes de confirmación del equipo.
+  description: 'ADR-0010: validación y derivación pueden estar separadas; el trabajo se distribuye después.
+    La matriz completa de transiciones permanece pendiente.'
 
 IncidentPriority:
   type: string
@@ -46,7 +49,7 @@ IncidentPriority:
     - MEDIUM
     - HIGH
     - CRITICAL
-  description: Escala de prioridad propuesta; el enunciado no concreta niveles.
+  description: Escala acordada para UrbanPulse; LOW, MEDIUM, HIGH, CRITICAL.
 
 CreateIncidentRequest:
   type: object
@@ -54,33 +57,23 @@ CreateIncidentRequest:
     title:
       type: string
       description: Título breve.
-      example: Semáforo averiado
       minLength: 5
       maxLength: 150
     description:
       type: string
       description: Descripción detallada.
-      example: El semáforo no funciona en el cruce desde esta mañana.
       minLength: 10
       maxLength: 5000
     coordinates:
       $ref: "./comunes.yaml#/CoordinatesDTO"
     categoryId:
       type: string
-      description: Opcional; el sistema puede ayudar a clasificar después.
-      example: cat_traffic
+      format: uuid
+      description: Categoría opcional; puede decidirse durante revisión.
   required:
     - title
     - description
     - coordinates
-  example:
-    title: Semáforo averiado
-    description: El semáforo del cruce no funciona desde esta mañana.
-    coordinates:
-      latitude: 36.7213
-      longitude: -4.4214
-      accuracyMeters: 8
-    categoryId: cat_traffic
   additionalProperties: false
 
 UpdateIncidentRequest:
@@ -96,6 +89,8 @@ UpdateIncidentRequest:
       maxLength: 5000
     categoryId:
       type: string
+      format: uuid
+      description: Categoría opcional; puede decidirse durante revisión.
     coordinates:
       $ref: "./comunes.yaml#/CoordinatesDTO"
   description: "Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado."
@@ -106,7 +101,7 @@ IncidentSummaryDTO:
   properties:
     id:
       type: string
-      example: inc_001
+      format: uuid
     title:
       type: string
     category:
@@ -140,7 +135,7 @@ IncidentDTO:
   properties:
     id:
       type: string
-      example: inc_001
+      format: uuid
     title:
       type: string
     description:
@@ -193,6 +188,8 @@ IncidentDTO:
       type: integer
       description: Versión de control de concurrencia; propuesta.
       minimum: 0
+    assignedDepartment:
+      $ref: ./catalogos.yaml#/DepartmentDTO
   required:
     - id
     - title
@@ -203,9 +200,8 @@ IncidentDTO:
     - attachmentCount
     - createdAt
     - updatedAt
-  description:
-    Detalle. Los datos del informante y campos internos se incluyen solo si el rol/propiedad lo
-    permite.
+  description: El departamento actual se devuelve en assignedDepartment; currentAssignment representa 
+    solamente trabajo activo (ADR-0010).
 
 IncidentPageDTO:
   type: object
@@ -225,13 +221,17 @@ HistoryEventDTO:
   properties:
     id:
       type: string
+      format: uuid
     eventType:
       type: string
       enum:
         - CREATED
         - REVIEWED
         - PRIORITIZED
-        - ASSIGNED
+        - DEPARTMENT_ASSIGNED
+        - DEPARTMENT_TRANSFERRED
+        - WORK_ASSIGNED
+        - WORK_REASSIGNED
         - STATUS_CHANGED
         - COMMENTED
         - ATTACHMENT_ADDED

@@ -3,10 +3,9 @@
     tags:
       - Incidencias
     summary: Registrar incidencia
-    description:
-      Registra inmediatamente en REPORTED y genera la primera entrada de auditoría. Geocodificación,
-      duplicados, activos y contexto urbano son enriquecimientos opcionales que no bloquean la creación. Las
-      fotografías se adjuntan después.
+    description: Registra inmediatamente en REPORTED y genera la primera entrada de auditoría. 
+      Geocodificación, duplicados, activos y contexto urbano son enriquecimientos opcionales que no 
+      bloquean la creación. Las fotografías se adjuntan después.
     operationId: postIncidents
     x-roles:
       - CITIZEN
@@ -49,9 +48,9 @@
     tags:
       - Incidencias
     summary: Buscar incidencias
-    description:
-      Listado paginado. Al ciudadano solo se le muestran incidencias autorizadas; el personal puede
-      usar filtros de búsqueda ampliados.
+    description: Búsqueda paginada. Los coordinadores acceden únicamente a incidencias de sus 
+      departamentos activos; el departamento de cada resultado se comprueba en el backend. Filtros 
+      opcionales.
     operationId: getIncidents
     x-roles:
       - AUTHENTICATED
@@ -69,18 +68,21 @@
         required: false
         schema:
           type: string
+          format: uuid
         description: Categoría.
       - name: districtId
         in: query
         required: false
         schema:
           type: string
+          format: uuid
         description: Distrito.
       - name: departmentId
         in: query
         required: false
         schema:
           type: string
+          format: uuid
         description: Departamento asignado.
       - name: priority
         in: query
@@ -141,11 +143,7 @@
     description: Solo incidencias creadas por la identidad del JWT; no se acepta userId de terceros.
     operationId: getIncidentsMine
     x-roles:
-      - CITIZEN
-      - OPERATOR
-      - TECHNICIAN
-      - ADMIN
-      - ANALYST
+      - AUTHENTICATED
     parameters:
       - $ref: "../components/parameters.yaml#/Page"
       - $ref: "../components/parameters.yaml#/PageSize"
@@ -174,9 +172,8 @@
     tags:
       - Incidencias
     summary: Consultar incidencia
-    description:
-      Detalle con dirección si se ha resuelto, clasificación, fechas y estado. Los campos sujetos
-      a privacidad se filtran por permisos.
+    description: Detalle con dirección si se ha resuelto, clasificación, fechas y estado. Los campos 
+      sujetos a privacidad se filtran por permisos.
     operationId: getIncidentsIncidentId
     x-roles:
       - AUTHENTICATED
@@ -206,8 +203,7 @@
     tags:
       - Incidencias
     summary: Corregir incidencia
-    description:
-      "Propuesta: permitir ajustes al titular mientras REPORTED y edición limitada al operador según
+    description: "Propuesta: permitir ajustes al titular mientras REPORTED y edición limitada al operador según
       reglas del dominio. Auditar modificaciones."
     operationId: patchIncidentsIncidentId
     x-roles:

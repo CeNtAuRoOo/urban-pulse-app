@@ -247,7 +247,7 @@ git diff --cached --name-only
 git commit -m "docs: actualizar guías de desarrollo"
 ```
 
-**Para tareas de API (design-first):** tratar cada tag como una tarea independiente. Antes del código, revisar `docs/api/openapi/paths/<tag>.yaml` y los DTOs de `components/schemas/`, acordar cambios de contrato y verificar su impacto en otros tags. La fuente de verdad es `docs/api/openapi/base-openapi.yaml` más sus archivos referenciados. `docs/api/openapi.yaml` es la copia monolítica actual: si se conserva, regenerarla con Redocly y no editarla a mano. Los comandos de validación y la lista de comprobaciones para cada tag están en la [guía de la API](api/README.md). La revisión documental no equivale a disponer de endpoints implementados.
+**Para tareas de API (design-first):** tratar cada tag como una tarea independiente. Antes del código, revisar como **una única especificación** los endpoints/DTO del tag y ambas vistas del dominio en `docs/diagrams/`; concretar conjuntamente los cambios y valorar impacto en otros tags. La fuente de verdad es `docs/api/openapi/base-openapi.yaml` más sus archivos referenciados. `docs/api/openapi.yaml` es la copia monolítica actual: regenerarla con Redocly y no editarla a mano. Regenerar también `docs/api/openapi.html` con `build-docs`. Los comandos de validación y la lista de comprobaciones para cada tag están en el [contrato dominio–API](api/domain-openapi.md) y en la [guía de la API](api/README.md). La revisión documental no equivale a disponer de endpoints implementados.
 
 Comprobar que no se han añadido secretos, datos personales reales ni directorios generados (`node_modules`, `dist`, `target`, `.env`). Confirmar además que `frontend/package-lock.json` esté versionado: `git ls-files frontend/package-lock.json`.
 

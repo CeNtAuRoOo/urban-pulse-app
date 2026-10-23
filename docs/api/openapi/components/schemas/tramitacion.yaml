@@ -4,9 +4,9 @@ ReviewRequest:
     decision:
       type: string
       enum:
-        - VALIDATE
-        - REJECT
-        - REQUEST_INFORMATION
+      - VALIDATE
+      - REJECT
+      - REQUEST_INFORMATION
     reason:
       type: string
       description: Obligatorio en rechazo o solicitud de información.
@@ -14,9 +14,9 @@ ReviewRequest:
       maxLength: 2000
     categoryId:
       type: string
-      description: Permite confirmar o corregir la clasificación.
+      format: uuid
   required:
-    - decision
+  - decision
   additionalProperties: false
 
 ReviewDTO:
@@ -24,14 +24,16 @@ ReviewDTO:
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     decision:
       type: string
       enum:
-        - VALIDATE
-        - REJECT
-        - REQUEST_INFORMATION
+      - VALIDATE
+      - REJECT
+      - REQUEST_INFORMATION
     reason:
       type: string
     reviewedBy:
@@ -42,12 +44,12 @@ ReviewDTO:
     resultingStatus:
       $ref: "./incidencias.yaml#/IncidentStatus"
   required:
-    - id
-    - incidentId
-    - decision
-    - reviewedBy
-    - reviewedAt
-    - resultingStatus
+  - id
+  - incidentId
+  - decision
+  - reviewedBy
+  - reviewedAt
+  - resultingStatus
 
 PriorityRequest:
   type: object
@@ -57,19 +59,16 @@ PriorityRequest:
     source:
       type: string
       enum:
-        - MANUAL
-        - ASSISTED
+      - MANUAL
+      - ASSISTED
     justification:
       type: string
       minLength: 3
       maxLength: 2000
-    assessmentId:
-      type: string
-      description: Referencia a evaluación de IA, si aplica.
   required:
-    - priority
-    - source
-    - justification
+  - priority
+  - source
+  - justification
   additionalProperties: false
 
 PriorityDecisionDTO:
@@ -77,18 +76,18 @@ PriorityDecisionDTO:
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     priority:
       $ref: "./incidencias.yaml#/IncidentPriority"
     source:
       type: string
       enum:
-        - MANUAL
-        - ASSISTED
+      - MANUAL
+      - ASSISTED
     justification:
-      type: string
-    assessmentId:
       type: string
     decidedBy:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
@@ -96,45 +95,34 @@ PriorityDecisionDTO:
       type: string
       format: date-time
   required:
-    - id
-    - incidentId
-    - priority
-    - source
-    - justification
-    - decidedBy
-    - decidedAt
+  - id
+  - incidentId
+  - priority
+  - source
+  - justification
+  - decidedBy
+  - decidedAt
 
 AssignmentRequest:
-  type: object
-  properties:
-    departmentId:
-      type: string
-    technicianId:
-      type: string
-      description: Opcional.
-    teamId:
-      type: string
-      description: Opcional. Se formalizará al definir equipos.
-    reason:
-      type: string
-      maxLength: 1000
-  required:
-    - departmentId
-  additionalProperties: false
-
+  oneOf:
+  - $ref: ./tramitacion.yaml#/TeamWorkAssignmentRequest
+  - $ref: ./tramitacion.yaml#/TechnicianWorkAssignmentRequest
+  description: 'ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId.
+    Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
 AssignmentDTO:
   type: object
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
-    department:
-      $ref: "./catalogos.yaml#/DepartmentDTO"
+      format: uuid
     technician:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     teamId:
       type: string
+      format: uuid
     assignedBy:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     reason:
@@ -145,24 +133,31 @@ AssignmentDTO:
     endedAt:
       type: string
       format: date-time
+    acceptedBy:
+      $ref: ./usuarios.yaml#/UserSummaryDTO
+    acceptedAt:
+      type: string
+      format: date-time
   required:
-    - id
-    - incidentId
-    - department
-    - assignedBy
-    - assignedAt
+  - id
+  - incidentId
+  - assignedBy
+  - assignedAt
 
+  description: Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa 
+    como máximo (endedAt ausente).
 StatusChangeRequest:
   type: object
   properties:
     toStatus:
       type: string
       enum:
-        - IN_PROGRESS
-        - RESOLVED
-        - REOPENED
-        - CLOSED
-      description: Validación y asignación tienen operaciones propias.
+      - IN_PROGRESS
+      - RESOLVED
+      - REOPENED
+      - CLOSED
+      description: Solo transiciones operativas. Validación, derivación y designación de trabajo tienen 
+        sus propias operaciones.
     reason:
       type: string
       description: Motivo exigible en reapertura/cierre, según reglas a acordar.
@@ -172,7 +167,7 @@ StatusChangeRequest:
       description: Obligatoria al pasar a RESOLVED; detalle de la actuación.
       maxLength: 5000
   required:
-    - toStatus
+  - toStatus
   additionalProperties: false
 
 StatusChangeDTO:
@@ -180,8 +175,10 @@ StatusChangeDTO:
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     fromStatus:
       $ref: "./incidencias.yaml#/IncidentStatus"
     toStatus:
@@ -196,13 +193,13 @@ StatusChangeDTO:
       type: string
       format: date-time
   required:
-    - id
-    - incidentId
-    - fromStatus
-    - toStatus
-    - changedBy
-    - changedAt
-
+  - id
+  - incidentId
+  - toStatus
+  - changedAt
+  description: fromStatus se omite en el registro inicial si no existía estado previo; changedBy se omite
+    para eventos internos del sistema. El resto de los cambios debe respetar la trazabilidad y 
+    autorización previstas.
 CommentRequest:
   type: object
   properties:
@@ -213,12 +210,12 @@ CommentRequest:
     visibility:
       type: string
       enum:
-        - PUBLIC
-        - INTERNAL
+      - PUBLIC
+      - INTERNAL
       description: INTERNAL solo para personal municipal.
   required:
-    - body
-    - visibility
+  - body
+  - visibility
   additionalProperties: false
 
 CommentDTO:
@@ -226,24 +223,64 @@ CommentDTO:
   properties:
     id:
       type: string
+      format: uuid
     incidentId:
       type: string
+      format: uuid
     body:
       type: string
     visibility:
       type: string
       enum:
-        - PUBLIC
-        - INTERNAL
+      - PUBLIC
+      - INTERNAL
     author:
       $ref: "./usuarios.yaml#/UserSummaryDTO"
     createdAt:
       type: string
       format: date-time
   required:
-    - id
-    - incidentId
-    - body
-    - visibility
-    - author
-    - createdAt
+  - id
+  - incidentId
+  - body
+  - visibility
+  - author
+  - createdAt
+DepartmentReferralRequest:
+  type: object
+  properties:
+    departmentId:
+      type: string
+      format: uuid
+    reason:
+      type: string
+      description: Justificación opcional de la derivación o transferencia. El evento queda auditado.
+  required:
+  - departmentId
+  additionalProperties: false
+  description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de 
+    trabajo.
+TeamWorkAssignmentRequest:
+  type: object
+  properties:
+    teamId:
+      type: string
+      format: uuid
+    reason:
+      type: string
+      maxLength: 1000
+  required:
+  - teamId
+  additionalProperties: false
+TechnicianWorkAssignmentRequest:
+  type: object
+  properties:
+    technicianId:
+      type: string
+      format: uuid
+    reason:
+      type: string
+      maxLength: 1000
+  required:
+  - technicianId
+  additionalProperties: false
