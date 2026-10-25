@@ -101,12 +101,7 @@ RoleCode:
     - ADMIN
     - DEPARTMENT_COORDINATOR
     - TECHNICIAN
-  description: Catálogo completo de roles; para usos por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
-RoleScope:
-  type: string
-  enum:
-    - GLOBAL
-    - DEPARTMENT
+  description: Catálogo completo de códigos; el ámbito se deduce del código (sin RoleScope persistido). Para DTO por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
 DepartmentMembershipDTO:
   type: object
   description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.

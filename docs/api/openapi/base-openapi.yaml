@@ -186,8 +186,6 @@ components:
       $ref: ./components/schemas/usuarios.yaml#/UsersPageDTO
     RoleCode:
       $ref: ./components/schemas/usuarios.yaml#/RoleCode
-    RoleScope:
-      $ref: ./components/schemas/usuarios.yaml#/RoleScope
     DepartmentMembershipDTO:
       $ref: ./components/schemas/usuarios.yaml#/DepartmentMembershipDTO
     GlobalRoleCode:

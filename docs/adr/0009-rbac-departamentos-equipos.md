@@ -19,8 +19,8 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 ## Decisión
 
 - Una sola entidad `User` para ciudadanos y personal; sin herencia de subclases. **Toda cuenta contiene siempre `CITIZEN` como rol global base**, incluidas cuentas que se incorporan por invitación. Los roles municipales se añaden, nunca sustituyen automáticamente a `CITIZEN`.
-- Catálogo persistente `Role` (`code`, `scope`, `description`) y relación explícita `UserRole` para roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`), con clave compuesta candidata. Una cuenta puede tener varios roles globales; el cliente no puede elegirlos al registrarse.
-- Roles departamentales `DEPARTMENT_COORDINATOR` y `TECHNICIAN` mediante `DepartmentMembership` con usuario, rol, departamento, fechas de alta/baja. `Role.scope` diferencia `GLOBAL` y `DEPARTMENT` y el servidor comprueba el ámbito de las relaciones.
+- Catálogo persistente `Role` (`code`, `description`, sin columna `scope`) y relación explícita `UserRole` para roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`), con clave compuesta candidata. Una cuenta puede tener varios roles globales; el cliente no puede elegirlos al registrarse.
+- Roles departamentales `DEPARTMENT_COORDINATOR` y `TECHNICIAN` mediante `DepartmentMembership` con usuario, rol, departamento, fechas de alta/baja. La clasificación `GLOBAL`/`DEPARTMENT` se obtiene del propio `RoleCode` mediante métodos como `isGlobal()`/`isDepartmental()`; se elimina `RoleScope` y no se persiste una columna `scope`. El servidor y, donde proceda, las restricciones SQL impiden asignar roles departamentales a `UserRole` o globales a `DepartmentMembership`.
 - `OPERATOR` tiene competencias municipales transversales de revisión, priorización y derivación sin necesitar pertenencia a un departamento. El coordinador distribuye los trabajos dentro de sus departamentos; el técnico acepta/ejecuta los trabajos autorizados.
 - `Team` es estable, reutilizable y desactivable; preserva referencias históricas. `TeamMembership` relaciona `Team` con `DepartmentMembership` activa del rol técnico y del mismo departamento. No crear equipos ficticios de una sola persona para trabajos individuales.
 - No se adoptan por ahora tablas genéricas `Permission`/`RolePermission`; las comprobaciones de rol y contexto se implementan en Spring Security y servicios.
@@ -28,6 +28,8 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 - No se incluye `ANALYST` por estar aplazada la parte analítica avanzada del enunciado.
 
 ## Consecuencias
+
+**Revisión del 25/10/2026:** se elimina la duplicación de ámbito en `Role.scope`/`RoleScope`: el catálogo fijo de códigos es la única fuente de verdad. Los checks de ámbito siguen siendo invariantes obligatorias del dominio.
 
 **Ventajas:** seguridad por contexto, roles múltiples, separación de la gestión transversal/departamental y continuidad de uso ciudadano del personal.
 

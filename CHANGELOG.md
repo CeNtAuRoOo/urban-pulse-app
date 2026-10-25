@@ -6,6 +6,8 @@ Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https:
 
 ### Documentación de diseño — autenticación (25/10/2026; pendiente de implementar)
 
+- **Ajuste posterior de diseño — roles:** se elimina el enum `RoleScope` y la columna `Role.scope`; el ámbito GLOBAL/DEPARTMENT se determina en `RoleCode` (`isGlobal`/`isDepartmental`) y se valida en asociaciones. Este cambio documental permanece pendiente de implementación. La actualización de ambos diagramas y regeneración del bundle/HTML se efectúan antes del PR.
+
 - Revisión **solo documental y de contrato de diseño**, sin introducir entidades JPA, endpoints ejecutables, configuración JWT activa, scripts Flyway funcionales ni tests nuevos.
 - Revisión del contrato OpenAPI modular a `0.3.0` de diseño: registro ciudadano `201 TokenDTO` con JWT, corrección de `401` y retirada de `404`/`409` para credenciales incorrectas en login, y operación de cambio autenticado `POST /users/me/password-changes` con `204`.
 - Acuerdo de JWT Bearer de 7200 segundos sin refresh, claims `sub`/`iat`/`exp`/`iss`/`ver`, verificación de cuenta activa, `tokenVersion` y roles actuales desde PostgreSQL en cada petición protegida. El cambio de contraseña incrementará `tokenVersion` en la misma transacción para invalidar todos los tokens previos.

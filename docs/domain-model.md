@@ -43,15 +43,15 @@ La incidencia puede crearse sin datos externos o activo urbano identificado. La 
 
 ### 3.2. Identidad y organización
 
-| Concepto                       | Responsabilidad en diseño                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `User`                         | Cuenta única con credenciales protegidas, roles, estado y preferencias. Revisión auth: `emailVerified` y `tokenVersion`. |
-| `Role`, `UserRole`, `RoleCode` | Catálogo y asignación N:M explícita de roles GLOBAL, con `RoleScope` GLOBAL/DEPARTMENT.                                  |
-| `Department`                   | Unidad municipal que recibe incidencias.                                                                                 |
-| `DepartmentMembership`         | Vínculo temporal usuario–departamento–rol DEPARTMENT; delimita actuación.                                                |
-| `Team`, `TeamMembership`       | Equipos reutilizables con pertenencias históricas; desactivar no borra trabajos.                                         |
-| `StaffInvitation`              | Alta/incorporación controlada de personal, código de un uso almacenado mediante hash/HMAC.                               |
-| `NotificationPreferences`      | Valor embebido en User (`inApp`, `email`, `push`). Valores iniciales acordados: **todos true**.                          |
+| Concepto                       | Responsabilidad en diseño                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `User`                         | Cuenta única con credenciales protegidas, roles, estado y preferencias. Revisión auth: `emailVerified` y `tokenVersion`.    |
+| `Role`, `UserRole`, `RoleCode` | Catálogo y asignación N:M explícita de roles GLOBAL, con ámbito GLOBAL/DEPARTMENT derivado de `RoleCode` (sin `RoleScope`). |
+| `Department`                   | Unidad municipal que recibe incidencias.                                                                                    |
+| `DepartmentMembership`         | Vínculo temporal usuario–departamento–rol DEPARTMENT; delimita actuación.                                                   |
+| `Team`, `TeamMembership`       | Equipos reutilizables con pertenencias históricas; desactivar no borra trabajos.                                            |
+| `StaffInvitation`              | Alta/incorporación controlada de personal, código de un uso almacenado mediante hash/HMAC.                                  |
+| `NotificationPreferences`      | Valor embebido en User (`inApp`, `email`, `push`). Valores iniciales acordados: **todos true**.                             |
 
 **Roles iniciales:** globales `CITIZEN`, `OPERATOR`, `ADMIN`; departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN`. **Toda cuenta posee `CITIZEN`**, incluidos operadores, administradores, coordinadores y técnicos; los roles municipales se acumulan. Se mantiene un único `User` sin jerarquías de clases. `ANALYST` está aplazado.
 
@@ -71,7 +71,7 @@ El operador central valida, prioriza y deriva sin adscripción departamental. El
 | `preferences`            | `NotificationPreferences` | `inApp/email/push` en `true` al alta.                                                    |
 | `createdAt`, `updatedAt` | `Instant`                 | Persistencia `timestamptz`.                                                              |
 
-**`Role`** mantiene `code` como PK natural y `scope`/`description`. **`UserRole`** puede tener clave compuesta por usuario+rol y solo acepta roles GLOBAL; revisar integridad e implementación coherente con `User.globalRoles` del dibujo. En registro se asigna `CITIZEN` dentro de la misma transacción de creación del usuario. Los roles adicionales se concederán por invitaciones, fuera del alcance de la rama `auth`.
+**`Role`** mantiene `code` como PK natural y `description`; no almacena `scope`: el ámbito se deriva de `RoleCode.isGlobal()` / `RoleCode.isDepartmental()`. **`UserRole`** puede tener clave compuesta por usuario+rol y solo acepta roles GLOBAL; revisar integridad e implementación coherente con `User.globalRoles` del dibujo. En registro se asigna `CITIZEN` dentro de la misma transacción de creación del usuario. Los roles adicionales se concederán por invitaciones, fuera del alcance de la rama `auth`.
 
 **Autenticación JWT (ADR-0005):** `POST /auth/register` y `POST /auth/login` devolverán `TokenDTO` con JWT firmado de 7200 segundos, sin refresh token. Claims `sub`, `iat`, `exp`, `iss`, `ver` (`tokenVersion`), sin exponer contraseña ni roles como autoridad. En **cada petición protegida** Spring Security consultará PostgreSQL para comprobar cuenta activa, versión y roles vigentes. La reducción de coste mediante caché no se incorpora ahora.
 
@@ -108,7 +108,7 @@ Recorrido representativo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT →
 - **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (pendiente de prueba de integración). Excepciones `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
 - **Fechas:** `Instant`/`timestamptz`. **Enumeraciones:** códigos de cadena estables, no ordinales.
 - Los límites `[API]` del diagrama eran hipótesis del borrador; validar tamaños, nullability e índices según los casos de uso. `TEXT` no implica máximo arbitrario.
-- Respetar email único normalizado, objectKey único, par canónico de duplicados, XOR en Assignment, pertenencia al departamento, trabajo activo único, rol adecuado al scope, `CITIZEN` base y `tokenVersion` actualizado de forma transaccional; imponer en servicio y SQL cuando corresponda.
+- Respetar email único normalizado, objectKey único, par canónico de duplicados, XOR en Assignment, pertenencia al departamento, trabajo activo único, rol adecuado al ámbito calculado por su código, `CITIZEN` base y `tokenVersion` actualizado de forma transaccional; imponer en servicio y SQL cuando corresponda.
 - Las relaciones y cardinalidades dibujadas son hipótesis revisables; contrastar con DTO, integridad y pruebas. No materializar tablas antes de que las necesite un tag.
 
 ## 5. Proceso obligatorio: dominio y OpenAPI por tag
