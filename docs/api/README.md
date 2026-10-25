@@ -1,22 +1,26 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: dominio y API alineados como versión base
+## Estado: contrato y dominio alineados como diseño revisable
 
-UrbanPulse sigue un enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El OpenAPI **3.0.3** (versión del contrato `0.2.0`) está sincronizado en sus decisiones base con el [dominio v1](../domain-model.md) y los ADR. Su catálogo de rutas y DTO sigue siendo **diseño**, no código ejecutado ni validación exhaustiva de cada caso de uso.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.3.0`** tras revisar el tag Autenticación. El resto del sistema permanece como diseño base de dominio v1: **ningún endpoint de negocio ni de autenticación funciona todavía**.
 
-Desde el 18/10/2026 se dispone además de un [**modelo de dominio lógico v1**](../domain-model.md), con [diagrama relacional y catálogo de clases](../diagrams/README.md). **Los dos artefactos son versiones base revisables.** En particular, la aparición de una clase en UML no demuestra que sea una entidad Java existente, ni la aparición de un endpoint demuestra que haya un controlador funcional. La aprobación de un PR de tag valida **el alcance de ese tag** y sus entidades involucradas, no todo el modelo.
+El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **Es un acuerdo previo al código**. Los diagramas editables deben sincronizarse manualmente antes de confirmar que todas las vistas de diseño coinciden.
 
-**Ajustes de consistencia antes de implementar:** los códigos de rol se restringen según su ámbito (`GlobalRoleCode` / `DepartmentRoleCode`), los identificadores de entidades del contexto urbano se distinguen de los IDs externos, y `StatusChangeDTO` admite que `fromStatus` o `changedBy` estén ausentes. Se han desactivado los dos endpoints de evaluación IA que presuponían un motor y una ejecución asíncrona no acordados: sus archivos YAML quedan solo como exploración no incluida en el contrato activo.
+Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autenticado de contraseña, invalidación de todos los JWT previos con `tokenVersion`, consulta de cuenta y permisos actuales por acceso protegido, campo `User.emailVerified`, roles de ciudadanía como base de todas las cuentas, UUIDv7 generado por Hibernate y limitación de peticiones local. Además, se excluye `CITIZEN` de invitaciones para personal global. La verificación obligatoria por correo, recuperación de contraseña olvidada, refresh tokens y `GET fields` siguen aplazados.
+
+**Ajustes generales anteriores:** los códigos de rol se restringen por ámbito (`GlobalRoleCode`/`DepartmentRoleCode`), los identificadores urbanos distinguen entidades UUID de IDs externos, y `StatusChangeDTO` admite que falten `fromStatus` y `changedBy`. Se desactivaron las dos operaciones de evaluación IA que presuponían un motor no acordado; sus archivos YAML permanecen como exploración no activa.
 
 ## Fuente editable y organización del contrato
 
 ```text
 docs/api/
 ├── README.md
-├── openapi.yaml                 # Bundle completo actual: NO editar a mano
+├── domain-openapi.md
+├── openapi.yaml                  # Bundle: generado, nunca editar a mano
+├── openapi.html                  # Documentación HTML: generada
 └── openapi/
-    ├── base-openapi.yaml        # Entrada modular; fuente de verdad
-    ├── paths/                  # Operaciones por tag (16 archivos)
+    ├── base-openapi.yaml         # Entrada modular; fuente de verdad
+    ├── paths/                   # Operaciones por tag
     │   ├── autenticacion.yaml
     │   ├── usuarios.yaml
     │   ├── invitaciones.yaml
@@ -34,48 +38,57 @@ docs/api/
     │   ├── conocimiento.yaml
     │   └── administracion.yaml
     └── components/
-        ├── schemas/            # DTOs por ámbito y comunes.yaml
+        ├── schemas/              # DTO por ámbito y comunes.yaml
         ├── parameters.yaml
         ├── responses.yaml
         └── security-schemes.yaml
 ```
 
-La fuente de verdad editable es [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml) junto con sus `$ref` a `paths/` y `components/`. `openapi.yaml` es una **copia monolítica que no se actualiza automáticamente** al editar otro archivo; si se versiona, hay que regenerarla y comprobarla.
+La fuente de verdad es `openapi/base-openapi.yaml` y sus `$ref` a `paths`/`components`. **`openapi.yaml` no se actualiza automáticamente** cuando se edita el YAML modular. Tampoco debe actualizarse el HTML a mano. Ambos artefactos se generan al completar la revisión.
 
 ### Convenciones
 
-- La organización se hace por funcionalidad (`tag`), no siempre por prefijo de URL. Ejemplo: `/incidents/{incidentId}/attachments` se documenta en `paths/evidencias.yaml`.
-- Las claves de primer nivel en cada `paths/*.yaml` son rutas completas; las referencias desde `base-openapi.yaml` utilizan punteros JSON con `/` escapado como `~1`.
-- Se reutilizan esquemas, parámetros, seguridad y respuestas; un cambio común puede afectar varios tags.
-- Orden editorial de una operación: `tags`, `summary`, `description`, `operationId`, `security` (si aplica), `x-roles`, `parameters`/`requestBody` (si aplica) y `responses`.
-- `x-roles` es **solo documental**. El backend deberá comprobar rol, pertenencia departamental, titularidad y estado de recursos según las decisiones aceptadas. El esquema `BearerAuth` define JWT Bearer por defecto; las operaciones públicas lo anulan con `security: []`.
-- La primera especificación no utiliza `x-phase`, `x-requirements` ni anclas/alias YAML.
+- La organización se hace por funcionalidad (`tag`), no siempre por prefijo URL; `/users/me/password-changes` pertenece al tag **Autenticación**, aunque su ruta comience por `/users`.
+- Las claves de primer nivel en `paths/*.yaml` son rutas completas y las referencias desde `base-openapi.yaml` usan punteros JSON con `/` escapado como `~1`.
+- Reutilizar DTO, parámetros, seguridad y respuestas; cualquier cambio compartido se revisa en los demás tags.
+- Orden editorial: `tags`, `summary`, `description`, `operationId`, `security`, `x-roles`, parámetros/cuerpo y respuestas.
+- `x-roles` es **solo documental**; el backend aplica roles, pertenencia, titularidad, estado y políticas de datos. `BearerAuth` se aplica por defecto; las operaciones públicas declaran `security: []`.
+- Los errores usan `application/problem+json` con `ProblemDetail`; registro/login validan tipos y reglas según el acuerdo `400` JSON ilegible y `422` datos inválidos. `401` identifica fallo de autenticación, sin enumerar correos.
+- La primera especificación no utiliza `x-phase`, `x-requirements`, anclas/alias YAML ni selección dinámica `fields`.
 
-## Flujo obligatorio: un tag y el dominio que utiliza
+## Flujo obligatorio: un tag y las entidades que usa
 
-Cada tag es una **unidad de revisión e implementación**, no el compromiso de implementar todo OpenAPI o todas las entidades del modelo simultáneamente.
+Cada tag es una unidad de **revisión e implementación**, no una obligación de construir el dominio completo.
 
-1. **Requisitos:** identificar casos de uso y límites del enunciado original; no incorporar por inercia partes avanzadas opcionales en rojo (IA, entrenamiento de modelos, RAG) que no se hayan aprobado para el alcance.
-2. **Contrato:** abrir `openapi/paths/<tag>.yaml` y los esquemas/DTO correspondientes; revisar rutas, HTTP, reglas funcionales, errores, filtros, paginación, campos y visibilidad.
-3. **Dominio:** abrir **ambos** [`relacional.drawio`](../diagrams/relacional.drawio) (PK/FK, cardinalidades) y [`clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (campos Java, enums, `@Embeddable` y DTO). Verificar entidades compartidas aunque aparezcan en otros tags.
-4. **Decisiones:** contrastar [modelo de dominio](../domain-model.md) y [ADR](../adr/README.md), establecer límites reales y nulabilidad, roles globales/departamentales, autorizaciones, transiciones, invariantes, historia y almacenamiento. **No copiar sin revisar los límites del borrador OpenAPI ni los campos del UML.**
-5. **Acordar el cambio:** si los diagramas y OpenAPI divergen, resolverlo en el PR del tag, revisar impacto en otros tags y modificar coordinadamente la fuente modular, los dos diagramas y los ADR que corresponda. Una clase dibujada no obliga a materializar una tabla o endpoint si el caso de uso no lo requiere.
-6. **Validar y después implementar:** ejecutar lint del contrato; regenerar y revisar `openapi.yaml` si se mantiene. Añadir controladores, DTO, servicios, entidades/repositorios y migraciones **solo del ámbito implementado**, con pruebas de contrato, validaciones, autorización, lógica y persistencia aislada. No ejecutar migraciones experimentales sobre `production`.
-7. **Documentar en el PR:** especificar qué tag, endpoints, DTO y entidades se **revisaron**, qué se **implementó**, qué queda **pendiente** y qué pruebas se ejecutaron. El modelo completo seguirá en revisión por otros compañeros.
-
-Un tag se considera revisado cuando su PR se aprueba con sus cambios coherentes. Coordinar los cambios en entidades compartidas antes de fusionar PR concurrentes.
+1. **Requisitos:** identificar alcance del enunciado y apartados opcionales aplazados (IA entrenada, RAG, hotspots predictivos).
+2. **Contrato:** leer `openapi/paths/<tag>.yaml`, esquemas de entrada/salida, rutas, códigos HTTP, validaciones, filtros, paginación y visibilidad.
+3. **Dominio:** abrir **ambos** diagramas: `relacional.drawio` (PK/FK, cardinalidades) y `clases-simplificado.drawio` (atributos Java, enumeraciones, objetos embebidos, DTO). Verificar entidades compartidas.
+4. **Decisiones:** contrastar `docs/domain-model.md`, ADR y, en autenticación, `docs/auth-design.md`. No copiar límites o campos del borrador sin verificar.
+5. **Acordar el cambio:** coordinar divergencias en el mismo PR, modificando YAML modular, fuentes de diagramas, exportaciones y ADR que procedan; no anticipar tablas de otros tags.
+6. **Validar e implementar:** ejecutar lint del contrato y regenerar bundle/HTML; JPA, repositorios, Flyway, servicios, controladores, pruebas funcionales/de seguridad/contrato y persistencia aislada solo para el alcance aprobado. Nunca ejecutar experimentos contra Neon `production`.
+7. **Describir en PR:** qué se revisó, qué quedó pendiente, qué se implementó y qué verificaciones realmente se ejecutaron. Aprobar un tag no valida el dominio completo.
 
 ## Alineación entre OpenAPI y dominio
 
-Desde esta revisión, **los dos diagramas y el contrato modular representan una única versión base de diseño**. Se han armonizado roles globales/departamentales, estados de la incidencia, derivación versus trabajo, invitaciones, duplicados e identificadores UUID. Consulta el [documento de integración](domain-openapi.md), que mantiene la tabla de correspondencia entre decisiones y operaciones.
+El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
-El proceso de implementación sigue siendo incremental: al elegir un tag **no se buscan discrepancias conocidas entre dos diseños desactualizados**, sino que se verifica y concreta conjuntamente el alcance del dominio y API. Toda decisión nueva o corrección posterior modifica ambas vistas, y se revisa su efecto sobre otros tags en el mismo PR.
+La revisión de autenticación concreta ahora:
 
-Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. No se han creado entidades JPA, migraciones ni endpoints implementados con esta alineación.
+| Aspecto              | Decisión de diseño                                                              | Contrato afectado                                                    |
+| -------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Registro             | `CITIZEN`, `emailVerified=false`, preferencias en true; devuelve JWT            | `POST /auth/register` → `201 TokenDTO`                               |
+| Login                | Credenciales BCrypt y cuenta activa; caducidad 7200 s                           | `POST /auth/login` → `200 TokenDTO`; `401` en credenciales inválidas |
+| Cambio de contraseña | Incrementa `tokenVersion` y anula JWT previos                                   | `POST /users/me/password-changes` → `204`                            |
+| Seguridad            | Consultar estado y roles vigentes en cada petición protegida                    | Esquema Bearer JWT y ADR-0005; `x-roles` documental                  |
+| Protección antiabuso | Limitador local por instancia para login/registro                               | `429` y `Retry-After` cuando se conozca                              |
+| Roles                | Todas las cuentas incluyen `CITIZEN`; invitaciones globales solo OPERATOR/ADMIN | `UserDTO`, `StaffGlobalRoleCode`, `GlobalInvitationRequest`          |
+| Identificadores      | UUIDv7 generado en Hibernate                                                    | PK persistentes; API `format: uuid` sin asumir versión               |
+
+Consulta también [contrato dominio–API](domain-openapi.md) y [diseño de autenticación](../auth-design.md).
 
 ## Validación y visualización
 
-Desde la raíz del repositorio, si se dispone de Node/npm y acceso a Redocly CLI:
+Desde la raíz, si se dispone de Node/npm y acceso a Redocly CLI:
 
 ```bash
 npx @redocly/cli lint docs/api/openapi/base-openapi.yaml
@@ -83,26 +96,22 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.y
 npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Son **comandos propuestos, no pruebas ejecutadas para este PR**. El bundle sobrescribe `docs/api/openapi.yaml`; revisar `git diff` y que no haya divergencia del modular. Para Swagger Editor u otros visores sin soporte de `$ref` externos, abrir la especificación unificada regenerada.
+Son **comandos prescritos para ejecutar**, no evidencia de que se hayan ejecutado en este cambio documental. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.3.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
 
 ## Cuestiones aún abiertas
 
-- Matriz exacta de transiciones de estado y permisos por operación/ámbito.
-- Definición detallada de pertenencias, transferencias y reasignaciones, contraseñas/JWT e invitaciones.
-- Límites de fotografías, políticas EXIF/privacidad y consistencia SQL/Object Storage.
-- Alcance real de integración con fuentes externas, caducidad y modelo de datos geográficos.
-- Semántica de DTO compartidos y su compatibilidad con las clases previstas.
-- La selección dinámica de campos `fields` **no está aprobada ni forma parte del contrato actual**; evaluarla separadamente si surge una necesidad medida.
+- Matriz de transiciones de incidencias y permisos por operación/ámbito fuera del primer núcleo de identidad.
+- Reglas completas de adscripción, invitaciones (correo vinculado, entrega, caducidad, canje), equipos y permisos departamentales.
+- Límites de fotografías, EXIF, privacidad y consistencia SQL/Object Storage.
+- Contexto geográfico: fuentes externas, caducidad y modelo espacial.
+- Semántica y visibilidad de DTO compartidos; `fields` **no está aprobado** y se investigará aparte, incluida la posibilidad de anotaciones `OWNER`/`ADMIN`/`NONE`.
+- Mejora futura: refresh tokens, verificación de correo obligatoria para avanzar y recuperación por email. El algoritmo/secretos JWT, parámetros BCrypt y cuotas concretas del rate limiting se concretarán y probarán en la implementación sin cambiar los acuerdos de diseño.
 
 ## Referencias
 
-- [Modelo de dominio y revisión por tag](../domain-model.md)
-- [Diagramas](../diagrams/README.md)
-- [Contribución](../../CONTRIBUTING.md)
-- [Arquitectura](../architecture.md)
-- [ADR-0005: JWT](../adr/0005-jwt-spring-security.md)
-- [ADR-0007: Invitaciones](../adr/0007-invitaciones-personal.md)
-- [ADR-0009: RBAC y departamentos](../adr/0009-rbac-departamentos-equipos.md)
-- [ADR-0010: Tramitación](../adr/0010-ciclo-vida-y-asignaciones.md)
-
-**Referencia unificada:** [Integración entre dominio y OpenAPI](domain-openapi.md).
+- [Diseño acordado de autenticación](../auth-design.md).
+- [Modelo de dominio y revisión por tag](../domain-model.md).
+- [Diagramas](../diagrams/README.md).
+- [Contribución](../../CONTRIBUTING.md).
+- [Arquitectura](../architecture.md).
+- [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0011](../adr/0011-identificadores-uuidv7.md).

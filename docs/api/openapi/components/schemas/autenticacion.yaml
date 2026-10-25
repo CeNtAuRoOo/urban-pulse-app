@@ -1,5 +1,6 @@
 RegisterRequest:
   type: object
+  description: Alta ciudadana pública; el rol CITIZEN y emailVerified=false los asigna el servidor.
   properties:
     displayName:
       type: string
@@ -8,10 +9,11 @@ RegisterRequest:
     email:
       type: string
       format: email
+      description: Se normaliza y compara sin distinción de mayúsculas según la política de unicidad.
     password:
       type: string
       format: password
-      description: Contraseña enviada solo por TLS; jamás se devuelve en DTO.
+      description: Contraseña enviada solo mediante TLS; jamás se devuelve ni registra.
       minLength: 8
   required:
     - displayName
@@ -33,20 +35,43 @@ LoginRequest:
     - password
   additionalProperties: false
 
+ChangePasswordRequest:
+  type: object
+  description: >-
+    La contraseña actual debe coincidir con la almacenada; al cambiarla se invalidan
+    todas las sesiones JWT previas mediante tokenVersion.
+  properties:
+    currentPassword:
+      type: string
+      format: password
+      minLength: 1
+    newPassword:
+      type: string
+      format: password
+      minLength: 8
+  required:
+    - currentPassword
+    - newPassword
+  additionalProperties: false
+
 TokenDTO:
   type: object
+  description: Respuesta de registro ciudadano o login; accessToken es un JWT firmado y no cifrado.
   properties:
     accessToken:
       type: string
-      description: JWT firmado.
+      description: >-
+        JWT Bearer con claims sub (UUID de usuario), iat, exp, iss y ver (tokenVersion).
+        Los roles no son fuente de autorización dentro del token.
     tokenType:
       type: string
       enum:
         - Bearer
     expiresIn:
       type: integer
-      description: Duración del token en segundos.
+      description: Duración del token de acceso en segundos; versión inicial 7200.
       minimum: 1
+      example: 7200
     user:
       $ref: "./usuarios.yaml#/UserDTO"
   required:

@@ -1,9 +1,11 @@
 InvitationRequest:
   oneOf:
-  - $ref: ./invitaciones.yaml#/GlobalInvitationRequest
-  - $ref: ./invitaciones.yaml#/DepartmentInvitationRequest
-  description: 'ADR-0007/0009: el ámbito del rol determina si se exige departmentId. No se admite otro ámbito
-    ni departamento para roles globales.'
+    - $ref: ./invitaciones.yaml#/GlobalInvitationRequest
+    - $ref: ./invitaciones.yaml#/DepartmentInvitationRequest
+  description: >-
+    ADR-0007/0009: el ámbito determina si se exige departmentId.
+    Los roles globales invitables son OPERATOR y ADMIN, nunca CITIZEN;
+    CITIZEN es inherente a toda cuenta.
 InvitationDTO:
   type: object
   properties:
@@ -18,10 +20,10 @@ InvitationDTO:
     status:
       type: string
       enum:
-      - ACTIVE
-      - REDEEMED
-      - REVOKED
-      - EXPIRED
+        - ACTIVE
+        - REDEEMED
+        - REVOKED
+        - EXPIRED
     createdAt:
       type: string
       format: date-time
@@ -34,29 +36,25 @@ InvitationDTO:
     departmentId:
       type: string
       format: uuid
-      description: Departamento destinatario; obligatorio cuando role sea DEPARTMENT_COORDINATOR o 
-        TECHNICIAN y ausente para roles GLOBAL.
+      description: Departamento destinatario; obligatorio para roles DEPARTMENT y ausente para roles GLOBAL.
   required:
-  - id
-  - role
-  - status
-  - createdAt
-  - expiresAt
-
-  description: 'Metadatos de invitación: departmentId solo existe para roles departamentales; está ausente
-    para roles globales. El código se revela únicamente en InvitationCreatedDTO.'
+    - id
+    - role
+    - status
+    - createdAt
+    - expiresAt
+  description: Metadatos de invitación; el código se revela solo en InvitationCreatedDTO.
 InvitationCreatedDTO:
   allOf:
-  - $ref: "./invitaciones.yaml#/InvitationDTO"
-  - type: object
-    properties:
-      invitationCode:
-        type: string
-        description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
-    required:
-    - invitationCode
-  description: Código devuelto únicamente al crear la invitación; nunca se persiste en claro.
-
+    - $ref: "./invitaciones.yaml#/InvitationDTO"
+    - type: object
+      properties:
+        invitationCode:
+          type: string
+          description: Solo se revela al crear una invitación; nunca se almacena en claro.
+      required:
+        - invitationCode
+  description: Código entregado una sola vez.
 StaffRegistrationRequest:
   type: object
   properties:
@@ -74,26 +72,34 @@ StaffRegistrationRequest:
       format: password
       minLength: 8
   required:
-  - invitationCode
-  - displayName
-  - email
-  - password
+    - invitationCode
+    - displayName
+    - email
+    - password
   additionalProperties: false
-  description: Alta de cuenta nueva con invitación. Si el email ya pertenece a una cuenta, no se crea 
-    otra; el canje autenticado usa /users/me/staff-invitation-redemptions.
+  description: >-
+    Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios
+    invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado
+    sin crear otro User. Política de verificación de correo pendiente.
 ExistingAccountInvitationRedemptionRequest:
   type: object
   properties:
     invitationCode:
       type: string
   required:
-  - invitationCode
+    - invitationCode
   additionalProperties: false
+StaffGlobalRoleCode:
+  type: string
+  enum:
+    - OPERATOR
+    - ADMIN
+  description: Roles globales privilegiados que pueden otorgarse mediante invitación.
 GlobalInvitationRequest:
   type: object
   properties:
     role:
-      $ref: ./usuarios.yaml#/GlobalRoleCode
+      $ref: ./invitaciones.yaml#/StaffGlobalRoleCode
     email:
       type: string
       format: email
@@ -102,9 +108,9 @@ GlobalInvitationRequest:
       type: string
       format: date-time
   required:
-  - role
+    - role
   additionalProperties: false
-  description: Invitación para un rol global; no admite departmentId.
+  description: Invitación para rol global de personal (OPERATOR o ADMIN); no admite departmentId ni CITIZEN.
 DepartmentInvitationRequest:
   type: object
   properties:
@@ -122,7 +128,7 @@ DepartmentInvitationRequest:
       type: string
       format: date-time
   required:
-  - role
-  - departmentId
+    - role
+    - departmentId
   additionalProperties: false
-  description: Invitación para un rol departamental; requiere departmentId.
+  description: Invitación para rol departamental; requiere departmentId. La cuenta conserva también CITIZEN.

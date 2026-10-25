@@ -1,42 +1,47 @@
 # ADR-0007: Códigos de invitación para incorporar personal municipal
 
-- **Estado:** Aceptado (mecanismo); detalles de política pendientes de implementación
-- **Fecha original:** 2026-10-11
-- **Revisión:** 2026-10-18
-- **Ámbito:** UrbanPulse, identidad y autorización
+- **Estado:** Aceptado (mecanismo); detalles de política pendientes de implementación.
+- **Fecha original:** 2026-10-11.
+- **Revisión:** 2026-10-25.
+- **Ámbito:** UrbanPulse, identidad y autorización.
 
 ## Contexto
 
-Los ciudadanos podrán registrar una cuenta ordinaria, pero no atribuirse por sí mismos privilegios municipales. El dominio v1 separa roles globales (`OPERATOR`, `ADMIN`) y roles con ámbito de departamento (`DEPARTMENT_COORDINATOR`, `TECHNICIAN`), además de `CITIZEN`. Es necesario autorizar tanto nuevos usuarios como la incorporación de personal que **ya tenga cuenta**.
+Los ciudadanos pueden registrar una cuenta ordinaria pero no atribuirse privilegios municipales. El dominio diferencia roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`) y departamentales (`DEPARTMENT_COORDINATOR`, `TECHNICIAN`). Se requiere autorizar tanto cuentas nuevas como la incorporación de personal que ya disponga de cuenta. **Toda cuenta mantiene `CITIZEN` como rol global base** (ADR-0009).
 
 ## Opciones consideradas
 
 1. Códigos de invitación generados por un administrador y canjeados por el destinatario (**elegida**).
 2. Alta manual completa por un administrador.
 3. Autoregistro abierto con selección de privilegios (**descartada por insegura**).
-4. Invitaciones mediante enlace/correo como mecanismo adicional de entrega, no como autorización alternativa.
+4. Enlaces/correos como mecanismo complementario de entrega, no como autorización alternativa.
 
 ## Decisión
 
-- Un administrador autorizado genera un **código criptográficamente aleatorio**, ligado a un rol permitido, con caducidad y revocación posibles. Si el rol es `DEPARTMENT`, también deberá concretarse y validarse el `Department` autorizado.
-- Persistir en `StaffInvitation` el hash/HMAC del código (nunca el secreto en claro), rol, departamento opcional según ámbito, emisor, fechas de creación/caducidad, canje y revocación, y usuario que lo canjeó. La representación del hash y la protección contra ataques de enumeración se definirán al implementar.
-- El código se muestra/entrega de forma segura y **una sola vez** al emitirlo; el canje es **atómico y de un único uso**. No permitir cambios de rol o departamento arbitrarios desde el cliente.
-- Al recibir el email/código, comprobar si existe una cuenta asociada. Si ya existe, permitir que el titular autenticado y verificado **incorpore el rol a su cuenta**, sin duplicar `User`. Si no existe, seguir el proceso de alta. No promover a un tercero basándose únicamente en conocer su dirección de correo.
-- Para roles globales, actualizar `UserRole`; para roles departamentales, `DepartmentMembership` (ADR-0009), según el ámbito del rol.
-- Registrar intentos importantes, revocaciones y cambios efectivos de permisos con auditoría y limitar los intentos de canje.
+- El administrador autorizado genera un código criptográficamente aleatorio, vinculado al rol permitido, de un solo uso, con caducidad y revocación. Los roles **globales invitables son exclusivamente `OPERATOR` y `ADMIN`**. No se permite invitar a `CITIZEN` porque es el rol base automático de las cuentas.
+- Los roles departamentales `DEPARTMENT_COORDINATOR` y `TECHNICIAN` requieren departamento autorizado, validado por el servidor.
+- `StaffInvitation` guarda el hash/HMAC del código, rol, departamento opcional, emisor, fechas, revocación, canje y usuario redimidor. Nunca se guarda el código en claro; solo se revela en su emisión. Los detalles criptográficos quedan para el tag Invitaciones.
+- El canje es atómico y de uso único y no admite elevación arbitraria de rol/departamento desde el cliente.
+- Cuando el correo ya corresponde a una cuenta, el **titular autenticado y con identidad verificada** incorpora el rol o pertenencia autorizados sin duplicar `User`. No se promociona a terceros por conocer su correo. Cuando no exista cuenta, se crea `User` con `CITIZEN` y el privilegio invitado.
+- Los roles globales se almacenan en `UserRole`, los departamentales en `DepartmentMembership` (ADR-0009), con auditoría de cambios sensibles y limitación de intentos.
+
+## Repercusión sobre el contrato (diseño pendiente de implementar)
+
+`GlobalInvitationRequest.role` utilizará un enum acotado a `OPERATOR`/`ADMIN` (`StaffGlobalRoleCode`), mientras `DepartmentInvitationRequest` conserva `DepartmentRoleCode`. `RoleCode` y `GlobalRoleCode` generales siguen incluyendo `CITIZEN`. La validación de pertenencia y la política de verificación se implementarán en su propio tag, no en la rama inicial `auth`.
 
 ## Consecuencias
 
-**Positivas:** privilegios controlados, historial verificable, cuentas únicas y reutilización de identidades ciudadanas.
+**Positivas:** separación de privilegios, historial, cuentas únicas y reutilización de identidades ciudadanas.
 
-**Riesgos:** filtración, fuerza bruta, canjes simultáneos, entrega insegura, toma de cuentas o escalada incorrecta de privilegios. Se necesitan atomicidad, vencimiento, verificación de titularidad, límites de tasa y registro de eventos sensibles sin exponer tokens.
+**Riesgos:** filtración, fuerza bruta, canjes concurrentes, entrega insegura, toma de cuentas y escalada. Se necesitan atomicidad, comprobación de titularidad, límites, eventos sensibles y protección de códigos.
 
-## Puntos que se decidirán al revisar el tag Invitaciones
+## Puntos pendientes del tag Invitaciones
 
-- Si el email queda obligatoriamente fijado al emitir la invitación; cómo acreditar titularidad y entregar el código.
-- Duración, políticas de intentos/cancelación, revocación, recuperación y canje concurrente.
-- Creación controlada del **primer administrador** (sin invitación abierta al público).
-- Política de emisión por rol/ámbito y autorización para designar departamentos.
-- Forma exacta de endpoints/DTO: el OpenAPI actual sigue siendo borrador y **todavía no** representa completamente la reutilización de cuentas ni los roles departamentales.
+- Si el correo queda fijado obligatoriamente al emitir la invitación; cómo acreditarlo y entregar el código.
+- Expiración exacta, políticas de intentos/cancelación, revocación y canje concurrente.
+- Verificación del email: el futuro subsistema de confirmación obligatoria del registro ciudadano debe diseñarse antes de confiar en `emailVerified` para promociones municipales.
+- Procedimiento manual y controlado del primer administrador (mediante generación local de hash y SQL administrado), **fuera de la rama inicial `auth`**, sin claves en código, tests ni repositorio.
+- Política de emisión por rol/ámbito y autorizaciones para designar departamentos.
+- Forma final de DTO de canje cuando se implemente; mantener sincronización con OpenAPI y el dominio.
 
-**Implementación:** pendiente. La aprobación de este ADR no significa que el flujo de invitaciones ya funcione.
+**Implementación:** pendiente, incluidas las reglas de primer administrador y verificación de correo. La aceptación de este ADR no implica endpoints funcionales.

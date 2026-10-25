@@ -2,8 +2,13 @@
   post:
     tags:
       - Autenticación
-    summary: Registrar ciudadano
-    description: Crea una cuenta con rol CITIZEN. La petición no admite seleccionar roles privilegiados.
+    summary: Registrar ciudadano e iniciar sesión
+    description: >-
+      Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos.
+      No admite seleccionar roles ni establecer emailVerified. Durante esta primera fase
+      el correo permanece sin verificar; el envío y la obligatoriedad de confirmación se
+      implementarán posteriormente. El token emitido queda sujeto a comprobación de
+      estado de cuenta y tokenVersion en cada acceso protegido.
     operationId: postAuthRegister
     security: []
     x-roles:
@@ -16,35 +21,39 @@
             $ref: "../components/schemas/autenticacion.yaml#/RegisterRequest"
     responses:
       "201":
-        description: Recurso creado.
+        description: Cuenta ciudadana creada y sesión iniciada. No implica correo verificado.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
+              $ref: "../components/schemas/autenticacion.yaml#/TokenDTO"
         headers:
           Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
+            description: >-
+              Ubicación contextual prevista /api/v1/users/me. Solo anunciarla cuando
+              el recurso de consulta esté disponible; el GET corresponde al tag Usuarios.
             schema:
               type: string
+              example: /api/v1/users/me
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
       "429":
         $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
 
 /auth/login:
   post:
     tags:
       - Autenticación
     summary: Iniciar sesión
-    description: Valida credenciales y emite un JWT Bearer. Duración, renovación y revocación aún por definir.
+    description: >-
+      Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos.
+      Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta
+      o cuenta desactivada. No hay refresh tokens en esta versión.
     operationId: postAuthLogin
     security: []
     x-roles:
@@ -57,20 +66,53 @@
             $ref: "../components/schemas/autenticacion.yaml#/LoginRequest"
     responses:
       "200":
-        description: Operación correcta.
+        description: Credenciales válidas; JWT emitido.
         content:
           application/json:
             schema:
               $ref: "../components/schemas/autenticacion.yaml#/TokenDTO"
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
       "429":
         $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
+/users/me/password-changes:
+  post:
+    tags:
+      - Autenticación
+    summary: Cambiar mi contraseña
+    description: >-
+      Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt
+      e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente,
+      incluido el usado en esta operación, quedan inválidos para las siguientes peticiones;
+      el cliente debe autenticarse otra vez. No envía correos.
+    operationId: postUsersMePasswordChanges
+    x-roles:
+      - AUTHENTICATED
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/autenticacion.yaml#/ChangePasswordRequest"
+    responses:
+      "204":
+        description: Contraseña cambiada; tokens anteriores invalidados. Sin cuerpo.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
