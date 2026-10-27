@@ -90,22 +90,22 @@ En un móvil físico `localhost` designa el propio teléfono; debe utilizarse un
 ### Backend (`backend/.env.development`)
 
 ```dotenv
-SERVER_PORT=8888
-
 SPRING_DATASOURCE_URL=jdbc:postgresql://HOST-DEVELOPMENT:5432/urban-pulse?sslmode=require
 SPRING_DATASOURCE_USERNAME=backend
 SPRING_DATASOURCE_PASSWORD=PASSWORD_DEVELOPMENT
 
 AWS_ENDPOINT_URL_S3=https://BRANCH-DEVELOPMENT.storage.c-7.eu-central-1.aws.neon.tech
-AWS_REGION=eu-central-1
 AWS_ACCESS_KEY_ID=ACCESS_KEY_DEVELOPMENT
 AWS_SECRET_ACCESS_KEY=SECRET_KEY_DEVELOPMENT
-STORAGE_BUCKET=incident-evidence
+
+JWT_ISSUER=urbanpulse-development
+JWT_SECRET=BASE64_OF_32_OR_MORE_RANDOM_BYTES
+CORS_ALLOWED_ORIGINS=http://localhost:7777
 ```
 
 Los valores `HOST-DEVELOPMENT`, `BRANCH-DEVELOPMENT` y los secretos son **marcadores ficticios**; obtener los valores reales de Neon y no incorporarlos a commits ni PR. La base se llama exactamente `urban-pulse` (con guion) y el rol es `backend`. Los endpoints se corresponden con la rama Neon `development`; para `production`, utilizar un conjunto **diferente** de conexiones y secretos inyectados al desplegar (opcionalmente un archivo local privado `backend/.env.production`, que no debe entrar en imágenes ni Git).
 
-`compose.yaml` carga `backend/.env.development` mediante `env_file`. `application.properties` consume `SPRING_DATASOURCE_*` y mapea las variables S3 a `storage.s3.*`; `StorageProperties` las vincula y valida, y `StorageConfig` configura un cliente S3 con direccionamiento **path-style** y la cadena estándar de credenciales AWS. Spring Boot lanzado directamente con Maven **no carga automáticamente** un archivo `.env`: hay que exportar las variables o ejecutarlo desde Compose.
+`compose.yaml` carga `backend/.env.development` mediante `env_file`. `application.properties` consume `SPRING_DATASOURCE_*`, `JWT_*` y CORS, y mapea las variables S3 a `storage.s3.*`; `StorageProperties` las vincula y valida, y `StorageConfig` configura un cliente S3 con direccionamiento **path-style** y la cadena estándar de credenciales AWS. Spring Boot lanzado directamente con Maven **no carga automáticamente** un archivo `.env`: hay que exportar las variables o ejecutarlo desde Compose.
 
 ## 4. Frontend: instalación y ejecución local (comprobado)
 
@@ -185,8 +185,8 @@ Evitar `npm audit fix --force` sin comprobar compatibilidad con Expo SDK 57.
 
 - `StorageProperties` vincula y valida `storage.s3.endpoint`, `storage.s3.region` y `storage.s3.bucket`.
 - `StorageConfig` registra `S3Client` contra el endpoint Neon, usa direccionamiento **path-style** y obtiene credenciales desde las variables estándar `AWS_*`.
-- `application.properties` configura `SERVER_PORT` (8888 por defecto), JDBC, HikariCP (máximo 5 conexiones), `spring.jpa.hibernate.ddl-auto=validate`, Flyway y `spring.sql.init.mode=never`. No existe perfil Spring de desarrollo adicional.
-- El esquema de negocio **no existe aún**. Flyway ha generado su tabla técnica `flyway_schema_history` en `development`; sigue faltando `V1__create_initial_schema.sql`.
+- `application.properties` fija el puerto 8888, JDBC, HikariCP (máximo 5 conexiones), JWT 7200 s, políticas de rate limiting, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y `spring.sql.init.mode=never`. No existe perfil Spring de desarrollo adicional.
+- El módulo de identidad crea `users`, `roles`, `user_roles` mediante `V1__create_authentication.sql` (probada en PostgreSQL efímero). `flyway_schema_history` ya existía en Neon `development`, pero **no consta aplicada todavía esta V1 allí**. Un arranque normal del backend con la nueva versión y Flyway activo puede aplicar la migración a la base a la que apunten las variables.
 
 Desde la raíz, con `backend/.env.development` configurado:
 
@@ -194,7 +194,7 @@ Desde la raíz, con `backend/.env.development` configurado:
 docker compose up --build
 ```
 
-**Comprobado el 15/10/2026:** frontend y backend arrancan mediante Docker Compose. Esto no valida endpoints de negocio (todavía no implementados) ni la imagen Docker de producción. Para backend solo: `docker compose up --build backend`.
+**Comprobado el 15/10/2026:** frontend y backend arrancan mediante Docker Compose. Esta comprobación de 15/10 era anterior al módulo auth y **no valida aún el nuevo despliegue/migración de autenticación en Neon**, ni la imagen Docker de producción. Para backend solo: `docker compose up --build backend`.
 
 ### 7.1. Test de conectividad real (comprobado; ejecución explícita)
 
@@ -208,11 +208,24 @@ docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
 
 ### 7.2. Política de tests y consumo del plan gratuito
 
-- **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
-- **Integración local de persistencia:** cuando existan entidades/migraciones, preferir una base efímera de pruebas (por ejemplo PostgreSQL en contenedor), no el `development` compartido. No apuntar nunca a `production`.
-- **Integración real con Neon (`*IT`):** ejecutar solo bajo demanda en `development` y con credenciales autorizadas. `NeonConnectivityIT` se conserva como prueba de humo de conectividad.
+**Ejecución recomendada (Java 25, Maven 3.9, Docker):**
 
-Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. Si más adelante se configura Failsafe en `integration-test`/`verify` habrá que revisar la política. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
+```bash
+cd backend
+mvn -B -ntp clean verify -Ppostgres-it
+```
+
+Codex registró el **25/10/2026** 16 pruebas unitarias/MVC y 7 de integración PostgreSQL, todas superadas. La última ronda de cambios (503, CITIZEN y límites de cuerpo) añade o modifica pruebas; **repetir el comando y reflejar su resultado real antes del commit de código**. No confundir esa evidencia histórica con una verificación del nuevo estado.
+
+**Configuración de autenticación:** `JWT_SECRET` debe decodificarse a al menos 32 bytes aleatorios y jamás usar el valor ficticio de `auth-test.properties` fuera de tests. HS256, emisor configurable, 7200 s; BCrypt 12. `security.rate-limit`: registro/IP 5/300 s, login/IP 20/1200 s, login/email 5/300 s, máximo 10 000 claves y TTL inactivo calculado como máximo de periodos (= 1200 s). Los tres POST auth admiten un cuerpo máximo de 16 KiB; solo registro/login consumen tokens. El fichero `auth-test.properties` utiliza 300 s para login/IP en lugar de los 1200 s del servicio, al ser una configuración de tests; no copiarlo al despliegue.
+
+**Puesta en marcha:** `server.forward-headers-strategy=none` toma la IP de la conexión; revisar proxies antes de producción. El frontend debe renovar login al recibir `401` por JWT revocado, pero no debe cerrar sesión ante un `503` de base indisponible. `503` se emite con `ProblemDetail` y sin `WWW-Authenticate`. Antes de ejecutar `docker compose up` con el nuevo backend, revisar que el destino Flyway es **development** y respaldar/planificar la reversión.
+
+- **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
+- **Integración local de persistencia:** ya disponible `AuthenticationPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
+- **Integración real con Neon (`*IT`):** `NeonConnectivityIT` se ejecuta únicamente bajo demanda en `development`, con credenciales autorizadas; no participa en `postgres-it`, que usa solo Testcontainers.
+
+Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe exclusivamente para `AuthenticationPostgresIT`; `mvn clean verify -Ppostgres-it` añade esa suite con contenedor efímero y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
 
 Desde el contenedor, ejecutar solo los tests habituales (cuando existan):
 
@@ -220,7 +233,7 @@ Desde el contenedor, ejecutar solo los tests habituales (cuando existan):
 docker compose run --rm backend mvn -B test
 ```
 
-Al implementar entidades y repositorios se añadirán pruebas automatizadas aisladas y migraciones Flyway versionadas. Una vez creadas, las primeras migraciones se probarán en `development`, no directamente en `production`.
+La suite auth dispone de pruebas unitarias/MVC y pruebas de integración aisladas. Una vez repetidas las pruebas sobre el último código, aplicar la V1 de forma controlada a `development`, no a `production`.
 
 ## 8. Producción web (configuración creada, prueba pendiente)
 

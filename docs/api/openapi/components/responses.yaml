@@ -1,5 +1,5 @@
 BadRequest:
-  description: JSON mal formado, tipo de contenido incorrecto o solicitud no interpretable.
+  description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación, tipo de contenido incorrecto o solicitud no interpretable.
   content:
     application/problem+json:
       schema:
@@ -35,7 +35,7 @@ ValidationError:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
 TooManyRequests:
-  description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend.
+  description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro y al login; el cambio de contraseña solo limita el tamaño de cuerpo.
   headers:
     Retry-After:
       description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
@@ -53,7 +53,7 @@ InternalError:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
 ServiceUnavailable:
-  description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+  description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
   content:
     application/problem+json:
       schema:

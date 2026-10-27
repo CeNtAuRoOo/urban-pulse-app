@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-10-11
-- **Actualización documental:** 2026-10-18
+- **Actualización documental:** 2026-10-27
 - **Ámbito:** UrbanPulse
 
 ## Contexto
@@ -18,7 +18,7 @@ El esquema relacional de UrbanPulse evolucionará por entregas, con varios desar
 
 ## Decisión
 
-Utilizar **Flyway** en `backend/src/main/resources/db/migration/`. La primera migración funcional podrá seguir el patrón `V1__create_initial_schema.sql`, pero creará **únicamente las tablas y restricciones necesarias para el primer alcance funcional realmente implementado**. Cada tag posterior añadirá migraciones propias si necesita ampliar el esquema.
+Utilizar **Flyway** en `backend/src/main/resources/db/migration/`. La primera migración funcional es `V1__create_authentication.sql` y crea **únicamente las tablas y restricciones necesarias para el primer alcance funcional realmente implementado**. Cada tag posterior añadirá migraciones propias si necesita ampliar el esquema.
 
 Hibernate deberá conservar `spring.jpa.hibernate.ddl-auto=validate`: **Flyway crea/evoluciona el esquema; Hibernate valida las entidades presentes**. No editar migraciones ya aplicadas; ampliar con nuevos scripts de versión. Revisar FKs, índices, campos nullable, tablas intermedias, restricciones de unicidad y concurrencia **al implementar cada entidad**; contrastar siempre [diagrama relacional](../diagrams/relacional.drawio), [catálogo de clases](../diagrams/clases-simplificado.drawio), OpenAPI y ADR.
 
@@ -32,8 +32,8 @@ Hibernate deberá conservar `spring.jpa.hibernate.ddl-auto=validate`: **Flyway c
 
 `spring.flyway.enabled=true` y `spring.flyway.locations=classpath:db/migration` están configurados. El backend conecta con Neon `development` a través de JDBC directo; el rol `backend` puede crear objetos en el esquema `public`.
 
-Flyway ya creó su tabla técnica `flyway_schema_history` en `development`, **pero no hay scripts de migración del dominio**: la carpeta contiene `.gitkeep`. La prueba de conectividad desactiva Flyway y la validación Hibernate **solo en su contexto de test**; la aplicación ordinaria conserva su configuración.
+Flyway ya creó su tabla técnica `flyway_schema_history` en `development` (evidencia histórica). Ahora existe `V1__create_authentication.sql` para `users`, `roles` y `user_roles` y precarga cinco roles sin `scope`. **La V1 se ha comprobado con PostgreSQL 18 efímero y Hibernate `ddl-auto=validate`; no consta aplicada a Neon `development`.** La prueba de conectividad desactiva Flyway y Hibernate **solo en su contexto de test**; la aplicación ordinaria conserva su configuración.
 
 ## Consideraciones pendientes
 
-Diseñar el primer script que corresponda al tag que inicie la persistencia; probar en una BD aislada y aplicar después a `development`, nunca experimentalmente en `production`. Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
+Repetir pruebas de la V1 actual tras los últimos cambios y **aplicarla de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. No modificar la V1 después de aplicarla en algún entorno: añadir V2 para cambios posteriores. Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.

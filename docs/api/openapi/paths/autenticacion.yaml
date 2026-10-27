@@ -5,10 +5,10 @@
     summary: Registrar ciudadano e iniciar sesión
     description: >-
       Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos.
-      No admite seleccionar roles ni establecer emailVerified. Durante esta primera fase
+      No admite seleccionar roles ni establecer emailVerified. El cuerpo está limitado a 16 KiB y el registro está limitado por IP. Durante esta primera fase
       el correo permanece sin verificar; el envío y la obligatoriedad de confirmación se
       implementarán posteriormente. El token emitido queda sujeto a comprobación de
-      estado de cuenta y tokenVersion en cada acceso protegido.
+      estado de cuenta, rol CITIZEN y tokenVersion en cada acceso protegido.
     operationId: postAuthRegister
     security: []
     x-roles:
@@ -44,6 +44,8 @@
         $ref: "../components/responses.yaml#/TooManyRequests"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /auth/login:
   post:
@@ -51,9 +53,9 @@
       - Autenticación
     summary: Iniciar sesión
     description: >-
-      Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos.
+      Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado.
       Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta
-      o cuenta desactivada. No hay refresh tokens en esta versión.
+      o cuenta desactivada. No hay refresh tokens en esta versión. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
     operationId: postAuthLogin
     security: []
     x-roles:
@@ -81,6 +83,8 @@
         $ref: "../components/responses.yaml#/TooManyRequests"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /users/me/password-changes:
   post:
@@ -91,7 +95,7 @@
       Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt
       e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente,
       incluido el usado en esta operación, quedan inválidos para las siguientes peticiones;
-      el cliente debe autenticarse otra vez. No envía correos.
+      el cliente debe autenticarse otra vez. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
     operationId: postUsersMePasswordChanges
     x-roles:
       - AUTHENTICATED
@@ -112,7 +116,7 @@
         $ref: "../components/responses.yaml#/Forbidden"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
-      "429":
-        $ref: "../components/responses.yaml#/TooManyRequests"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"

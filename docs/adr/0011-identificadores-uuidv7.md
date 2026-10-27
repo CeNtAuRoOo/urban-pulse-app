@@ -1,8 +1,8 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado como criterio de diseño y estrategia de generación; mapeo y prueba pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión:** 2026-10-25.
+- **Revisión:** 2026-10-27.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
@@ -30,10 +30,10 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 **Costes:** 16 bytes por identificador, índices mayores que `BIGINT`, inferencia temporal aproximada y necesidad de probar la estrategia de generación del Hibernate real. `VERSION_7` puede marcarse como API incubadora en algunas versiones de Hibernate; verificar su compatibilidad y versionado al implementar.
 
-## Verificaciones pendientes de implementación
+## Evidencias de implementación y pendientes
 
-- Prueba de entidad JPA con inserción/recuperación de UUID (`id.version() == 7`) y correspondencia PostgreSQL.
+- **Probado en `AuthenticationPostgresIT` con PostgreSQL 18 efímero:** inserción/recuperación de `User` mediante JPA y UUID con `id.version() == 7`; Flyway y validación Hibernate.
 - Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado real:** decisión de diseño registrada, no migración aplicada ni generación UUIDv7 comprobada en el backend actual.
+**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.

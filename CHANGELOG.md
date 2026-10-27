@@ -4,9 +4,19 @@ Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https:
 
 ## [Unreleased]
 
-### Documentación de diseño — autenticación (25/10/2026; pendiente de implementar)
+### Implementación del tag Autenticación (revisión de documentación, 27/10/2026)
 
-- **Ajuste posterior de diseño — roles:** se elimina el enum `RoleScope` y la columna `Role.scope`; el ámbito GLOBAL/DEPARTMENT se determina en `RoleCode` (`isGlobal`/`isDepartmental`) y se valida en asociaciones. Este cambio documental permanece pendiente de implementación. La actualización de ambos diagramas y regeneración del bundle/HTML se efectúan antes del PR.
+- Implementados `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`) y `POST /api/v1/users/me/password-changes` (`204`). Registro crea `CITIZEN` en una transacción, emite JWT y omite `Location` hasta disponer del GET de perfil.
+- Persistencia mínima con `V1__create_authentication.sql`: tablas `users`, `roles`, `user_roles`; cinco roles sin `Role.scope`/`RoleScope`, unicidad normalizada de correo, preferencias `true`, `email_verified=false`, `token_version=0`, UUIDv7 con Hibernate.
+- JWT HS256 firmado con secreto externo Base64 de ≥32 bytes, `iss`/`sub`/`iat`/`exp`/`ver` y duración de 7200 s; BCrypt coste 12 sin truncar contraseñas de más de 72 bytes UTF-8. Consulta de cuenta activa, rol base `CITIZEN`, `tokenVersion` y roles vigentes en cada petición protegida. Cambio de contraseña con bloqueo pesimista y revocación por versión.
+- Protección de los tres cuerpos de autenticación a 16 KiB. Token buckets en memoria por instancia: registro/IP 5/300 s, login/IP 20/1200 s y login/email 5/300 s; máximo 10 000 claves, TTL derivado del mayor periodo de reposición y `429`/`Retry-After`. Sin confianza en `Forwarded` ni `X-Forwarded-For` de clientes.
+- Errores `ProblemDetail`: `400` JSON no interpretable o cuerpo excesivo, `422` validación y propiedades desconocidas, `409` correo duplicado, `401` credenciales/JWT/cuenta/rol base inválidos, `403` acceso denegado, `429` abuso, `503` indisponibilidad tipada de PostgreSQL y `500` errores internos; logs técnicos selectivos sin datos sensibles.
+- Tests unitarios y MVC con simulaciones de seguridad y fallos de base de datos; integración PostgreSQL 18 efímero para Flyway, Hibernate, UUIDv7, permisos, rollback y concurrencia. **Evidencia histórica de Codex (25/10/2026): 16 pruebas unitarias/MVC y 7 de integración superadas. El último refactor requiere una nueva ejecución verificable de `mvn clean verify -Ppostgres-it` antes de confirmar el código.**
+- **Fuera del alcance:** refresh, verificación de correo y recuperación por email, primer ADMIN, invitaciones, departamentos/equipos, `GET fields`, frontend y despliegue. No consta V1 aplicada a la rama Neon `development`; no se aplicará sobre `production` para probar.
+
+### Documentación de diseño — autenticación (25/10/2026; histórico)
+
+- **Ajuste posterior de diseño — roles:** se elimina el enum `RoleScope` y la columna `Role.scope`; el ámbito GLOBAL/DEPARTMENT se determina en `RoleCode` (`isGlobal`/`isDepartmental`) y se valida en asociaciones. El cambio ya está reflejado en `RoleCode` y en el esquema V1. La actualización de ambos diagramas y regeneración del bundle/HTML se efectúan antes del PR.
 
 - Revisión **solo documental y de contrato de diseño**, sin introducir entidades JPA, endpoints ejecutables, configuración JWT activa, scripts Flyway funcionales ni tests nuevos.
 - Revisión del contrato OpenAPI modular a `0.3.0` de diseño: registro ciudadano `201 TokenDTO` con JWT, corrección de `401` y retirada de `404`/`409` para credenciales incorrectas en login, y operación de cambio autenticado `POST /users/me/password-changes` con `204`.
@@ -64,6 +74,6 @@ Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https:
 - **PR documental dominio–OpenAPI (18/10/2026):** revisión de XML de diagramas, páginas y contenido; revisión documental/enlaces. Sin tests funcionales ni migraciones.
 - Frontend (13/10/2026): dependencias compatibles, Expo Doctor 21/21, TypeScript, lint, ejecución web, exportación `dist/` y Compose de desarrollo.
 - Backend/Neon (15/10/2026): `docker compose up --build` y `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` superados (JDBC + `HeadBucket`).
-- Pendientes: Android/iOS en dispositivo, imagen Nginx producción, tablas/migraciones de negocio, endpoints, subida/descarga evidencias, seguridad JWT y pruebas funcionales.
+- Pendientes: repetir la suite auth tras los últimos cambios, arranque controlado con Flyway V1 en Neon `development`, Android/iOS en dispositivo, imagen Nginx producción, tablas de los demás tags, sus endpoints y subida/descarga de evidencias.
 
-> La sección Unreleased documenta diseño/cambios preparados para revisión, **no** una versión liberada o funcionalidad desplegada. Hasta que se ejecute Codex y se pruebe el backend, la autenticación continúa **pendiente de implementar**.
+> La sección Unreleased registra tanto el diseño histórico como el código actual. **Implementado en el repositorio no significa desplegado**: falta comprobar el arranque sobre Neon `development` y la versión final de pruebas, además de completar el resto de tags.

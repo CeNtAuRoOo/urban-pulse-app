@@ -82,7 +82,7 @@ Comando de referencia para la imagen **de producción, aún no validado**:
 docker build -f backend/Dockerfile -t urbanpulse-backend:local backend
 ```
 
-El backend arranca en **desarrollo** con PostgreSQL y Object Storage de Neon, pero **todavía no tiene API de negocio**. La imagen final de producción, las migraciones reales y las comprobaciones de despliegue siguen pendientes. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
+El backend arranca en **desarrollo** con PostgreSQL y Object Storage de Neon, pero **todavía no tiene API de negocio**. La imagen final de producción y las comprobaciones de despliegue siguen pendientes; **ya existe una migración real V1 para autenticación**, probada en PostgreSQL efímero, pero no consta aplicada a Neon `development`. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
 
 En despliegue no incluir contraseñas ni claves mediante `ENV`, `ARG` o archivos versionados. Inyectar credenciales de Neon y claves de autenticación mediante mecanismos de secretos del proveedor de hosting.
 
@@ -97,18 +97,20 @@ Las aplicaciones móviles se conectarán a una URL HTTPS pública, no a `localho
 ## 7. Neon: PostgreSQL y fotografías
 
 - **Proyecto** `urban-pulse-app`, **AWS Frankfurt**, PostgreSQL **18**, base `urban-pulse` en ramas Neon `production` (principal) y `development` (desarrollo). `production` no se puede proteger automáticamente con el plan gratuito disponible; extremar precauciones.
-- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; solo existe por ahora `flyway_schema_history` en desarrollo, **no el esquema del dominio**. Las migraciones deben probarse primero en desarrollo.
+- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; en `development` existía `flyway_schema_history` sin entidades. En el código ya existe `V1__create_authentication.sql` para `users`, `roles` y `user_roles`, probada en PostgreSQL efímero; **su ejecución sobre Neon `development` aún no está confirmada**. Verificar el destino y el plan de recuperación antes del primer arranque con Flyway activo.
 - **Object Storage:** bucket `incident-evidence` **privado**, ramificado junto a los datos. El backend utiliza AWS SDK for Java 2.x y credenciales distintas por entorno. `HeadBucket` en `development` está comprobado; **no se han probado ni implementado todavía operaciones reales de fotografías ni URLs firmadas**.
-- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*` y `STORAGE_BUCKET` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
+- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*`, `JWT_SECRET`, `JWT_ISSUER` y `CORS_ALLOWED_ORIGINS` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
 - **Backups y recuperación:** no hay un procedimiento de restauración validado ni una política de snapshots programados; la retención de historial de Neon es limitada (6 horas en la configuración comprobada). Definir copias verificables antes de emplear datos importantes.
 
 ## 8. Seguridad y configuración
+
+El backend ya implementa JWT HS256 de 7200 s, BCrypt 12, comprobación de estado/versión/CITIZEN/roles actuales por petición, 503 para indisponibilidad de PostgreSQL, errores sin credenciales y límites locales contra abuso. **Pendiente antes del despliegue detrás de un proxy:** configurar confianza en el proxy e IP efectiva, ya que `server.forward-headers-strategy=none` usa la dirección de conexión y puede agrupar muchos clientes en el mismo bucket. Rotación de claves, TLS, dominios y CORS finales todavía no están validados.
 
 | Dato                                  | Dónde debe estar                                                 |
 | ------------------------------------- | ---------------------------------------------------------------- |
 | URL pública de API                    | `EXPO_PUBLIC_API_URL` en compilación web / configuración cliente |
 | JDBC, usuario y contraseña Neon       | Entorno seguro del backend, nunca frontend                       |
-| Claves de firma/validación JWT        | Entorno seguro del backend (cuando se implemente)                |
+| Claves de firma/validación JWT        | `JWT_SECRET` Base64 externo de ≥32 bytes aleatorios              |
 | Credenciales S3 y permisos del bucket | Backend / servicio seguro; jamás bundle cliente                  |
 | Dominio público y CORS                | Configuración de hosting y backend por entorno                   |
 

@@ -1,6 +1,6 @@
-# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.3.0 de diseño)
+# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.3.0, auth implementado)
 
-> **Estado: referencia de diseño compartida, no implementación funcional ni validación integral de entidades.** La revisión del 25/10/2026 desarrolla la autenticación, sin sustituir la revisión obligatoria por tag. El contrato anterior `0.2.0` y el dominio v1 constituían una base coherente; `0.3.0` documenta la revisión de autenticación antes del código. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Las otras áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.3.0` recoge el contrato auth. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -33,6 +33,8 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 
 ### Revisión de identidad/autenticación (25/10/2026)
 
+**Estado posterior (27/10/2026):** las tres operaciones están implementadas; registro `201` sin `Location` en esta fase, login `200` y cambio `204`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los tres POST limitado a 16 KiB; `429` solo para registro y login. Las otras rutas de este contrato permanecen como diseño.
+
 | Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.3.0`                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO`; no se elige rol ni se valida email por correo todavía. |
@@ -41,7 +43,7 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 | Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                      |
 | Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                  |
 | Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                         |
-| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, prueba de persistencia pendiente.                                             |
+| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                         |
 | Mejoras aplazadas                  | Email confirmado obligatoriamente, recuperación por correo, refresh y `fields`                               | Sin operaciones nuevas ni `fields` para estas capacidades futuras.                            |
 
 ## 3. Diferencia esencial: derivación frente a trabajo

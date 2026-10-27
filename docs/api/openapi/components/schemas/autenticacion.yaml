@@ -9,11 +9,12 @@ RegisterRequest:
     email:
       type: string
       format: email
-      description: Se normaliza y compara sin distinción de mayúsculas según la política de unicidad.
+      maxLength: 254
+      description: Se normaliza mediante trim/minúsculas y se compara sin distinción de mayúsculas según la política de unicidad.
     password:
       type: string
       format: password
-      description: Contraseña enviada solo mediante TLS; jamás se devuelve ni registra.
+      description: Contraseña enviada solo mediante TLS; mínimo 8 caracteres y máximo 72 bytes UTF-8 por BCrypt; jamás se devuelve ni registra.
       minLength: 8
   required:
     - displayName
@@ -27,6 +28,7 @@ LoginRequest:
     email:
       type: string
       format: email
+      maxLength: 254
     password:
       type: string
       format: password
@@ -49,6 +51,7 @@ ChangePasswordRequest:
       type: string
       format: password
       minLength: 8
+      description: Máximo 72 bytes UTF-8 por BCrypt; se valida en backend.
   required:
     - currentPassword
     - newPassword

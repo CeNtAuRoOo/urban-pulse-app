@@ -1,10 +1,10 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: contrato y dominio alineados como diseño revisable
+## Estado: contrato del tag Autenticación implementado; demás tags en diseño
 
-UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.3.0`** tras revisar el tag Autenticación. El resto del sistema permanece como diseño base de dominio v1: **ningún endpoint de negocio ni de autenticación funciona todavía**.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.3.0`** tras revisar el tag Autenticación. El resto del sistema permanece como diseño base de dominio v1: **los tres endpoints del tag Autenticación están implementados en Java**; el resto de endpoints de negocio continúa pendiente.
 
-El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **Es un acuerdo previo al código**. Los diagramas editables deben sincronizarse manualmente antes de confirmar que todas las vistas de diseño coinciden.
+El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **La implementación de autenticación ya existe en el backend**. Las vistas del dominio deben seguir sincronizadas con la migración SQL efectiva; el despliegue sobre Neon `development` aún no consta.
 
 Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autenticado de contraseña, invalidación de todos los JWT previos con `tokenVersion`, consulta de cuenta y permisos actuales por acceso protegido, campo `User.emailVerified`, roles de ciudadanía como base de todas las cuentas, UUIDv7 generado por Hibernate y limitación de peticiones local. Además, se excluye `CITIZEN` de invitaciones para personal global. La verificación obligatoria por correo, recuperación de contraseña olvidada, refresh tokens y `GET fields` siguen aplazados.
 
@@ -70,6 +70,8 @@ Cada tag es una unidad de **revisión e implementación**, no una obligación de
 
 ## Alineación entre OpenAPI y dominio
 
+**Comportamiento HTTP real del tag:** registro `201` sin `Location` hasta implementar el GET de perfil; login `200`, cambio `204`. Los tres limitan el cuerpo a 16 KiB (`400` en exceso); solo registro/login aplican cuota `429` y `Retry-After`. La indisponibilidad tipada de PostgreSQL devuelve `503`, no `401`; errores SQL de programación son `500`, con `ProblemDetail`. Usuarios sin rol `CITIZEN` no pueden autenticarse. El contrato debe declarar `503` en las tres operaciones y no anunciar `429` para el cambio de contraseña.
+
 El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
 La revisión de autenticación concreta ahora:
@@ -96,7 +98,7 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.y
 npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Son **comandos prescritos para ejecutar**, no evidencia de que se hayan ejecutado en este cambio documental. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.3.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
+Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. No se afirma que se hayan ejecutado en la última revisión. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.3.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
 
 ## Cuestiones aún abiertas
 
@@ -105,7 +107,7 @@ Son **comandos prescritos para ejecutar**, no evidencia de que se hayan ejecutad
 - Límites de fotografías, EXIF, privacidad y consistencia SQL/Object Storage.
 - Contexto geográfico: fuentes externas, caducidad y modelo espacial.
 - Semántica y visibilidad de DTO compartidos; `fields` **no está aprobado** y se investigará aparte, incluida la posibilidad de anotaciones `OWNER`/`ADMIN`/`NONE`.
-- Mejora futura: refresh tokens, verificación de correo obligatoria para avanzar y recuperación por email. El algoritmo/secretos JWT, parámetros BCrypt y cuotas concretas del rate limiting se concretarán y probarán en la implementación sin cambiar los acuerdos de diseño.
+- Mejora futura: refresh tokens, verificación de correo obligatoria para avanzar y recuperación por email. El módulo ya concreta HS256, BCrypt coste 12 y cuotas locales documentadas en [auth-design.md](../auth-design.md). La rotación de secretos, proxy confiable y requisitos globales de limitación quedan para despliegue.
 
 ## Referencias
 

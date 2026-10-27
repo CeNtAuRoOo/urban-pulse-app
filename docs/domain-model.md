@@ -1,16 +1,16 @@
-# Modelo de dominio de UrbanPulse (versión base v1, revisión de autenticación)
+# Modelo de dominio de UrbanPulse (v1, núcleo de autenticación implementado)
 
-> **Estado: diseño inicial compartido; NO validado entidad por entidad ni implementado.** Modelo inicial incorporado el 18/10/2026; revisión del tag Autenticación acordada el 25/10/2026, **pendiente de implementar y de sincronizar manualmente los diagramas**. Las figuras no son migraciones SQL ni un inventario de clases Java ya existentes. El modelo se verifica y actualiza incrementalmente al implementar cada tag de la API.
+> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y tres endpoints HTTP; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y la revisión de autenticación propone OpenAPI `0.3.0`. **El cambio de contrato no demuestra la existencia de código**.
+La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.3.0`. El código de auth ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
 
-En particular, consultar la [especificación del diseño de autenticación](auth-design.md), que recoge por separado la primera implementación prevista, las mejoras futuras y las validaciones exigidas a Codex.
+En particular, consultar la [especificación de autenticación implementada](auth-design.md), que separa el alcance realmente programado de las mejoras futuras y describe las pruebas disponibles.
 
 **Fuera de esta fase:** los apartados opcionales del enunciado marcados en rojo, especialmente analista avanzado, entrenamiento/evaluación de modelos, hotspots predictivos y RAG. El análisis estadístico operativo e informes permanecen posibles mediante consultas. La prioridad asistida puede empezar con reglas sin añadir IA.
 
-Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Object Storage y frontend Expo web/móvil. **No hay entidades JPA, repositorios de negocio, endpoints funcionales ni migraciones del dominio en el estado actual de referencia.**
+Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Object Storage y frontend Expo web/móvil. **El núcleo de identidad ya tiene entidades JPA, repositorios, tres endpoints y una migración V1; permanecen pendientes los repositorios y endpoints del negocio de incidencias.**
 
 ## 2. Los dos diagramas y su función
 
@@ -21,7 +21,7 @@ Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Ob
 
 Páginas ER: (1) incidencias/evidencias, (2) tramitación, (3) identidad/organización, (4) territorio/contexto. Los dibujos son fuentes de diseño editables; una `@Embeddable` no requiere tabla propia y un DTO no implica una entidad JPA.
 
-**Cambios manuales pendientes en los diagramas de identidad:** añadir a `User` `emailVerified: boolean` y `tokenVersion: long`, representar sus columnas SQL y valores iniciales; indicar `NotificationPreferences` en `true` por defecto; mantener `UserRole` explícita y anotar `CITIZEN` como rol base de toda cuenta. Ver instrucciones específicas de revisión del tag. Hasta que se editen y exporten `.drawio`/`.svg`, **las imágenes existentes seguirán representando el diseño v1 anterior y no deben presentarse como sincronizadas**.
+**La revisión actual de los `.drawio`** contiene `emailVerified`, `tokenVersion`, preferencias predeterminadas y `RoleCode` sin `RoleScope`. En esta actualización documental **no se ha cambiado el modelo de entidades** respecto a la última revisión de diseño, por lo que no hace falta redibujar el ER ni las clases simplificadas. Las exportaciones SVG deben seguir correspondiendo a las fuentes editables.
 
 **Convención:** nombres de conceptos y campos del dominio en inglés (`Incident`, `StatusChange`, `DepartmentMembership`); documentación en español. Entidades, enums, objetos de valor y DTO se distinguen por sus responsabilidades, no solo por su ubicación en el dibujo.
 
@@ -73,9 +73,9 @@ El operador central valida, prioriza y deriva sin adscripción departamental. El
 
 **`Role`** mantiene `code` como PK natural y `description`; no almacena `scope`: el ámbito se deriva de `RoleCode.isGlobal()` / `RoleCode.isDepartmental()`. **`UserRole`** puede tener clave compuesta por usuario+rol y solo acepta roles GLOBAL; revisar integridad e implementación coherente con `User.globalRoles` del dibujo. En registro se asigna `CITIZEN` dentro de la misma transacción de creación del usuario. Los roles adicionales se concederán por invitaciones, fuera del alcance de la rama `auth`.
 
-**Autenticación JWT (ADR-0005):** `POST /auth/register` y `POST /auth/login` devolverán `TokenDTO` con JWT firmado de 7200 segundos, sin refresh token. Claims `sub`, `iat`, `exp`, `iss`, `ver` (`tokenVersion`), sin exponer contraseña ni roles como autoridad. En **cada petición protegida** Spring Security consultará PostgreSQL para comprobar cuenta activa, versión y roles vigentes. La reducción de coste mediante caché no se incorpora ahora.
+**Autenticación JWT implementada (ADR-0005):** `POST /auth/register` y `POST /auth/login` devuelven `TokenDTO` con JWT firmado de 7200 segundos, sin refresh token. Claims `sub`, `iat`, `exp`, `iss`, `ver` (`tokenVersion`), sin exponer contraseña ni roles como autoridad. En **cada petición protegida** Spring Security consultará PostgreSQL para comprobar cuenta activa, versión y roles vigentes. La reducción de coste mediante caché no se incorpora ahora.
 
-**Cambio de contraseña:** `POST /users/me/password-changes` comprueba la actual, guarda BCrypt nuevo e incrementa `tokenVersion` en la misma transacción. Las sesiones JWT anteriores dejan de tener efecto en la siguiente petición. Rate limiting de registro/login inicialmente local por instancia con reposición temporal y contador acotado, `429` en exceso.
+**Cambio de contraseña implementado:** `POST /users/me/password-changes` comprueba la actual, guarda BCrypt nuevo e incrementa `tokenVersion` en la misma transacción. Las sesiones JWT anteriores dejan de tener efecto en la siguiente petición. Rate limiting de registro/login inicialmente local por instancia con reposición temporal y contador acotado, `429` en exceso.
 
 **Email:** al registro, `emailVerified=false`; la verificación obligatoria bloqueante **no se implementa todavía** sin servicio externo de correo. El futuro flujo debe impedir avanzar antes de confirmar el email, verificado también por backend. Recuperación de contraseña por email y refresh tokens son mejoras futuras.
 
@@ -105,7 +105,7 @@ Recorrido representativo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT →
 
 ## 4. Identificadores, tipos y restricciones
 
-- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (pendiente de prueba de integración). Excepciones `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
+- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). Excepciones `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
 - **Fechas:** `Instant`/`timestamptz`. **Enumeraciones:** códigos de cadena estables, no ordinales.
 - Los límites `[API]` del diagrama eran hipótesis del borrador; validar tamaños, nullability e índices según los casos de uso. `TEXT` no implica máximo arbitrario.
 - Respetar email único normalizado, objectKey único, par canónico de duplicados, XOR en Assignment, pertenencia al departamento, trabajo activo único, rol adecuado al ámbito calculado por su código, `CITIZEN` base y `tokenVersion` actualizado de forma transaccional; imponer en servicio y SQL cuando corresponda.
@@ -139,7 +139,7 @@ Este documento complementa [guía API](api/README.md), [contrato integrado](api/
 
 ## 6. Consistencia del dominio con OpenAPI
 
-Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.3.0` recoge la revisión del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas, actualmente **pendientes de editar**. Ambos diseños siguen sin SQL ni entidades JPA.
+Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.3.0` recoge la revisión del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas. **El núcleo de autenticación ya tiene SQL V1 y entidades JPA** (`User`, `Role`, `UserRole`); el resto del dominio continúa en diseño.
 
 El contrato mantiene DTO independientes de JPA. Roles globales/departamentales acotados, estados de asignación, invitaciones, duplicados, IDs urbanos internos/externos y UUID siguen las decisiones anteriores. `StatusChangeDTO.fromStatus`/`changedBy` son opcionales cuando no existan. Evaluaciones IA que requieran un modelo no elegido permanecen fuera de rutas activas.
 
@@ -149,11 +149,13 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 
 ## 7. Decisiones documentadas y estado
 
-- [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, contraseña, revocación por versión, seguridad y rate limiting (**diseño acordado, código pendiente**).
+**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`) y `user_roles` (PK compuesta, `CHECK` solo globales). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API no tiene endpoints de perfiles, departamentos ni invitaciones.
+
+- [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, contraseña, revocación por versión, seguridad y rate limiting (**implementado en código; despliegue pendiente**).
 - [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal aceptadas, con restricción CITIZEN y canje existente; política operativa pendiente.
 - [ADR-0009](adr/0009-rbac-departamentos-equipos.md): roles GLOBAL/DEPARTMENT, CITIZEN base, pertenencias y equipos.
 - [ADR-0010](adr/0010-ciclo-vida-y-asignaciones.md): derivación frente a trabajo; transiciones por refinar.
-- [ADR-0011](adr/0011-identificadores-uuidv7.md): UUIDv7 generado desde Hibernate, comprobación de JPA pendiente.
+- [ADR-0011](adr/0011-identificadores-uuidv7.md): UUIDv7 generado desde Hibernate, comprobado en `User` con PostgreSQL efímero.
 - [Diseño de autenticación](auth-design.md): especificación completa de la tarea de backend actual, mejoras futuras y tests requeridos.
 
-**Importante:** este cambio documental propone/revisa el contrato y dominio, **no aplica migraciones ni expone endpoints**. Los diagramas actualizados deben revisarse antes de confirmar el PR de diseño; después de Codex se actualizará el estado de implementación de cada pieza, con pruebas reales.
+**Importante:** los tres endpoints de autenticación, la V1 y las entidades de identidad ya existen en el código; **no consta V1 desplegada sobre Neon `development`**. Los demás tags siguen siendo revisables. Antes de confirmar el commit ejecutar de nuevo los tests de la última versión y validar/reexportar las vistas gráficas cuando cambien.

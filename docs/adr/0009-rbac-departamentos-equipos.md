@@ -1,8 +1,8 @@
 # ADR-0009: Roles globales y departamentales, pertenencias y equipos
 
-- **Estado:** Aceptado como decisión de diseño; implementación pendiente.
+- **Estado:** Aceptado; roles globales del núcleo auth implementados, pertenencias/equipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión:** 2026-10-25.
+- **Revisión:** 2026-10-27.
 - **Ámbito:** Dominio, autorización y organización municipal.
 
 ## Contexto
@@ -19,12 +19,12 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 ## Decisión
 
 - Una sola entidad `User` para ciudadanos y personal; sin herencia de subclases. **Toda cuenta contiene siempre `CITIZEN` como rol global base**, incluidas cuentas que se incorporan por invitación. Los roles municipales se añaden, nunca sustituyen automáticamente a `CITIZEN`.
-- Catálogo persistente `Role` (`code`, `description`, sin columna `scope`) y relación explícita `UserRole` para roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`), con clave compuesta candidata. Una cuenta puede tener varios roles globales; el cliente no puede elegirlos al registrarse.
+- Catálogo persistente `Role` (`code`, `description`, sin columna `scope`) y relación explícita `UserRole` para roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`), con clave primaria compuesta `(user_id, role_code)` implementada. Una cuenta puede tener varios roles globales; el cliente no puede elegirlos al registrarse.
 - Roles departamentales `DEPARTMENT_COORDINATOR` y `TECHNICIAN` mediante `DepartmentMembership` con usuario, rol, departamento, fechas de alta/baja. La clasificación `GLOBAL`/`DEPARTMENT` se obtiene del propio `RoleCode` mediante métodos como `isGlobal()`/`isDepartmental()`; se elimina `RoleScope` y no se persiste una columna `scope`. El servidor y, donde proceda, las restricciones SQL impiden asignar roles departamentales a `UserRole` o globales a `DepartmentMembership`.
 - `OPERATOR` tiene competencias municipales transversales de revisión, priorización y derivación sin necesitar pertenencia a un departamento. El coordinador distribuye los trabajos dentro de sus departamentos; el técnico acepta/ejecuta los trabajos autorizados.
 - `Team` es estable, reutilizable y desactivable; preserva referencias históricas. `TeamMembership` relaciona `Team` con `DepartmentMembership` activa del rol técnico y del mismo departamento. No crear equipos ficticios de una sola persona para trabajos individuales.
 - No se adoptan por ahora tablas genéricas `Permission`/`RolePermission`; las comprobaciones de rol y contexto se implementan en Spring Security y servicios.
-- La autorización **lee cuenta activa y permisos actuales desde PostgreSQL en cada acceso protegido**, sin confiar en roles embebidos en el JWT. Incluye control de titularidad, pertenencia activa y estado de recursos cuando corresponda. La excepción funcional es la emisión de JWT en registro/login y rutas expresamente públicas.
+- La autorización **implementada lee cuenta activa, versión del JWT y permisos globales actuales desde PostgreSQL en cada acceso protegido**, sin confiar en roles embebidos en el JWT. Incluye control de titularidad, pertenencia activa y estado de recursos cuando corresponda. La excepción funcional es la emisión de JWT en registro/login y rutas expresamente públicas.
 - No se incluye `ANALYST` por estar aplazada la parte analítica avanzada del enunciado.
 
 ## Consecuencias
@@ -40,8 +40,8 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 - Matriz fina de operaciones autorizadas, revocación y promoción de roles.
 - Si se permite más de una pertenencia activa del mismo rol por departamento y qué índice impide duplicados.
 - Desactivación de equipos, conservación de integrantes históricos y transferencias de técnicos con asignaciones abiertas.
-- Mapeos JPA, FK/índices, proyecciones de DTO y visibilidad de datos personales.
+- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Pendientes:** resto de entidades, reglas departamentales, proyecciones de otros DTO y visibilidad contextual de datos personales.
 - Selección dinámica de campos `fields` y posible anotación por propiedad con condiciones `OWNER`/`ADMIN`/`NONE`: **propuesta en investigación, no adoptada aún ni incluida en esta implementación**.
 - Restricción de roles globales invitables a `OPERATOR`/`ADMIN` según ADR-0007.
 
-**Alcance inicial `auth`:** solo entidades `User`, `Role`, `UserRole`; las relaciones departamentales y los equipos se mantienen diseñados, sin migraciones ni implementación anticipada. El `CITIZEN` global se otorga al registrar toda cuenta nueva.
+**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. Las relaciones departamentales y equipos siguen diseñados, sin migraciones ni implementación anticipada. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.

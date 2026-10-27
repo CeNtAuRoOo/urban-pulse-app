@@ -1,116 +1,76 @@
-# UrbanPulse — Diseño de autenticación y seguridad (revisión previa al código)
+# UrbanPulse — Autenticación y seguridad (diseño implementado)
 
-> **Estado: diseño acordado, PENDIENTE DE IMPLEMENTAR.** Revisión de 25/10/2026 contra `main` (`64042857dc88118dc7e0e8dd1e2daa37b5f84633`). Este documento es la especificación objetivo para la primera implementación del tag **Autenticación**. No acredita endpoints desplegados, entidades JPA, migraciones de dominio, tests ni configuración JWT funcional. Al terminar la implementación, el PR deberá actualizar los estados y pruebas reales.
+> **Estado a 27/10/2026:** módulo de autenticación implementado en el backend de la rama `feature/modulo-autenticacion`. Se dispone de entidades, Flyway V1, servicios, configuración JWT y pruebas. **No significa desplegado:** la V1 no consta aplicada a Neon `development` y se debe repetir la suite completa tras las últimas correcciones. Los demás tags siguen siendo diseño revisable.
 
-## 1. Referencias y reglas generales
+## 1. Referencias y alcance
 
-- Requisitos del proyecto, [arquitectura](architecture.md), [modelo de dominio v1](domain-model.md), [diagramas de identidad](diagrams/README.md) y [contrato modular OpenAPI](api/openapi/base-openapi.yaml).
-- [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, consulta de permisos, contraseña, rate limiting y seguridad.
-- [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal (no implementar en esta rama).
-- [ADR-0009](adr/0009-rbac-departamentos-equipos.md): roles globales/departamentales y `CITIZEN` como rol base.
-- [ADR-0011](adr/0011-identificadores-uuidv7.md): identificadores UUIDv7 generados por Hibernate.
-- Las decisiones de este documento no autorizan cambios ajenos al tag. Actualizar conjuntamente OpenAPI, ambos diagramas, dominio y ADR si se descubren divergencias al implementar; seguir [CONTRIBUTING](../CONTRIBUTING.md).
+Consultar [arquitectura](architecture.md), [dominio](domain-model.md), [contrato modular](api/openapi/base-openapi.yaml), [ADR-0005](adr/0005-jwt-spring-security.md), [ADR-0006](adr/0006-flyway.md), [ADR-0009](adr/0009-rbac-departamentos-equipos.md) y [ADR-0011](adr/0011-identificadores-uuidv7.md). La unidad implementada es el tag **Autenticación**, no todos los usuarios/invitaciones del proyecto.
 
-## 2. Alcance inmediato y mejoras futuras
+| Funcionalidad                                                                              | Estado                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `POST /api/v1/auth/register` y `POST /api/v1/auth/login`                                   | **Implementada**                      |
+| `POST /api/v1/users/me/password-changes` y revocación por versión                          | **Implementada**                      |
+| `User`, `Role`, `UserRole`, `NotificationPreferences`, Flyway V1                           | **Implementada**                      |
+| JWT de dos horas, comprobación de rol base `CITIZEN`, estado y versión por petición        | **Implementada**                      |
+| Rate limiting por instancia, cuerpo limitado, `ProblemDetail` y fallos de BD diferenciados | **Implementada**                      |
+| Verificación efectiva y obligatoria del email; recuperación olvidada; refresh              | **Mejoras futuras**                   |
+| Primer `ADMIN` mediante procedimiento manual controlado                                    | **Tarea posterior**                   |
+| Invitaciones, membresías departamentales, equipos                                          | **Otros tags**                        |
+| `GET ?fields=` y anotaciones de visibilidad por propiedad                                  | **Investigación futura, sin aprobar** |
 
-| Comportamiento                                                                           | Estado de diseño         | Estado real del backend                    |
-| ---------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------ |
-| Registro ciudadano `POST /api/v1/auth/register` que devuelve JWT y usuario               | Acordado para esta rama  | **Pendiente**                              |
-| Login `POST /api/v1/auth/login`                                                          | Acordado para esta rama  | **Pendiente**                              |
-| Cambio `POST /api/v1/users/me/password-changes` con invalidación total de JWT anteriores | Acordado para esta rama  | **Pendiente**                              |
-| `User`, `Role`, `UserRole`, persistencia de preferencias y Flyway inicial                | Acordado para esta rama  | **Pendiente**                              |
-| Resolución de cuenta activa/roles efectivos por petición protegida, Spring Security      | Acordado para esta rama  | **Pendiente**                              |
-| Rate limiting local para login y registro, formato `ProblemDetail`                       | Acordado para esta rama  | **Pendiente**                              |
-| Refresh tokens/renovación automática                                                     | **Mejora futura**        | No implementar                             |
-| Verificación de correo obligatoria antes de utilizar la app                              | **Mejora futura**        | No implementar envío ni bloqueo todavía    |
-| Recuperación de contraseña olvidada por correo                                           | **Mejora futura**        | No implementar                             |
-| Primer `ADMIN`: procedimiento manual con hash generado localmente y SQL administrado     | **Tarea posterior**      | No implementar en esta rama                |
-| Registro, canje y revocación de invitaciones municipales                                 | **Otro tag**             | No implementar                             |
-| Selección `GET ?fields=` y autorización/anotación por atributo                           | **Investigación futura** | No implementar, ni crear tabla de permisos |
+## 2. Modelo de identidad realmente persistido
 
-## 3. Identidad y modelo de datos
+La migración `backend/src/main/resources/db/migration/V1__create_authentication.sql` crea únicamente `users`, `roles`, `user_roles` y carga los cinco roles. `Role` solo tiene `code` y `description`; **no existen `RoleScope` ni `Role.scope`**. `RoleCode.isGlobal()` y `isDepartmental()` derivan el ámbito. `UserRole` solo admite `CITIZEN`, `OPERATOR`, `ADMIN`; departamentales quedarán ligados a `DepartmentMembership` en otro tag.
 
-**`User`** (tabla candidata `users`): `id: UUID` v7, `displayName: String` (2–120), `email: String` (normalizado, único independientemente de mayúsculas), `passwordHash: String` (BCrypt; nunca en JSON), `active: boolean` (alta activa), `emailVerified: boolean` (`false` al registrar), `tokenVersion: long` (`0` al registrar), `preferences: NotificationPreferences` con `inApp=true`, `email=true`, `push=true`, `createdAt: Instant`, `updatedAt: Instant`. `emailVerified` no es modificable por el cliente, y `tokenVersion` tampoco; deben excluirse del `UserDTO` público salvo el estado `emailVerified` del titular/autoridad autorizada. Las fechas en SQL usan `timestamptz`.
+`User`: UUIDv7 generado por Hibernate, `displayName` (2–120), email normalizado (`trim` y `toLowerCase(Locale.ROOT)`, máximo 254), BCrypt, `active=true`, `emailVerified=false`, `tokenVersion=0`, fechas `Instant` y preferencias `inApp/email/push=true` (`@Embeddable`, columnas de `users`). PostgreSQL conserva comprobaciones de longitudes, email normalizado, `tokenVersion≥0`, catálogo, roles globales, PK/FK e índice único `users_email_unique`. No se crea una tabla de sesiones.
 
-**`Role`** (tabla `roles`): `code: RoleCode` como PK natural y `description: String`, sin `scope` persistido. El ámbito se deriva exclusivamente de `RoleCode.isGlobal()` / `RoleCode.isDepartmental()`. Datos iniciales por Flyway: `CITIZEN`, `OPERATOR`, `ADMIN` globales y `DEPARTMENT_COORDINATOR`, `TECHNICIAN` departamentales. Los códigos son estables. `CITIZEN` debe pertenecer a **toda cuenta**, incluso cuentas futuras creadas por invitación para staff.
+Todos los usuarios han de conservar `CITIZEN`, incluidos operadores y administradores. La creación vía registro lo asigna transaccionalmente. **La autenticación rechaza un usuario que carezca de `CITIZEN`**, aunque disponga de `ADMIN`; no intenta arreglar automáticamente los datos. No existe todavía una restricción SQL global que fuerce `CITIZEN` a cada fila de `users`.
 
-**`UserRole`** (tabla `user_roles`): relación N:M explícita de `User` con `Role` solo para roles `GLOBAL`, con PK compuesta candidata `(user_id, role_code)` y FKs. No duplicar una relación JPA de escritura `@ManyToMany` que compita con la entidad explícita. En esta rama registrar `CITIZEN`; futuros tags añadirán `OPERATOR`/`ADMIN` únicamente por invitación. Los roles departamentales nunca entran en `UserRole` y no se crean todavía `DepartmentMembership`, `Team`, `StaffInvitation` ni `AuditEvent`.
+## 3. Registro y login
 
-**`NotificationPreferences`** es `@Embeddable`/objeto de valor de `User`; la tabla `users` puede conservar las tres columnas con `NOT NULL DEFAULT TRUE`. No se implementa servicio de avisos ni consentimiento de dispositivo/correo.
+- **Registro público:** `POST /auth/register`, `RegisterRequest(displayName,email,password)`. JSON estricto, no acepta roles/flags inyectados. BCrypt coste **12**, mínimo 8 caracteres y máximo **72 bytes UTF-8** (sin truncamiento). Hash generado antes de la transacción; se guardan usuario y `UserRole(CITIZEN)` atómicamente. La unicidad SQL resuelve carreras y devuelve `409` por correo duplicado. Devuelve `201 TokenDTO` con JWT y `UserDTO`; **no envía `Location`** hasta disponer de `GET /users/me`.
+- **Login público:** `POST /auth/login`, `LoginRequest(email,password)`, normalización de correo; hash BCrypt ficticio para reducir diferencias temporales cuando no exista la cuenta. Correo desconocido, contraseña incorrecta y cuenta inactiva generan el mismo `401` sin enumerar cuentas. Éxito `200 TokenDTO`. Contraseña excesiva también genera `401`. `emailVerified=false` **no bloquea acceso en esta fase**.
+- Los DTO y tokens no exponen `passwordHash` ni `tokenVersion`. `UserDTO` incluye `emailVerified` y roles globales actuales; no inventar pertenencias departamentales.
 
-**Integridad:** correo único normalizado también en BD; hashes no reversibles; regla del rol global base; restricciones de nulabilidad en Flyway; operaciones de creación y cambio de contraseña transaccionales. Elegir y documentar cómo resolver duplicados bajo concurrencia (la validación previa en Java no basta). Para generación UUID JPA usar el generador `VERSION_7` expresamente y probar que `UUID.version()` devuelve 7. `Role` y PK compuesta son excepciones.
+## 4. JWT y seguridad por petición
 
-## 4. Flujo del registro
+JWT Bearer **HS256** firmado por Nimbus/Spring Security, secreto externo `JWT_SECRET` en Base64 que decodifica a **≥32 bytes aleatorios** y `JWT_ISSUER` externo; duración fija de **7200 s**. Claims `sub` (UUID canónico), `iat`, `exp`, `iss`, `ver`. No se confía en un claim de roles ni se emite email en el token. Sin refresh ni cookies/sesiones de servidor; CORS con lista explícita de orígenes, `allowCredentials=false`, CSRF desactivado al usar exclusivamente `Authorization: Bearer`.
 
-1. `POST /api/v1/auth/register` público, JSON `RegisterRequest(displayName,email,password)`; `additionalProperties: false`.
-2. Validar campos, normalizar email y resolver duplicados de modo seguro; no aceptar roles, `active`, `emailVerified` ni `tokenVersion` en la petición.
-3. BCrypt para contraseña; crear User activo, no verificado, tokenVersion=0 y preferencias en true; asignar `CITIZEN` mediante `UserRole` en una transacción.
-4. Emitir JWT firmado de 7200 s; devolver **`201` con `TokenDTO`** (`accessToken`, `tokenType: Bearer`, `expiresIn: 7200`, `user: UserDTO`). No se hace segundo login.
-5. `Location: /api/v1/users/me` es la dirección contextual acordada para el perfil, pero **no enviar una Location engañosa hasta que GET /users/me esté implementado** en su tag (o documentar explícitamente el carácter no disponible si se decide enviarla). OpenAPI deja esta cabecera prevista, no obligatoria.
+Spring valida firma, emisor, fechas y claims. `DatabaseJwtAuthenticationConverter` ejecuta en cada petición protegida una proyección de PostgreSQL con actividad, `tokenVersion` y roles globales vigentes; exige `CITIZEN`, rechaza usuarios desactivados o JWT con versión distinta y genera las autoridades `ROLE_*`. Por diseño es **fail closed** y sin caché entre peticiones. Los permisos por propiedad, pertenencia departamental, titularidad y estado del recurso siguen fuera del módulo; `x-roles` en OpenAPI es documental.
 
-La cuenta **puede usarse sin verificación de email en esta primera implementación** porque aún no hay proveedor ni endpoint de confirmación; el backend no debe exigir `emailVerified=true` hasta que el flujo futuro esté disponible. En el futuro el registro debe conducir a un paso bloqueante de verificación, comprobado también en backend.
+## 5. Cambio de contraseña
 
-## 5. Flujo de inicio de sesión
+`POST /users/me/password-changes` pertenece al tag Autenticación; requiere Bearer y `ChangePasswordRequest(currentPassword,newPassword)`. Se valida la contraseña actual y el mínimo de la nueva; se impone máximo de 72 bytes UTF-8. `UserRepository.findForPasswordChange` usa `PESSIMISTIC_WRITE`/`SELECT FOR UPDATE` en una transacción; vuelve a comprobar actividad y versión del JWT ya bajo bloqueo. `User.changePassword` actualiza hash e incrementa `tokenVersion`, y el `flush` hace que ambos cambios queden confirmados o revertidos conjuntamente. Devuelve **204 sin cuerpo**. El token utilizado y todos los anteriores quedan inválidos en las siguientes peticiones. Se permite cambiar a una contraseña idéntica: también revoca tokens.
 
-1. `POST /api/v1/auth/login` público con `LoginRequest(email,password)`.
-2. Resolver User, BCrypt, `active`, versión vigente y roles. Para correo inexistente, credenciales incorrectas o cuenta inactiva, utilizar **`401` uniforme** sin revelar existencia de la cuenta y sin escribir secretos en logs.
-3. Emitir `TokenDTO` con `200`. No devolver `404` ni `409` por login normal; `400`/`422` para peticiones incorrectas y `429` cuando haya exceso de frecuencia.
-4. No hay endpoint `/auth/refresh` en esta versión. Tras caducidad el cliente tendrá que volver a iniciar sesión.
+## 6. Errores y observabilidad
 
-## 6. JWT y autorización de cada petición protegida
+`ProblemDetail` con `application/problem+json`; `GlobalExceptionHandler` atiende MVC y `RestAuthenticationEntryPoint`/`RestAccessDeniedHandler`/filtro atienden errores de seguridad. `400`: JSON mal formado, tipos incompatibles o cuerpo >16 KiB. `422`: Bean Validation o propiedad JSON no admitida. `409`: email duplicado. `401`: credenciales inválidas, token inválido/caducado/revocado, cuenta inactiva o sin `CITIZEN`. `403`: permisos insuficientes. `429`: bucket agotado (`Retry-After`). **`503`: indisponibilidad tipada de PostgreSQL** (conexión, recurso, timeout/SQLSTATE contemplado); `500`: fallo interno inesperado o error SQL de programación. En `503` y `500` no se añade `WWW-Authenticate`; en `401`, sí.
 
-- JWT Bearer firmado: claims `sub` = UUID del usuario, `iat`, `exp`, `iss`, `ver` = `User.tokenVersion`. No incluir contraseña, email, datos sensibles ni roles como fuente de permisos. Token de **2 horas**; configuración de firma y emisor mediante entorno, sin secretos en Git.
-- Spring Security valida firma, emisor y vigencia. **Cada petición protegida lee de PostgreSQL** la cuenta (`active`, `tokenVersion`) y los roles globales actuales; comparar `ver` con `tokenVersion` para rechazar tokens invalidos. Las comprobaciones futuras de departamento, propiedad y recurso se harán donde proceda, además de roles.
-- `UserRole` se carga de forma optimizada (join/proyección adecuada, sin N+1). Toda ruta no declarada explícitamente pública se protege por defecto. Que una operación indique `x-roles` en OpenAPI no sustituye autorización real.
-- Una desactivación de cuenta o retirada de rol tiene efecto en la siguiente petición protegida; la revocación de permisos no requiere reemitir el token. Comprobar consumo/latencia con la base Neon existente, sin añadir caché ahora. La desconexión de la BD no debe convertirse en permiso concedido por defecto (fail closed).
-- CORS configurado por origen permitido; JWT enviado como `Authorization: Bearer ...`; política de CSRF acorde al transporte, no asumir cookie. Validar los filtros y sus códigos `401`/`403`.
+`AuthenticationBackendException` transporta la categoría y el tipo de fallo sin conservar mensajes/cadenas de causas JDBC; se usa el failure handler de Spring Security para que las excepciones de servicio no salgan del filtro sin respuesta homogénea. Logging propio selectivo de errores de infraestructura por clase de excepción, sin JWT, contraseñas ni mensajes JDBC. Los errores de dependencias opcionales de futuro no se convierten automáticamente en bloqueo de auth.
 
-## 7. Cambio de contraseña e invalidación de JWT
+## 7. Protecciones frente a abuso
 
-1. `POST /api/v1/users/me/password-changes` protegido (tag **Autenticación**, aunque la URL empiece por `/users`). `ChangePasswordRequest(currentPassword,newPassword)`, `additionalProperties:false`, nueva contraseña mínimo 8 caracteres.
-2. Validar JWT y cuenta actual; verificar la contraseña actual con BCrypt; aplicar reglas de contraseña y evitar nueva contraseña idéntica si se adopta esa validación al implementar.
-3. Guardar el nuevo hash e **incrementar tokenVersion de forma atómica/transaccional**. Proteger frente a dos cambios concurrentes y actualizaciones perdidas.
-4. Responder **`204 No Content`** y hacer que el cliente elimine el token utilizado. Ese token, y cualquier otro anterior, debe producir `401` en la siguiente petición protegida debido a `ver` obsoleto.
-5. No crear tabla de sesiones ni blacklist de JWT, ni correo de notificación de cambio de contraseña en esta fase.
+`AuthRateLimitFilter` valida el cuerpo de los **tres POST de autenticación**, con **máximo 16 384 bytes**, conservándolo para su lectura posterior; el límite funciona también si falta `Content-Length`. Aplica **rate limiting solo a registro y login**, antes de BCrypt: registro por IP **5 tokens/300 s**; login por IP **20/1200 s**; login por correo normalizado **5/300 s**. Reposición continua, no reinicio de ventana; `Retry-After` aproximado. `InMemoryRateLimiter` limita a **10 000 claves** y usa TTL de inactividad igual al mayor periodo de reposición configurado (actualmente **1200 s**), con limpieza oportunista y reloj monotónico. Las cuotas son **por instancia** y se pierden al reiniciar.
 
-## 8. Validación, errores y seguridad de entrada
+`server.forward-headers-strategy=none`: usa exclusivamente IP de la conexión, sin confiar en `Forwarded`/`X-Forwarded-For` del cliente. **Revisar al implantar un proxy confiable**, porque los usuarios podrían compartir el límite de la IP del intermediario. No incorporar Redis ni un gateway ahora. El entorno de pruebas puede utilizar `login-ip.refill-seconds=300`, distinto de los 1200 s configurados en el servicio.
 
-- `400`: cuerpo JSON ilegible o estructura no interpretable.
-- `422`: JSON parseado cuyos campos violan Bean Validation (`@Valid`) o reglas de entrada (campos requeridos, longitud, formato), con `errors[]` de ser pertinente.
-- `409`: registro con correo duplicado/concurrencia en integridad.
-- `401`: login fallido o autenticación JWT ausente/caducada/inválida/obsoleta/cuenta inactiva.
-- `403`: autenticación válida pero insuficiente para una operación.
-- `429`: límite de solicitudes superado; `Retry-After` cuando se conozca.
-- `500`: errores inesperados, sin revelar trazas internas.
-- Responder `application/problem+json` según `ProblemDetail` común. Implementar `@RestControllerAdvice` para errores MVC y mecanismos Spring Security (entry point/denied handler) y filtro limitador para fallos fuera del controlador. No interpretar un `404` como fallo de login.
+## 8. Pruebas y despliegue
 
-## 9. Limitación de peticiones en la fase inicial
+Existe una suite de tests unitarios/MVC y `AuthenticationPostgresIT` sobre **PostgreSQL 18 efímero** con Testcontainers: migración Flyway, validación Hibernate, UUIDv7, restricciones/rollback, conflictos bajo concurrencia, bloqueo de cambios de contraseña y revocación de JWT. MVC cubre `401`/`403`/`500`/`503`, ausencia de `CITIZEN`, tamaños de cuerpo, logs sin secretos, CORS y rate limiting. **Evidencia documentada de Codex el 25/10/2026: 16 unitarios/MVC y 7 de integración superados**; las nuevas correcciones requieren volver a ejecutar la suite actual y registrar el resultado real. Comando desde `backend/`:
 
-Filtro de seguridad anterior a operaciones costosas; contadores locales por instancia con capacidad y reposición temporal (_Token Bucket_ o equivalente), caducidad de entradas y tamaño máximo de memoria. Políticas independientes por ruta: registro por IP, login por IP y cuenta/email normalizado (sin confirmar existencia). Rechazo `429` sin consultar PostgreSQL cuando el filtro detecta exceso. Para proxies, confiar únicamente en direcciones/cabeceras saneadas de proxies explícitamente configurados. Umbrales, ventanas y reposición **configurables** y probados antes de activar; los números ilustrativos de la conversación no son requisitos aprobados.
+```bash
+mvn -B -ntp clean verify -Ppostgres-it
+```
 
-En 3 instancias no existe contador global: un cliente podría distribuir intentos entre ellas. Se acepta explícitamente esta limitación inicial para reducir infraestructura; si se requieren garantías globales, migrar a gateway o almacenamiento compartido cuando se aborde el despliegue.
+`NeonConnectivityIT` permanece manual; no se ha aplicado la nueva V1 sobre Neon `development`. Antes del primer arranque de la versión nueva con Compose, comprobar destino de las variables y realizar respaldo/procedimiento de recuperación. **Jamás usar Neon `production` para experimentos.** `ddl-auto=validate` permanece activo.
 
-## 10. Integraciones y funcionalidades aplazadas
+## 9. Tareas futuras y reglas por tag
 
-- **Verificación por email:** añadir ya `User.emailVerified=false`, pero no implementar correos, enlace, código, endpoint ni bloqueo hasta contar con un proveedor. Cuando exista, registrarse implicará confirmar correo **antes de continuar utilizando la app**; el control deberá ser server-side. No suponer que un correo sin verificar prueba titularidad en invitaciones municipales.
-- **Recuperación de contraseña olvidada:** futuro flujo con solicitud neutra que no enumere correos y canje de token único/caducable por email verificado; no implementarlo por ahora.
-- **Refresh tokens**: no existen; token de acceso expira en 2 h.
-- **Primer ADMIN**: crear en tarea aparte mediante script local temporal para generar hash BCrypt y luego SQL directo administrado en Neon. No versionar secretos, contraseñas ni pruebas contra production. El administrador recibirá ambos roles globales `CITIZEN` y `ADMIN`.
-- **Invitaciones**: globales invitables solo `OPERATOR`/`ADMIN`; roles departamentales mediante pertenencia; toda cuenta conserva `CITIZEN`. Revisar en su tag canje para usuarios existentes y verificación de titularidad.
-- **GET fields**: se estudiarán anotaciones por propiedad, con capacidades como `OWNER`/`ADMIN`/`NONE`, filtros por contexto y proyección SQL. No introducir ahora campos dinámicos, nueva tabla de permisos ni serialización directa de entidades. El enfoque no está aprobado en la actual guía OpenAPI.
+- **Correo:** verificación real y **bloqueante antes de utilizar la app** cuando se implemente, y recuperación de contraseña olvidada por email; diseñar tokens de uso único y no enumeración.
+- **Refresh:** tokens renovables y cierre de sesión individual, aplazados.
+- **Primer administrador:** procedimiento manual posterior con hash BCrypt local temporal e inserciones administradas, asignando `CITIZEN` y `ADMIN`, sin secretos versionados.
+- **Invitaciones:** solo `OPERATOR`/`ADMIN` como roles globales invitados; `CITIZEN` es siempre base; roles departamentales y verificaciones de email en su tag.
+- **Autorización futura:** permisos por departamento, titularidad, estado y equipo; revisar `SecurityConfig` en cada tag. Investigar `GET fields` y anotaciones `OWNER`/`ADMIN`/`NONE` sin anticipar implementación.
+- **Infraestructura:** rotación de secretos, HTTPS, CORS por despliegue, resolución de IP de proxies, validación en Neon development y pruebas de imágenes Docker.
 
-## 11. Pruebas y proceso de aceptación pendiente
-
-Tests unitarios sin Neon para contraseñas, roles, JWT, tokenVersion, rate limiting y formatos de error. Tests MVC/security para registro/login/cambio, errores 400/401/403/409/422/429, recursos públicos/protegidos y serialización DTO sin secretos. Integración JPA/Flyway sobre PostgreSQL efímera: UUIDv7, FK y ámbitos, email único, transacciones/rollback, rol base, valores de preferencias y concurrencia en cambio de contraseña. El smoke test `NeonConnectivityIT` se mantiene manual y separado; **no ejecutar experimentos ni migraciones sobre `production`**.
-
-Antes de Codex: este documento y contrato revisado se versionan indicando `pendiente de implementación`; las modificaciones de diagramas `.drawio` y exportaciones se editan coordinadamente. Después de Codex: ejecutar tests y lint Redocly, regenerar `docs/api/openapi.yaml`/`docs/api/openapi.html`, actualizar evidencias de pruebas y documentación de estado real. Mantener CHANGELOG/PR con los hechos comprobados, sin declarar trabajo completado anticipadamente.
-
-## 12. Cuestiones técnicas que podrá concretar la implementación sin cambiar el diseño
-
-- Algoritmo y configuración de firma compatibles con Spring Security y riesgo; almacenamiento seguro de claves y rotación futura.
-- Parámetros exactos de BCrypt y política adicional de contraseña, además del mínimo de 8 caracteres.
-- Límites numéricos concretos, método de limpieza/TTL y biblioteca de rate limiting.
-- Índices y normalización SQL exactos para correo, FK y ámbito GLOBAL de `UserRole`.
-- Comportamiento de DTO ante ausencia futura de pertenencias departamentales y autorización de otros tags; nunca exponer `passwordHash`/`tokenVersion`.
-
-Cualquier divergencia sustantiva que cambie un acuerdo (por ejemplo, no consultar permisos por petición o no invalidar JWT al cambiar contraseña) debe consultarse y documentarse, **no resolverse unilateralmente por código**.
+Consultar [guía de desarrollo](development.md), [seguridad](../SECURITY.md), [OpenAPI](api/README.md) y [ADR](adr/README.md) para mantener las decisiones sincronizadas.

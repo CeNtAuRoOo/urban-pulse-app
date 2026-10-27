@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.3.0
-  description: Contrato de diseño revisado para autenticación, pendiente de implementación. Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable por tag. Funciones avanzadas opcionales aplazadas.
+  description: Contrato del tag Autenticación implementado en el backend (registro, login y cambio de contraseña). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -45,7 +45,7 @@ paths:
       tags:
         - Autenticación
       summary: Registrar ciudadano e iniciar sesión
-      description: Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos. No admite seleccionar roles ni establecer emailVerified. Durante esta primera fase el correo permanece sin verificar; el envío y la obligatoriedad de confirmación se implementarán posteriormente. El token emitido queda sujeto a comprobación de estado de cuenta y tokenVersion en cada acceso protegido.
+      description: Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos. No admite seleccionar roles ni establecer emailVerified. El cuerpo está limitado a 16 KiB y el registro está limitado por IP. Durante esta primera fase el correo permanece sin verificar; el envío y la obligatoriedad de confirmación se implementarán posteriormente. El token emitido queda sujeto a comprobación de estado de cuenta, rol CITIZEN y tokenVersion en cada acceso protegido.
       operationId: postAuthRegister
       security: []
       x-roles:
@@ -79,12 +79,14 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /auth/login:
     post:
       tags:
         - Autenticación
       summary: Iniciar sesión
-      description: Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta o cuenta desactivada. No hay refresh tokens en esta versión.
+      description: Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado. Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta o cuenta desactivada. No hay refresh tokens en esta versión. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
       operationId: postAuthLogin
       security: []
       x-roles:
@@ -112,12 +114,14 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/me/password-changes:
     post:
       tags:
         - Autenticación
       summary: Cambiar mi contraseña
-      description: Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente, incluido el usado en esta operación, quedan inválidos para las siguientes peticiones; el cliente debe autenticarse otra vez. No envía correos.
+      description: Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente, incluido el usado en esta operación, quedan inválidos para las siguientes peticiones; el cliente debe autenticarse otra vez. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
       operationId: postUsersMePasswordChanges
       x-roles:
         - AUTHENTICATED
@@ -138,10 +142,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/me:
     get:
       tags:
@@ -3107,11 +3111,12 @@ components:
         email:
           type: string
           format: email
-          description: Se normaliza y compara sin distinción de mayúsculas según la política de unicidad.
+          maxLength: 254
+          description: Se normaliza mediante trim/minúsculas y se compara sin distinción de mayúsculas según la política de unicidad.
         password:
           type: string
           format: password
-          description: Contraseña enviada solo mediante TLS; jamás se devuelve ni registra.
+          description: Contraseña enviada solo mediante TLS; mínimo 8 caracteres y máximo 72 bytes UTF-8 por BCrypt; jamás se devuelve ni registra.
           minLength: 8
       required:
         - displayName
@@ -3124,6 +3129,7 @@ components:
         email:
           type: string
           format: email
+          maxLength: 254
         password:
           type: string
           format: password
@@ -3143,6 +3149,7 @@ components:
           type: string
           format: password
           minLength: 8
+          description: Máximo 72 bytes UTF-8 por BCrypt; se valida en backend.
       required:
         - currentPassword
         - newPassword
@@ -4478,7 +4485,7 @@ components:
         format: uuid
   responses:
     BadRequest:
-      description: JSON mal formado, tipo de contenido incorrecto o solicitud no interpretable.
+      description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación, tipo de contenido incorrecto o solicitud no interpretable.
       content:
         application/problem+json:
           schema:
@@ -4514,7 +4521,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     TooManyRequests:
-      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend.
+      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro y al login; el cambio de contraseña solo limita el tamaño de cuerpo.
       headers:
         Retry-After:
           description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
@@ -4532,7 +4539,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ServiceUnavailable:
-      description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+      description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
       content:
         application/problem+json:
           schema:

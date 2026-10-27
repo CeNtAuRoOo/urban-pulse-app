@@ -16,8 +16,10 @@ No publicar pruebas de explotación, tokens, credenciales ni datos personales en
 
 ## Dependencias y desarrollo
 
+**Seguridad HTTP en esta etapa:** registro y login son públicos y están limitados por IP (login también por email normalizado); el cambio de contraseña exige Bearer. Los tres POST limitan cuerpos a 16 KiB. Los errores internos y de base de datos se registran sin incluir contraseñas, JWT ni mensajes JDBC; indisponibilidad de PostgreSQL = `503`, credenciales/token inválidos = `401`. El limitador usa `getRemoteAddr()` con `server.forward-headers-strategy=none`; revisar el proxy confiable antes de exponerlo detrás de un balanceador.
+
 El frontend dispone de `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit` y `npm run lint`. Estas comprobaciones no sustituyen a una revisión de seguridad.
 
 Inspeccionar `npm audit` y priorizar los avisos de riesgo elevado antes de distribuir una versión. Las salidas previas de npm informaron de vulnerabilidades; no constan aún resultados que demuestren que hayan desaparecido. No ejecutar `npm audit fix --force` de forma automática si pudiera romper la compatibilidad con Expo.
 
-El bucket `incident-evidence` ya existe con visibilidad privada y acceso S3 comprobado mediante `HeadBucket`. **La autorización de cada fotografía, la revisión de contenidos y las operaciones de subida/descarga todavía no están implementadas.** La configuración final de JWT, permisos, limitación de peticiones y gestión de claves sigue pendiente.
+El bucket `incident-evidence` ya existe con visibilidad privada y acceso S3 comprobado mediante `HeadBucket`. **La autorización de cada fotografía, la revisión de contenidos y las operaciones de subida/descarga todavía no están implementadas.** El módulo de autenticación ya incluye JWT HS256 de dos horas, BCrypt, control de rol `CITIZEN`, consulta de permisos vigentes en PostgreSQL, revocación mediante `tokenVersion` y limitación local por instancia. La rotación de claves, el despliegue HTTPS y el saneamiento de IP detrás de proxies se revisarán antes de producción.

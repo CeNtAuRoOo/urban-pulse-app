@@ -3,8 +3,9 @@ info:
   title: UrbanPulse API REST
   version: 0.3.0
   description:
-    Contrato de diseño revisado para autenticación, pendiente de implementación. Dominio v1
-    y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable
+    Contrato del tag Autenticación implementado en el backend (registro, login y cambio
+    de contraseña). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
+    mantienen su carácter de propuesta revisable
     por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
