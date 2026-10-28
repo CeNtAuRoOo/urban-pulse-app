@@ -1,16 +1,16 @@
 # Modelo de dominio de UrbanPulse (v1, núcleo de autenticación implementado)
 
-> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y tres endpoints HTTP; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
+> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.3.0`. El código de auth ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
+La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
 
 En particular, consultar la [especificación de autenticación implementada](auth-design.md), que separa el alcance realmente programado de las mejoras futuras y describe las pruebas disponibles.
 
 **Fuera de esta fase:** los apartados opcionales del enunciado marcados en rojo, especialmente analista avanzado, entrenamiento/evaluación de modelos, hotspots predictivos y RAG. El análisis estadístico operativo e informes permanecen posibles mediante consultas. La prioridad asistida puede empezar con reglas sin añadir IA.
 
-Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Object Storage y frontend Expo web/móvil. **El núcleo de identidad ya tiene entidades JPA, repositorios, tres endpoints y una migración V1; permanecen pendientes los repositorios y endpoints del negocio de incidencias.**
+Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Object Storage y frontend Expo web/móvil. **El núcleo de identidad ya tiene entidades JPA, repositorios, cinco endpoints y una migración V1 ampliada; permanecen pendientes los repositorios y endpoints del negocio de incidencias.**
 
 ## 2. Los dos diagramas y su función
 
@@ -21,7 +21,7 @@ Se parte de un monolito Spring Boot, PostgreSQL en Neon, fotografías en Neon Ob
 
 Páginas ER: (1) incidencias/evidencias, (2) tramitación, (3) identidad/organización, (4) territorio/contexto. Los dibujos son fuentes de diseño editables; una `@Embeddable` no requiere tabla propia y un DTO no implica una entidad JPA.
 
-**La revisión actual de los `.drawio`** contiene `emailVerified`, `tokenVersion`, preferencias predeterminadas y `RoleCode` sin `RoleScope`. En esta actualización documental **no se ha cambiado el modelo de entidades** respecto a la última revisión de diseño, por lo que no hace falta redibujar el ER ni las clases simplificadas. Las exportaciones SVG deben seguir correspondiendo a las fuentes editables.
+**La revisión actual de los `.drawio`** contiene `emailVerified`, `tokenVersion`, preferencias y `RoleCode` sin `RoleScope`, pero ahora falta incorporar la entidad persistida `EmailVerification`, su relación 1:1 con `User` y la tabla homónima de Flyway. **Actualizar ER página 3 y clases simplificadas**, y reexportar sus SVG; el UML sigue siendo modelo, no código ejecutable. Las exportaciones SVG deben seguir correspondiendo a las fuentes editables.
 
 **Convención:** nombres de conceptos y campos del dominio en inglés (`Incident`, `StatusChange`, `DepartmentMembership`); documentación en español. Entidades, enums, objetos de valor y DTO se distinguen por sus responsabilidades, no solo por su ubicación en el dibujo.
 
@@ -66,7 +66,7 @@ El operador central valida, prioriza y deriva sin adscripción departamental. El
 | `email`                  | `String`                  | Normalizado, único sin distinguir mayúsculas, no permite duplicados bajo concurrencia.   |
 | `passwordHash`           | `String`                  | Hash BCrypt; nunca API ni logs.                                                          |
 | `active`                 | `boolean`                 | Cuenta activa al registrarse; se comprueba en accesos protegidos.                        |
-| `emailVerified`          | `boolean`                 | `false` inicial; flujo futuro de correo lo pondrá a true tras confirmar titularidad.     |
+| `emailVerified`          | `boolean`                 | `false` inicial; la verificación por HMAC lo establece en `true` dentro de una transacción.     |
 | `tokenVersion`           | `long`                    | `0` inicial; se incrementa atómicamente al cambiar contraseña e invalida JWT anteriores. |
 | `preferences`            | `NotificationPreferences` | `inApp/email/push` en `true` al alta.                                                    |
 | `createdAt`, `updatedAt` | `Instant`                 | Persistencia `timestamptz`.                                                              |
@@ -77,7 +77,7 @@ El operador central valida, prioriza y deriva sin adscripción departamental. El
 
 **Cambio de contraseña implementado:** `POST /users/me/password-changes` comprueba la actual, guarda BCrypt nuevo e incrementa `tokenVersion` en la misma transacción. Las sesiones JWT anteriores dejan de tener efecto en la siguiente petición. Rate limiting de registro/login inicialmente local por instancia con reposición temporal y contador acotado, `429` en exceso.
 
-**Email:** al registro, `emailVerified=false`; la verificación obligatoria bloqueante **no se implementa todavía** sin servicio externo de correo. El futuro flujo debe impedir avanzar antes de confirmar el email, verificado también por backend. Recuperación de contraseña por email y refresh tokens son mejoras futuras.
+**Email:** al registro, `emailVerified=false` y se crea transaccionalmente una solicitud `EmailVerification` con código HMAC. La confirmación por correo ya está implementada: `EMAIL_VERIFIED` habilita el acceso a recursos de negocio, comprobado por el backend en cada petición. Mailpit realiza las pruebas SMTP sin entregas externas. Recuperación de contraseña por email y refresh tokens siguen siendo mejoras futuras.
 
 **Invitaciones:** globales solo `OPERATOR`/`ADMIN`, jamás un código para `CITIZEN`. Cuentas creadas por invitación incluyen `CITIZEN`. Cuenta existente conserva identidad y añade rol autorizado. El primer `ADMIN` se creará manualmente desde Neon en una tarea posterior con hash generado localmente, sin script de secretos versionado.
 
@@ -139,17 +139,17 @@ Este documento complementa [guía API](api/README.md), [contrato integrado](api/
 
 ## 6. Consistencia del dominio con OpenAPI
 
-Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.3.0` recoge la revisión del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas. **El núcleo de autenticación ya tiene SQL V1 y entidades JPA** (`User`, `Role`, `UserRole`); el resto del dominio continúa en diseño.
+Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.4.0` recoge la verificación de correo del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas. **El núcleo de autenticación ya tiene SQL V1 y entidades JPA** (`User`, `Role`, `UserRole`, `EmailVerification`); el resto del dominio continúa en diseño.
 
 El contrato mantiene DTO independientes de JPA. Roles globales/departamentales acotados, estados de asignación, invitaciones, duplicados, IDs urbanos internos/externos y UUID siguen las decisiones anteriores. `StatusChangeDTO.fromStatus`/`changedBy` son opcionales cuando no existan. Evaluaciones IA que requieran un modelo no elegido permanecen fuera de rutas activas.
 
-**Revisión de autenticación:** registro `201 TokenDTO`, login `401` genérico, cambio de contraseña protegido `204`, `ChangePasswordRequest`, `UserDTO.emailVerified`, roles base CITIZEN, invitaciones globales restringidas a roles municipales, invalidación JWT por `tokenVersion`, limitación local con `429` y errores de validación `400`/`422`. Ver [diseño detallado](auth-design.md).
+**Revisión de autenticación:** registro `201 TokenDTO`, login `401` genérico, cambio de contraseña protegido `204`, confirmación de correo `204` y reenvío `202`/`204`/`410`, `ChangePasswordRequest`, `UserDTO.emailVerified`, roles base CITIZEN, invitaciones globales restringidas a roles municipales, invalidación JWT por `tokenVersion`, limitación local con `429` y errores de validación `400`/`422`. Ver [diseño detallado](auth-design.md).
 
 **GET `fields`:** no está aprobado. La propuesta de anotaciones por atributo `OWNER`/`ADMIN`/`NONE`, proyección selectiva SQL y políticas contextuales se estudiará al implementar Usuarios; no añadir anotaciones, tablas ni endpoints en auth para esto.
 
 ## 7. Decisiones documentadas y estado
 
-**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`) y `user_roles` (PK compuesta, `CHECK` solo globales). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API no tiene endpoints de perfiles, departamentos ni invitaciones.
+**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`), `user_roles` (PK compuesta, `CHECK` solo globales) y `email_verifications` (código HMAC, PK/FK y fechas de caducidad). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API no tiene endpoints de perfiles, departamentos ni invitaciones.
 
 - [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, contraseña, revocación por versión, seguridad y rate limiting (**implementado en código; despliegue pendiente**).
 - [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal aceptadas, con restricción CITIZEN y canje existente; política operativa pendiente.
@@ -158,4 +158,10 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 - [ADR-0011](adr/0011-identificadores-uuidv7.md): UUIDv7 generado desde Hibernate, comprobado en `User` con PostgreSQL efímero.
 - [Diseño de autenticación](auth-design.md): especificación completa de la tarea de backend actual, mejoras futuras y tests requeridos.
 
-**Importante:** los tres endpoints de autenticación, la V1 y las entidades de identidad ya existen en el código; **no consta V1 desplegada sobre Neon `development`**. Los demás tags siguen siendo revisables. Antes de confirmar el commit ejecutar de nuevo los tests de la última versión y validar/reexportar las vistas gráficas cuando cambien.
+**Importante:** los cinco endpoints de autenticación, la V1 y las entidades de identidad ya existen en el código; **no consta V1 desplegada sobre Neon `development`**. Los demás tags siguen siendo revisables. Codex comunicó 55 pruebas correctas sobre la última implementación; queda pendiente comprobar el backend real junto con Mailpit y actualizar/reexportar las vistas gráficas.
+
+### EmailVerification (entidad implementada de autenticación)
+
+`EmailVerification` tiene PK/FK compartida `user_id` con `User`, relación uno a cero/uno (un usuario puede no tener solicitud, por ejemplo una vez verificado), `code_hash` bytea de 32 bytes, `created_at` y `expires_at` como `Instant`. Un código dura como máximo diez minutos y nunca prolonga las 24 horas de verificación de la cuenta. No se persiste el código en claro. Confirmar borra la solicitud y marca `User.emailVerified`; reenvío la sustituye bajo bloqueo de `User`. La limpieza elimina los códigos caducados y, más tarde, las cuentas no verificadas con sus roles. **La política de borrado requiere revisión si futuras entidades incorporan FKs a `users`.**
+
+El acceso a operaciones de negocio exige email verificado (`EMAIL_VERIFIED`); una cuenta pendiente conserva JWT solo para autenticar, confirmar/reenviar y cambiar contraseña. Esto no introduce nuevos roles en `RoleCode` ni modifica `UserRole`.

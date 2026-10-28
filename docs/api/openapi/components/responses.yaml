@@ -11,7 +11,7 @@ Unauthorized:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
 Forbidden:
-  description: Permisos insuficientes o recurso no accesible para este usuario.
+  description: Permisos insuficientes o recurso no accesible. En rutas protegidas del negocio, el código EMAIL_NOT_VERIFIED indica cuenta no verificada.
   content:
     application/problem+json:
       schema:
@@ -28,14 +28,20 @@ Conflict:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
+Gone:
+  description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
 ValidationError:
-  description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation.
+  description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation, o código de verificación inexistente, incorrecto o caducado (INVALID_VERIFICATION_CODE).
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
 TooManyRequests:
-  description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro y al login; el cambio de contraseña solo limita el tamaño de cuerpo.
+  description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación y reenvío según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
   headers:
     Retry-After:
       description: Segundos recomendados antes de reintentar, cuando se pueda calcular.

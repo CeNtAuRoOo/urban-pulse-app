@@ -45,3 +45,7 @@ Los ciudadanos pueden registrar una cuenta ordinaria pero no atribuirse privileg
 - Forma final de DTO de canje cuando se implemente; mantener sincronización con OpenAPI y el dominio.
 
 **Implementación:** pendiente, incluidas las reglas de primer administrador y verificación de correo. La aceptación de este ADR no implica endpoints funcionales.
+
+### Relación con la verificación de email ya implementada (28/10/2026)
+
+El módulo auth ya exige `EMAIL_VERIFIED` para operaciones de negocio, mientras registro/login/confirmación/reenvío y cambio de contraseña tienen reglas propias. Al implementar invitaciones de personal, revisar expresamente la convivencia de cuentas pendientes de verificar, validez de la dirección invitada y expiración de las invitaciones: **no se han desarrollado aún los envíos ni canjes de invitación**. No tratar los códigos HMAC de verificación de email como tokens de invitación, ni reutilizar su tabla. La limpieza automática de cuentas sin verificar a las 24 horas debe revisarse cuando las invitaciones u otras entidades referencien `User`.

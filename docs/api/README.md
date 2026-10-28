@@ -2,7 +2,7 @@
 
 ## Estado: contrato del tag Autenticación implementado; demás tags en diseño
 
-UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.3.0`** tras revisar el tag Autenticación. El resto del sistema permanece como diseño base de dominio v1: **los tres endpoints del tag Autenticación están implementados en Java**; el resto de endpoints de negocio continúa pendiente.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; el resto de endpoints de negocio continúa pendiente.
 
 El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **La implementación de autenticación ya existe en el backend**. Las vistas del dominio deben seguir sincronizadas con la migración SQL efectiva; el despliegue sobre Neon `development` aún no consta.
 
@@ -70,7 +70,7 @@ Cada tag es una unidad de **revisión e implementación**, no una obligación de
 
 ## Alineación entre OpenAPI y dominio
 
-**Comportamiento HTTP real del tag:** registro `201` sin `Location` hasta implementar el GET de perfil; login `200`, cambio `204`. Los tres limitan el cuerpo a 16 KiB (`400` en exceso); solo registro/login aplican cuota `429` y `Retry-After`. La indisponibilidad tipada de PostgreSQL devuelve `503`, no `401`; errores SQL de programación son `500`, con `ProblemDetail`. Usuarios sin rol `CITIZEN` no pueden autenticarse. El contrato debe declarar `503` en las tres operaciones y no anunciar `429` para el cambio de contraseña.
+**Comportamiento HTTP real del tag:** registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. Los cinco limitan el cuerpo a 16 KiB (`400` en exceso); registro/login y confirmación/reenvío tienen cuotas independientes `429`/`Retry-After`, pero cambio de contraseña no. Un JWT de cuenta no verificada sirve solo en auth y las rutas de negocio responden `403 EMAIL_NOT_VERIFIED`. Indisponibilidad tipada de PostgreSQL → `503`, errores internos → `500`. La autenticación exige `CITIZEN`.
 
 El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
@@ -98,7 +98,7 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.y
 npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. No se afirma que se hayan ejecutado en la última revisión. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.3.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
+Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. No se afirma que se hayan ejecutado en la última revisión. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.4.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
 
 ## Cuestiones aún abiertas
 
@@ -107,7 +107,7 @@ Son comandos para regenerar artefactos derivados tras editar el YAML modular; **
 - Límites de fotografías, EXIF, privacidad y consistencia SQL/Object Storage.
 - Contexto geográfico: fuentes externas, caducidad y modelo espacial.
 - Semántica y visibilidad de DTO compartidos; `fields` **no está aprobado** y se investigará aparte, incluida la posibilidad de anotaciones `OWNER`/`ADMIN`/`NONE`.
-- Mejora futura: refresh tokens, verificación de correo obligatoria para avanzar y recuperación por email. El módulo ya concreta HS256, BCrypt coste 12 y cuotas locales documentadas en [auth-design.md](../auth-design.md). La rotación de secretos, proxy confiable y requisitos globales de limitación quedan para despliegue.
+- Mejora futura: refresh tokens, recuperación por email y entrega SMTP real (la verificación obligatoria ya está implementada localmente). El módulo ya concreta HS256, BCrypt coste 12 y cuotas locales documentadas en [auth-design.md](../auth-design.md). La rotación de secretos, proxy confiable y requisitos globales de limitación quedan para despliegue.
 
 ## Referencias
 
@@ -117,3 +117,11 @@ Son comandos para regenerar artefactos derivados tras editar el YAML modular; **
 - [Contribución](../../CONTRIBUTING.md).
 - [Arquitectura](../architecture.md).
 - [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0011](../adr/0011-identificadores-uuidv7.md).
+
+## Verificación de correo implementada (28/10/2026)
+
+El tag **Autenticación** incluye cinco operaciones ejecutables: registro `201`, login `200`, cambio de contraseña `204`, confirmación `POST /auth/email-verifications/confirm` (`204`) y reenvío `POST /auth/email-verifications/resend` (`202`/`204`, `410` si la cuenta pendiente ha caducado). El nuevo `ConfirmEmailRequest` solo acepta código ASCII de 8 dígitos; un código inválido, usado o caducado devuelve `422 INVALID_VERIFICATION_CODE`. La confirmación utiliza el JWT del titular y no requiere enviar el email en el cuerpo.
+
+Las cuentas `emailVerified=false` obtienen JWT pero solo pueden acceder a las operaciones de autenticación permitidas; las rutas protegidas de negocio responden `403 EMAIL_NOT_VERIFIED`. Las cuotas de confirmación y reenvío (`429`) son buckets por usuario/IP en memoria. El envío SMTP se solicita después del commit, pero `201` y `202` **no garantizan recepción** del correo; Mailpit es solo una infraestructura local de pruebas. El resto de los tags permanecen diseños revisables.
+
+Los archivos editables son `openapi/base-openapi.yaml`, `openapi/paths/autenticacion.yaml`, `openapi/components/schemas/autenticacion.yaml` y `openapi/components/responses.yaml`. Tras editarlos, ejecutar lint y regenerar `openapi.yaml` y `openapi.html` con Redocly; **no mantener estos dos derivados a mano**. La revisión del contrato pasa a `info.version: 0.4.0` (no cambia el prefijo HTTP `/api/v1`).

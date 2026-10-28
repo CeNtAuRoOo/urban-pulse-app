@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-28 — Verificación de correo y transporte SMTP (implementación local)
+
+- Implementados `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202` si se solicita envío, `204` si ya está verificado, `410` si ha caducado la cuenta). El registro inicial sigue devolviendo `201 TokenDTO` con acceso limitado.
+- Nueva entidad JPA `EmailVerification` y tabla `email_verifications` dentro de **Flyway V1 modificada antes del primer despliegue**; un código numérico ASCII de ocho dígitos, HMAC-SHA256 independiente de JWT, caducidad máxima de diez minutos y límite de cuenta no verificada de 24 horas.
+- Acceso JWT limitado hasta comprobar `emailVerified` en PostgreSQL en cada petición: rutas de negocio devuelven `403 EMAIL_NOT_VERIFIED`; confirmación, reenvío y cambio de contraseña siguen habilitados. Tras verificar se reutiliza el mismo JWT.
+- Infraestructura `EmailSender`/`SmtpEmailSender` con Spring Mail, emisión después del commit mediante evento transaccional, Mailpit en Docker Compose y timeouts SMTP de cinco segundos. Fallos SMTP no revierten registro/reenvío, pero el envío no queda garantizado ni dispone de outbox.
+- Nuevos buckets de confirmación y reenvío en memoria, con expiración por política. Cuerpos de los cinco POST limitados a 16 KiB. Limpieza programada horaria, lotes acotados y `SKIP LOCKED` para códigos caducados y cuentas no verificadas de más de 24 h.
+- Codex comunica `BUILD SUCCESS` con **55 pruebas: 35 unitarias/MVC y 20 PostgreSQL 18 efímero**, además de verificación aislada de SMTP Mailpit. No se ha ejecutado el backend real junto con Mailpit ni se ha aplicado la V1 sobre Neon.
+- Aplazados el proveedor SMTP real/dominio, outbox y reintentos automáticos, recuperación de contraseña e invitaciones. Revisar la eliminación automática **antes** de añadir nuevas FKs hacia `users`.
+
 Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) como formato de referencia y, cuando existan versiones distribuidas, versionado semántico cuando corresponda.
 
 ## [Unreleased]

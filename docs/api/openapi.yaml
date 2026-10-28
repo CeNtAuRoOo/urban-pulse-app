@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.3.0
-  description: Contrato del tag Autenticación implementado en el backend (registro, login y cambio de contraseña). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.4.0
+  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -12,7 +12,7 @@ security:
   - BearerAuth: []
 tags:
   - name: Autenticación
-    description: Registro, login y cambio de contraseña mediante credenciales/JWT.
+    description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
@@ -44,8 +44,8 @@ paths:
     post:
       tags:
         - Autenticación
-      summary: Registrar ciudadano e iniciar sesión
-      description: Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos. No admite seleccionar roles ni establecer emailVerified. El cuerpo está limitado a 16 KiB y el registro está limitado por IP. Durante esta primera fase el correo permanece sin verificar; el envío y la obligatoriedad de confirmación se implementarán posteriormente. El token emitido queda sujeto a comprobación de estado de cuenta, rol CITIZEN y tokenVersion en cada acceso protegido.
+      summary: Registrar ciudadano y solicitar verificación de correo
+      description: Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos. No admite seleccionar roles ni establecer emailVerified. Crea transaccionalmente el usuario, CITIZEN y el HMAC del código; solicita el envío SMTP después del commit, sin revertir el registro si falla el correo. El cuerpo está limitado a 16 KiB y el registro se limita por IP. Devuelve JWT incluso con emailVerified=false, pero se restringe el acceso a las operaciones de autenticación permitidas hasta confirmar el correo. El token sigue sujeto a actividad, CITIZEN y tokenVersion.
       operationId: postAuthRegister
       security: []
       x-roles:
@@ -58,17 +58,11 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '201':
-          description: Cuenta ciudadana creada y sesión iniciada. No implica correo verificado.
+          description: Cuenta ciudadana creada, código preparado y JWT emitido con acceso limitado; la entrega SMTP no está garantizada. emailVerified=false.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenDTO'
-          headers:
-            Location:
-              description: Ubicación contextual prevista /api/v1/users/me. Solo anunciarla cuando el recurso de consulta esté disponible; el GET corresponde al tag Usuarios.
-              schema:
-                type: string
-                example: /api/v1/users/me
         '400':
           $ref: '#/components/responses/BadRequest'
         '409':
@@ -86,7 +80,7 @@ paths:
       tags:
         - Autenticación
       summary: Iniciar sesión
-      description: Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado. Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta o cuenta desactivada. No hay refresh tokens en esta versión. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
+      description: Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado. Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta o cuenta desactivada. Se permite login de cuentas sin verificar, pero su JWT tiene acceso limitado. No hay refresh tokens. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
       operationId: postAuthLogin
       security: []
       x-roles:
@@ -99,7 +93,7 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Credenciales válidas; JWT emitido.
+          description: Credenciales válidas; JWT emitido. Si emailVerified=false, solo acceso de autenticación limitado.
           content:
             application/json:
               schema:
@@ -116,12 +110,72 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /auth/email-verifications/confirm:
+    post:
+      tags:
+        - Autenticación
+      summary: Confirmar el correo de la cuenta autenticada
+      operationId: postEmailVerificationConfirm
+      x-roles:
+        - AUTHENTICATED
+      description: Requiere JWT válido, aunque el correo todavía no esté verificado. Recibe un código numérico ASCII de 8 dígitos, comprueba su HMAC ligado al usuario, la caducidad (10 minutos o final del plazo de 24 horas de la cuenta) y lo consume en la misma transacción que marca emailVerified=true. Si ya estaba verificado devuelve 204 (operación idempotente). El mismo JWT habilita el acceso a rutas de negocio en la siguiente petición, pues la autorización relee PostgreSQL. Límite de cuerpo de 16 KiB; buckets en memoria por usuario (5/3600 s) e IP (30/3600 s).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailRequest'
+      responses:
+        '204':
+          description: Correo verificado o ya verificado. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Código ausente, incorrecto, sustituido o caducado (INVALID_VERIFICATION_CODE), o error de validación del formato.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/email-verifications/resend:
+    post:
+      tags:
+        - Autenticación
+      summary: Solicitar otro código de verificación
+      operationId: postEmailVerificationResend
+      x-roles:
+        - AUTHENTICATED
+      description: 'Requiere JWT válido y cuerpo vacío. Sustituye el código anterior y solicita el envío SMTP después del commit. 202 no asegura entrega final del correo. Devuelve 204 si la cuenta ya está verificada y 410 si pasaron 24 horas desde el registro (aunque todavía no se haya eliminado en la limpieza). Límite de cuerpo 16 KiB; cuotas en memoria: 1/60 s de enfriamiento por cuenta, 5/86400 s por cuenta como bucket continuo (NO cinco exactos por día) y 20/3600 s por IP. Los buckets se consumen en orden y no se reembolsan cuando una política posterior rechaza.'
+      responses:
+        '202':
+          description: Nuevo código persistido y envío solicitado después del commit. Sin cuerpo.
+        '204':
+          description: Cuenta ya verificada, no se genera otro código. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/me/password-changes:
     post:
       tags:
         - Autenticación
       summary: Cambiar mi contraseña
-      description: Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente, incluido el usado en esta operación, quedan inválidos para las siguientes peticiones; el cliente debe autenticarse otra vez. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
+      description: Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente, incluido el usado en esta operación, quedan inválidos para las siguientes peticiones; el cliente debe autenticarse otra vez. Se permite también a cuentas sin verificar. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
       operationId: postUsersMePasswordChanges
       x-roles:
         - AUTHENTICATED
@@ -3007,7 +3061,7 @@ components:
           description: Visible únicamente para el titular o personal autorizado.
         emailVerified:
           type: boolean
-          description: Indica si se ha verificado el control del correo. Se inicializa a false en registro; la verificación obligatoria mediante email es una funcionalidad futura.
+          description: Indica si se ha verificado el control del correo. Se inicializa a false en registro; la confirmación por código HMAC ya se implementa en el backend y habilita el acceso de negocio en la siguiente petición.
         active:
           type: boolean
         createdAt:
@@ -3102,7 +3156,7 @@ components:
       description: Roles departamentales; requieren DepartmentMembership activa para actuar.
     RegisterRequest:
       type: object
-      description: Alta ciudadana pública; el rol CITIZEN y emailVerified=false los asigna el servidor.
+      description: Alta ciudadana pública; el servidor asigna CITIZEN, crea el código de verificación y mantiene emailVerified=false. El envío SMTP se solicita tras el commit.
       properties:
         displayName:
           type: string
@@ -3154,9 +3208,23 @@ components:
         - currentPassword
         - newPassword
       additionalProperties: false
+    ConfirmEmailRequest:
+      type: object
+      description: Confirmación de correo del titular autenticado mediante código numérico de ocho dígitos ASCII.
+      additionalProperties: false
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: ^[0-9]{8}$
+          minLength: 8
+          maxLength: 8
+          example: '01234567'
+          description: Secreto de un solo uso, válido como máximo 10 minutos y nunca más allá de las 24 horas desde el registro.
     TokenDTO:
       type: object
-      description: Respuesta de registro ciudadano o login; accessToken es un JWT firmado y no cifrado.
+      description: Respuesta de registro ciudadano o login; accessToken es un JWT firmado y no cifrado. Una cuenta con emailVerified=false dispone de acceso limitado hasta confirmar su correo.
       properties:
         accessToken:
           type: string
@@ -3253,7 +3321,7 @@ components:
         - email
         - password
       additionalProperties: false
-      description: Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado sin crear otro User. Política de verificación de correo pendiente.
+      description: Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado sin crear otro User. La verificación de cuentas ya existe en auth; falta acordar la política de invitaciones y vinculación de correo.
     ExistingAccountInvitationRedemptionRequest:
       type: object
       properties:
@@ -4497,7 +4565,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     Forbidden:
-      description: Permisos insuficientes o recurso no accesible para este usuario.
+      description: Permisos insuficientes o recurso no accesible. En rutas protegidas del negocio, el código EMAIL_NOT_VERIFIED indica cuenta no verificada.
       content:
         application/problem+json:
           schema:
@@ -4515,13 +4583,13 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ValidationError:
-      description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation.
+      description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation, o código de verificación inexistente, incorrecto o caducado (INVALID_VERIFICATION_CODE).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     TooManyRequests:
-      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro y al login; el cambio de contraseña solo limita el tamaño de cuerpo.
+      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación y reenvío según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
       headers:
         Retry-After:
           description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
@@ -4540,6 +4608,12 @@ components:
             $ref: '#/components/schemas/ProblemDetail'
     ServiceUnavailable:
       description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Gone:
+      description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
       content:
         application/problem+json:
           schema:

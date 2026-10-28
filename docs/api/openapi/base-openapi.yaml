@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.3.0
+  version: 0.4.0
   description:
-    Contrato del tag Autenticación implementado en el backend (registro, login y cambio
-    de contraseña). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
-    mantienen su carácter de propuesta revisable
+    Contrato del tag Autenticación implementado en el backend (registro, login,
+    cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
+    mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
+    requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
     por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
@@ -14,7 +15,7 @@ servers:
     description: Backend local en desarrollo (prefijo /api/v1 previsto).
 tags:
   - name: Autenticación
-    description: Registro, login y cambio de contraseña mediante credenciales/JWT.
+    description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
@@ -48,6 +49,10 @@ paths:
     $ref: ./paths/autenticacion.yaml#/~1auth~1register
   /auth/login:
     $ref: ./paths/autenticacion.yaml#/~1auth~1login
+  /auth/email-verifications/confirm:
+    $ref: ./paths/autenticacion.yaml#/~1auth~1email-verifications~1confirm
+  /auth/email-verifications/resend:
+    $ref: ./paths/autenticacion.yaml#/~1auth~1email-verifications~1resend
   /users/me/password-changes:
     $ref: ./paths/autenticacion.yaml#/~1users~1me~1password-changes
   /users/me:
@@ -199,6 +204,8 @@ components:
       $ref: ./components/schemas/autenticacion.yaml#/LoginRequest
     ChangePasswordRequest:
       $ref: ./components/schemas/autenticacion.yaml#/ChangePasswordRequest
+    ConfirmEmailRequest:
+      $ref: ./components/schemas/autenticacion.yaml#/ConfirmEmailRequest
     TokenDTO:
       $ref: ./components/schemas/autenticacion.yaml#/TokenDTO
     InvitationRequest:

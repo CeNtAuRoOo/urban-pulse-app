@@ -7,8 +7,8 @@ La aplicación permitirá registrar incidencias (por ejemplo, semáforos averiad
 ## Estado del proyecto
 
 - **Frontend:** base universal Expo/React Native creada; pantalla inicial ejecutable en web. Se han validado TypeScript, ESLint, Expo Doctor, exportación web y desarrollo web con Docker Compose. La ejecución nativa en dispositivos y la imagen web de producción están pendientes de validación.
-- **Backend:** Java/Spring Boot arranca correctamente con Docker Compose y se ha verificado la conectividad JDBC con Neon PostgreSQL y el acceso al bucket privado mediante el SDK S3. **Módulo de autenticación implementado localmente**, con registro, login y cambio de contraseña, tres entidades de identidad y migración Flyway V1; **sin endpoints de incidencias ni demás operaciones de negocio**. La migración se ha probado en PostgreSQL efímero, pero no consta aplicada a Neon `development`.
-- **Infraestructura:** Docker Compose exclusivo para desarrollo, con frontend y backend arrancados conjuntamente. Neon PostgreSQL 18 y Neon Object Storage están aprovisionados en Frankfurt, con ramas `development` y `production`. El despliegue real de producción sigue pendiente.
+- **Backend:** Java/Spring Boot arranca correctamente con Docker Compose y se ha verificado la conectividad JDBC con Neon PostgreSQL y el acceso al bucket privado mediante el SDK S3. **Módulo de autenticación implementado localmente**, con registro, login, cambio de contraseña, confirmación y reenvío por correo, cuatro entidades persistentes de identidad y migración Flyway V1 ampliada; **sin endpoints de incidencias ni demás operaciones de negocio**. La migración se ha probado en PostgreSQL efímero, pero no consta aplicada a Neon `development`.
+- **Infraestructura:** Docker Compose exclusivo para desarrollo, con frontend y backend históricamente comprobados y servicio SMTP local Mailpit ahora añadido (sin prueba conjunta backend+Mailpit). Neon PostgreSQL 18 y Neon Object Storage están aprovisionados en Frankfurt, con ramas `development` y `production`. El despliegue real de producción sigue pendiente.
 
 ## Tecnologías
 
@@ -16,7 +16,7 @@ La aplicación permitirá registrar incidencias (por ejemplo, semáforos averiad
 | ------------------------- | -------------------------------------------------------------------------------- |
 | Frontend                  | Expo SDK 57, React Native, React Native Web, React, TypeScript, Expo Router      |
 | Herramientas frontend     | Node.js 24 (en Docker), npm, Metro, ESLint y Prettier                            |
-| Backend                   | Java 25, Spring Boot 4.1.1, Maven 3.9.16, Spring Security, JPA/Hibernate, Flyway |
+| Backend                   | Java 25, Spring Boot 4.1.2, Maven 3.9.16, Spring Security, JPA/Hibernate, Flyway |
 | Persistencia              | Neon PostgreSQL 18 (conexión de desarrollo comprobada)                           |
 | Evidencias                | Neon Object Storage (bucket privado; acceso probado)                             |
 | Desarrollo                | Docker, Docker Compose y VSCode                                                  |
@@ -75,7 +75,7 @@ Abrir <http://localhost:7777>. Para detenerlo, `Ctrl+C` o `docker compose down` 
 docker compose up --build
 ```
 
-El backend escucha en el puerto `8888` y conecta con Neon `development` mediante variables de entorno. Existen los tres endpoints de autenticación; **no existen todavía los endpoints de incidencias**. Al arrancar la nueva versión, Flyway puede aplicar `V1__create_authentication.sql` sobre la base configurada; **verificar previamente que es Neon `development`, nunca `production`**. Consulta [la guía de desarrollo](docs/development.md).
+El backend escucha en el puerto `8888` y conecta con Neon `development` mediante variables de entorno. Existen los cinco endpoints de autenticación; **no existen todavía los endpoints de incidencias**. Al arrancar la nueva versión, Flyway puede aplicar `V1__create_authentication.sql` sobre la base configurada; **verificar previamente que es Neon `development`, nunca `production`**. Consulta [la guía de desarrollo](docs/development.md).
 
 La aplicación móvil se probará posteriormente con Expo Go o una compilación de desarrollo, utilizando un dispositivo/emulador y una URL de API accesible desde él.
 
@@ -95,13 +95,13 @@ Estas comprobaciones **se ejecutaron satisfactoriamente el 13/10/2026**; Expo Do
 
 La prueba puntual `NeonConnectivityIT` se ha superado contra Neon `development` (PostgreSQL y `HeadBucket` de Object Storage):
 
-Para el módulo auth se dispone de tests unitarios/MVC y siete pruebas PostgreSQL 18 de integración, aisladas mediante Testcontainers. Desde `backend/`, con Java 25, Maven y Docker:
+Para el módulo auth y verificación de correo se dispone de tests unitarios/MVC e integración PostgreSQL 18 aislada mediante Testcontainers. Desde `backend/`, con Java 25, Maven y Docker:
 
 ```bash
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Codex documentó una ejecución anterior con **23 pruebas superadas** (16 unitarias/MVC y 7 de integración) el 25/10/2026. **La última revisión del código adjunto no equivale a una nueva ejecución:** repetir el comando y registrar su resultado antes del commit.
+Codex informa de **55 pruebas superadas** (35 unitarias/MVC y 20 de integración) en `mvn -B -ntp clean verify -Ppostgres-it`, con Java 25 y PostgreSQL 18 efímero. Esta cifra procede de la ejecución comunicada por Codex; no implica pruebas sobre Neon.
 
 ```bash
 docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
@@ -111,11 +111,11 @@ No se ejecuta con el arranque ordinario de Compose ni forma parte de los tests d
 
 ## Configuración
 
-**API de autenticación disponible en el código:** `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`) y `POST /api/v1/users/me/password-changes` (`204`, exige Bearer). JWT HS256 de 7200 segundos; todos los JWT anteriores se revocan tras cambiar contraseña. Cuando PostgreSQL esté indisponible se responde `503`, no `401`. El correo no se verifica obligatoriamente aún. Ver [diseño e implementación](docs/auth-design.md).
+**API de autenticación disponible en el código:** `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`), `POST /api/v1/users/me/password-changes` (`204`), `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202`/`204`). JWT HS256 de 7200 segundos: si el correo no está verificado, solo se permiten operaciones de autenticación limitadas. La confirmación activa el acceso con el JWT existente. Cambio de contraseña revoca JWT previos; fallos de PostgreSQL responden `503`. Ver [diseño e implementación](docs/auth-design.md).
 
 - `frontend/.env`: `EXPO_PUBLIC_API_URL=http://localhost:8888` para desarrollo web local. Las variables `EXPO_PUBLIC_*` **son públicas** dentro del cliente; nunca incluir secretos.
-- `backend/.env.development` (privado): JDBC (`SPRING_DATASOURCE_*`), acceso S3 (`AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), `JWT_SECRET` (Base64 de al menos 32 bytes aleatorios), `JWT_ISSUER` y `CORS_ALLOWED_ORIGINS`. Los límites comunes se declaran en `application.properties`. Para producción, inyectar secretos y URLs de `production` mediante el proveedor de despliegue.
-- `backend/src/main/resources/application.properties`: puerto 8888, JDBC, HikariCP, JPA, Flyway, `storage.s3.*`, JWT y políticas de rate limiting. `StorageProperties` configura el cliente S3. Flyway crea tablas mediante migraciones y `ddl-auto=validate` solo verifica el mapeo.
+- `backend/.env.development` (privado): JDBC (`SPRING_DATASOURCE_*`), acceso S3 (`AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), `JWT_SECRET` (Base64 de al menos 32 bytes aleatorios), `JWT_ISSUER`, `CORS_ALLOWED_ORIGINS`, `EMAIL_VERIFICATION_SECRET` y variables SMTP `MAIL_*` (sin secretos reales en Git). Los límites comunes se declaran en `application.properties`. Para producción, inyectar secretos y URLs de `production` mediante el proveedor de despliegue.
+- `backend/src/main/resources/application.properties`: puerto 8888, JDBC, HikariCP, JPA, Flyway, `storage.s3.*`, JWT, SMTP, limpieza programada y políticas de rate limiting. `StorageProperties` configura el cliente S3. Flyway crea tablas mediante migraciones y `ddl-auto=validate` solo verifica el mapeo.
 - `.editorconfig`, `.prettierrc.json` y `.vscode/`: convenciones del proyecto.
 
 **Nota de redes:** `localhost` en un teléfono no apunta al ordenador; hay que utilizar la IP accesible del host o una API desplegada. Para web, el navegador no resuelve automáticamente el nombre Docker `backend`.
@@ -133,3 +133,9 @@ Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para ramas, commits, PR y revisiones
 ## Licencia
 
 **Pendiente de decisión:** el repositorio es público, pero actualmente no dispone de archivo `LICENSE`. La publicación del código no concede por sí misma una licencia de reutilización. No se ha seleccionado todavía una licencia para el proyecto.
+
+### Correo en desarrollo (Mailpit)
+
+`compose.yaml` incorpora `mailpit`: visor local en <http://localhost:8025> y SMTP en `mailpit:1025` desde el contenedor backend (o `localhost:1025` desde el equipo anfitrión). Es un sumidero de pruebas: **no envía emails reales**, no requiere dominio ni cuenta de proveedor. Completar `MAIL_HOST`, `MAIL_PORT=1025`, `MAIL_SMTP_AUTH=false`, `MAIL_STARTTLS=false`, `MAIL_FROM=no-reply@urbanpulse.test` y `EMAIL_VERIFICATION_SECRET` privado de al menos 32 bytes aleatorios Base64 en `backend/.env.development`. Si se ejecuta el backend fuera de Compose, ajustar `MAIL_HOST=localhost`. Nunca reutilizar `JWT_SECRET` como clave HMAC de verificación.
+
+La V1 se amplió **antes de su primera aplicación**; no debe ejecutarse sobre una BD que ya contenga otra V1 con ese número y checksum. No se ha probado la ejecución completa de backend+Mailpit en Compose; Codex comprobó los módulos por separado.

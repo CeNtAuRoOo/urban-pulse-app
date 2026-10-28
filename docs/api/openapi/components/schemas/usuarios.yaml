@@ -32,7 +32,7 @@ UserDTO:
       type: boolean
       description: >-
         Indica si se ha verificado el control del correo. Se inicializa a false en registro;
-        la verificación obligatoria mediante email es una funcionalidad futura.
+        la confirmación por código HMAC ya se implementa en el backend y habilita el acceso de negocio en la siguiente petición.
     active:
       type: boolean
     createdAt:

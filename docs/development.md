@@ -31,7 +31,7 @@ urban-pulse-app/
 │   │   └── config/, controller/, dto/, entity/, repository/, service/
 │   ├── src/main/resources/
 │   │   ├── application.properties
-│   │   └── db/migration/         # Sin migración SQL funcional
+│   │   └── db/migration/         # Incluye Flyway V1 de autenticación y email
 │   ├── src/test/java/es/grupo18/urbanpulse/NeonConnectivityIT.java
 │   ├── .env.development          # Privado e ignorado por Git (crear localmente)
 │   ├── .env.example
@@ -181,7 +181,7 @@ Evitar `npm audit fix --force` sin comprobar compatibilidad con Expo SDK 57.
 
 ## 7. Backend: ejecución e integración con Neon (comprobado)
 
-`backend/pom.xml` usa Spring Boot 4.1.1 y Java 25, Web MVC, Validation, JPA/Hibernate, controlador PostgreSQL, Flyway, soporte de validación JWT de Spring Security, Lombok y dependencias de tests. Para Object Storage incorpora AWS SDK for Java 2.x **2.56.0** (BOM y módulo S3) y el procesador de metadatos de `@ConfigurationProperties`.
+`backend/pom.xml` usa Spring Boot 4.1.2 y Java 25, Web MVC, Validation, JPA/Hibernate, controlador PostgreSQL, Flyway, soporte de validación JWT de Spring Security, Lombok y dependencias de tests. Para Object Storage incorpora AWS SDK for Java 2.x **2.56.0** (BOM y módulo S3) y el procesador de metadatos de `@ConfigurationProperties`.
 
 - `StorageProperties` vincula y valida `storage.s3.endpoint`, `storage.s3.region` y `storage.s3.bucket`.
 - `StorageConfig` registra `S3Client` contra el endpoint Neon, usa direccionamiento **path-style** y obtiene credenciales desde las variables estándar `AWS_*`.
@@ -217,7 +217,7 @@ mvn -B -ntp clean verify -Ppostgres-it
 
 Codex registró el **25/10/2026** 16 pruebas unitarias/MVC y 7 de integración PostgreSQL, todas superadas. La última ronda de cambios (503, CITIZEN y límites de cuerpo) añade o modifica pruebas; **repetir el comando y reflejar su resultado real antes del commit de código**. No confundir esa evidencia histórica con una verificación del nuevo estado.
 
-**Configuración de autenticación:** `JWT_SECRET` debe decodificarse a al menos 32 bytes aleatorios y jamás usar el valor ficticio de `auth-test.properties` fuera de tests. HS256, emisor configurable, 7200 s; BCrypt 12. `security.rate-limit`: registro/IP 5/300 s, login/IP 20/1200 s, login/email 5/300 s, máximo 10 000 claves y TTL inactivo calculado como máximo de periodos (= 1200 s). Los tres POST auth admiten un cuerpo máximo de 16 KiB; solo registro/login consumen tokens. El fichero `auth-test.properties` utiliza 300 s para login/IP en lugar de los 1200 s del servicio, al ser una configuración de tests; no copiarlo al despliegue.
+**Configuración de autenticación:** `JWT_SECRET` debe decodificarse a al menos 32 bytes aleatorios y jamás usar el valor ficticio de `auth-test.properties` fuera de tests. HS256, emisor configurable, 7200 s; BCrypt 12. `security.rate-limit`: registro/IP 5/300 s, login/IP 20/1200 s, login/email 5/300 s, máximo 10 000 claves y TTL propio de cada política. Los cinco POST auth admiten un cuerpo máximo de 16 KiB; registro/login consumen sus buckets, mientras confirmación/reenvío consumen buckets propios. Cambio de contraseña no consume buckets. `auth-test.properties` declara los parámetros de prueba y no debe copiarse al despliegue.
 
 **Puesta en marcha:** `server.forward-headers-strategy=none` toma la IP de la conexión; revisar proxies antes de producción. El frontend debe renovar login al recibir `401` por JWT revocado, pero no debe cerrar sesión ante un `503` de base indisponible. `503` se emite con `ProblemDetail` y sin `WWW-Authenticate`. Antes de ejecutar `docker compose up` con el nuevo backend, revisar que el destino Flyway es **development** y respaldar/planificar la reversión.
 
@@ -284,3 +284,19 @@ Pendientes: imagen Nginx de producción, modelo y migraciones reales, pruebas de
 - [Despliegue](deployment.md)
 - [API](api/README.md)
 - [ADR](adr/README.md)
+
+## Verificación del correo en desarrollo con Mailpit
+
+Para probar el registro y la confirmación localmente, el backend necesita los secretos JWT habituales y `EMAIL_VERIFICATION_SECRET` **Base64 de al menos 32 bytes aleatorios, diferente del JWT**. No versionar valores reales. `backend/.env.example` identifica `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS`, `MAIL_FROM` y el secreto HMAC. Para Mailpit, establecer `MAIL_HOST=mailpit` dentro de Docker Compose (el `environment` del backend ya lo fija si no hay otro valor), `MAIL_PORT=1025`, `MAIL_USERNAME=`/`MAIL_PASSWORD=` vacíos, `MAIL_SMTP_AUTH=false`, `MAIL_STARTTLS=false`, `MAIL_FROM=no-reply@urbanpulse.test` y un `EMAIL_VERIFICATION_SECRET` privado. Si se ejecuta Java en el host, usar `MAIL_HOST=localhost`. No se necesita registrar ninguna cuenta de Brevo ni comprar dominio.
+
+Desde la raíz:
+
+```bash
+docker compose up -d mailpit
+```
+
+La bandeja de pruebas se consulta en <http://localhost:8025> y el SMTP expone al host `127.0.0.1:1025`. Para probar la aplicación completa, arrancar también el backend **solo tras comprobar a qué base apunta** `backend/.env.development`: Flyway contiene la V1 ampliada y puede migrar esa base al iniciar. No utilizar nunca Neon `production` para pruebas. En el registro recibirás `201 TokenDTO` con acceso limitado y un código en Mailpit. Confirmar por `POST /api/v1/auth/email-verifications/confirm` con Bearer y `{ "code": "01234567" }` (sustituir por el código real); reenvío `POST /api/v1/auth/email-verifications/resend` sin cuerpo. El correo no se entrega fuera de Mailpit.
+
+El job `EmailVerificationCleanup` se programa por defecto a la hora en punto con `security.email-verification.cleanup-cron=0 0 * * * *`, 100 filas por lote y máximo diez lotes por fase. En tests el cron vale `-` y no se ejecuta. **Detalle de configuración pendiente de homogeneizar:** `.env.example` declara `EMAIL_VERIFICATION_CLEANUP_CRON`, pero `application.properties` no interpola esa variable; para usarla debe configurarse realmente la propiedad `security.email-verification.cleanup-cron` o cambiar el placeholder del archivo de configuración. Las cuentas no verificadas vencen tras 24 h y se eliminan cuando pase el siguiente barrido; no ejecutar esta limpieza sobre datos compartidos sin revisar su política.
+
+Tests declarados por Codex: `mvn -B -ntp clean verify -Ppostgres-it`, **55 superados**, mediante Testcontainers PostgreSQL 18; la prueba real backend+Mailpit en Compose sigue pendiente. El perfil `postgres-it` incluye `AuthenticationPostgresIT` y `EmailVerificationPostgresIT`.

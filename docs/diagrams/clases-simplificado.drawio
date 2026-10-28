@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram id="E144OHGfqIX2vJYWy5nn" name="Diagrama de clases simplificado">
-    <mxGraphModel dx="3148" dy="2902" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2917" dy="2747" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -216,6 +216,9 @@
         </mxCell>
         <mxCell id="TIyGcmZhFlQRB3rpAof1-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=0;fillColor=#fffdf5;strokeColor=#c9b271;strokeWidth=1.3;shadow=0;" value="&lt;div style=&quot;font-family:Arial;padding:13px 15px;&quot;&gt;&lt;div style=&quot;font-weight:bold;font-size:15px;color:#806032;margin-bottom:9px;&quot;&gt;CREACIÓN DE EQUIPOS&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.4;color:#65501f;&quot;&gt;Un coordinador puede crear, actualizar y desactivar los Team de un Department. TeamMembership debe referirse a la pertenencia de un técnico a ese mismo departamento. Evitar el borrado físico de equipos históricos.&lt;/div&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="120" width="480" x="520" y="-1440" as="geometry" />
+        </mxCell>
+        <mxCell id="u0Xwol02R6APce7OvIAQ-1" parent="1" style="rounded=1;arcSize=7;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=0;fillColor=#eef4ff;strokeColor=#537fb4;strokeWidth=1.6;shadow=0;overflow=fill;" value="&lt;div style=&quot;font-family:Arial;&quot;&gt;&lt;div style=&quot;background: rgb(83, 127, 180); color: white; padding: 8px 10px;&quot;&gt;&lt;div style=&quot;opacity: 0.9;&quot;&gt;&lt;b style=&quot;font-size: 15px;&quot;&gt;EmailVerification&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;opacity: 0.9;&quot;&gt;&lt;span style=&quot;font-size: 10px; background-color: light-dark(rgb(83, 127, 180), rgb(100, 138, 184)); color: light-dark(white, rgb(18, 18, 18));&quot;&gt;@Entity&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div style=&quot;padding-top:5px;&quot;&gt;&lt;div style=&quot;font-family: Consolas, monospace; font-size: 11px; line-height: 1.4; color: rgb(46, 64, 80); padding: 1px 9px; white-space: nowrap;&quot;&gt;userId: &lt;b&gt;UUID&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;font-family: Consolas, monospace; font-size: 11px; line-height: 1.4; color: rgb(46, 64, 80); padding: 1px 9px; white-space: nowrap;&quot;&gt;user: &lt;b&gt;User&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;font-family: Consolas, monospace; font-size: 11px; line-height: 1.4; color: rgb(46, 64, 80); padding: 1px 9px; white-space: nowrap;&quot;&gt;codeHash: &lt;b&gt;byte[]&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;font-family: Consolas, monospace; font-size: 11px; line-height: 1.4; color: rgb(46, 64, 80); padding: 1px 9px; white-space: nowrap;&quot;&gt;createAt: &lt;b&gt;Instant&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;font-family: Consolas, monospace; font-size: 11px; line-height: 1.4; color: rgb(46, 64, 80); padding: 1px 9px; white-space: nowrap;&quot;&gt;expiresAt: &lt;b&gt;Instant&lt;/b&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="280" x="-120" y="-980.5" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

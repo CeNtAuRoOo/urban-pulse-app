@@ -1,6 +1,6 @@
-# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.3.0, auth implementado)
+# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Las otras áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.3.0` recoge el contrato auth. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Las otras áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.4.0` recogía el núcleo auth y `0.4.0` añade la verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -33,18 +33,18 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 
 ### Revisión de identidad/autenticación (25/10/2026)
 
-**Estado posterior (27/10/2026):** las tres operaciones están implementadas; registro `201` sin `Location` en esta fase, login `200` y cambio `204`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los tres POST limitado a 16 KiB; `429` solo para registro y login. Las otras rutas de este contrato permanecen como diseño.
+**Estado posterior (28/10/2026):** cinco operaciones implementadas; registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los cinco POST limitado a 16 KiB; `429` para registro, login, confirmación y reenvío, no cambio de contraseña. Las otras rutas de este contrato permanecen como diseño.
 
-| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.3.0`                                                                               |
+| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO`; no se elige rol ni se valida email por correo todavía. |
+| Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO` con JWT limitado y código enviado tras commit por SMTP local. |
 | Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.        |
 | Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                       |
 | Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                      |
 | Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                  |
 | Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                         |
 | Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                         |
-| Mejoras aplazadas                  | Email confirmado obligatoriamente, recuperación por correo, refresh y `fields`                               | Sin operaciones nuevas ni `fields` para estas capacidades futuras.                            |
+| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                          | No se implementan estas capacidades aún.                                                       |
 
 ## 3. Diferencia esencial: derivación frente a trabajo
 
@@ -64,7 +64,7 @@ La autorización en estos casos no se decide únicamente por `x-roles`: depende 
 
 La revisión del contrato **no** implica aprobar todas las reglas de transiciones, transferencias, reasignaciones, alta/revocación de permisos departamentales, CRUD de equipos, política de invitaciones, proveedor de mapas, fotografías, almacenamiento analítico ni resultados de fuentes externas.
 
-Quedan expresamente como mejoras de autenticación **futuras**: refresh tokens, sistema de correo con confirmación obligatoria de email antes de avanzar, recuperación de contraseña olvidada por email, y primer administrador manual como tarea posterior. La propuesta `GET fields` con permisos por atributo (`OWNER`, `ADMIN`, `NONE`, etc.) no está aprobada; requiere investigar relación de titularidad, proyecciones SQL y exposición segura. No se implementan tablas de permisos dinámicos por anticipado.
+Quedan expresamente como mejoras de autenticación **futuras**: refresh tokens, recuperación de contraseña olvidada por email, proveedor SMTP real y primer administrador manual como tarea posterior. La confirmación del email y el bloqueo para acceder al negocio ya están implementados localmente. La propuesta `GET fields` con permisos por atributo (`OWNER`, `ADMIN`, `NONE`, etc.) no está aprobada; requiere investigar relación de titularidad, proyecciones SQL y exposición segura. No se implementan tablas de permisos dinámicos por anticipado.
 
 Los componentes opcionales marcados en rojo en el enunciado (entrenamiento de modelos, RAG, hotspots predictivos), así como evaluaciones IA con motor y ejecución asíncrona no decididos, no pertenecen a las rutas activas. La asistencia determinista no exige entrenar IA.
 
@@ -77,7 +77,7 @@ No inventar atributos, límites, endpoints ni permisos para cerrar huecos sin re
 - `AuditEvent.resourceId` y `requestId` son cadenas heterogéneas, no FKs UUID obligatorias.
 - `StatusChangeDTO.fromStatus` y `changedBy` pueden faltar al crear incidencia o actuar el sistema; esto no elimina el deber de auditar.
 - El `oneOf` de invitaciones y enums por ámbito permiten validar rol/departamento; las invitaciones para personal global no deben aceptar CITIZEN.
-- `UserDTO.emailVerified` identifica estado de correo pero **no significa que exista todavía un proceso de verificación**. No mostrar `passwordHash` ni `tokenVersion` en las respuestas API. `departmentMemberships` queda sujeto a visibilidad autorizada.
+- `UserDTO.emailVerified` identifica el estado de correo y se actualiza mediante el flujo de verificación por HMAC implementado. No mostrar `passwordHash` ni `tokenVersion` en las respuestas API. `departmentMemberships` queda sujeto a visibilidad autorizada.
 
 ## 5. Flujo de tareas: una unidad dominio–API
 
@@ -96,7 +96,7 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml --output docs/api/ope
 npx @redocly/cli build-docs docs/api/openapi.yaml --output docs/api/openapi.html
 ```
 
-Son comandos pendientes de ejecución para esta revisión documental. Los ficheros derivados no se mantienen manualmente: tras regenerar, verificar que `info.version` es `0.3.0` y que no hay `$ref` rotos.
+Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, verificar que `info.version` es `0.4.0` y que no hay `$ref` rotos.
 
 ## 7. Referencias
 
@@ -104,3 +104,7 @@ Son comandos pendientes de ejecución para esta revisión documental. Los ficher
 - [Modelo de dominio](../domain-model.md) y [diagramas](../diagrams/README.md).
 - [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0010](../adr/0010-ciclo-vida-y-asignaciones.md), [ADR-0011](../adr/0011-identificadores-uuidv7.md).
 - [Guía de API](README.md) y [Contribución](../../CONTRIBUTING.md).
+
+### Implementación de verificación de correo (28/10/2026)
+
+Se incorpora `EmailVerification` (PK/FK compartida con `User`) con HMAC-SHA256 de ocho dígitos, caducidad de hasta diez minutos y límite de cuenta no verificada de 24 horas. Confirmación: `POST /auth/email-verifications/confirm`, JWT y DTO estricto, `204` o `422 INVALID_VERIFICATION_CODE`. Reenvío: `POST /auth/email-verifications/resend`, JWT y cuerpo vacío, `202`/`204`/`410 VERIFICATION_ACCOUNT_EXPIRED`. Las cinco operaciones mantienen 16 KiB máximo de cuerpo; confirmación y reenvío tienen `429` con quotas locales. `EMAIL_VERIFIED` se lee de PostgreSQL en cada petición y se exige para las rutas de negocio, con `403 EMAIL_NOT_VERIFIED`; el mismo JWT sirve tras confirmar sin invalidar la versión del token. El SMTP local es Mailpit, no entrega real garantizada. Recuperación de contraseña, invitaciones y notificaciones siguen fuera del código de este tag.

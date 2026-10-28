@@ -80,7 +80,7 @@ StaffRegistrationRequest:
   description: >-
     Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios
     invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado
-    sin crear otro User. Política de verificación de correo pendiente.
+    sin crear otro User. La verificación de cuentas ya existe en auth; falta acordar la política de invitaciones y vinculación de correo.
 ExistingAccountInvitationRedemptionRequest:
   type: object
   properties:
