@@ -9,8 +9,9 @@ import org.springframework.data.repository.query.Param;
 
 /**
  * Repositorio JPA encargado del acceso y persistencia de usuarios.
- * Proporciona consultas para autenticación, obtención de roles
- * y actualización segura de contraseñas.
+ * Proporciona consultas para autenticación, obtención del estado de seguridad,
+ * gestión de roles y actualización segura de contraseñas y verificación
+ * del correo electrónico.
  */
 public interface UserRepository extends JpaRepository<User, UUID> {
 
@@ -36,15 +37,29 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findForPasswordChange(@Param("id") UUID id);
 
     /**
+     * Busca un usuario aplicando un bloqueo pesimista de escritura
+     * para coordinar las operaciones concurrentes de confirmación,
+     * reenvío y eliminación de cuentas pendientes de verificación.
+     *
+     * @param id identificador del usuario que se desea bloquear
+     * @return usuario bloqueado, o un Optional vacío si no existe
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findForEmailVerification(@Param("id") UUID id);
+
+    /**
      * Consulta el estado de seguridad de un usuario y sus roles globales actuales.
      * Devuelve una fila por asignación de rol, incluso si no tiene
      * ninguna, para comprobar la validez de sus JWT.
      *
      * @param id identificador del usuario
-     * @return filas con el estado de la cuenta, versión del token y roles
+     * @return filas con actividad, verificación del correo, versión del token y
+     *         roles
      */
     @Query("""
-            select u.active as active, u.tokenVersion as tokenVersion, r.id.roleCode as roleCode
+            select u.active as active, u.emailVerified as emailVerified,
+                   u.tokenVersion as tokenVersion, r.id.roleCode as roleCode
             from User u
             left join u.userRoles r
             where u.id = :id
@@ -53,14 +68,37 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
      * Proyección de los datos de seguridad necesarios para autenticar
-     * un usuario, incluyendo su estado, versión del token y rol global.
+     * un usuario, incluyendo actividad, verificación de correo, versión y rol
+     * global.
      * El código del rol puede ser null si no existen asignaciones.
      */
     interface SecurityState {
+        /**
+         * Obtiene el estado de actividad de la cuenta.
+         *
+         * @return true si la cuenta está activa; false en caso contrario
+         */
         boolean getActive();
 
+        /**
+         * Obtiene el estado actual de verificación del correo electrónico.
+         *
+         * @return true si el correo está verificado; false en caso contrario
+         */
+        boolean getEmailVerified();
+
+        /**
+         * Obtiene la versión actual de los tokens del usuario.
+         *
+         * @return versión del token almacenada en la base de datos
+         */
         long getTokenVersion();
 
+        /**
+         * Obtiene el código del rol asociado a la fila de seguridad.
+         *
+         * @return código del rol global, o null si no existe una asignación
+         */
         RoleCode getRoleCode();
     }
 }

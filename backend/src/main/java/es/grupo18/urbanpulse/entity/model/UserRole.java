@@ -28,6 +28,15 @@ public class UserRole {
     @JoinColumn(name = "role_code", nullable = false)
     private Role role;
 
+    /**
+     * Crea una asignación de rol global para un usuario.
+     * Construye la clave primaria compuesta utilizando el identificador
+     * del usuario y el código del rol.
+     *
+     * @param user usuario al que se asignará el rol
+     * @param role rol global que se desea asignar
+     * @throws IllegalArgumentException si el rol tiene ámbito departamental
+     */
     public UserRole(User user, Role role) {
         if (!role.getCode().isGlobal()) {
             throw new IllegalArgumentException("UserRole requires a global role");

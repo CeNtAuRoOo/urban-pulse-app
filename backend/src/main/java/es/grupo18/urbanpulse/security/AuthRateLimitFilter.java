@@ -17,7 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Filtro de seguridad que limita las peticiones de registro e inicio de sesión.
  * Aplica políticas independientes por dirección IP y correo electrónico,
  * evitando solicitudes excesivas antes de procesarlas en los controladores.
- * Limita además el cuerpo de los tres POST de autenticación; el cambio de
+ * Limita además el cuerpo de los cinco POST de autenticación; el cambio de
  * contraseña no consume tokens de los buckets.
  */
 @RequiredArgsConstructor
@@ -33,21 +33,25 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
      * Determina si una petición debe excluirse del filtro de limitación.
      *
      * @param request petición HTTP recibida
-     * @return true si no es uno de los tres POST de autenticación; false en caso
+     * @return true si no es uno de los cinco POST de autenticación; false en caso
      *         contrario
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return !"POST".equals(request.getMethod()) || (!path.equals("/api/v1/auth/login")
-                && !path.equals("/api/v1/auth/register") && !path.equals("/api/v1/users/me/password-changes"));
+                && !path.equals("/api/v1/auth/register") && !path.equals("/api/v1/users/me/password-changes")
+                && !path.equals("/api/v1/auth/email-verifications/confirm")
+                && !path.equals("/api/v1/auth/email-verifications/resend"));
     }
 
     /**
      * Comprueba los límites de peticiones por IP y, en el login, por correo.
-     * El cambio de contraseña solo pasa por la comprobación de tamaño del cuerpo.
-     * Rechaza las solicitudes que superan los límites o el tamaño permitido
-     * y permite continuar a las restantes conservando su cuerpo JSON.
+     * Aplica un límite de 16 KiB al cuerpo de los cinco POST de autenticación,
+     * exigiendo además un cuerpo vacío para las solicitudes de reenvío.
+     * El cambio de contraseña, la confirmación y el reenvío no consumen
+     * los buckets de registro y login.
+     * Conserva el cuerpo de las peticiones admitidas para su lectura posterior.
      *
      * @param request  petición HTTP recibida
      * @param response respuesta HTTP
@@ -76,6 +80,11 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
         if (body.length > MAX_BODY_BYTES) {
             problems.write(request, response, HttpStatus.BAD_REQUEST, "INVALID_JSON", "Cuerpo JSON demasiado grande.");
+            return;
+        }
+
+        if (request.getRequestURI().endsWith("/email-verifications/resend") && body.length != 0) {
+            problems.write(request, response, HttpStatus.BAD_REQUEST, "INVALID_JSON", "La petición no admite cuerpo.");
             return;
         }
 
@@ -128,6 +137,13 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final class CachedRequest extends HttpServletRequestWrapper {
         private final byte[] body;
 
+        /**
+         * Crea un envoltorio de la petición HTTP que conserva una copia
+         * del cuerpo previamente leído por el filtro.
+         *
+         * @param request petición HTTP original
+         * @param body    contenido del cuerpo almacenado en memoria
+         */
         private CachedRequest(HttpServletRequest request, byte[] body) {
             super(request);
             this.body = body;
@@ -144,21 +160,44 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
             return new ServletInputStream() {
 
+                /**
+                 * Lee el siguiente byte del cuerpo HTTP almacenado en memoria.
+                 *
+                 * @return siguiente byte disponible, o -1 si se ha alcanzado el final
+                 */
                 @Override
                 public int read() {
                     return input.read();
                 }
 
+                /**
+                 * Comprueba si se ha consumido completamente el cuerpo de la petición.
+                 *
+                 * @return true si no quedan bytes pendientes de lectura
+                 */
                 @Override
                 public boolean isFinished() {
                     return input.available() == 0;
                 }
 
+                /**
+                 * Indica que el flujo de entrada está disponible para lectura síncrona.
+                 *
+                 * @return true, ya que el contenido se encuentra almacenado en memoria
+                 */
                 @Override
                 public boolean isReady() {
                     return true;
                 }
 
+                /**
+                 * Rechaza la configuración de un listener de lectura asíncrona,
+                 * ya que este flujo solo admite operaciones síncronas.
+                 *
+                 * @param listener listener de lectura que se intenta registrar
+                 * @throws UnsupportedOperationException siempre, porque no se admite
+                 *                                       lectura asíncrona
+                 */
                 @Override
                 public void setReadListener(ReadListener listener) {
                     throw new UnsupportedOperationException("Synchronous request body");

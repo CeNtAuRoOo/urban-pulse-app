@@ -12,6 +12,7 @@ import es.grupo18.urbanpulse.entity.enums.RoleCode;
 import es.grupo18.urbanpulse.exception.*;
 import es.grupo18.urbanpulse.repository.UserRepository;
 import es.grupo18.urbanpulse.service.AuthService;
+import es.grupo18.urbanpulse.service.EmailVerificationService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -47,8 +48,12 @@ class AuthMvcTest {
     MockMvc mvc;
     @Autowired
     JwtEncoder encoder;
+    @Autowired
+    es.grupo18.urbanpulse.config.RateLimitProperties rateLimits;
     @MockitoBean
     AuthService auth;
+    @MockitoBean
+    EmailVerificationService verification;
     @MockitoBean
     UserRepository users;
     @MockitoBean
@@ -74,9 +79,14 @@ class AuthMvcTest {
     }
 
     private void state(boolean active, long version, RoleCode... roles) {
+        state(active, version, true, roles);
+    }
+
+    private void state(boolean active, long version, boolean verified, RoleCode... roles) {
         var rows = Arrays.stream(roles).map(role -> {
             var row = mock(UserRepository.SecurityState.class);
             when(row.getActive()).thenReturn(active);
+            when(row.getEmailVerified()).thenReturn(verified);
             when(row.getTokenVersion()).thenReturn(version);
             when(row.getRoleCode()).thenReturn(role);
             return row;
@@ -339,8 +349,162 @@ class AuthMvcTest {
         verifyNoMoreInteractions(limiter, auth);
     }
 
+    @Test
+    void unverifiedIdentityIsRestrictedByDefaultEvenWithAdminAndSameJwtGainsAccess() throws Exception {
+        state(true, 0, false, RoleCode.CITIZEN, RoleCode.ADMIN);
+        String token = bearer();
+        for (String path : List.of("/_test/admin", "/_test/business", "/api/v1/future-tag", "/api/v1/auth/other")) {
+            mvc.perform(get(path).header("Authorization", token).header("EMAIL_VERIFIED", "true"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(header().doesNotExist("WWW-Authenticate"))
+                    .andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+        }
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.user.emailVerified").value(false));
+        mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON).content(change)).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"01234567\"}"))
+                .andExpect(status().isNoContent()).andExpect(content().string(""));
+        when(verification.resend(id, 0)).thenReturn(true, false);
+        mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
+                .andExpect(status().isAccepted()).andExpect(content().string(""));
+        mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
+                .andExpect(status().isNoContent());
+        state(true, 0, true, RoleCode.CITIZEN, RoleCode.ADMIN);
+        mvc.perform(get("/_test/admin").header("Authorization", token)).andExpect(status().isOk());
+        mvc.perform(get("/_test/business").header("Authorization", token)).andExpect(status().isOk());
+        state(true, 0, true, RoleCode.CITIZEN);
+        mvc.perform(get("/_test/admin").header("Authorization", token)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        verify(verification).confirm(id, 0, "01234567");
+    }
+
+    @Test
+    void verificationRequestsRequireJwtAndStrictAsciiCodeWithoutClientIdentity() throws Exception {
+        for (String path : List.of("/api/v1/auth/email-verifications/confirm",
+                "/api/v1/auth/email-verifications/resend")) {
+            mvc.perform(post(path)).andExpect(status().isUnauthorized());
+            mvc.perform(post(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+        }
+        verifyNoInteractions(limiter);
+        String token = bearer();
+        for (String body : List.of("{}", "{\"code\":\"1234567\"}", "{\"code\":\"123456789\"}",
+                "{\"code\":\"１２３４５６７８\"}", "{\"code\":\"abcdefgh\"}",
+                "{\"code\":\"01234567\",\"email\":\"other@example.org\"}",
+                "{\"code\":\"01234567\",\"userId\":\"other\"}")) {
+            mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isUnprocessableContent());
+        }
+        for (String body : List.of("{", "{\"code\":12345678}")) {
+            mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_JSON"));
+        }
+        mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
+        verifyNoInteractions(verification);
+    }
+
+    @Test
+    void verificationBucketsUseUserAndConnectionIpAndDenyBeforeService() throws Exception {
+        var policies = Map.of("confirm-ip:127.0.0.1", "confirm", "confirm-user:" + id, "confirm",
+                "resend-ip:127.0.0.1", "resend", "resend-cooldown:" + id, "resend", "resend-user:" + id, "resend");
+        for (var entry : policies.entrySet()) {
+            doReturn(new InMemoryRateLimiter.Decision(false, 60)).when(limiter).acquire(eq(entry.getKey()), any());
+            var request = post("/api/v1/auth/email-verifications/" + entry.getValue())
+                    .header("Authorization", bearer()).header("X-Forwarded-For", "198.51.100.99");
+            if (entry.getValue().equals("confirm")) {
+                request.contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"01234567\"}");
+            }
+            mvc.perform(request).andExpect(status().isTooManyRequests())
+                    .andExpect(header().string("Retry-After", "60"))
+                    .andExpect(header().doesNotExist("WWW-Authenticate"))
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.code").value("RATE_LIMIT"));
+            doReturn(new InMemoryRateLimiter.Decision(true, 0)).when(limiter).acquire(eq(entry.getKey()), any());
+        }
+        verifyNoInteractions(verification);
+    }
+
+    @Test
+    void newEndpointBodiesAreBoundedWithUnknownLengthAndConfirmBodyIsReplayed() throws Exception {
+        when(verification.resend(id, 0)).thenReturn(true);
+        String json = "{\"code\":\"01234567\"}";
+        for (boolean known : List.of(true, false)) {
+            for (String action : List.of("confirm", "resend")) {
+                for (int size : List.of(action.equals("confirm") ? 16_384 : 0, 16_385)) {
+                    String body = action.equals("confirm") ? json + " ".repeat(size - json.length()) : " ".repeat(size);
+                    var request = post("/api/v1/auth/email-verifications/" + action).header("Authorization", bearer())
+                            .contentType(MediaType.APPLICATION_JSON).content(body);
+                    if (known)
+                        request.header("Content-Length", size);
+                    else
+                        request.with(original -> {
+                            var unknown = spy(original);
+                            doReturn(-1).when(unknown).getContentLength();
+                            doReturn(-1L).when(unknown).getContentLengthLong();
+                            unknown.removeHeader("Content-Length");
+                            return unknown;
+                        });
+                    var response = mvc.perform(request);
+                    if (size > 16_384)
+                        response.andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_JSON"))
+                                .andExpect(jsonPath("$.detail").value("Cuerpo JSON demasiado grande."));
+                    else
+                        response.andExpect(status().is(action.equals("confirm") ? 204 : 202));
+                }
+            }
+        }
+        verify(verification, times(2)).confirm(id, 0, "01234567");
+        verify(verification, times(2)).resend(id, 0);
+        verifyNoMoreInteractions(verification);
+    }
+
+    @Test
+    void realBucketsLimitGuessingAcrossIpChangesAndResendDoesNotResetAttempts() throws Exception {
+        var time = new java.util.concurrent.atomic.AtomicLong();
+        var real = new InMemoryRateLimiter(rateLimits, time::get);
+        when(limiter.acquire(anyString(), any()))
+                .thenAnswer(call -> real.acquire(call.getArgument(0), call.getArgument(1)));
+        doThrow(new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_VERIFICATION_CODE", "Código no válido."))
+                .when(verification).confirm(any(), anyLong(), anyString());
+        when(verification.resend(id, 0)).thenReturn(true);
+        String token = bearer();
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"00000000\"}"))
+                    .andExpect(status().isUnprocessableContent());
+        }
+        mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
+                .andExpect(status().isAccepted());
+        mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
+                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "60"));
+        mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                .with(request -> {
+                    request.setRemoteAddr("198.51.100.2");
+                    return request;
+                })
+                .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"00000000\"}"))
+                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "720"));
+        time.set(720_000_000_000L);
+        mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"00000000\"}"))
+                .andExpect(status().isUnprocessableContent());
+        verify(verification, times(6)).confirm(id, 0, "00000000");
+        verify(verification).resend(id, 0);
+    }
+
     @RestController
     static class ProbeController {
+        @GetMapping("/_test/business")
+        public String business() {
+            return "ok";
+        }
+
         @GetMapping("/_test/admin")
         @PreAuthorize("hasRole('ADMIN')")
         public String admin() {

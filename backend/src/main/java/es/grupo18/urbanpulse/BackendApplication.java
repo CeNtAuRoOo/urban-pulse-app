@@ -11,6 +11,13 @@ import org.springframework.boot.SpringApplication;
 @SpringBootApplication
 public class BackendApplication {
 
+    /**
+     * Inicia la aplicación UrbanPulse mediante Spring Boot.
+     * Crea el contexto de aplicación y arranca los componentes
+     * configurados para ejecutar el backend.
+     *
+     * @param args argumentos de línea de comandos de la aplicación
+     */
     public static void main(String[] args) {
         SpringApplication.run(BackendApplication.class, args);
     }

@@ -171,8 +171,9 @@ public class SecurityConfig {
 
     /**
      * Configura la cadena de filtros de seguridad para aplicaciones web.
-     * Permite el registro y login públicos, exige JWT en el resto de rutas
-     * y aplica CORS, rate limiting y gestión de errores de autenticación.
+     * Permite el registro y login públicos y exige JWT en el resto de rutas.
+     * Por defecto exige correo verificado; confirmación, reenvío y cambio de
+     * contraseña admiten la identidad limitada. Aplica CORS y rate limiting.
      *
      * @param http          configurador de seguridad HTTP de Spring
      * @param converter     conversor de JWT a autenticación con roles de la base de
@@ -196,6 +197,13 @@ public class SecurityConfig {
 
         CorsFilter corsFilter = new CorsFilter(corsConfigurationSource(properties));
         corsFilter.setCorsProcessor(new DefaultCorsProcessor() {
+            /**
+             * Rechaza una petición CORS no autorizada devolviendo una respuesta
+             * HTTP 403 con los detalles del error en formato ProblemDetail.
+             *
+             * @param response respuesta HTTP en la que se escribirá el error
+             * @throws IOException si se produce un error al escribir la respuesta
+             */
             @Override
             protected void rejectRequest(ServerHttpResponse response) throws IOException {
                 response.setStatusCode(HttpStatus.FORBIDDEN);
@@ -214,13 +222,24 @@ public class SecurityConfig {
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/resend", "/api/v1/users/me/password-changes")
+                        .authenticated()
+                        .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
                         errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
                 .oauth2ResourceServer(resource -> resource
                         .authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler)
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
                         .withObjectPostProcessor(new ObjectPostProcessor<BearerTokenAuthenticationFilter>() {
+                            /**
+                             * Personaliza el filtro de autenticación Bearer para utilizar el
+                             * manejador de errores de autenticación configurado por la aplicación.
+                             *
+                             * @param <O>    tipo concreto del filtro de autenticación Bearer
+                             * @param filter filtro de autenticación que se desea configurar
+                             * @return filtro de autenticación con el manejador de errores establecido
+                             */
                             @Override
                             public <O extends BearerTokenAuthenticationFilter> O postProcess(O filter) {
                                 var failureHandler = new AuthenticationEntryPointFailureHandler(entryPoint);
@@ -230,6 +249,8 @@ public class SecurityConfig {
                             }
                         }))
                 .addFilterBefore(new AuthRateLimitFilter(limiter, limits, problems, mapper),
+                        BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new EmailVerificationRateLimitFilter(limiter, limits, problems),
                         BearerTokenAuthenticationFilter.class)
                 .build();
     }

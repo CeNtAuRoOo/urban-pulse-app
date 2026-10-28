@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 /**
  * Limita las peticiones mediante buckets de tokens almacenados en memoria.
  * Repone los tokens progresivamente, elimina los buckets inactivos
- * y restringe el número máximo de claves almacenadas.
+ * tras el periodo de reposición de su propia política y restringe las claves.
+ * No mantiene cuotas compartidas entre instancias ni tras reiniciar el proceso.
  */
 @Component
 @RequiredArgsConstructor
@@ -21,6 +22,16 @@ public class InMemoryRateLimiter {
     private final LongSupplier ticker;
     private final Map<String, Bucket> buckets = new LinkedHashMap<>(16, 0.75f, true);
 
+    private final NavigableSet<Bucket> expirations = new TreeSet<>(Comparator
+            .comparingLong((Bucket bucket) -> bucket.expiresAt).thenComparing(bucket -> bucket.key));
+
+    /**
+     * Crea un limitador de peticiones utilizando las políticas configuradas
+     * y el reloj monotónico del sistema para calcular los intervalos
+     * de reposición y caducidad de los buckets.
+     *
+     * @param properties configuración de las políticas de limitación
+     */
     @Autowired
     public InMemoryRateLimiter(RateLimitProperties properties) {
         this(properties, System::nanoTime);
@@ -37,32 +48,30 @@ public class InMemoryRateLimiter {
      */
     public synchronized Decision acquire(String key, Policy policy) {
         long now = ticker.getAsLong();
-        long ttl = Math.multiplyExact(properties.ttlSeconds(), 1_000_000_000L);
-        var iterator = buckets.values().iterator();
+        long ttl = Math.multiplyExact(policy.refillSeconds(), 1_000_000_000L);
 
-        while (iterator.hasNext()) {
-            if (now - iterator.next().lastSeen < ttl) {
-                break;
-            }
-
-            iterator.remove();
+        while (!expirations.isEmpty() && now >= expirations.first().expiresAt) {
+            buckets.remove(expirations.pollFirst().key);
         }
 
         Bucket bucket = buckets.get(key);
 
         if (bucket == null) {
             if (buckets.size() >= properties.maxKeys()) {
-                long oldest = buckets.values().iterator().next().lastSeen;
-                return new Decision(false, secondsCeil(ttl - (now - oldest)));
+                return new Decision(false, secondsCeil(expirations.first().expiresAt - now));
             }
 
-            bucket = new Bucket(policy.capacity(), now);
+            bucket = new Bucket(key, policy.capacity(), now);
             buckets.put(key, bucket);
         }
+
+        expirations.remove(bucket);
 
         double refillNanos = policy.refillSeconds() * 1_000_000_000.0 / policy.capacity();
         bucket.tokens = Math.min(policy.capacity(), bucket.tokens + (now - bucket.lastSeen) / refillNanos);
         bucket.lastSeen = now;
+        bucket.expiresAt = now + ttl;
+        expirations.add(bucket);
 
         if (bucket.tokens >= 1) {
             bucket.tokens--;
@@ -108,10 +117,21 @@ public class InMemoryRateLimiter {
      * utilizado para calcular la reposición y la expiración por inactividad.
      */
     private static final class Bucket {
+        private final String key;
         private double tokens;
         private long lastSeen;
+        private long expiresAt;
 
-        private Bucket(double tokens, long now) {
+        /**
+         * Crea un bucket de tokens con su identificador, capacidad inicial
+         * e instante de última utilización.
+         *
+         * @param key    identificador del bucket
+         * @param tokens cantidad inicial de tokens disponibles
+         * @param now    instante de creación expresado en nanosegundos
+         */
+        private Bucket(String key, double tokens, long now) {
+            this.key = key;
             this.tokens = tokens;
             this.lastSeen = now;
         }

@@ -28,6 +28,18 @@ public record UserDTO(
         Instant createdAt,
         Set<RoleCode> roles) {
 
+    /**
+     * Construye el DTO del usuario conservando una copia ordenada
+     * e inmodificable de sus roles globales.
+     *
+     * @param id            identificador único del usuario
+     * @param displayName   nombre público del usuario
+     * @param email         correo electrónico del usuario
+     * @param emailVerified indica si el correo electrónico está verificado
+     * @param active        indica si la cuenta está activa
+     * @param createdAt     fecha de creación de la cuenta
+     * @param roles         conjunto de roles globales del usuario
+     */
     public UserDTO {
         roles = Collections.unmodifiableSet(new TreeSet<>(roles));
     }

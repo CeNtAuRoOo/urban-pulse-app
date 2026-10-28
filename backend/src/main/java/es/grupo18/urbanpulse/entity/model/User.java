@@ -55,6 +55,16 @@ public class User {
     @Getter(AccessLevel.NONE)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    /**
+     * Crea un nuevo usuario con su nombre público, correo normalizado
+     * y hash de contraseña.
+     * Inicializa la cuenta como activa, con el correo sin verificar
+     * y la versión inicial del token.
+     *
+     * @param displayName  nombre público del usuario
+     * @param email        correo electrónico del usuario
+     * @param passwordHash hash de la contraseña del usuario
+     */
     public User(String displayName, String email, String passwordHash) {
         this.displayName = displayName;
         this.email = normalizeEmail(email);
@@ -94,6 +104,15 @@ public class User {
     public void changePassword(String hash) {
         tokenVersion = Math.incrementExact(tokenVersion);
         passwordHash = hash;
+    }
+
+    /**
+     * Marca el correo electrónico del usuario como verificado.
+     * No modifica la versión del token, permitiendo que los JWT
+     * existentes sigan siendo válidos tras la confirmación.
+     */
+    public void verifyEmail() {
+        emailVerified = true;
     }
 
     /**

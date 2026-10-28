@@ -16,6 +16,14 @@ public record RegisterRequest(
         @NotBlank @Email @Size(max = 254) String email,
         @NotNull @Size(min = 8) String password) {
 
+    /**
+     * Construye el DTO de registro normalizando el correo electrónico
+     * proporcionado por el usuario antes de almacenarlo.
+     *
+     * @param displayName nombre público del nuevo usuario
+     * @param email       correo electrónico que se desea registrar
+     * @param password    contraseña de la nueva cuenta
+     */
     public RegisterRequest {
         email = User.normalizeEmail(email);
     }

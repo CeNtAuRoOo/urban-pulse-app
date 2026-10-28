@@ -27,6 +27,17 @@ CREATE TABLE user_roles (
 );
 CREATE INDEX user_roles_role_idx ON user_roles (role_code);
 
+-- V1 ampliada antes del primer despliegue: no aplicar sobre una V1 anterior.
+CREATE TABLE email_verifications (
+    user_id uuid PRIMARY KEY REFERENCES users(id),
+    code_hash bytea NOT NULL CHECK (octet_length(code_hash) = 32),
+    created_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL,
+    CHECK (expires_at > created_at AND expires_at <= created_at + interval '10 minutes')
+);
+CREATE INDEX email_verifications_expiry_idx ON email_verifications (expires_at);
+CREATE INDEX users_unverified_created_idx ON users (created_at) WHERE email_verified = false;
+
 INSERT INTO roles (code, description) VALUES
     ('CITIZEN', 'Ciudadanía: rol base de todas las cuentas'),
     ('OPERATOR', 'Operación municipal transversal'),

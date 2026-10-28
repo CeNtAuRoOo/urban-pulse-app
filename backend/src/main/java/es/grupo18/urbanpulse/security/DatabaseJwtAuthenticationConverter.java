@@ -22,6 +22,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
+    public static final String EMAIL_VERIFIED = "EMAIL_VERIFIED";
+
     private final UserRepository users;
 
     /**
@@ -72,12 +74,15 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
 
     /**
      * Autentica al usuario a partir de un JWT previamente validado.
-     * Consulta su estado, comprueba la versión del token y obtiene
+     * Consulta su estado actual, comprueba la versión del token y obtiene
      * los roles globales vigentes desde la base de datos, exigiendo CITIZEN.
+     * Añade la autoridad EMAIL_VERIFIED cuando el correo está verificado,
+     * permitiendo aplicar las restricciones de acceso correspondientes.
      *
      * @param jwt token JWT validado
-     * @return autenticación con la identidad y los permisos actuales del usuario
-     * @throws InvalidBearerTokenException si el usuario, el token o el rol base no son válidos
+     * @return autenticación con la identidad y las autoridades actuales del usuario
+     * @throws InvalidBearerTokenException    si el usuario, el token
+     *                                        o el rol base no son válidos
      * @throws AuthenticationBackendException si falla el backend de autenticación
      */
     @Override
@@ -96,10 +101,14 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
                 throw invalid();
             }
 
-            var authorities = rows.stream()
+            var authorities = new ArrayList<>(rows.stream()
                     .map(row -> row.getRoleCode())
                     .filter(Objects::nonNull).filter(code -> code.isGlobal())
-                    .map(code -> new SimpleGrantedAuthority("ROLE_" + code.name())).distinct().toList();
+                    .map(code -> new SimpleGrantedAuthority("ROLE_" + code.name())).distinct().toList());
+
+            if (rows.getFirst().getEmailVerified()) {
+                authorities.add(new SimpleGrantedAuthority(EMAIL_VERIFIED));
+            }
 
             // TODO ADR-0009: resource ownership and departmental authorization in their own
             // tags.

@@ -14,6 +14,14 @@ public record LoginRequest(
         @NotBlank @Email @Size(max = 254) String email,
         @NotNull String password) {
 
+    /**
+     * Construye el DTO de inicio de sesión normalizando el correo electrónico
+     * mediante la eliminación de espacios exteriores y su conversión
+     * a minúsculas.
+     *
+     * @param email    correo electrónico proporcionado por el usuario
+     * @param password contraseña proporcionada para iniciar sesión
+     */
     public LoginRequest {
         email = User.normalizeEmail(email);
     }

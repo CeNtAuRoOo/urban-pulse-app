@@ -34,7 +34,8 @@ class AuthServiceTest {
     @BeforeEach
     void setup() {
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        auth = new AuthService(users, roles, assignments, passwords, tokens, manager);
+        auth = new AuthService(users, roles, assignments, passwords, tokens, manager,
+                mock(EmailVerificationService.class));
     }
 
     private User account() {

@@ -75,9 +75,12 @@ class AuthenticationPostgresIT {
     MockMvc mvc;
     @MockitoBean
     InMemoryRateLimiter limiter;
+    @MockitoBean
+    es.grupo18.urbanpulse.service.mail.EmailSender emailSender;
 
     @BeforeEach
     void clearAccounts() {
+        jdbc.update("delete from email_verifications");
         jdbc.update("delete from user_roles");
         jdbc.update("delete from users");
         when(limiter.acquire(anyString(), any())).thenReturn(new InMemoryRateLimiter.Decision(true, 0));

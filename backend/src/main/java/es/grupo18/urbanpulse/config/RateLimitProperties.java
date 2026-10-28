@@ -6,12 +6,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Configuración de los límites de peticiones para registro e inicio de sesión.
+ * Configuración de los límites de peticiones de autenticación y verificación.
  *
- * @param registerIp política de registro por dirección IP
- * @param loginIp    política de inicio de sesión por dirección IP
- * @param loginEmail política de inicio de sesión por correo electrónico
- * @param maxKeys    número máximo de claves almacenadas por el limitador
+ * @param registerIp     política de registro por dirección IP
+ * @param loginIp        política de inicio de sesión por dirección IP
+ * @param loginEmail     política de inicio de sesión por correo electrónico
+ * @param confirmUser    intentos de confirmación por cuenta
+ * @param confirmIp      intentos de confirmación por IP
+ * @param resendCooldown enfriamiento del reenvío por cuenta
+ * @param resendUser     presupuesto gradual de reenvíos por cuenta, no cuota
+ *                       diaria estricta
+ * @param resendIp       reenvíos por IP
+ * @param maxKeys        número máximo de claves almacenadas por el limitador
  */
 @Validated
 @ConfigurationProperties("security.rate-limit")
@@ -19,17 +25,12 @@ public record RateLimitProperties(
         @NotNull @Valid Policy registerIp,
         @NotNull @Valid Policy loginIp,
         @NotNull @Valid Policy loginEmail,
+        @NotNull @Valid Policy confirmUser,
+        @NotNull @Valid Policy confirmIp,
+        @NotNull @Valid Policy resendCooldown,
+        @NotNull @Valid Policy resendUser,
+        @NotNull @Valid Policy resendIp,
         @Min(1) int maxKeys) {
-
-    /**
-     * Calcula el tiempo de inactividad tras el que puede eliminarse un bucket.
-     * Utiliza el mayor tiempo de reposición de las políticas configuradas.
-     *
-     * @return tiempo de expiración de los buckets, en segundos
-     */
-    public long ttlSeconds() {
-        return Math.max(registerIp.refillSeconds(), Math.max(loginIp.refillSeconds(), loginEmail.refillSeconds()));
-    }
 
     /**
      * Define la capacidad y velocidad de reposición de un bucket de tokens.

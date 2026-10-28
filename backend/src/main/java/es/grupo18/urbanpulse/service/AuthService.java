@@ -21,8 +21,9 @@ import java.util.UUID;
 /**
  * Servicio encargado de gestionar la autenticación de usuarios.
  * Implementa el registro, inicio de sesión y cambio de contraseña,
- * incluyendo el cifrado de credenciales, asignación de roles e invalidación de
- * JWT.
+ * incluyendo el cifrado de credenciales, asignación de roles e invalidación
+ * de JWT. Integra la creación transaccional de solicitudes de verificación
+ * del correo electrónico durante el registro.
  */
 @Service
 public class AuthService {
@@ -33,10 +34,27 @@ public class AuthService {
     private final PasswordEncoder passwords;
     private final JwtTokenService tokens;
     private final TransactionTemplate transactions;
+    private final EmailVerificationService verification;
     private final String dummyHash;
 
+    /**
+     * Inicializa el servicio de autenticación con los repositorios,
+     * componentes de seguridad y servicios necesarios para gestionar
+     * usuarios y credenciales.
+     * Configura las transacciones de registro y genera un hash ficticio
+     * para reducir diferencias temporales durante el inicio de sesión.
+     *
+     * @param users        repositorio de usuarios
+     * @param roles        repositorio del catálogo de roles
+     * @param userRoles    repositorio de asignaciones de roles globales
+     * @param passwords    codificador y verificador de contraseñas BCrypt
+     * @param tokens       servicio de generación de tokens JWT
+     * @param manager      gestor de transacciones de la aplicación
+     * @param verification servicio de verificación del correo electrónico
+     */
     public AuthService(UserRepository users, RoleRepository roles, UserRoleRepository userRoles,
-            PasswordEncoder passwords, JwtTokenService tokens, PlatformTransactionManager manager) {
+            PasswordEncoder passwords, JwtTokenService tokens, PlatformTransactionManager manager,
+            EmailVerificationService verification) {
 
         this.users = users;
         this.roles = roles;
@@ -44,12 +62,14 @@ public class AuthService {
         this.passwords = passwords;
         this.tokens = tokens;
         this.transactions = new TransactionTemplate(manager);
+        this.verification = verification;
         this.dummyHash = passwords.encode(UUID.randomUUID().toString());
     }
 
     /**
      * Registra un nuevo usuario y le asigna el rol global CITIZEN
-     * dentro de una transacción, devolviendo un JWT de acceso.
+     * dentro de una transacción, devolviendo un JWT de acceso. Guarda también
+     * la solicitud de verificación y publica su envío para después del commit.
      *
      * @param request datos de registro del nuevo usuario
      * @return respuesta con el token JWT y los datos públicos del usuario
@@ -65,6 +85,7 @@ public class AuthService {
                 User created = users.saveAndFlush(new User(request.displayName(), request.email(), hash));
                 Role citizen = roles.findById(RoleCode.CITIZEN).orElseThrow();
                 userRoles.saveAndFlush(new UserRole(created, citizen));
+                verification.createForRegistration(created);
                 return created;
             });
 

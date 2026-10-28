@@ -26,16 +26,38 @@ public class AuthenticationBackendException extends AuthenticationServiceExcepti
     private final boolean unavailable;
     private final String failureType;
 
+    /**
+     * Crea una excepción de autenticación a partir de un fallo interno.
+     * Clasifica si corresponde a indisponibilidad de la base de datos
+     * y conserva únicamente el tipo de la excepción original,
+     * sin adjuntar mensajes ni causas potencialmente sensibles.
+     *
+     * @param failure excepción original producida por el backend
+     *                de autenticación
+     */
     public AuthenticationBackendException(RuntimeException failure) {
         super("Fallo del backend de autenticación.");
         this.unavailable = isDatabaseUnavailable(failure);
         this.failureType = failure.getClass().getName();
     }
 
+    /**
+     * Indica si el fallo de autenticación se debe a una indisponibilidad
+     * de la base de datos.
+     *
+     * @return true si se ha identificado un fallo de disponibilidad;
+     *         false en caso contrario
+     */
     public boolean isUnavailable() {
         return unavailable;
     }
 
+    /**
+     * Obtiene el nombre del tipo de excepción que originó el fallo,
+     * sin revelar su mensaje ni sus causas internas.
+     *
+     * @return nombre completo de la clase de la excepción original
+     */
     public String failureType() {
         return failureType;
     }

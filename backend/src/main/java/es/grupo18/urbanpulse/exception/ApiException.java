@@ -11,6 +11,14 @@ public class ApiException extends RuntimeException {
     private final HttpStatus status;
     private final String code;
 
+    /**
+     * Crea una excepción de la API con un estado HTTP, un código
+     * identificador y una descripción del error.
+     *
+     * @param status estado HTTP asociado al error
+     * @param code   código identificador del error de la API
+     * @param detail descripción del error que se devolverá al cliente
+     */
     public ApiException(HttpStatus status, String code, String detail) {
         super(detail);
         this.status = status;
