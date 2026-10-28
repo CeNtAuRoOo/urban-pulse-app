@@ -43,12 +43,14 @@ Una incidencia se puede crear sin enriquecimiento externo ni identificación exa
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `User`                          | Cuenta única por identidad/correo con credenciales protegidas y preferencias de notificaciones.                   |
 | `Role`, `UserRole` y `RoleCode` | Catálogo de roles y asignación N:M de **roles globales**; `RoleScope` distingue `GLOBAL` de `DEPARTMENT`.         |
-| `Department`                    | Unidad municipal responsable de recibir incidencias.                                                              |
+| `Department`                    | Unidad municipal responsable de recibir incidencias; dispone de nombre y código corto únicos.                    |
 | `DepartmentMembership`          | Relación temporal usuario–departamento–rol **departamental**; limita el ámbito de coordinación o actuación.       |
 | `Team` y `TeamMembership`       | Equipos reutilizables de un departamento, con pertenencias históricas; desactivar no elimina trabajos históricos. |
 | `StaffInvitation`               | Alta o incorporación controlada de personal; código de un solo uso que no se guarda en claro (ADR-0007).          |
 
 **Roles iniciales:** globales `CITIZEN`, `OPERATOR`, `ADMIN`; departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN`. El operador central puede validar/priorizar y derivar incidencias en todo el municipio **sin pertenecer a un departamento**. El coordinador decide el equipo/técnico dentro de sus departamentos. El técnico ejecuta y documenta trabajos autorizados. Se excluye por ahora `ANALYST` del catálogo inicial porque el actor analista avanzado está aplazado.
+
+**Departamento implementado en el tag Catálogos:** `Department` usa UUIDv7, `name` (2–120) y `code` (2–20, mayúsculas ASCII, números, `_` o `-`) únicos sin distinción de mayúsculas/minúsculas; `description` es opcional con máximo 500 caracteres y `active` permite conservar referencias históricas al desactivar. Mantiene `createdAt` y `updatedAt` como `Instant`. Los valores se normalizan al crear o modificar (espacios en nombre/código y código en mayúsculas). El contrato expone esos cinco atributos de negocio, pero no las marcas de tiempo.
 
 Tener un rol no otorga acceso indiscriminado: se debe comprobar también la pertenencia activa al departamento, asignación vigente, titularidad del recurso y estado. `TeamMembership` referencia una `DepartmentMembership` y debe mantenerse la invariancia **equipo y miembro pertenecen al mismo departamento**. La pertenencia activa puede variar; el historial no se borra.
 
@@ -76,7 +78,7 @@ Ejemplo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED �
 
 ## 4. Identificadores, tipos y restricciones: criterio de interpretación
 
-- **Identificadores previstos:** UUIDv7 como propuesta de PK para las entidades con identidad propia (`UUID` Java / `uuid` PostgreSQL 18); excepción para el código estable de `Role` (`RoleCode`). Es una decisión de diseño, **no** una migración aplicada. La estrategia concreta de generación entre Java y PostgreSQL se valida al mapear JPA.
+- **Identificadores:** UUIDv7 es la PK de `Department` ya implementada (`UUID` Java / `uuid` PostgreSQL 18): JPA lo genera antes de insertar y la migración conserva `uuidv7()` como valor por defecto. Sigue siendo el criterio de las demás entidades con identidad propia; `Role.code` es la excepción de clave natural estable.
 - Fechas/hora: `Instant` y `timestamptz`; `createdAt` sigue siendo obligatorio aunque UUIDv7 incorpore información temporal.
 - Los límites con `[API]` en el diagrama proceden del **borrador** OpenAPI actual, no de una validación de negocio definitiva. Los campos marcados `TEXT` no imponen máximos arbitrarios; al implementar cada entidad se definirán tamaño, obligatoriedad e índices con criterios funcionales.
 - Enumeraciones persistentes: representar por nombre/código estable, no por ordinal; verificar el efecto de futuras modificaciones.
@@ -127,4 +129,4 @@ Para comenzar una tarea, consultar **a la vez** [el contrato modular](api/README
 - [ADR-0010](adr/0010-ciclo-vida-y-asignaciones.md): distinción entre derivación al departamento y asignación de trabajos.
 - [ADR-0011](adr/0011-identificadores-uuidv7.md): estrategia base de identificadores.
 
-**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base, sin SQL, entidades JPA ni endpoints implementados. Los diagramas actuales permanecen inalterados; sus detalles se validan de forma incremental.
+**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base. El tag Catálogos materializa exclusivamente `Department` con SQL, entidad JPA y endpoints; las demás entidades continúan como diseño pendiente de implementación incremental.

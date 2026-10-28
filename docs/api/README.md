@@ -71,7 +71,7 @@ Desde esta revisión, **los dos diagramas y el contrato modular representan una 
 
 El proceso de implementación sigue siendo incremental: al elegir un tag **no se buscan discrepancias conocidas entre dos diseños desactualizados**, sino que se verifica y concreta conjuntamente el alcance del dominio y API. Toda decisión nueva o corrección posterior modifica ambas vistas, y se revisa su efecto sobre otros tags en el mismo PR.
 
-Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. No se han creado entidades JPA, migraciones ni endpoints implementados con esta alineación.
+Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. El tag Catálogos implementa exclusivamente `Department`, incluido el código corto único del DTO, su migración y sus endpoints; el resto continúa como diseño pendiente.
 
 ## Validación y visualización
 
