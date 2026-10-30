@@ -46,6 +46,64 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource("classpath:auth-test.properties")
 class DepartmentControllerTest {
 
+    private static final String URL = "/api/v1/departments";
+    private static final UUID ID = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor admin() {
+        return jwt().authorities(new SimpleGrantedAuthority("EMAIL_VERIFIED"), new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    @Test
+    void internalAndUnavailableFailuresDoNotLeakDatabaseDetails() throws Exception {
+        when(departmentService.findAll()).thenThrow(new org.springframework.dao.DataIntegrityViolationException("private SQL"));
+        mockMvc.perform(get(URL).with(admin())).andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.detail").value("Error interno."));
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataAccessResourceFailureException("credentials"))
+                .when(departmentService).findAll();
+        mockMvc.perform(get(URL).with(admin())).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+    }
+
+    @Test
+    void rejectsEmptyPatchAndUnknownFields() throws Exception {
+        for (String body : List.of("{}", "{\"other\":true}", "{\"notEmpty\":true,\"active\":true}", "{\"name\":\" \"}", "{\"code\":\"!\"}", "{\"description\":\"" + "x".repeat(501) + "\"}")) {
+            mockMvc.perform(patch(URL + "/" + ID).with(admin()).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").exists());
+        }
+    }
+
+    @Test
+    void rejectsExplicitNullAndMalformedJson() throws Exception {
+        for (String body : List.of("{", "{\"active\":null}", "{\"name\":null,\"active\":false}", "{\"code\":null}", "{\"description\":null}", "{\"active\":\"false\"}")) {
+            mockMvc.perform(patch(URL + "/" + ID).with(admin()).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_JSON"));
+        }
+        mockMvc.perform(get(URL + "/invalid").with(admin())).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
+
+    @Test
+    void returnsUniformDomainProblems() throws Exception {
+        when(departmentService.findById(ID)).thenThrow(new es.grupo18.urbanpulse.service.DepartmentNotFoundException(ID));
+        mockMvc.perform(get(URL + "/" + ID).with(admin())).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DEPARTMENT_NOT_FOUND")).andExpect(jsonPath("$.instance").value(URL + "/" + ID));
+        when(departmentService.create(any())).thenThrow(new es.grupo18.urbanpulse.service.DuplicateDepartmentException("nombre", "Duplicado"));
+        mockMvc.perform(post(URL).with(admin()).contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Duplicado\",\"code\":\"DUP\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEPARTMENT_DUPLICATE"));
+    }
+
+    @Test
+    void allOperationsRejectUnverifiedEvenAdmin() throws Exception {
+        for (var request : List.of(get(URL), get(URL + "/" + ID), post(URL), patch(URL + "/" + ID))) {
+            mockMvc.perform(request.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+        }
+        mockMvc.perform(get(URL)).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        mockMvc.perform(patch(URL + "/" + ID).with(jwt().authorities(new SimpleGrantedAuthority("EMAIL_VERIFIED"))))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
     @Autowired
     private MockMvc mockMvc;
 

@@ -23,6 +23,55 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class DepartmentServiceTest {
 
+    @Test
+    void listsAndReadsExistingDepartments() {
+        var department = new Department("Unidad", "UNIT", null, true);
+        when(departmentRepository.findAllByOrderByNameAsc()).thenReturn(java.util.List.of(department));
+        assertThat(departmentService.findAll()).extracting(DepartmentResponse::name).containsExactly("Unidad");
+        UUID id = UUID.randomUUID();
+        when(departmentRepository.findById(id)).thenReturn(Optional.of(department));
+        assertThat(departmentService.findById(id).code()).isEqualTo("UNIT");
+    }
+
+    @Test
+    void rejectsDuplicateNameAndMissingPatch() {
+        when(departmentRepository.existsByNameIgnoreCase("Unidad")).thenReturn(true);
+        assertThatThrownBy(() -> departmentService.create(new CreateDepartmentRequest("Unidad", "UNIT", null, true)))
+                .isInstanceOf(DuplicateDepartmentException.class);
+        UUID id = UUID.randomUUID();
+        assertThatThrownBy(() -> departmentService.patch(id, new PatchDepartmentRequest(null, null, null, false)))
+                .isInstanceOf(DepartmentNotFoundException.class);
+        verify(departmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void onlyKnownUniqueConstraintViolationsBecomeConflicts() {
+        var request = new CreateDepartmentRequest("Unidad", "UNIT", null, true);
+        var unique = new org.hibernate.exception.ConstraintViolationException("private SQL",
+                new java.sql.SQLException("private SQL", "23505"), "uk_departments_code_normalized");
+        when(departmentRepository.saveAndFlush(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("private", unique));
+        assertThatThrownBy(() -> departmentService.create(request)).isInstanceOf(DuplicateDepartmentException.class);
+        var other = new org.springframework.dao.DataIntegrityViolationException("other");
+        org.mockito.Mockito.doThrow(other).when(departmentRepository).saveAndFlush(any());
+        assertThatThrownBy(() -> departmentService.create(request)).isSameAs(other);
+    }
+
+    @Test
+    void validatesNormalizedBounds() {
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            for (String value : java.util.List.of("", " ", "a", "a".repeat(121))) {
+                assertThat(validator.validate(new CreateDepartmentRequest(value, "OK", null, null))).isNotEmpty();
+            }
+            for (String value : java.util.List.of("", " ", "a", "a".repeat(21), "áá", "A B")) {
+                assertThat(validator.validate(new CreateDepartmentRequest("Valid", value, null, null))).isNotEmpty();
+            }
+            assertThat(validator.validate(new CreateDepartmentRequest(" aA ", " ab ", "x".repeat(500), null))).isEmpty();
+            assertThat(validator.validate(new CreateDepartmentRequest("a".repeat(120), "A".repeat(20), null, false))).isEmpty();
+            assertThat(validator.validate(new PatchDepartmentRequest(null, null, null, null))).isNotEmpty();
+        }
+    }
+
     @Mock
     private DepartmentRepository departmentRepository;
 
@@ -60,7 +109,7 @@ class DepartmentServiceTest {
     void patchOnlyChangesProvidedFields() {
         UUID id = UUID.randomUUID();
         Department existing = new Department("Limpieza", "LIMP", "Original", true);
-        when(departmentRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(departmentRepository.findForUpdate(id)).thenReturn(Optional.of(existing));
         when(departmentRepository.existsByNameIgnoreCaseAndIdNot("Limpieza", id)).thenReturn(false);
         when(departmentRepository.existsByCodeIgnoreCaseAndIdNot("LIMP", id)).thenReturn(false);
         when(departmentRepository.saveAndFlush(any(Department.class)))

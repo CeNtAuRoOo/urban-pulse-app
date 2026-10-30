@@ -9,7 +9,7 @@ class UuidV7GeneratorTest {
 
     @Test
     void generatesUuidVersionSevenWithRfcVariant() {
-        UUID id = UuidV7Generator.next();
+        UUID id = org.hibernate.id.uuid.UuidVersion7Strategy.INSTANCE.generateUuid(null);
 
         assertThat(id.version()).isEqualTo(7);
         assertThat(id.variant()).isEqualTo(2);

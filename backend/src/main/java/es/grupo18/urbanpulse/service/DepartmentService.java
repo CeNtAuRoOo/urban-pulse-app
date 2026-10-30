@@ -7,7 +7,9 @@ import es.grupo18.urbanpulse.entity.Department;
 import es.grupo18.urbanpulse.repository.DepartmentRepository;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +48,8 @@ public class DepartmentService {
 
     @Transactional
     public DepartmentResponse patch(UUID id, PatchDepartmentRequest request) {
-        Department department = findEntity(id);
+        Department department = departmentRepository.findForUpdate(id)
+                .orElseThrow(() -> new DepartmentNotFoundException(id));
         String name = request.name() == null ? department.getName() : normalizeName(request.name());
         String code = request.code() == null ? department.getCode() : normalizeCode(request.code());
         assertUnique(name, code, id);
@@ -66,7 +69,15 @@ public class DepartmentService {
         try {
             return toResponse(departmentRepository.saveAndFlush(department));
         } catch (DataIntegrityViolationException exception) {
-            throw new DuplicateDepartmentException("nombre o código", "indicado");
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof ConstraintViolationException violation
+                        && "23505".equals(violation.getSQLState())
+                        && Set.of("uk_departments_name_normalized", "uk_departments_code_normalized")
+                                .contains(violation.getConstraintName() == null ? "" : violation.getConstraintName())) {
+                    throw new DuplicateDepartmentException("nombre o código", "indicado");
+                }
+            }
+            throw exception;
         }
     }
 

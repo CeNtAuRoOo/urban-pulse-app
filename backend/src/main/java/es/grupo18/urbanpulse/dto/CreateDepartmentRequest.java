@@ -9,4 +9,8 @@ public record CreateDepartmentRequest(
         @NotBlank @Size(min = 2, max = 20) @Pattern(regexp = "[A-Za-z0-9_-]+") String code,
         @Size(max = 500) String description,
         Boolean active) {
+    public CreateDepartmentRequest {
+        name = name == null ? null : name.trim();
+        code = code == null ? null : code.trim();
+    }
 }

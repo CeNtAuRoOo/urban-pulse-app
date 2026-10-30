@@ -59,11 +59,12 @@ DepartmentDTO:
       example: Movilidad
     code:
       type: string
-      description: Código corto estable del departamento.
+      description: Código corto único, normalizado a mayúsculas.
       example: MOV
       pattern: '^[A-Z0-9_-]+$'
     description:
       type: string
+      nullable: true
     active:
       type: boolean
   required:
@@ -73,6 +74,7 @@ DepartmentDTO:
     - active
 
 DepartmentWriteRequest:
+  description: Se aplica trim a nombre y código antes de validar; se conservan espacios interiores del nombre. Unicidad sin distinguir mayúsculas. Active omitido o null equivale a true.
   type: object
   properties:
     name:
@@ -86,9 +88,12 @@ DepartmentWriteRequest:
       pattern: '^[A-Za-z0-9_-]+$'
     description:
       type: string
+      nullable: true
       maxLength: 500
     active:
       type: boolean
+      nullable: true
+      default: true
   required:
     - name
     - code
@@ -111,6 +116,6 @@ DepartmentPatchRequest:
       maxLength: 500
     active:
       type: boolean
-  description: Cambia uno o varios atributos del departamento.
+  description: Cambia uno o varios atributos. Omitir conserva el valor; null explícito se rechaza con 400. Descripción vacía borra su contenido. Trim de nombre y código antes de validar; código en mayúsculas. Un objeto vacío devuelve 422. Active false desactiva sin borrar.
   additionalProperties: false
   minProperties: 1

@@ -1,10 +1,10 @@
-# Modelo de dominio de UrbanPulse (v1, núcleo de autenticación implementado)
+# Modelo de dominio de UrbanPulse (v1, autenticación y departamentos implementados)
 
-> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
+> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP. Department también está implementado, con V2 y cuatro operaciones REST; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
+La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth y de departamentos ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
 
 En particular, consultar la [especificación de autenticación implementada](auth-design.md), que separa el alcance realmente programado de las mejoras futuras y describe las pruebas disponibles.
 
@@ -171,3 +171,13 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 `EmailVerification` tiene PK/FK compartida `user_id` con `User`, relación uno a cero/uno (un usuario puede no tener solicitud, por ejemplo una vez verificado), `code_hash` bytea de 32 bytes, `created_at` y `expires_at` como `Instant`. Un código dura como máximo diez minutos y nunca prolonga las 24 horas de verificación de la cuenta. No se persiste el código en claro. Confirmar borra la solicitud y marca `User.emailVerified`; reenvío la sustituye bajo bloqueo de `User`. La limpieza elimina los códigos caducados y, más tarde, las cuentas no verificadas con sus roles. **La política de borrado requiere revisión si futuras entidades incorporan FKs a `users`.**
 
 El acceso a operaciones de negocio exige email verificado (`EMAIL_VERIFIED`); una cuenta pendiente conserva JWT solo para autenticar, confirmar/reenviar y cambiar contraseña. Esto no introduce nuevos roles en `RoleCode` ni modifica `UserRole`.
+
+## Departamentos municipales — revisión 30/10/2026
+
+El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](departments-finalization.md) para resultados y limitaciones.

@@ -4,7 +4,7 @@
 
 ## 1. Alcance y principios
 
-UrbanPulse permitirá reportar incidencias urbanas con ubicación, estado, fotografías e historial; validarlas, priorizarlas y distribuirlas a departamentos y personal municipal; y enriquecerlas progresivamente con activos y observaciones externas. La funcionalidad de negocio sigue pendiente de implementación.
+UrbanPulse permitirá reportar incidencias urbanas con ubicación, estado, fotografías e historial; validarlas, priorizarlas y distribuirlas a departamentos y personal municipal; y enriquecerlas progresivamente con activos y observaciones externas. El catálogo de departamentos está implementado; la gestión de incidencias sigue pendiente.
 
 Web y móvil compartirán código Expo/React Native y **las mismas autorizaciones del backend**, independientemente de la plataforma. Los impulsores son integridad/trazabilidad, privacidad, seguridad por rol/contexto, mantenibilidad, compatibilidad multiplataforma y minimización de costes universitarios. Se parte de un **monolito por capas**; no se añaden microservicios, colas ni cachés distribuidas sin necesidad comprobada. IA entrenada, analítica predictiva avanzada y RAG opcional continúan aplazados.
 
@@ -55,17 +55,17 @@ Aparecer en un dibujo no convierte una entidad en JPA real ni obliga a migrar su
 
 ## 5. Backend: estructura existente y diseño de autenticación
 
-Clase principal `es.grupo18.urbanpulse.BackendApplication`; subpaquetes `config`, `controller`, `dto`, `entity`, `repository`, `service`. En `config` existen `StorageConfig`/`StorageProperties` y configuración JWT, rate limiting, SMTP y verificación. Se implementaron `controller/AuthController`, DTO, entidades, repositorios, servicios, filtros Spring Security y manejadores de errores; los demás tags siguen pendientes.
+Clase principal `es.grupo18.urbanpulse.BackendApplication`; subpaquetes `config`, `controller`, `dto`, `entity`, `repository`, `service`. En `config` existen `StorageConfig`/`StorageProperties` y configuración JWT, rate limiting, SMTP y verificación. Se implementaron `controller/AuthController`, DTO, entidades, repositorios, servicios, filtros Spring Security y manejadores de errores; Department sigue la misma arquitectura por capas; los demás módulos siguen pendientes.
 
 Arquitectura aplicada al módulo auth: `Controller → Service → Repository → PostgreSQL`, con DTO independientes de entidades JPA. Puerto 8888 configurable, HikariCP, `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y configuración externa de storage. El SDK S3 conserva acceso al bucket privado.
 
-**Autenticación implementada:** controlador REST con registro/login/cambio de contraseña/confirmación/reenvío, servicios `AuthService`/`JwtTokenService`/`EmailVerificationService`, Spring Security con JWT firmado, consulta de cuenta activa y roles vigentes por petición y filtro de limitación para login/registro. La persistencia comprende `User`, `Role`, `UserRole`, **`EmailVerification`** y el embebido de preferencias; `emailVerified=false`, `tokenVersion=0` y `CITIZEN` al alta. No existen todavía `StaffInvitation` ni tablas departamentales. [Detalle completo](auth-design.md).
+**Autenticación implementada:** controlador REST con registro/login/cambio de contraseña/confirmación/reenvío, servicios `AuthService`/`JwtTokenService`/`EmailVerificationService`, Spring Security con JWT firmado, consulta de cuenta activa y roles vigentes por petición y filtro de limitación para login/registro. La persistencia comprende `User`, `Role`, `UserRole`, **`EmailVerification`** y el embebido de preferencias; `emailVerified=false`, `tokenVersion=0` y `CITIZEN` al alta. Existe `Department` con tabla `departments` (V2); `StaffInvitation`, equipos y pertenencias departamentales siguen pendientes. [Detalle completo](auth-design.md).
 
 JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`. Al cambiar la contraseña se incrementa `tokenVersion` transaccionalmente, invalidando tokens previos en la siguiente petición. BCrypt para credenciales; rate limiting local por instancia y `429`. La verificación de email está implementada con Mailpit local sin proveedor externo real; la recuperación de contraseña queda pendiente. La política de permisos no usa los roles del JWT como fuente de verdad: consulta PostgreSQL, y los servicios aplicarán contexto de dominio cuando corresponda.
 
-**Persistencia:** Flyway gestiona versiones en `backend/src/main/resources/db/migration/`; `V1__create_authentication.sql` crea `users`, `roles`, `user_roles` y `email_verifications` y siembra cinco códigos. Se ha probado en PostgreSQL 18 efímero; **no consta aplicada a Neon `development`**. Hibernate `ddl-auto=validate` no crea tablas. UUIDv7 está configurado en Hibernate y comprobado para `User`. No experimentar en `production`.
+**Persistencia:** Flyway gestiona versiones en `backend/src/main/resources/db/migration/`; `V1__create_authentication.sql` crea `users`, `roles`, `user_roles` y `email_verifications` y siembra cinco códigos. Se ha probado en PostgreSQL 18 efímero; **no consta aplicada a Neon `development`**. Hibernate `ddl-auto=validate` no crea tablas. UUIDv7 está configurado en Hibernate y comprobado para `User` y `Department`. No experimentar en `production`.
 
-**Contrato REST:** fuente modular en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml). Tras revisar y editar, regenerar `api/openapi.yaml` y `api/openapi.html` mediante Redocly; estos no son fuentes mantenidas a mano. Mantener identificadas las rutas implementadas de auth frente a las rutas meramente diseñadas del resto de tags; regenerar los artefactos derivados tras modificar OpenAPI.
+**Contrato REST:** fuente modular en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml). Tras revisar y editar, regenerar `api/openapi.yaml` y `api/openapi.html` mediante Redocly; estos no son fuentes mantenidas a mano. Mantener identificadas las rutas implementadas de auth y departamentos frente a las rutas meramente diseñadas del resto de tags; regenerar los artefactos derivados tras modificar OpenAPI.
 
 ## 6. Dominio operativo previsto
 
@@ -81,7 +81,7 @@ JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`.
 
 **Identidad/seguridad:** registro público ciudadano, invitaciones de personal aceptadas como mecanismo pero sin implementar, canje sobre cuenta existente sin duplicar usuario, roles/ámbito/titularidad comprobados por backend. Invitaciones globales solo OPERATOR/ADMIN, con CITIZEN base. Primer ADMIN administrado manualmente en una tarea futura.
 
-**Identificadores:** UUIDv7 en entidades persistentes, con excepciones natural/compuesta, generación desde Hibernate pendiente de prueba de integración.
+**Identificadores:** UUIDv7 en entidades persistentes, con excepciones natural/compuesta, generación desde Hibernate probada con PostgreSQL aislado para User y Department.
 
 **Contexto urbano:** `UrbanAsset`, `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` son esqueleto provisional; `UrbanContextViewDTO` es vista, sin tabla. No elegir proveedores/PostGIS por anticipado.
 
@@ -112,3 +112,13 @@ JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`.
 ### Correo transaccional y limpieza
 
 La arquitectura añade `EmailSender`/`SmtpEmailSender` con Spring Mail; un evento `AFTER_COMMIT` envía el código fuera de la transacción. `compose.yaml` incorpora Mailpit como servidor SMTP de desarrollo (sin envíos externos), con interfaz local de consulta. La tabla `email_verifications` almacena el HMAC y caducidad; un servicio programado en el backend limpia códigos vencidos y usuarios sin verificar de más de 24 horas en lotes con bloqueo compatible con confirmación/reenvío. La entrega no tiene outbox ni reintentos automáticos: existe reenvío manual. Revisar la eliminación de cuentas al añadir nuevas entidades dependientes. [Detalle](auth-design.md).
+
+## Departamentos municipales — revisión 30/10/2026
+
+El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](departments-finalization.md) para resultados y limitaciones.

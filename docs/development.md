@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado (15/10/2026):** frontend y backend arrancan juntos con Docker Compose. Las conexiones del backend con Neon PostgreSQL y Object Storage se han comprobado mediante un test manual de integración. Siguen pendientes los endpoints de negocio, las migraciones del dominio y las pruebas de operaciones completas con fotografías. Se distinguen comandos **comprobados** de procedimientos **pendientes**.
+> **Estado (15/10/2026):** frontend y backend arrancan juntos con Docker Compose. Las conexiones del backend con Neon PostgreSQL y Object Storage se han comprobado mediante un test manual de integración. Desde la revisión de 30/10/2026 están implementados autenticación y departamentos, con V1/V2 y pruebas PostgreSQL aisladas; siguen pendientes los demás módulos y las operaciones completas con fotografías. Se distinguen comandos **comprobados** de procedimientos **pendientes**.
 
 ## 1. Requisitos
 
@@ -222,10 +222,10 @@ Codex registró el **25/10/2026** 16 pruebas unitarias/MVC y 7 de integración P
 **Puesta en marcha:** `server.forward-headers-strategy=none` toma la IP de la conexión; revisar proxies antes de producción. El frontend debe renovar login al recibir `401` por JWT revocado, pero no debe cerrar sesión ante un `503` de base indisponible. `503` se emite con `ProblemDetail` y sin `WWW-Authenticate`. Antes de ejecutar `docker compose up` con el nuevo backend, revisar que el destino Flyway es **development** y respaldar/planificar la reversión.
 
 - **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
-- **Integración local de persistencia:** ya disponible `AuthenticationPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
+- **Integración local de persistencia:** disponibles `AuthenticationPostgresIT`, `EmailVerificationPostgresIT` y `DepartmentPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
 - **Integración real con Neon (`*IT`):** `NeonConnectivityIT` se ejecuta únicamente bajo demanda en `development`, con credenciales autorizadas; no participa en `postgres-it`, que usa solo Testcontainers.
 
-Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe exclusivamente para `AuthenticationPostgresIT`; `mvn clean verify -Ppostgres-it` añade esa suite con contenedor efímero y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
+Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe para `AuthenticationPostgresIT`, `EmailVerificationPostgresIT` y `DepartmentPostgresIT`; `mvn clean verify -Ppostgres-it` añade esas suites con contenedores efímeros y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
 
 Desde el contenedor, ejecutar solo los tests habituales (cuando existan):
 
@@ -278,7 +278,7 @@ Comprobar que no se han añadido secretos, datos personales reales ni directorio
 
 ## 11. Próximas pruebas y referencias
 
-Pendientes: imagen Nginx de producción, modelo y migraciones reales, pruebas de persistencia aisladas, operaciones completas S3, aplicación móvil en dispositivo, Fast Refresh sistemático, funcionalidad de negocio y workflows GitHub Actions.
+Pendientes: imagen Nginx de producción, modelo y migraciones de los módulos restantes, operaciones completas S3, aplicación móvil en dispositivo, Fast Refresh sistemático, funcionalidad de negocio y workflows GitHub Actions.
 
 - [Arquitectura](architecture.md)
 - [Despliegue](deployment.md)
@@ -299,4 +299,16 @@ La bandeja de pruebas se consulta en <http://localhost:8025> y el SMTP expone al
 
 El job `EmailVerificationCleanup` se programa por defecto a la hora en punto con `security.email-verification.cleanup-cron=0 0 * * * *`, 100 filas por lote y máximo diez lotes por fase. En tests el cron vale `-` y no se ejecuta. **Detalle de configuración pendiente de homogeneizar:** `.env.example` declara `EMAIL_VERIFICATION_CLEANUP_CRON`, pero `application.properties` no interpola esa variable; para usarla debe configurarse realmente la propiedad `security.email-verification.cleanup-cron` o cambiar el placeholder del archivo de configuración. Las cuentas no verificadas vencen tras 24 h y se eliminan cuando pase el siguiente barrido; no ejecutar esta limpieza sobre datos compartidos sin revisar su política.
 
-Tests declarados por Codex: `mvn -B -ntp clean verify -Ppostgres-it`, **55 superados**, mediante Testcontainers PostgreSQL 18; la prueba real backend+Mailpit en Compose sigue pendiente. El perfil `postgres-it` incluye `AuthenticationPostgresIT` y `EmailVerificationPostgresIT`.
+Tests declarados por Codex: `mvn -B -ntp clean verify -Ppostgres-it`, **55 superados**, mediante Testcontainers PostgreSQL 18; la prueba real backend+Mailpit en Compose sigue pendiente. El perfil `postgres-it` incluye actualmente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT` y `DepartmentPostgresIT`; el resultado de 55 corresponde a la ejecución histórica del módulo de correo.
+
+## Departamentos municipales — revisión 30/10/2026
+
+**Verificación final 31/10/2026:** `mvn -B -ntp verify -Ppostgres-it` ejecutado dentro de Docker Compose con target aislado y socket Docker: **55 pruebas unitarias/MVC + 25 PostgreSQL, 0 fallos, 0 errores, 0 omitidas; BUILD SUCCESS**. Comando reproducible completo y límites de la comprobación en el [informe de cierre](departments-finalization.md#6-pruebas-y-verificaciones-realizadas).
+
+El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](departments-finalization.md) para resultados y limitaciones.

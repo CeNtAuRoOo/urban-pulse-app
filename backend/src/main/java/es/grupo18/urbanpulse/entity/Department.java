@@ -14,6 +14,8 @@ import java.util.UUID;
 public class Department {
 
     @Id
+    @jakarta.persistence.GeneratedValue
+    @org.hibernate.annotations.UuidGenerator(style = org.hibernate.annotations.UuidGenerator.Style.VERSION_7)
     private UUID id;
 
     @Column(nullable = false, length = 120)
@@ -46,9 +48,6 @@ public class Department {
 
     @PrePersist
     void prePersist() {
-        if (id == null) {
-            id = UuidV7Generator.next();
-        }
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;

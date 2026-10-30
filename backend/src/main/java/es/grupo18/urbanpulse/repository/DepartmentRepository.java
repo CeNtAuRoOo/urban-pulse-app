@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select d from Department d where d.id = :id")
+    java.util.Optional<Department> findForUpdate(UUID id);
+
     List<Department> findAllByOrderByNameAsc();
 
     boolean existsByNameIgnoreCase(String name);
