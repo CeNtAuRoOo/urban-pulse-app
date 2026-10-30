@@ -2,8 +2,11 @@
   post:
     tags:
       - Autenticación
-    summary: Registrar ciudadano
-    description: Crea una cuenta con rol CITIZEN. La petición no admite seleccionar roles privilegiados.
+    summary: Registrar ciudadano y solicitar verificación de correo
+    description: >-
+      Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos.
+      No admite seleccionar roles ni establecer emailVerified. Crea transaccionalmente el usuario, CITIZEN y el HMAC del código; solicita el envío SMTP después del commit, sin revertir el registro si falla el correo. El cuerpo está limitado a 16 KiB y el registro se limita por IP.
+      Devuelve JWT incluso con emailVerified=false, pero se restringe el acceso a las operaciones de autenticación permitidas hasta confirmar el correo. El token sigue sujeto a actividad, CITIZEN y tokenVersion.
     operationId: postAuthRegister
     security: []
     x-roles:
@@ -16,35 +19,33 @@
             $ref: "../components/schemas/autenticacion.yaml#/RegisterRequest"
     responses:
       "201":
-        description: Recurso creado.
+        description: Cuenta ciudadana creada, código preparado y JWT emitido con acceso limitado; la entrega SMTP no está garantizada. emailVerified=false.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
-        headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
-            schema:
-              type: string
+              $ref: "../components/schemas/autenticacion.yaml#/TokenDTO"
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
       "429":
         $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /auth/login:
   post:
     tags:
       - Autenticación
     summary: Iniciar sesión
-    description: Valida credenciales y emite un JWT Bearer. Duración, renovación y revocación aún por definir.
+    description: >-
+      Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado.
+      Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta
+      o cuenta desactivada. Se permite login de cuentas sin verificar, pero su JWT tiene acceso limitado. No hay refresh tokens. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
     operationId: postAuthLogin
     security: []
     x-roles:
@@ -57,20 +58,132 @@
             $ref: "../components/schemas/autenticacion.yaml#/LoginRequest"
     responses:
       "200":
-        description: Operación correcta.
+        description: Credenciales válidas; JWT emitido. Si emailVerified=false, solo acceso de autenticación limitado.
         content:
           application/json:
             schema:
               $ref: "../components/schemas/autenticacion.yaml#/TokenDTO"
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
+
+/users/me/password-changes:
+  post:
+    tags:
+      - Autenticación
+    summary: Cambiar mi contraseña
+    description: >-
+      Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt
+      e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente,
+      incluido el usado en esta operación, quedan inválidos para las siguientes peticiones;
+      el cliente debe autenticarse otra vez. Se permite también a cuentas sin verificar. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
+    operationId: postUsersMePasswordChanges
+    x-roles:
+      - AUTHENTICATED
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/autenticacion.yaml#/ChangePasswordRequest"
+    responses:
+      "204":
+        description: Contraseña cambiada; tokens anteriores invalidados. Sin cuerpo.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
+
+/auth/email-verifications/confirm:
+  post:
+    tags:
+      - Autenticación
+    summary: Confirmar el correo de la cuenta autenticada
+    operationId: postEmailVerificationConfirm
+    x-roles:
+      - AUTHENTICATED
+    description: >-
+      Requiere JWT válido, aunque el correo todavía no esté verificado. Recibe un código
+      numérico ASCII de 8 dígitos, comprueba su HMAC ligado al usuario, la caducidad
+      (10 minutos o final del plazo de 24 horas de la cuenta) y lo consume en la misma
+      transacción que marca emailVerified=true. Si ya estaba verificado devuelve 204
+      (operación idempotente). El mismo JWT habilita el acceso a rutas de negocio
+      en la siguiente petición, pues la autorización relee PostgreSQL. Límite de cuerpo
+      de 16 KiB; buckets en memoria por usuario (5/3600 s) e IP (30/3600 s).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/autenticacion.yaml#/ConfirmEmailRequest"
+    responses:
+      "204":
+        description: Correo verificado o ya verificado. Sin cuerpo.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "422":
+        description: Código ausente, incorrecto, sustituido o caducado (INVALID_VERIFICATION_CODE), o error de validación del formato.
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas/comunes.yaml#/ProblemDetail"
       "429":
         $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
+
+/auth/email-verifications/resend:
+  post:
+    tags:
+      - Autenticación
+    summary: Solicitar otro código de verificación
+    operationId: postEmailVerificationResend
+    x-roles:
+      - AUTHENTICATED
+    description: >-
+      Requiere JWT válido y cuerpo vacío. Sustituye el código anterior y solicita el
+      envío SMTP después del commit. 202 no asegura entrega final del correo.
+      Devuelve 204 si la cuenta ya está verificada y 410 si pasaron 24 horas
+      desde el registro (aunque todavía no se haya eliminado en la limpieza).
+      Límite de cuerpo 16 KiB; cuotas en memoria: 1/60 s de enfriamiento por cuenta,
+      5/86400 s por cuenta como bucket continuo (NO cinco exactos por día) y
+      20/3600 s por IP. Los buckets se consumen en orden y no se reembolsan
+      cuando una política posterior rechaza.
+    responses:
+      "202":
+        description: Nuevo código persistido y envío solicitado después del commit. Sin cuerpo.
+      "204":
+        description: Cuenta ya verificada, no se genera otro código. Sin cuerpo.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "410":
+        $ref: "../components/responses.yaml#/Gone"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"

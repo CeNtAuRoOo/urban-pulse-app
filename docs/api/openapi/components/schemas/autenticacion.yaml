@@ -1,5 +1,6 @@
 RegisterRequest:
   type: object
+  description: Alta ciudadana pública; el servidor asigna CITIZEN, crea el código de verificación y mantiene emailVerified=false. El envío SMTP se solicita tras el commit.
   properties:
     displayName:
       type: string
@@ -8,10 +9,12 @@ RegisterRequest:
     email:
       type: string
       format: email
+      maxLength: 254
+      description: Se normaliza mediante trim/minúsculas y se compara sin distinción de mayúsculas según la política de unicidad.
     password:
       type: string
       format: password
-      description: Contraseña enviada solo por TLS; jamás se devuelve en DTO.
+      description: Contraseña enviada solo mediante TLS; mínimo 8 caracteres y máximo 72 bytes UTF-8 por BCrypt; jamás se devuelve ni registra.
       minLength: 8
   required:
     - displayName
@@ -25,6 +28,7 @@ LoginRequest:
     email:
       type: string
       format: email
+      maxLength: 254
     password:
       type: string
       format: password
@@ -33,20 +37,59 @@ LoginRequest:
     - password
   additionalProperties: false
 
+ChangePasswordRequest:
+  type: object
+  description: >-
+    La contraseña actual debe coincidir con la almacenada; al cambiarla se invalidan
+    todas las sesiones JWT previas mediante tokenVersion.
+  properties:
+    currentPassword:
+      type: string
+      format: password
+      minLength: 1
+    newPassword:
+      type: string
+      format: password
+      minLength: 8
+      description: Máximo 72 bytes UTF-8 por BCrypt; se valida en backend.
+  required:
+    - currentPassword
+    - newPassword
+  additionalProperties: false
+
+ConfirmEmailRequest:
+  type: object
+  description: Confirmación de correo del titular autenticado mediante código numérico de ocho dígitos ASCII.
+  additionalProperties: false
+  required:
+    - code
+  properties:
+    code:
+      type: string
+      pattern: '^[0-9]{8}$'
+      minLength: 8
+      maxLength: 8
+      example: '01234567'
+      description: Secreto de un solo uso, válido como máximo 10 minutos y nunca más allá de las 24 horas desde el registro.
+
 TokenDTO:
   type: object
+  description: Respuesta de registro ciudadano o login; accessToken es un JWT firmado y no cifrado. Una cuenta con emailVerified=false dispone de acceso limitado hasta confirmar su correo.
   properties:
     accessToken:
       type: string
-      description: JWT firmado.
+      description: >-
+        JWT Bearer con claims sub (UUID de usuario), iat, exp, iss y ver (tokenVersion).
+        Los roles no son fuente de autorización dentro del token.
     tokenType:
       type: string
       enum:
         - Bearer
     expiresIn:
       type: integer
-      description: Duración del token en segundos.
+      description: Duración del token de acceso en segundos; versión inicial 7200.
       minimum: 1
+      example: 7200
     user:
       $ref: "./usuarios.yaml#/UserDTO"
   required:

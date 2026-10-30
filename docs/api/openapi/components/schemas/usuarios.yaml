@@ -8,12 +8,16 @@ UserSummaryDTO:
       type: string
       example: Ana Pérez
   required:
-  - id
-  - displayName
-  description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de 
-    incidencias.
+    - id
+    - displayName
+  description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de incidencias.
+
 UserDTO:
   type: object
+  description: >-
+    Vista autorizada del usuario. En registro y login se devuelve el perfil del propio titular;
+    jamás incluye passwordHash ni tokenVersion. email y departmentMemberships se exponen
+    solo cuando el solicitante tenga permiso. No constituye un mecanismo de fields dinámico.
   properties:
     id:
       type: string
@@ -24,6 +28,11 @@ UserDTO:
       type: string
       format: email
       description: Visible únicamente para el titular o personal autorizado.
+    emailVerified:
+      type: boolean
+      description: >-
+        Indica si se ha verificado el control del correo. Se inicializa a false en registro;
+        la confirmación por código HMAC ya se implementa en el backend y habilita el acceso de negocio en la siguiente petición.
     active:
       type: boolean
     createdAt:
@@ -31,8 +40,9 @@ UserDTO:
       format: date-time
     roles:
       type: array
-      description: Roles GLOBAL concedidos mediante UserRole. Los roles DEPARTMENT se consultan a través 
-        de departmentMemberships.
+      description: >-
+        Roles GLOBAL concedidos mediante UserRole. Toda cuenta tiene CITIZEN;
+        los roles DEPARTMENT se consultan a través de departmentMemberships.
       items:
         $ref: ./usuarios.yaml#/GlobalRoleCode
       uniqueItems: true
@@ -42,12 +52,13 @@ UserDTO:
       items:
         $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:
-  - id
-  - displayName
-  - active
-  - createdAt
+    - id
+    - displayName
+    - emailVerified
+    - active
+    - createdAt
+    - roles
 
-  - roles
 UpdateProfileRequest:
   type: object
   properties:
@@ -63,12 +74,12 @@ AdminUpdateUserRequest:
   properties:
     active:
       type: boolean
-  description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza 
-    invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio cuando se 
-    implementen.
+  description: >-
+    Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza
+    invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
   additionalProperties: false
-
   minProperties: 1
+
 UsersPageDTO:
   type: object
   properties:
@@ -79,26 +90,21 @@ UsersPageDTO:
     pagination:
       $ref: "./comunes.yaml#/PageMetadata"
   required:
-  - data
-  - pagination
+    - data
+    - pagination
+
 RoleCode:
   type: string
   enum:
-  - CITIZEN
-  - OPERATOR
-  - ADMIN
-  - DEPARTMENT_COORDINATOR
-  - TECHNICIAN
-  description: 'Catálogo completo de roles; para usos por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.'
-RoleScope:
-  type: string
-  enum:
-  - GLOBAL
-  - DEPARTMENT
+    - CITIZEN
+    - OPERATOR
+    - ADMIN
+    - DEPARTMENT_COORDINATOR
+    - TECHNICIAN
+  description: Catálogo completo de códigos; el ámbito se deduce del código (sin RoleScope persistido). Para DTO por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
 DepartmentMembershipDTO:
   type: object
-  description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. 
-    Las fechas conservan historial.
+  description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.
   properties:
     department:
       $ref: ./catalogos.yaml#/DepartmentDTO
@@ -111,19 +117,21 @@ DepartmentMembershipDTO:
       type: string
       format: date-time
   required:
-  - department
-  - role
-  - joinedAt
+    - department
+    - role
+    - joinedAt
 GlobalRoleCode:
   type: string
   enum:
-  - CITIZEN
-  - OPERATOR
-  - ADMIN
-  description: Roles globales definidos en ADR-0009; no implican pertenencia departamental.
+    - CITIZEN
+    - OPERATOR
+    - ADMIN
+  description: >-
+    Roles globales definidos en ADR-0009. CITIZEN es inherente a toda cuenta;
+    OPERATOR y ADMIN son privilegios adicionales.
 DepartmentRoleCode:
   type: string
   enum:
-  - DEPARTMENT_COORDINATOR
-  - TECHNICIAN
-  description: 'Roles departamentales: requieren DepartmentMembership activa para actuar.'
+    - DEPARTMENT_COORDINATOR
+    - TECHNICIAN
+  description: Roles departamentales; requieren DepartmentMembership activa para actuar.

@@ -1,42 +1,47 @@
 # ADR-0009: Roles globales y departamentales, pertenencias y equipos
 
-- **Estado:** Aceptado como decisión de diseño; implementación pendiente
-- **Fecha:** 2026-10-18
-- **Ámbito:** Dominio, autorización y organización municipal
+- **Estado:** Aceptado; roles globales del núcleo auth implementados, pertenencias/equipos pendientes.
+- **Fecha:** 2026-10-18.
+- **Revisión:** 2026-10-27.
+- **Ámbito:** Dominio, autorización y organización municipal.
 
 ## Contexto
 
-El enunciado diferencia ciudadanía, operadores municipales, técnicos y administradores, pero no concreta cómo se distribuyen dentro de un departamento los trabajos ya derivados. Se necesita distinguir un operador **municipal neutral**, un coordinador de departamento y técnicos adscritos a uno o más departamentos; además, conservar el historial organizativo sin exigir un equipo ficticio por cada trabajo individual.
+El enunciado diferencia ciudadanía, operadores municipales, técnicos y administradores sin precisar la organización de los trabajos ya derivados. Se necesita distinguir un operador municipal neutral, coordinadores departamentales y técnicos adscritos a departamentos, conservando historial y permitiendo que una misma cuenta mantenga sus capacidades ciudadanas.
 
 ## Alternativas consideradas
 
-1. Un solo rol `OPERATOR` con una bandera o posición en `DepartmentMembership` para el coordinador.
-2. Roles diferenciados por función, asignados por ámbito; departamentos/equipos reales y temporales.
-3. Tablas de usuarios distintas para operadores, coordinadores y técnicos.
-4. Un departamento ficticio `General` para recibir todos los avisos.
+1. Rol único `OPERATOR` y marca de coordinación en `DepartmentMembership`.
+2. **Roles diferenciados por función y ámbito**, departamentos/equipos estables y relaciones temporales (**elegida**).
+3. Entidades de usuario independientes para cada rol.
+4. Departamento ficticio `General` para toda incidencia.
 
 ## Decisión
 
-- Una sola entidad `User` para ciudadanos y personal; sin herencia de subclases por rol.
-- Catálogo persistente `Role` y relación `UserRole` para **roles globales** (`CITIZEN`, `OPERATOR`, `ADMIN`). Se admiten varios roles globales en la misma cuenta; no se trata de permisos administrables arbitrariamente.
-- Roles **departamentales** (`DEPARTMENT_COORDINATOR`, `TECHNICIAN`) mediante `DepartmentMembership` con rol, departamento, incorporación y finalización. `Role.scope` indica `GLOBAL` o `DEPARTMENT`; la aplicación debe validar que cada tipo de vínculo use el ámbito correcto.
-- `OPERATOR` no precisa pertenencia departamental para revisar, priorizar y derivar informes al departamento competente. `DEPARTMENT_COORDINATOR` gestiona los trabajos de sus departamentos; `TECHNICIAN` ejecuta/acepta únicamente trabajos autorizados.
-- `Team` pertenece a un `Department` y existe de manera **estable y reutilizable**; un coordinador autorizado puede crearlo, modificarlo y **desactivarlo**, sin borrar las referencias históricas.
-- `TeamMembership` asocia el equipo con una `DepartmentMembership` y registra fechas de pertenencia. La pertenencia debe referirse a un técnico autorizado del **mismo departamento** que el equipo.
-- No crear equipos artificiales de una persona para asignaciones individuales. Tampoco introducir por ahora tablas genéricas `Permission`/`RolePermission`: Spring Security y los servicios aplican las reglas de autorización por rol y contexto.
-- `ANALYST` y la parte analítica avanzada marcada como opcional en el enunciado se posponen.
+- Una sola entidad `User` para ciudadanos y personal; sin herencia de subclases. **Toda cuenta contiene siempre `CITIZEN` como rol global base**, incluidas cuentas que se incorporan por invitación. Los roles municipales se añaden, nunca sustituyen automáticamente a `CITIZEN`.
+- Catálogo persistente `Role` (`code`, `description`, sin columna `scope`) y relación explícita `UserRole` para roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`), con clave primaria compuesta `(user_id, role_code)` implementada. Una cuenta puede tener varios roles globales; el cliente no puede elegirlos al registrarse.
+- Roles departamentales `DEPARTMENT_COORDINATOR` y `TECHNICIAN` mediante `DepartmentMembership` con usuario, rol, departamento, fechas de alta/baja. La clasificación `GLOBAL`/`DEPARTMENT` se obtiene del propio `RoleCode` mediante métodos como `isGlobal()`/`isDepartmental()`; se elimina `RoleScope` y no se persiste una columna `scope`. El servidor y, donde proceda, las restricciones SQL impiden asignar roles departamentales a `UserRole` o globales a `DepartmentMembership`.
+- `OPERATOR` tiene competencias municipales transversales de revisión, priorización y derivación sin necesitar pertenencia a un departamento. El coordinador distribuye los trabajos dentro de sus departamentos; el técnico acepta/ejecuta los trabajos autorizados.
+- `Team` es estable, reutilizable y desactivable; preserva referencias históricas. `TeamMembership` relaciona `Team` con `DepartmentMembership` activa del rol técnico y del mismo departamento. No crear equipos ficticios de una sola persona para trabajos individuales.
+- No se adoptan por ahora tablas genéricas `Permission`/`RolePermission`; las comprobaciones de rol y contexto se implementan en Spring Security y servicios.
+- La autorización **implementada lee cuenta activa, versión del JWT y permisos globales actuales desde PostgreSQL en cada acceso protegido**, sin confiar en roles embebidos en el JWT. Incluye control de titularidad, pertenencia activa y estado de recursos cuando corresponda. La excepción funcional es la emisión de JWT en registro/login y rutas expresamente públicas.
+- No se incluye `ANALYST` por estar aplazada la parte analítica avanzada del enunciado.
 
 ## Consecuencias
 
-**Ventajas:** separa tramitación transversal y gestión departamental; permite usuarios con funciones múltiples, control de acceso por ámbito e historial de pertenencias; evita construir departamentos organizativamente ficticios.
+**Revisión del 25/10/2026:** se elimina la duplicación de ámbito en `Role.scope`/`RoleScope`: el catálogo fijo de códigos es la única fuente de verdad. Los checks de ámbito siguen siendo invariantes obligatorias del dominio.
 
-**Costes:** un rol por sí solo no basta para autorizar actuaciones; hacen falta consultas de pertenencias activas, comprobación de equipo/departamento, controles de concurrencia y auditoría. Hay que evitar privilegios cruzados accidentales cuando un usuario pertenece a varios departamentos.
+**Ventajas:** seguridad por contexto, roles múltiples, separación de la gestión transversal/departamental y continuidad de uso ciudadano del personal.
+
+**Costes:** lecturas de estado/permisos por petición y necesidad de evitar N+1; controlar pertenencias concurrentes, revocaciones y privilegios cruzados cuando un usuario pertenezca a varios departamentos. La persistencia de `UserRole` debe quedar coherente con cualquier colección `User.globalRoles` en JPA: no representar dos fuentes editables independientes.
 
 ## Verificaciones pendientes por tag
 
-- Matriz de operaciones autorizadas para cada rol/ámbito; reglas de alta, revocación y promoción.
-- Si se permite más de una pertenencia activa del mismo rol a un departamento y qué restricciones SQL impiden duplicados.
-- Reglas de desactivación y conservación de integrantes antiguos, transferencias de técnicos y asignaciones abiertas.
-- Mapeo JPA, FK/índices y DTO de roles/pertenencias; los esquemas base de OpenAPI ya están alineados; refinar autorización y gestión CRUD de equipos/pertenencias cuando se implemente su alcance.
+- Matriz fina de operaciones autorizadas, revocación y promoción de roles.
+- Si se permite más de una pertenencia activa del mismo rol por departamento y qué índice impide duplicados.
+- Desactivación de equipos, conservación de integrantes históricos y transferencias de técnicos con asignaciones abiertas.
+- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Pendientes:** resto de entidades, reglas departamentales, proyecciones de otros DTO y visibilidad contextual de datos personales.
+- Selección dinámica de campos `fields` y posible anotación por propiedad con condiciones `OWNER`/`ADMIN`/`NONE`: **propuesta en investigación, no adoptada aún ni incluida en esta implementación**.
+- Restricción de roles globales invitables a `OPERATOR`/`ADMIN` según ADR-0007.
 
-**Estado de entrega:** el modelo está documentado en `docs/diagrams` y `docs/domain-model.md`; no hay entidades JPA ni permisos implementados.
+**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. Las relaciones departamentales y equipos siguen diseñados, sin migraciones ni implementación anticipada. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
