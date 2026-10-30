@@ -1,36 +1,39 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado como criterio de diseño; generación y mapeo pendientes de prueba
-- **Fecha:** 2026-10-18
-- **Ámbito:** Identidad de entidades y persistencia PostgreSQL
+- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
+- **Fecha:** 2026-10-18.
+- **Revisión:** 2026-10-27.
+- **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
 
-UrbanPulse expone recursos REST y persiste relaciones entre incidencias, usuarios, asignaciones y evidencias. Se buscó un identificador opaco, estable, utilizable desde Java y PostgreSQL y que evite mantener dos identificadores por registro sin una necesidad justificada.
+UrbanPulse expone recursos REST y persiste relaciones entre incidencias, usuarios, asignaciones y evidencias. Se precisa un identificador opaco, estable, utilizable desde Java y PostgreSQL, sin duplicar claves internas/públicas injustificadamente.
 
 ## Alternativas
 
 1. `BIGINT`/secuencia: pequeño y eficiente, pero secuencial y dependiente de generación centralizada.
 2. UUIDv4: descentralizado y opaco, pero aleatorio en índices.
-3. **UUIDv7**: 128 bits con ordenación aproximadamente temporal, adecuado como PK general.
-4. Clave interna `BIGINT` + identificador público: añade correspondencia sin necesidad funcional demostrada en esta fase.
+3. **UUIDv7**: 128 bits con ordenación aproximadamente temporal, adecuado como PK general (**elegida**).
+4. Clave interna `BIGINT` más identificador público.
 
 ## Decisión
 
-Usar **UUIDv7** como identificador principal de entidades con identidad propia: Java `UUID`, PostgreSQL `uuid`, API como representación textual. En PostgreSQL 18 existe la función nativa `uuidv7()`. Como excepción, `Role.code` es una clave natural estable del catálogo (`RoleCode`), y `UserRole` puede tener PK compuesta por las claves vinculadas. Los códigos externos de activos (`externalId`) no reemplazan a la PK local y deben acompañarse de fuente y restricciones según su procedencia.
+Utilizar **UUIDv7** como PK de entidades con identidad propia: `UUID` en Java, `uuid` en PostgreSQL 18 y `string`/`format: uuid` en OpenAPI. Excepciones: `Role.code` es código estable (`RoleCode`) y `UserRole` puede tener PK compuesta (`user_id`, `role_code`). Los códigos externos no reemplazan a UUID internos.
 
-No elegir aún de forma definitiva si genera UUIDv7 el backend o PostgreSQL: hacerlo **al implementar el primer mapeo JPA** y comprobar de extremo a extremo el tipo, la versión generada y el comportamiento de inserción. `GenerationType.UUID` no debe suponerse equivalente a v7 sin verificarlo. UUIDv7 **no sustituye** `createdAt` ni constituye un mecanismo de seguridad/autorización.
+**La generación se hará en Java mediante el generador de Hibernate** `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` y `@GeneratedValue`, para las entidades JPA pertinentes. No se utilizará indiscriminadamente `GenerationType.UUID` sin fijar la versión. Las migraciones Flyway crearán columnas PostgreSQL `uuid` y PK/FK y Hibernate generará los identificadores de nuevas entidades del backend. No añadir un generador alternativo sin necesidad.
+
+PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta como generador ordinario de entidades JPA en esta fase. Las fechas `createdAt` siguen existiendo y el UUIDv7 nunca constituye control de seguridad ni de autorización.
 
 ## Consecuencias
 
-**Ventajas:** identificadores estables y no secuenciales, sin doble clave de API/persistencia, soportados por Java y PostgreSQL.
+**Ventajas:** identificadores estables sin clave duplicada; generación coherente con el proceso JPA; menor aleatoriedad de inserción respecto a UUIDv4.
 
-**Costes:** 16 bytes por clave, con más espacio en índices y FK que `BIGINT`; permite inferir aproximadamente el tiempo de generación; hay que validar la estrategia de generación real con el stack adoptado.
+**Costes:** 16 bytes por identificador, índices mayores que `BIGINT`, inferencia temporal aproximada y necesidad de probar la estrategia de generación del Hibernate real. `VERSION_7` puede marcarse como API incubadora en algunas versiones de Hibernate; verificar su compatibilidad y versionado al implementar.
 
-## Verificaciones pendientes
+## Evidencias de implementación y pendientes
 
-- Definir generador único y coherencia Hibernate/Flyway.
-- Evaluar índices, formatos en OpenAPI (`string`, `format: uuid` ya incorporado a las referencias a entidades en el contrato base), claves compuestas, unicidad e integridad referencial por entidad.
-- Confirmar funcionamiento en base PostgreSQL de pruebas aislada y posteriormente en Neon `development`; no modificar `production` durante esta fase documental.
+- **Probado en `AuthenticationPostgresIT` con PostgreSQL 18 efímero:** inserción/recuperación de `User` mediante JPA y UUID con `id.version() == 7`; Flyway y validación Hibernate.
+- Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
+- Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado de entrega:** diseño dibujado, no tabla ni migración aplicada.
+**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.

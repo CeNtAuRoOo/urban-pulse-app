@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
         "spring.flyway.enabled=false",
+        "security.email-verification.cleanup-cron=-",
         "spring.jpa.hibernate.ddl-auto=none"
 })
 class NeonConnectivityIT {

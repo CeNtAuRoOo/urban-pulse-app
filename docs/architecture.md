@@ -1,27 +1,25 @@
 # Arquitectura de UrbanPulse
 
-> **Estado técnico comprobado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose; Neon PostgreSQL y Neon Object Storage accesibles desde Spring Boot en `development`. **Sin endpoints de negocio, entidades JPA, migraciones SQL del dominio ni flujo funcional de fotografías.** El **modelo de dominio v1** documentado el 18/10/2026 es un **borrador compartido**, no un diseño íntegramente validado ni código implementado. Véase [modelo de dominio](domain-model.md).
+> **Estado técnico comprobado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose; Neon PostgreSQL y Neon Object Storage accesibles desde Spring Boot en `development`. **Con núcleo de autenticación Java/JPA/Flyway implementado localmente, pero sin endpoints de incidencias ni flujo funcional de fotografías.** El modelo de dominio v1 es un diseño compartido, no un esquema íntegramente validado ni código. **Tag Autenticación implementado en código; integración PostgreSQL efímera probada anteriormente, despliegue sobre Neon `development` pendiente.** Ver [diseño de autenticación](auth-design.md).
 
 ## 1. Alcance y principios
 
-UrbanPulse permitirá reportar incidencias urbanas con ubicación, estado, fotografías e historial; validarlas, priorizarlas y distribuirlas a departamentos y personal municipal; y, progresivamente, enriquecerse con activos y observaciones de fuentes externas. La funcionalidad de negocio sigue pendiente de implementación.
+UrbanPulse permitirá reportar incidencias urbanas con ubicación, estado, fotografías e historial; validarlas, priorizarlas y distribuirlas a departamentos y personal municipal; y enriquecerlas progresivamente con activos y observaciones externas. La funcionalidad de negocio sigue pendiente de implementación.
 
-Las aplicaciones web y móvil compartirán una base de código (Expo / React Native / React Native Web) y **las mismas autorizaciones según rol**, sin depender de si acceden por web o móvil. La aplicación nativa se probará en una fase posterior.
-
-**Impulsores:** integridad/trazabilidad, privacidad, control de acceso, mantenibilidad, compatibilidad web/móvil, evolución cloud y minimización de costes universitarios. Partimos de un **monolito por capas**: no se añaden microservicios, colas ni cachés sin necesidad comprobada. El documento del proyecto mantiene algunas funciones avanzadas de IA, analítica predictiva y RAG **fuera del alcance de esta fase**; disponer de tags OpenAPI correspondientes no las convierte en trabajo ya aprobado.
+Web y móvil compartirán código Expo/React Native y **las mismas autorizaciones del backend**, independientemente de la plataforma. Los impulsores son integridad/trazabilidad, privacidad, seguridad por rol/contexto, mantenibilidad, compatibilidad multiplataforma y minimización de costes universitarios. Se parte de un **monolito por capas**; no se añaden microservicios, colas ni cachés distribuidas sin necesidad comprobada. IA entrenada, analítica predictiva avanzada y RAG opcional continúan aplazados.
 
 ## 2. Contenedores lógicos y tecnologías
 
-| Componente               | Tecnología                                                     | Estado                                                                             |
-| ------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Aplicación web           | Expo SDK 57, React Native Web, TypeScript, Expo Router         | Pantalla inicial y desarrollo web verificados                                      |
-| Aplicaciones Android/iOS | Expo / React Native                                            | Código compartido, sin prueba funcional completa en dispositivo                    |
-| API REST                 | Java 25 / Spring Boot 4.1.1 / Maven / Spring Security / JPA    | Proyecto y configuración existentes; sin endpoints de negocio                      |
-| Base principal           | Neon PostgreSQL 18                                             | JDBC verificado en `development`; esquema de dominio pendiente                     |
-| Fotografías              | Neon Object Storage, API compatible con S3                     | Bucket privado y conectividad `HeadBucket` comprobados; subida/descarga pendientes |
-| Proveedores externos     | Mapas, geocodificación, inventario de activos y notificaciones | Selección e integración pendientes                                                 |
+| Componente           | Tecnología                                                  | Estado                                                                                                |
+| -------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Aplicación web       | Expo SDK 57, React Native Web, TypeScript, Expo Router      | Pantalla inicial y desarrollo web verificados.                                                        |
+| Android/iOS          | Expo / React Native                                         | Código compartido, sin prueba funcional completa en dispositivo.                                      |
+| API REST             | Java 25 / Spring Boot 4.1.2 / Maven / Spring Security / JPA | Cinco endpoints de autenticación/verificación implementados; negocio de incidencias pendiente.                      |
+| Base principal       | Neon PostgreSQL 18                                          | JDBC verificado en development; V1 auth probada en PostgreSQL efímero y pendiente de aplicar en Neon. |
+| Fotografías          | Neon Object Storage compatible con S3                       | Bucket privado y `HeadBucket` comprobados; operaciones de contenido pendientes.                       |
+| Proveedores externos | Mapas, geocodificación, inventario, notificaciones          | Selección/integración pendientes.                                                                     |
 
-El cliente solo consume la API REST: no conoce ni utiliza credenciales de PostgreSQL o Object Storage. Las claves privadas se mantienen fuera del código y del frontend.
+Los clientes solo se comunican con la API; no reciben credenciales PostgreSQL ni S3. Las claves se suministran mediante configuración segura del backend.
 
 ## 3. Arquitectura C4 y modelo de dominio
 
@@ -33,78 +31,84 @@ El cliente solo consume la API REST: no conoce ni utiliza credenciales de Postgr
 
 ![C4 - Contenedores](diagrams/c4-containers.svg)
 
-Ambos diagramas se conservan como SVG y **también se incorpora** su fuente editable independiente [`diagrams/c4.drawio`](diagrams/c4.drawio). Un contenedor C4 representa una unidad lógica ejecutable/almacén, no necesariamente un Docker container. Los sistemas administrados de Neon pueden aparecer dentro del límite lógico del sistema.
+Las fuentes editables están en [`diagrams/c4.drawio`](diagrams/c4.drawio). Un contenedor C4 es una unidad lógica, no necesariamente un contenedor Docker; los almacenes administrados de Neon pueden estar dentro del límite lógico del sistema. **Pendiente:** C4 de contenedores todavía menciona vídeos/documentos; el alcance inicial acordado es solo fotografías (ADR-0004).
 
-**Pendiente:** `c4-containers.svg` todavía menciona vídeos/documentos; la etapa inicial solo considera **fotografías** (ADR-0004, aceptado). No se redibuja en este PR.
+### 3.3. Modelo de dominio lógico
 
-### 3.3. Modelo de dominio lógico (versión base v1)
+- [Relacional multipágina](diagrams/relacional.drawio): tablas propuestas, PK/FK y relaciones en cuatro páginas (incidencias, tramitación, identidad/organización, territorio/contexto).
+- [Catálogo simplificado de clases](diagrams/clases-simplificado.drawio): clases Java candidatas, campos, enum, `@Embeddable` y DTO, sin conexiones UML por diseño. Exportaciones SVG indexadas en [diagramas](diagrams/README.md).
+- [Modelo de dominio](domain-model.md) y [contrato dominio–OpenAPI](api/domain-openapi.md) se revisan juntos por tag. El `0.2.0` fue base; la revisión `0.4.0` concreta auth y verificación de correo y exige actualizar manualmente las vistas gráficas antes de confirmar su sincronización.
+- [Diseño de autenticación](auth-design.md) registra las decisiones ya implementadas y diferencia las mejoras futuras.
 
-- **[Relacional multipágina](diagrams/relacional.drawio):** tablas previstas, campos principales, PK, FK y cardinalidades, en cuatro páginas (incidencias; tramitación; identidad/organización; territorio/contexto).
-- **[Catálogo de clases simplificado](diagrams/clases-simplificado.drawio):** clases Java previstas con campos/tipos, enumeraciones, objetos de valor `@Embeddable` y DTO; **una página sin relaciones intencionadamente**, puesto que estas se estudian en el ER.
-- Las imágenes SVG exportadas están indexadas en [diagramas](diagrams/README.md).
-
-**Estado: versión base del dominio sincronizada con OpenAPI 0.2.0; no validación exhaustiva ni implementación.** Una decisión de que una clase aparezca en el dibujo **no** obliga a implementarla ahora ni significa que su persistencia/campos/DTO ya estén aprobados. El equipo revisará el **dominio–OpenAPI como una sola unidad por tag**, empezando por los casos de uso que efectivamente construya cada compañero; cada PR ajustará diagramas, documentación, contrato, pruebas y migraciones pertinentes. Detalles en [modelo de dominio y proceso de revisión](domain-model.md), junto con la [integración dominio–OpenAPI](api/domain-openapi.md).
+Aparecer en un dibujo no convierte una entidad en JPA real ni obliga a migrar su tabla en este tag. El PR del tag debe modificar contrato, diagramas y ADR coherentemente cuando evolucionen los requisitos.
 
 ### 3.4. Diagramas todavía pendientes
 
-- C4 Deployment: definir proveedor real, HTTPS, dominio y redes.
-- Secuencia/dinámico de subida autorizada de fotos y registro de incidencias.
-- Máquina de estados explícita (matriz de transiciones); el enum ya aparece en el diagrama, pero **no** se han validado todas las transiciones.
+- C4 Deployment: hosting real, HTTPS, dominio y redes.
+- Secuencia de subida autorizada de fotografías y registro de incidencia.
+- Máquina de estados detallada y matriz de transiciones/permisos.
+- Antes de futuras ampliaciones, contrastar la página ER de identidad y las clases simplificadas con la V1 ejecutada en pruebas, sin añadir tablas de tags pendientes.
 
 ## 4. Frontend universal: estructura y estado
 
-`frontend/` incluye Expo Router con `src/app/_layout.tsx`, `src/app/index.tsx`, `src/components`, `src/features`, `src/services` y `src/types`, además de configuración de Expo, TypeScript y ESLint. Se utiliza **Metro**, no Vite. `web.output="single"` genera una SPA exportable y se ha verificado `npx expo export --platform web`; el Dockerfile de producción utiliza Nginx, pero **la imagen final de producción no se ha validado**.
+`frontend/` incluye Expo Router en `src/app`, `components`, `features`, `services` y `types`; Metro, TypeScript y ESLint. `web.output="single"` genera una SPA exportable; `npx expo export --platform web` se ha verificado, pero no la imagen final Nginx de producción. No existe todavía formulario de incidencias, cliente API integrado, login real ni reglas de permisos visuales. Ninguna restricción visual sustituye la autorización del backend. `EXPO_PUBLIC_API_URL` es pública y no almacena secretos.
 
-El frontend aún no dispone de formularios de incidencias, cliente API funcional, inicio de sesión ni reglas de permisos visuales. Esas reglas no sustituirán a la autorización del backend.
+## 5. Backend: estructura existente y diseño de autenticación
 
-## 5. Backend: estructura existente
+Clase principal `es.grupo18.urbanpulse.BackendApplication`; subpaquetes `config`, `controller`, `dto`, `entity`, `repository`, `service`. En `config` existen `StorageConfig`/`StorageProperties` y configuración JWT, rate limiting, SMTP y verificación. Se implementaron `controller/AuthController`, DTO, entidades, repositorios, servicios, filtros Spring Security y manejadores de errores; los demás tags siguen pendientes.
 
-Clase principal: `es.grupo18.urbanpulse.BackendApplication`. Subpaquetes `config`, `controller`, `dto`, `entity`, `repository` y `service`. En `config` existen `StorageConfig` y `StorageProperties`; `controller`, `dto`, `entity`, `repository` y `service` **siguen vacíos para negocio**.
+Arquitectura aplicada al módulo auth: `Controller → Service → Repository → PostgreSQL`, con DTO independientes de entidades JPA. Puerto 8888 configurable, HikariCP, `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y configuración externa de storage. El SDK S3 conserva acceso al bucket privado.
 
-Organización objetivo: `Controller → Service → Repository → PostgreSQL`, con DTO de intercambio independientes de entidades JPA. El backend escucha en el puerto **8888** (configurable), utiliza HikariCP, `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y configuración externa de servicios. El SDK S3 configura el acceso al bucket privado.
+**Autenticación implementada:** controlador REST con registro/login/cambio de contraseña/confirmación/reenvío, servicios `AuthService`/`JwtTokenService`/`EmailVerificationService`, Spring Security con JWT firmado, consulta de cuenta activa y roles vigentes por petición y filtro de limitación para login/registro. La persistencia comprende `User`, `Role`, `UserRole`, **`EmailVerification`** y el embebido de preferencias; `emailVerified=false`, `tokenVersion=0` y `CITIZEN` al alta. No existen todavía `StaffInvitation` ni tablas departamentales. [Detalle completo](auth-design.md).
 
-**Persistencia:** Flyway gestionará migraciones versionadas dentro de `backend/src/main/resources/db/migration/`; el script inicial del dominio **todavía no existe**. `ddl-auto=validate` no crea tablas. No ejecutar migraciones experimentales sobre la rama `production` de Neon. Los futuros tests de persistencia deben aislarse de la base compartida, mientras `NeonConnectivityIT` seguirá como prueba manual de humo.
+JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`. Al cambiar la contraseña se incrementa `tokenVersion` transaccionalmente, invalidando tokens previos en la siguiente petición. BCrypt para credenciales; rate limiting local por instancia y `429`. La verificación de email está implementada con Mailpit local sin proveedor externo real; la recuperación de contraseña queda pendiente. La política de permisos no usa los roles del JWT como fuente de verdad: consulta PostgreSQL, y los servicios aplicarán contexto de dominio cuando corresponda.
 
-**Contrato REST:** existe un borrador OpenAPI 3.0.3 **modular** en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml), con operaciones por tag y esquemas reutilizables. [`api/openapi.yaml`](api/openapi.yaml) es una copia monolítica; si se modifica el contrato habrá que **regenerarla**, junto con `api/openapi.html`, desde la fuente modular. El contrato no demuestra la existencia de endpoints.
+**Persistencia:** Flyway gestiona versiones en `backend/src/main/resources/db/migration/`; `V1__create_authentication.sql` crea `users`, `roles`, `user_roles` y `email_verifications` y siembra cinco códigos. Se ha probado en PostgreSQL 18 efímero; **no consta aplicada a Neon `development`**. Hibernate `ddl-auto=validate` no crea tablas. UUIDv7 está configurado en Hibernate y comprobado para `User`. No experimentar en `production`.
 
-## 6. Dominio operativo previsto y decisiones aceptadas
+**Contrato REST:** fuente modular en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml). Tras revisar y editar, regenerar `api/openapi.yaml` y `api/openapi.html` mediante Redocly; estos no son fuentes mantenidas a mano. Mantener identificadas las rutas implementadas de auth frente a las rutas meramente diseñadas del resto de tags; regenerar los artefactos derivados tras modificar OpenAPI.
 
-**Incidencia central (`Incident`):** informante, categoría opcional, coordenadas y datos geográficos derivados (opcionales), fotografías, historial de estados, prioridad justificada y departamento responsable opcional. La ausencia de datos externos **no bloquea** la creación.
+## 6. Dominio operativo previsto
 
-**Roles y ámbito (ADR-0009):** `User` común con catálogo `Role`; roles globales `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y roles departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN` mediante `DepartmentMembership`. `OPERATOR` es municipal/transversal y **no necesita departamento**; coordinadores y técnicos solo operan sobre departamentos autorizados. Equipos `Team` reutilizables y desactivables conservan sus `TeamMembership` históricos.
+**Seguridad implementada:** JWT HS256 de 7200 s y BCrypt 12; cada petición protegida consulta actividad, versión y roles globales de PostgreSQL y exige el rol `CITIZEN`. El cambio de contraseña invalida JWT anteriores incrementando `tokenVersion` transaccionalmente. Fallo tipado de conexión/timeout PostgreSQL → `503`; JWT inválido → `401`; fallo interno → `500`. Registro y login usan limitadores independientes en memoria; los cinco POST auth limitan el cuerpo a 16 KiB. El acceso requiere `EMAIL_VERIFIED` salvo operaciones de autenticación limitadas para cuentas pendientes; confirmación/reenvío cuentan con buckets independientes. Los permisos departamentales/por titularidad quedan para otros tags.
 
-**Tramitación (ADR-0010):** `IncidentStatus` propone `REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED_TO_DEPARTMENT`, `WORK_ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED`, `CLOSED`. Un operador puede dejar una incidencia `VALIDATED` sin asignarle todavía departamento. La derivación se refleja en `Incident.assignedDepartment` y `StatusChange`; **`Assignment` solo aparece al distribuir trabajo a un equipo o técnico**, con historial de reasignaciones y como máximo una activa. `StatusChange` audita los cambios de estado; `AuditEvent` otros cambios importantes (por ejemplo una transferencia departamental). La **matriz completa de transiciones y los permisos por operación quedan pendientes**.
+**Incidencia (`Incident`):** informante, categoría opcional, coordenadas y datos derivados opcionales, fotografías, historia de estados, prioridad justificada y departamento responsable opcional. Falta de proveedores externos no bloquea creación.
 
-**Prioridades:** escala `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; decisiones `PriorityDecision` auditables. **Duplicados:** el sistema ofrece `DuplicateSuggestionDTO` calculadas, nunca decisiones automáticas; solo un operador autorizado confirma `DuplicateLink` conservando ambos reportes. La detección semántica con IA queda para una fase futura.
+**Roles y ámbito (ADR-0009):** `User` común, `Role` persistente, roles globales `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN` mediante `DepartmentMembership`. Toda cuenta tiene `CITIZEN`; roles municipales se acumulan. `OPERATOR` no necesita departamento; coordinador/técnico actúan por pertenencias activas. Equipos estables conservan miembros históricos.
 
-**Identidad/seguridad:** autenticación por credenciales/JWT de Spring Security (ADR-0005) aún sin implementar. Invitaciones controladas de personal **aprobadas como mecanismo** (ADR-0007); un usuario con cuenta existente podrá incorporar un nuevo rol sin crear una segunda cuenta, tras verificar identidad/autorización. `UserRole` y `DepartmentMembership` diferencian roles globales de departamentales; se aplicarán permisos por rol, departamento, titularidad y estado.
+**Tramitación (ADR-0010):** estados `REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED_TO_DEPARTMENT`, `WORK_ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED`, `CLOSED`. Puede validarse sin departamento. La derivación cambia `Incident.assignedDepartment`; una `Assignment` solo aparece para trabajo a equipo/técnico, con historial y como máximo una activa. `StatusChange` audita transiciones y `AuditEvent` decisiones/traslados sin cambio de estado. Matriz exhaustiva pendiente.
 
-**Identificadores:** UUIDv7 como convención de diseño de PK (`Role.code` como clave natural estable), pendiente de validar generador JPA/PostgreSQL (ADR-0011).
+**Prioridades:** LOW, MEDIUM, HIGH, CRITICAL; `PriorityDecision` auditable. **Duplicados:** sugerencias calculadas, confirmación humana de `DuplicateLink`, sin rechazo o vinculación automática; IA semántica futura.
 
-**Contexto urbano:** `UrbanAsset`, `UrbanAssetAssociation`, `ExternalSource` y `ExternalObservation` son un **esqueleto provisional** a completar cuando se investiguen datos y proveedores. `UrbanContextViewDTO` no necesita tabla propia; no se eligen integraciones ni PostGIS de forma anticipada.
+**Identidad/seguridad:** registro público ciudadano, invitaciones de personal aceptadas como mecanismo pero sin implementar, canje sobre cuenta existente sin duplicar usuario, roles/ámbito/titularidad comprobados por backend. Invitaciones globales solo OPERATOR/ADMIN, con CITIZEN base. Primer ADMIN administrado manualmente en una tarea futura.
+
+**Identificadores:** UUIDv7 en entidades persistentes, con excepciones natural/compuesta, generación desde Hibernate pendiente de prueba de integración.
+
+**Contexto urbano:** `UrbanAsset`, `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` son esqueleto provisional; `UrbanContextViewDTO` es vista, sin tabla. No elegir proveedores/PostGIS por anticipado.
 
 ## 7. Seguridad, almacenamiento y resiliencia
 
-- Las decisiones de roles/autorización deben aplicarse **en Spring Security y los servicios**, no exclusivamente en el frontend ni mediante la extensión documental `x-roles` de OpenAPI.
-- JWT: definir emisión, vencimiento, renovación/revocación y almacenamiento seguro; no se han aprobado todos sus parámetros.
-- Evidencias: bucket S3 privado `incident-evidence`; metadatos en PostgreSQL, binarios fuera. Autorizar acceso incluso si los datos de la incidencia son visibles; decidir MIME/tamaño, EXIF, retención, limpieza de huérfanos y tratamiento de fallos entre SQL y objeto.
-- Información contextual: un proveedor externo puede fallar sin impedir la creación de una incidencia (degradación controlada). No se deduce disponibilidad de proveedores de que aparezcan en un diagrama.
-- Secretos fuera de Git; `EXPO_PUBLIC_*` solo para valores públicos del cliente; revisar CORS/HTTPS antes del despliegue.
+- Spring Security y los servicios controlan roles y contexto, no solo x-roles de OpenAPI.
+- JWT: decisiones de duración, claims, autorización actual y versión de revocación documentadas en ADR-0005. Permanecen pendientes la rotación de claves en despliegue, distribución segura de tokens al cliente y verificación por correo ya implementada localmente.
+- Evidencias: bucket privado `incident-evidence`; metadata PostgreSQL, binarios externos. Autorización por fotografía, formato/tamaño, EXIF, retención y limpieza de huérfanos pendientes.
+- Fallos de contexto urbano: degradar sin impedir el registro; no suponer proveedores existentes porque aparezcan en diagramas.
+- Secretos fuera de Git; HTTPS, configuración de CORS, políticas de transporte JWT y tratamiento de CSRF antes de despliegue.
+- Rate limiting: inicialmente en memoria por instancia, no distribuido; requiere memoria limitada, reposición temporal y control de IP confiable detrás de proxy.
 
 ## 8. Verificaciones técnicas comprobadas y próximas etapas
 
-- Frontend web: `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit`, `npm run lint`, exportación web y Compose de desarrollo comprobados el 13/10/2026.
-- Docker Compose conjunto: frontend + backend ejecutados con éxito el 15/10/2026.
-- Backend + Neon `development`: prueba explícita `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` con JDBC y `HeadBucket` superados el 15/10/2026 (no verifica subida/descarga ni ID de rama por sí misma).
-- **Pendiente:** pruebas funcionales/contrato/seguridad, entidades y migraciones, Android/iOS en dispositivo, imagen Nginx de producción, CI/CD y despliegue real.
+- Frontend (13/10/2026): `expo install --check`, Expo Doctor 21/21, `tsc`, ESLint, exportación web y Compose de desarrollo comprobados.
+- Docker Compose conjunto (15/10/2026): frontend y backend arrancaron correctamente.
+- Neon `development` (15/10/2026): prueba manual `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` con JDBC y `HeadBucket`; no valida pertenencia a rama por sí misma ni operaciones completas de fotos.
+- **Autenticación:** clases, migración y pruebas unitarias/MVC y PostgreSQL efímero disponibles; Codex informó de 55 tests superados (35 unitarios/MVC y 20 de integración) para el módulo actualizado. **Pendiente:** integración backend real+Mailpit, aplicar controladamente V1 a `development`, Android/iOS en dispositivo, frontend Nginx de producción, CI/CD y despliegue real.
 
-El próximo trabajo **no** será implementar todas las entidades: cada PR funcional comienza revisando el [tag de API](api/README.md) y las [dos vistas del dominio](domain-model.md), pacta las decisiones concretas, implementa su parte, la prueba y documenta el resultado. La rama `main` debe conservar el estado realmente verificado.
+**Siguiente trabajo:** comprobar el funcionamiento real backend+Mailpit, preparar el despliegue controlado en Neon `development` cuando corresponda y seguir con los demás tags tras acordar modelo, contrato y permisos; no crear anticipadamente todas las entidades.
 
 ## 9. Referencias
 
-- [Modelo de dominio y proceso por tag](domain-model.md)
-- [Diagramas](diagrams/README.md)
-- [ADR y decisiones](adr/README.md)
-- [Diseño de API](api/README.md)
-- [Guía de desarrollo](development.md)
-- [Despliegue](deployment.md)
+- [Diseño de autenticación](auth-design.md).
+- [Modelo de dominio](domain-model.md) y [diagramas](diagrams/README.md).
+- [ADR](adr/README.md), [API](api/README.md), [desarrollo](development.md), [despliegue](deployment.md).
+
+### Correo transaccional y limpieza
+
+La arquitectura añade `EmailSender`/`SmtpEmailSender` con Spring Mail; un evento `AFTER_COMMIT` envía el código fuera de la transacción. `compose.yaml` incorpora Mailpit como servidor SMTP de desarrollo (sin envíos externos), con interfaz local de consulta. La tabla `email_verifications` almacena el HMAC y caducidad; un servicio programado en el backend limpia códigos vencidos y usuarios sin verificar de más de 24 horas en lotes con bloqueo compatible con confirmación/reenvío. La entrega no tiene outbox ni reintentos automáticos: existe reenvío manual. Revisar la eliminación de cuentas al añadir nuevas entidades dependientes. [Detalle](auth-design.md).

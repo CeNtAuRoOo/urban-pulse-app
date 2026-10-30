@@ -8,6 +8,7 @@
     "EditorConfig.EditorConfig",
     "ms-azuretools.vscode-containers",
     "redocly.openapi-vs-code",
-    "expo.vscode-expo-tools"
+    "expo.vscode-expo-tools",
+    "rangav.vscode-thunder-client"
   ]
 }

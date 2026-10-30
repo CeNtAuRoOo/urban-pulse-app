@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.2.0
-  description: Contrato de diseño sincronizado con el modelo de dominio UrbanPulse v1 y ADR-0007/0009/0010/0011. Ambos forman una única referencia compartida; se refinan juntos por tag antes de implementar. Sin endpoints de negocio desplegados. Contexto urbano y funciones avanzadas pendientes de investigación. Las rutas de evaluaciones IA con motor, modelo y estado asíncrono no forman parte de la versión activa; quedan como borrador exploratorio hasta definir su contrato.
+  version: 0.4.0
+  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
   - url: http://localhost:8888/api/v1
-    description: Backend local en desarrollo (ruta /api/v1 propuesta, aún no implementada).
+    description: Backend local en desarrollo (prefijo /api/v1 previsto).
 security:
   - BearerAuth: []
 tags:
   - name: Autenticación
-    description: Registro y acceso mediante credenciales/JWT.
+    description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
@@ -44,8 +44,8 @@ paths:
     post:
       tags:
         - Autenticación
-      summary: Registrar ciudadano
-      description: Crea una cuenta con rol CITIZEN. La petición no admite seleccionar roles privilegiados.
+      summary: Registrar ciudadano y solicitar verificación de correo
+      description: Crea una cuenta activa con rol global CITIZEN y emite un JWT de acceso de 7200 segundos. No admite seleccionar roles ni establecer emailVerified. Crea transaccionalmente el usuario, CITIZEN y el HMAC del código; solicita el envío SMTP después del commit, sin revertir el registro si falla el correo. El cuerpo está limitado a 16 KiB y el registro se limita por IP. Devuelve JWT incluso con emailVerified=false, pero se restringe el acceso a las operaciones de autenticación permitidas hasta confirmar el correo. El token sigue sujeto a actividad, CITIZEN y tokenVersion.
       operationId: postAuthRegister
       security: []
       x-roles:
@@ -58,20 +58,13 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '201':
-          description: Recurso creado.
+          description: Cuenta ciudadana creada, código preparado y JWT emitido con acceso limitado; la entrega SMTP no está garantizada. emailVerified=false.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
+                $ref: '#/components/schemas/TokenDTO'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -80,12 +73,14 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /auth/login:
     post:
       tags:
         - Autenticación
       summary: Iniciar sesión
-      description: Valida credenciales y emite un JWT Bearer. Duración, renovación y revocación aún por definir.
+      description: Valida credenciales BCrypt y cuenta activa y emite un JWT Bearer de 7200 segundos. El cuerpo se limita a 16 KiB y existe rate limiting por IP y email normalizado. Devuelve un 401 genérico tanto para usuario inexistente como para contraseña incorrecta o cuenta desactivada. Se permite login de cuentas sin verificar, pero su JWT tiene acceso limitado. No hay refresh tokens. Fallos temporales de PostgreSQL devuelven 503 en lugar de 401.
       operationId: postAuthLogin
       security: []
       x-roles:
@@ -98,23 +93,113 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Operación correcta.
+          description: Credenciales válidas; JWT emitido. Si emailVerified=false, solo acceso de autenticación limitado.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenDTO'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/email-verifications/confirm:
+    post:
+      tags:
+        - Autenticación
+      summary: Confirmar el correo de la cuenta autenticada
+      operationId: postEmailVerificationConfirm
+      x-roles:
+        - AUTHENTICATED
+      description: Requiere JWT válido, aunque el correo todavía no esté verificado. Recibe un código numérico ASCII de 8 dígitos, comprueba su HMAC ligado al usuario, la caducidad (10 minutos o final del plazo de 24 horas de la cuenta) y lo consume en la misma transacción que marca emailVerified=true. Si ya estaba verificado devuelve 204 (operación idempotente). El mismo JWT habilita el acceso a rutas de negocio en la siguiente petición, pues la autorización relee PostgreSQL. Límite de cuerpo de 16 KiB; buckets en memoria por usuario (5/3600 s) e IP (30/3600 s).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailRequest'
+      responses:
+        '204':
+          description: Correo verificado o ya verificado. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Código ausente, incorrecto, sustituido o caducado (INVALID_VERIFICATION_CODE), o error de validación del formato.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/email-verifications/resend:
+    post:
+      tags:
+        - Autenticación
+      summary: Solicitar otro código de verificación
+      operationId: postEmailVerificationResend
+      x-roles:
+        - AUTHENTICATED
+      description: 'Requiere JWT válido y cuerpo vacío. Sustituye el código anterior y solicita el envío SMTP después del commit. 202 no asegura entrega final del correo. Devuelve 204 si la cuenta ya está verificada y 410 si pasaron 24 horas desde el registro (aunque todavía no se haya eliminado en la limpieza). Límite de cuerpo 16 KiB; cuotas en memoria: 1/60 s de enfriamiento por cuenta, 5/86400 s por cuenta como bucket continuo (NO cinco exactos por día) y 20/3600 s por IP. Los buckets se consumen en orden y no se reembolsan cuando una política posterior rechaza.'
+      responses:
+        '202':
+          description: Nuevo código persistido y envío solicitado después del commit. Sin cuerpo.
+        '204':
+          description: Cuenta ya verificada, no se genera otro código. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /users/me/password-changes:
+    post:
+      tags:
+        - Autenticación
+      summary: Cambiar mi contraseña
+      description: Requiere JWT Bearer vigente y la contraseña actual. Actualiza el hash BCrypt e incrementa User.tokenVersion de forma atómica. Todos los JWT emitidos previamente, incluido el usado en esta operación, quedan inválidos para las siguientes peticiones; el cliente debe autenticarse otra vez. Se permite también a cuentas sin verificar. El cuerpo está limitado a 16 KiB, pero esta operación no consume tokens del rate limiter. No envía correos.
+      operationId: postUsersMePasswordChanges
+      x-roles:
+        - AUTHENTICATED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Contraseña cambiada; tokens anteriores invalidados. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/me:
     get:
       tags:
@@ -2732,312 +2817,6 @@ components:
       required:
         - coordinates
         - geocodingStatus
-    UserSummaryDTO:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        displayName:
-          type: string
-          example: Ana Pérez
-      required:
-        - id
-        - displayName
-      description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de incidencias.
-    UserDTO:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        displayName:
-          type: string
-        email:
-          type: string
-          format: email
-          description: Visible únicamente para el titular o personal autorizado.
-        active:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        roles:
-          type: array
-          description: Roles GLOBAL concedidos mediante UserRole. Los roles DEPARTMENT se consultan a través de departmentMemberships.
-          items:
-            $ref: '#/components/schemas/GlobalRoleCode'
-          uniqueItems: true
-        departmentMemberships:
-          type: array
-          description: Adscripciones departamentales, visibles según autorización.
-          items:
-            $ref: '#/components/schemas/DepartmentMembershipDTO'
-      required:
-        - id
-        - displayName
-        - active
-        - createdAt
-        - roles
-    RegisterRequest:
-      type: object
-      properties:
-        displayName:
-          type: string
-          minLength: 2
-          maxLength: 120
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-          description: Contraseña enviada solo por TLS; jamás se devuelve en DTO.
-          minLength: 8
-      required:
-        - displayName
-        - email
-        - password
-      additionalProperties: false
-    LoginRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-      required:
-        - email
-        - password
-      additionalProperties: false
-    TokenDTO:
-      type: object
-      properties:
-        accessToken:
-          type: string
-          description: JWT firmado.
-        tokenType:
-          type: string
-          enum:
-            - Bearer
-        expiresIn:
-          type: integer
-          description: Duración del token en segundos.
-          minimum: 1
-        user:
-          $ref: '#/components/schemas/UserDTO'
-      required:
-        - accessToken
-        - tokenType
-        - expiresIn
-        - user
-    UpdateProfileRequest:
-      type: object
-      properties:
-        displayName:
-          type: string
-          minLength: 2
-          maxLength: 120
-      description: Solo admite el nombre público; no permite modificar roles.
-      additionalProperties: false
-    AdminUpdateUserRequest:
-      type: object
-      properties:
-        active:
-          type: boolean
-      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio cuando se implementen.
-      additionalProperties: false
-      minProperties: 1
-    InvitationRequest:
-      oneOf:
-        - $ref: '#/components/schemas/GlobalInvitationRequest'
-        - $ref: '#/components/schemas/DepartmentInvitationRequest'
-      description: 'ADR-0007/0009: el ámbito del rol determina si se exige departmentId. No se admite otro ámbito ni departamento para roles globales.'
-    InvitationDTO:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        role:
-          $ref: '#/components/schemas/RoleCode'
-        email:
-          type: string
-          format: email
-        status:
-          type: string
-          enum:
-            - ACTIVE
-            - REDEEMED
-            - REVOKED
-            - EXPIRED
-        createdAt:
-          type: string
-          format: date-time
-        expiresAt:
-          type: string
-          format: date-time
-        redeemedAt:
-          type: string
-          format: date-time
-        departmentId:
-          type: string
-          format: uuid
-          description: Departamento destinatario; obligatorio cuando role sea DEPARTMENT_COORDINATOR o TECHNICIAN y ausente para roles GLOBAL.
-      required:
-        - id
-        - role
-        - status
-        - createdAt
-        - expiresAt
-      description: 'Metadatos de invitación: departmentId solo existe para roles departamentales; está ausente para roles globales. El código se revela únicamente en InvitationCreatedDTO.'
-    InvitationCreatedDTO:
-      allOf:
-        - $ref: '#/components/schemas/InvitationDTO'
-        - type: object
-          properties:
-            invitationCode:
-              type: string
-              description: Se revela únicamente en la respuesta de creación; no se persiste en claro.
-          required:
-            - invitationCode
-      description: Código devuelto únicamente al crear la invitación; nunca se persiste en claro.
-    StaffRegistrationRequest:
-      type: object
-      properties:
-        invitationCode:
-          type: string
-        displayName:
-          type: string
-          minLength: 2
-          maxLength: 120
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-          minLength: 8
-      required:
-        - invitationCode
-        - displayName
-        - email
-        - password
-      additionalProperties: false
-      description: Alta de cuenta nueva con invitación. Si el email ya pertenece a una cuenta, no se crea otra; el canje autenticado usa /users/me/staff-invitation-redemptions.
-    CategoryDTO:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          example: Tráfico y semáforos
-        description:
-          type: string
-        active:
-          type: boolean
-      required:
-        - id
-        - name
-        - active
-    CategoryWriteRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 100
-        description:
-          type: string
-          maxLength: 500
-        active:
-          type: boolean
-      required:
-        - name
-      additionalProperties: false
-    CategoryPatchRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 100
-        description:
-          type: string
-          maxLength: 500
-        active:
-          type: boolean
-      description: Cambia uno o varios atributos de la categoría.
-      additionalProperties: false
-      minProperties: 1
-    DepartmentDTO:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          example: Movilidad
-        code:
-          type: string
-          description: Código corto estable del departamento.
-          example: MOV
-          pattern: ^[A-Z0-9_-]+$
-        description:
-          type: string
-        active:
-          type: boolean
-      required:
-        - id
-        - name
-        - code
-        - active
-    DepartmentWriteRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 120
-        code:
-          type: string
-          minLength: 2
-          maxLength: 20
-          pattern: ^[A-Za-z0-9_-]+$
-        description:
-          type: string
-          maxLength: 500
-        active:
-          type: boolean
-      required:
-        - name
-        - code
-      additionalProperties: false
-    DepartmentPatchRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 120
-        code:
-          type: string
-          minLength: 2
-          maxLength: 20
-          pattern: ^[A-Za-z0-9_-]+$
-        description:
-          type: string
-          maxLength: 500
-        active:
-          type: boolean
-      description: Cambia uno o varios atributos del departamento.
-      additionalProperties: false
-      minProperties: 1
     IncidentStatus:
       type: string
       enum:
@@ -3218,41 +2997,493 @@ components:
       required:
         - data
         - pagination
-    AttachmentDTO:
+    HistoryEventDTO:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        incidentId:
-          type: string
-          format: uuid
-        fileName:
-          type: string
-        contentType:
+        eventType:
           type: string
           enum:
-            - image/jpeg
-            - image/png
-            - image/webp
-        sizeBytes:
-          type: integer
-          minimum: 0
-        uploadedBy:
+            - CREATED
+            - REVIEWED
+            - PRIORITIZED
+            - DEPARTMENT_ASSIGNED
+            - DEPARTMENT_TRANSFERRED
+            - WORK_ASSIGNED
+            - WORK_REASSIGNED
+            - STATUS_CHANGED
+            - COMMENTED
+            - ATTACHMENT_ADDED
+            - ASSET_LINKED
+        occurredAt:
+          type: string
+          format: date-time
+        actor:
           $ref: '#/components/schemas/UserSummaryDTO'
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          description: Datos públicos o internos según permisos; sin información sensible.
+      required:
+        - id
+        - eventType
+        - occurredAt
+        - summary
+    UserSummaryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          example: Ana Pérez
+      required:
+        - id
+        - displayName
+      description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de incidencias.
+    UserDTO:
+      type: object
+      description: Vista autorizada del usuario. En registro y login se devuelve el perfil del propio titular; jamás incluye passwordHash ni tokenVersion. email y departmentMemberships se exponen solo cuando el solicitante tenga permiso. No constituye un mecanismo de fields dinámico.
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+          description: Visible únicamente para el titular o personal autorizado.
+        emailVerified:
+          type: boolean
+          description: Indica si se ha verificado el control del correo. Se inicializa a false en registro; la confirmación por código HMAC ya se implementa en el backend y habilita el acceso de negocio en la siguiente petición.
+        active:
+          type: boolean
         createdAt:
           type: string
           format: date-time
-        description:
-          type: string
-          description: Descripción accesible de la fotografía.
+        roles:
+          type: array
+          description: Roles GLOBAL concedidos mediante UserRole. Toda cuenta tiene CITIZEN; los roles DEPARTMENT se consultan a través de departmentMemberships.
+          items:
+            $ref: '#/components/schemas/GlobalRoleCode'
+          uniqueItems: true
+        departmentMemberships:
+          type: array
+          description: Adscripciones departamentales, visibles según autorización.
+          items:
+            $ref: '#/components/schemas/DepartmentMembershipDTO'
       required:
         - id
-        - incidentId
-        - fileName
-        - contentType
-        - sizeBytes
+        - displayName
+        - emailVerified
+        - active
         - createdAt
+        - roles
+    UpdateProfileRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+      description: Solo admite el nombre público; no permite modificar roles.
+      additionalProperties: false
+    AdminUpdateUserRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
+      additionalProperties: false
+      minProperties: 1
+    UsersPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+    RoleCode:
+      type: string
+      enum:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+        - DEPARTMENT_COORDINATOR
+        - TECHNICIAN
+      description: Catálogo completo de códigos; el ámbito se deduce del código (sin RoleScope persistido). Para DTO por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
+    DepartmentMembershipDTO:
+      type: object
+      description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.
+      properties:
+        department:
+          $ref: '#/components/schemas/DepartmentDTO'
+        role:
+          $ref: '#/components/schemas/DepartmentRoleCode'
+        joinedAt:
+          type: string
+          format: date-time
+        leftAt:
+          type: string
+          format: date-time
+      required:
+        - department
+        - role
+        - joinedAt
+    GlobalRoleCode:
+      type: string
+      enum:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      description: Roles globales definidos en ADR-0009. CITIZEN es inherente a toda cuenta; OPERATOR y ADMIN son privilegios adicionales.
+    DepartmentRoleCode:
+      type: string
+      enum:
+        - DEPARTMENT_COORDINATOR
+        - TECHNICIAN
+      description: Roles departamentales; requieren DepartmentMembership activa para actuar.
+    RegisterRequest:
+      type: object
+      description: Alta ciudadana pública; el servidor asigna CITIZEN, crea el código de verificación y mantiene emailVerified=false. El envío SMTP se solicita tras el commit.
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Se normaliza mediante trim/minúsculas y se compara sin distinción de mayúsculas según la política de unicidad.
+        password:
+          type: string
+          format: password
+          description: Contraseña enviada solo mediante TLS; mínimo 8 caracteres y máximo 72 bytes UTF-8 por BCrypt; jamás se devuelve ni registra.
+          minLength: 8
+      required:
+        - displayName
+        - email
+        - password
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+      required:
+        - email
+        - password
+      additionalProperties: false
+    ChangePasswordRequest:
+      type: object
+      description: La contraseña actual debe coincidir con la almacenada; al cambiarla se invalidan todas las sesiones JWT previas mediante tokenVersion.
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          minLength: 1
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          description: Máximo 72 bytes UTF-8 por BCrypt; se valida en backend.
+      required:
+        - currentPassword
+        - newPassword
+      additionalProperties: false
+    ConfirmEmailRequest:
+      type: object
+      description: Confirmación de correo del titular autenticado mediante código numérico de ocho dígitos ASCII.
+      additionalProperties: false
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: ^[0-9]{8}$
+          minLength: 8
+          maxLength: 8
+          example: '01234567'
+          description: Secreto de un solo uso, válido como máximo 10 minutos y nunca más allá de las 24 horas desde el registro.
+    TokenDTO:
+      type: object
+      description: Respuesta de registro ciudadano o login; accessToken es un JWT firmado y no cifrado. Una cuenta con emailVerified=false dispone de acceso limitado hasta confirmar su correo.
+      properties:
+        accessToken:
+          type: string
+          description: JWT Bearer con claims sub (UUID de usuario), iat, exp, iss y ver (tokenVersion). Los roles no son fuente de autorización dentro del token.
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Duración del token de acceso en segundos; versión inicial 7200.
+          minimum: 1
+          example: 7200
+        user:
+          $ref: '#/components/schemas/UserDTO'
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - user
+    InvitationRequest:
+      oneOf:
+        - $ref: '#/components/schemas/GlobalInvitationRequest'
+        - $ref: '#/components/schemas/DepartmentInvitationRequest'
+      description: 'ADR-0007/0009: el ámbito determina si se exige departmentId. Los roles globales invitables son OPERATOR y ADMIN, nunca CITIZEN; CITIZEN es inherente a toda cuenta.'
+    InvitationDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - REDEEMED
+            - REVOKED
+            - EXPIRED
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: string
+          format: date-time
+        departmentId:
+          type: string
+          format: uuid
+          description: Departamento destinatario; obligatorio para roles DEPARTMENT y ausente para roles GLOBAL.
+      required:
+        - id
+        - role
+        - status
+        - createdAt
+        - expiresAt
+      description: Metadatos de invitación; el código se revela solo en InvitationCreatedDTO.
+    InvitationCreatedDTO:
+      allOf:
+        - $ref: '#/components/schemas/InvitationDTO'
+        - type: object
+          properties:
+            invitationCode:
+              type: string
+              description: Solo se revela al crear una invitación; nunca se almacena en claro.
+          required:
+            - invitationCode
+      description: Código entregado una sola vez.
+    StaffRegistrationRequest:
+      type: object
+      properties:
+        invitationCode:
+          type: string
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+      required:
+        - invitationCode
+        - displayName
+        - email
+        - password
+      additionalProperties: false
+      description: Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado sin crear otro User. La verificación de cuentas ya existe en auth; falta acordar la política de invitaciones y vinculación de correo.
+    ExistingAccountInvitationRedemptionRequest:
+      type: object
+      properties:
+        invitationCode:
+          type: string
+      required:
+        - invitationCode
+      additionalProperties: false
+    StaffGlobalRoleCode:
+      type: string
+      enum:
+        - OPERATOR
+        - ADMIN
+      description: Roles globales privilegiados que pueden otorgarse mediante invitación.
+    GlobalInvitationRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/StaffGlobalRoleCode'
+        email:
+          type: string
+          format: email
+          description: Correo autorizado opcional; política definitiva pendiente.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - role
+      additionalProperties: false
+      description: Invitación para rol global de personal (OPERATOR o ADMIN); no admite departmentId ni CITIZEN.
+    DepartmentInvitationRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/DepartmentRoleCode'
+        departmentId:
+          type: string
+          format: uuid
+          description: Departamento de adscripción al canjear la invitación.
+        email:
+          type: string
+          format: email
+          description: Correo autorizado opcional; política definitiva pendiente.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - role
+        - departmentId
+      additionalProperties: false
+      description: Invitación para rol departamental; requiere departmentId. La cuenta conserva también CITIZEN.
+    CategoryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Tráfico y semáforos
+        description:
+          type: string
+        active:
+          type: boolean
+      required:
+        - id
+        - name
+        - active
+    CategoryWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      required:
+        - name
+      additionalProperties: false
+    CategoryPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      description: Cambia uno o varios atributos de la categoría.
+      additionalProperties: false
+      minProperties: 1
+    DepartmentDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Movilidad
+        code:
+          type: string
+          description: Código corto estable del departamento.
+          example: MOV
+          pattern: ^[A-Z0-9_-]+$
+        description:
+          type: string
+        active:
+          type: boolean
+      required:
+        - id
+        - name
+        - code
+        - active
+    DepartmentWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        code:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: ^[A-Za-z0-9_-]+$
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      required:
+        - name
+        - code
+      additionalProperties: false
+    DepartmentPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        code:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: ^[A-Za-z0-9_-]+$
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+      description: Cambia uno o varios atributos del departamento.
+      additionalProperties: false
+      minProperties: 1
     ReviewRequest:
       type: object
       properties:
@@ -3489,42 +3720,78 @@ components:
         - visibility
         - author
         - createdAt
-    HistoryEventDTO:
+    DepartmentReferralRequest:
+      type: object
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          description: Justificación opcional de la derivación o transferencia. El evento queda auditado.
+      required:
+        - departmentId
+      additionalProperties: false
+      description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de trabajo.
+    TeamWorkAssignmentRequest:
+      type: object
+      properties:
+        teamId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 1000
+      required:
+        - teamId
+      additionalProperties: false
+    TechnicianWorkAssignmentRequest:
+      type: object
+      properties:
+        technicianId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 1000
+      required:
+        - technicianId
+      additionalProperties: false
+    AttachmentDTO:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        eventType:
+        incidentId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
           type: string
           enum:
-            - CREATED
-            - REVIEWED
-            - PRIORITIZED
-            - DEPARTMENT_ASSIGNED
-            - DEPARTMENT_TRANSFERRED
-            - WORK_ASSIGNED
-            - WORK_REASSIGNED
-            - STATUS_CHANGED
-            - COMMENTED
-            - ATTACHMENT_ADDED
-            - ASSET_LINKED
-        occurredAt:
+            - image/jpeg
+            - image/png
+            - image/webp
+        sizeBytes:
+          type: integer
+          minimum: 0
+        uploadedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        createdAt:
           type: string
           format: date-time
-        actor:
-          $ref: '#/components/schemas/UserSummaryDTO'
-        summary:
+        description:
           type: string
-        details:
-          type: object
-          additionalProperties: true
-          description: Datos públicos o internos según permisos; sin información sensible.
+          description: Descripción accesible de la fotografía.
       required:
         - id
-        - eventType
-        - occurredAt
-        - summary
+        - incidentId
+        - fileName
+        - contentType
+        - sizeBytes
+        - createdAt
     DuplicateSuggestionDTO:
       type: object
       properties:
@@ -3865,6 +4132,18 @@ components:
         - email
         - push
       additionalProperties: false
+    NotificationsPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
     StatisticsDTO:
       type: object
       properties:
@@ -4016,6 +4295,18 @@ components:
         - status
         - format
         - createdAt
+    ReportsPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
     ExternalSourceDTO:
       type: object
       properties:
@@ -4121,42 +4412,6 @@ components:
         - resourceType
         - resourceId
         - occurredAt
-    UsersPageDTO:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/UserDTO'
-        pagination:
-          $ref: '#/components/schemas/PageMetadata'
-      required:
-        - data
-        - pagination
-    NotificationsPageDTO:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/NotificationDTO'
-        pagination:
-          $ref: '#/components/schemas/PageMetadata'
-      required:
-        - data
-        - pagination
-    ReportsPageDTO:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReportDTO'
-        pagination:
-          $ref: '#/components/schemas/PageMetadata'
-      required:
-        - data
-        - pagination
     AuditPageDTO:
       type: object
       properties:
@@ -4169,133 +4424,6 @@ components:
       required:
         - data
         - pagination
-    RoleCode:
-      type: string
-      enum:
-        - CITIZEN
-        - OPERATOR
-        - ADMIN
-        - DEPARTMENT_COORDINATOR
-        - TECHNICIAN
-      description: Catálogo completo de roles; para usos por ámbito se emplean GlobalRoleCode y DepartmentRoleCode.
-    RoleScope:
-      type: string
-      enum:
-        - GLOBAL
-        - DEPARTMENT
-    DepartmentMembershipDTO:
-      type: object
-      description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.
-      properties:
-        department:
-          $ref: '#/components/schemas/DepartmentDTO'
-        role:
-          $ref: '#/components/schemas/DepartmentRoleCode'
-        joinedAt:
-          type: string
-          format: date-time
-        leftAt:
-          type: string
-          format: date-time
-      required:
-        - department
-        - role
-        - joinedAt
-    DepartmentReferralRequest:
-      type: object
-      properties:
-        departmentId:
-          type: string
-          format: uuid
-        reason:
-          type: string
-          description: Justificación opcional de la derivación o transferencia. El evento queda auditado.
-      required:
-        - departmentId
-      additionalProperties: false
-      description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de trabajo.
-    TeamWorkAssignmentRequest:
-      type: object
-      properties:
-        teamId:
-          type: string
-          format: uuid
-        reason:
-          type: string
-          maxLength: 1000
-      required:
-        - teamId
-      additionalProperties: false
-    TechnicianWorkAssignmentRequest:
-      type: object
-      properties:
-        technicianId:
-          type: string
-          format: uuid
-        reason:
-          type: string
-          maxLength: 1000
-      required:
-        - technicianId
-      additionalProperties: false
-    ExistingAccountInvitationRedemptionRequest:
-      type: object
-      properties:
-        invitationCode:
-          type: string
-      required:
-        - invitationCode
-      additionalProperties: false
-    GlobalRoleCode:
-      type: string
-      enum:
-        - CITIZEN
-        - OPERATOR
-        - ADMIN
-      description: Roles globales definidos en ADR-0009; no implican pertenencia departamental.
-    DepartmentRoleCode:
-      type: string
-      enum:
-        - DEPARTMENT_COORDINATOR
-        - TECHNICIAN
-      description: 'Roles departamentales: requieren DepartmentMembership activa para actuar.'
-    GlobalInvitationRequest:
-      type: object
-      properties:
-        role:
-          $ref: '#/components/schemas/GlobalRoleCode'
-        email:
-          type: string
-          format: email
-          description: Correo autorizado opcional; política definitiva pendiente.
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-        - role
-      additionalProperties: false
-      description: Invitación para un rol global; no admite departmentId.
-    DepartmentInvitationRequest:
-      type: object
-      properties:
-        role:
-          $ref: '#/components/schemas/DepartmentRoleCode'
-        departmentId:
-          type: string
-          format: uuid
-          description: Departamento de adscripción al canjear la invitación.
-        email:
-          type: string
-          format: email
-          description: Correo autorizado opcional; política definitiva pendiente.
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-        - role
-        - departmentId
-      additionalProperties: false
-      description: Invitación para un rol departamental; requiere departmentId.
   parameters:
     IncidentId:
       name: incidentId
@@ -4442,19 +4570,19 @@ components:
         format: uuid
   responses:
     BadRequest:
-      description: Solicitud sintácticamente incorrecta o parámetros inválidos.
+      description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación, tipo de contenido incorrecto o solicitud no interpretable.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     Unauthorized:
-      description: No se ha proporcionado un JWT válido.
+      description: JWT ausente/inválido/caducado/revocado, cuenta inactiva o credenciales de login incorrectas; nunca se revela si existe un correo.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     Forbidden:
-      description: Permisos insuficientes o recurso no accesible para este usuario.
+      description: Permisos insuficientes o recurso no accesible. En rutas protegidas del negocio, el código EMAIL_NOT_VERIFIED indica cuenta no verificada.
       content:
         application/problem+json:
           schema:
@@ -4472,13 +4600,19 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ValidationError:
-      description: La estructura es correcta, pero los datos incumplen las validaciones.
+      description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation, o código de verificación inexistente, incorrecto o caducado (INVALID_VERIFICATION_CODE).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     TooManyRequests:
-      description: Se ha superado el límite de solicitudes.
+      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación y reenvío según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
+      headers:
+        Retry-After:
+          description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
+          schema:
+            type: integer
+            minimum: 0
       content:
         application/problem+json:
           schema:
@@ -4490,7 +4624,13 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ServiceUnavailable:
-      description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+      description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Gone:
+      description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
       content:
         application/problem+json:
           schema:
