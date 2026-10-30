@@ -1,61 +1,65 @@
 BadRequest:
-  description: Solicitud sintácticamente incorrecta o parámetros inválidos.
+  description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación, tipo de contenido incorrecto o solicitud no interpretable.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 Unauthorized:
-  description: No se ha proporcionado un JWT válido.
+  description: JWT ausente/inválido/caducado/revocado, cuenta inactiva o credenciales de login incorrectas; nunca se revela si existe un correo.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 Forbidden:
-  description: Permisos insuficientes o recurso no accesible para este usuario.
+  description: Permisos insuficientes o recurso no accesible. En rutas protegidas del negocio, el código EMAIL_NOT_VERIFIED indica cuenta no verificada.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 NotFound:
   description: Recurso inexistente o no visible para este usuario.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 Conflict:
   description: Regla de negocio, conflicto de estado, dato duplicado o concurrencia.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
+Gone:
+  description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas/comunes.yaml#/ProblemDetail"
 ValidationError:
-  description: La estructura es correcta, pero los datos incumplen las validaciones.
+  description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation, o código de verificación inexistente, incorrecto o caducado (INVALID_VERIFICATION_CODE).
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 TooManyRequests:
-  description: Se ha superado el límite de solicitudes.
+  description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación y reenvío según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
+  headers:
+    Retry-After:
+      description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
+      schema:
+        type: integer
+        minimum: 0
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 InternalError:
   description: Error inesperado del servidor.
   content:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
-
 ServiceUnavailable:
-  description: Servicio temporalmente no disponible (no se aplica a un enriquecimiento contextual opcional).
+  description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
   content:
     application/problem+json:
       schema:

@@ -7,11 +7,24 @@ services:
       dockerfile: Dockerfile.dev
     env_file:
       - ./backend/.env.development
+    environment:
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+    depends_on:
+      mailpit:
+        condition: service_started
     ports:
       - "8888:8888"
     volumes:
       - ./backend:/app
       - maven-cache:/root/.m2
+
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
 
   frontend:
     build:

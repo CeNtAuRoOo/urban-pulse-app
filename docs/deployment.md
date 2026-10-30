@@ -82,7 +82,7 @@ Comando de referencia para la imagen **de producción, aún no validado**:
 docker build -f backend/Dockerfile -t urbanpulse-backend:local backend
 ```
 
-El backend arranca en **desarrollo** con PostgreSQL y Object Storage de Neon, pero **todavía no tiene API de negocio**. La imagen final de producción, las migraciones reales y las comprobaciones de despliegue siguen pendientes. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
+El backend tiene cinco operaciones de autenticación/verificación, pero **todavía no tiene API de negocio de incidencias**; el arranque real de esta nueva versión con Mailpit y Neon no consta verificado. La imagen final de producción y las comprobaciones de despliegue siguen pendientes; **ya existe una V1 ampliada para autenticación y verificación de correo**, probada en PostgreSQL efímero, pero no consta aplicada a Neon `development`. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
 
 En despliegue no incluir contraseñas ni claves mediante `ENV`, `ARG` o archivos versionados. Inyectar credenciales de Neon y claves de autenticación mediante mecanismos de secretos del proveedor de hosting.
 
@@ -97,18 +97,20 @@ Las aplicaciones móviles se conectarán a una URL HTTPS pública, no a `localho
 ## 7. Neon: PostgreSQL y fotografías
 
 - **Proyecto** `urban-pulse-app`, **AWS Frankfurt**, PostgreSQL **18**, base `urban-pulse` en ramas Neon `production` (principal) y `development` (desarrollo). `production` no se puede proteger automáticamente con el plan gratuito disponible; extremar precauciones.
-- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; solo existe por ahora `flyway_schema_history` en desarrollo, **no el esquema del dominio**. Las migraciones deben probarse primero en desarrollo.
+- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; en `development` existía `flyway_schema_history` sin entidades. En el código ya existe `V1__create_authentication.sql` para `users`, `roles`, `user_roles` y `email_verifications`, probada en PostgreSQL efímero; **su ejecución sobre Neon `development` aún no está confirmada**. Verificar el destino y el plan de recuperación antes del primer arranque con Flyway activo.
 - **Object Storage:** bucket `incident-evidence` **privado**, ramificado junto a los datos. El backend utiliza AWS SDK for Java 2.x y credenciales distintas por entorno. `HeadBucket` en `development` está comprobado; **no se han probado ni implementado todavía operaciones reales de fotografías ni URLs firmadas**.
-- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*` y `STORAGE_BUCKET` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
+- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*`, `JWT_SECRET`, `JWT_ISSUER` y `CORS_ALLOWED_ORIGINS` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
 - **Backups y recuperación:** no hay un procedimiento de restauración validado ni una política de snapshots programados; la retención de historial de Neon es limitada (6 horas en la configuración comprobada). Definir copias verificables antes de emplear datos importantes.
 
 ## 8. Seguridad y configuración
+
+El backend ya implementa JWT HS256 de 7200 s, BCrypt 12, comprobación de estado/versión/CITIZEN/roles actuales por petición, 503 para indisponibilidad de PostgreSQL, errores sin credenciales y límites locales contra abuso. **Pendiente antes del despliegue detrás de un proxy:** configurar confianza en el proxy e IP efectiva, ya que `server.forward-headers-strategy=none` usa la dirección de conexión y puede agrupar muchos clientes en el mismo bucket. Rotación de claves, TLS, dominios y CORS finales todavía no están validados.
 
 | Dato                                  | Dónde debe estar                                                 |
 | ------------------------------------- | ---------------------------------------------------------------- |
 | URL pública de API                    | `EXPO_PUBLIC_API_URL` en compilación web / configuración cliente |
 | JDBC, usuario y contraseña Neon       | Entorno seguro del backend, nunca frontend                       |
-| Claves de firma/validación JWT        | Entorno seguro del backend (cuando se implemente)                |
+| Claves de firma/validación JWT        | `JWT_SECRET` Base64 externo de ≥32 bytes aleatorios              |
 | Credenciales S3 y permisos del bucket | Backend / servicio seguro; jamás bundle cliente                  |
 | Dominio público y CORS                | Configuración de hosting y backend por entorno                   |
 
@@ -147,3 +149,11 @@ Falta además resolver la licencia del repositorio público, probar la app en di
 - [Guía de desarrollo](development.md)
 - [ADR](adr/README.md)
 - [Diagramas](diagrams/README.md)
+
+## Correo y limpieza de cuentas pendientes
+
+Docker Compose **de desarrollo** incluye Mailpit, cuya UI web está ligada a `127.0.0.1:8025` y su SMTP de host a `127.0.0.1:1025`; el backend accede internamente a `mailpit:1025`. Mailpit **no es el servicio de entrega de producción**. El SMTP real, su dominio, DNS (SPF/DKIM/DMARC), credenciales, límites, datos personales y obligaciones del proveedor siguen pendientes. `SmtpEmailSender` usa `JavaMailSender` y configuración mediante `MAIL_*`; el secreto HMAC `EMAIL_VERIFICATION_SECRET` es diferente de `JWT_SECRET` y debe guardarse como secreto del entorno.
+
+El servicio `EmailVerificationCleanup` se ejecuta automáticamente según cron sobre **la base configurada en ese backend**: elimina códigos caducados y cuentas sin verificar con al menos 24 horas de antigüedad; la frecuencia ordinaria es horaria y usa lotes/`SKIP LOCKED`. Su activación junto con Flyway debe planificarse explícitamente; no arrancar una instancia conectada por error a `production`. Revisar el borrado **antes de incorporar nuevas claves foráneas hacia `users`**. No existe un outbox ni un mecanismo de reintento automático del correo; fallos SMTP no revierten el alta/reenvío.
+
+La V1 de Flyway se cambió deliberadamente **antes de aplicarse por primera vez en Neon**. Si cualquier BD ya tiene registrada otra V1 con checksum distinto, no modificar su historial: detener despliegue y preparar una migración correctiva nueva. No interpretar una prueba con PostgreSQL efímero como aplicación validada de la V1 sobre Neon `development`.
