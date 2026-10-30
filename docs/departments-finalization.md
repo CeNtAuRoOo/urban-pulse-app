@@ -21,23 +21,23 @@ Faltaba comprobar la persistencia real de departamentos: `mvn test` no ejecutaba
 
 Las rutas Java de esta tabla parten de `backend/src/main/java/es/grupo18/urbanpulse/`; las pruebas de `backend/src/test/java/es/grupo18/urbanpulse/`.
 
-| Archivo | Cambio y motivo |
-| --- | --- |
-| `entity/Department.java` | Generación mediante `@GeneratedValue` y `@UuidGenerator(VERSION_7)`. Alinea Department con User y ADR-0011, manteniendo callbacks de fechas. |
-| `entity/UuidV7Generator.java` | Eliminado el generador propio, ya innecesario. No se altera ningún UUID persistido. |
-| `repository/DepartmentRepository.java` | Consulta de actualización con bloqueo pesimista de escritura. Serializa modificaciones sobre el mismo departamento. |
-| `service/DepartmentService.java` | PATCH carga la fila bloqueada. Traduce a conflicto únicamente SQLSTATE 23505 de los dos índices únicos de Department; propaga otras causas al manejador común. Mantiene comprobaciones preventivas y `saveAndFlush` para detectar carreras dentro de la transacción. |
-| `dto/CreateDepartmentRequest.java` | Recorta nombre/código en el constructor antes de `@Valid`; conserva valores predeterminados y DTO separado de JPA. |
-| `dto/PatchDepartmentRequest.java` | DTO con setters que distinguen omisión y null explícito, normalización previa y propiedad `isNotEmpty` para validar el objeto vacío. Se desactiva la inferencia del constructor Jackson para que no convierta campos omitidos en null explícito. La autodetección de getters está deshabilitada en este DTO de entrada: `notEmpty` es un detalle interno de validación y, si llega en JSON, se rechaza como propiedad desconocida. |
-| `controller/ApiExceptionHandler.java` | Reutiliza ProblemDetailFactory para 404/409/422 de Department, con `code` e `instance`. Conserva únicamente manejadores específicos. |
-| `exception/GlobalExceptionHandler.java` | Reconoce errores de conversión de parámetros como 400 `INVALID_PARAMETER`; conserva el comportamiento común de auth y errores internos. |
-| `config/SecurityConfig.java` | Expone `Location` por CORS junto a `Retry-After`, para poder leer la URI creada desde un cliente web. Los requisitos de autorización existentes se conservan. |
-| `backend/pom.xml` | Incorpora DepartmentPostgresIT al perfil `postgres-it`. Reutiliza las dependencias de pruebas existentes. |
-| `controller/DepartmentControllerTest.java` | Amplía validación, permisos, códigos/estructura de errores, UUID inválido, campos desconocidos y fallos 500/503 sin información interna. |
-| `service/DepartmentServiceTest.java` | Amplía listado, detalle, inexistentes, límites normalizados, duplicados y clasificación selectiva de errores SQL. Ajusta la simulación del bloqueo. |
-| `entity/UuidV7GeneratorTest.java` | Conserva la prueba de versión/variante del identificador, ahora sobre la estrategia Hibernate. La persistencia real también la verifica. |
-| `DepartmentPostgresIT.java` | Nueva suite PostgreSQL: migraciones, semillas, UUIDv7, restricciones, ciclo de vida, concurrencia y seguridad con JWT real y permisos actuales en BD. |
-| `AuthenticationPostgresIT.java` | Verifica específicamente que V1 se aplicó con éxito, sin asumir que sea la única migración del proyecto. Mantiene las comprobaciones de autenticación. |
+| Archivo                                    | Cambio y motivo                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity/Department.java`                   | Generación mediante `@GeneratedValue` y `@UuidGenerator(VERSION_7)`. Alinea Department con User y ADR-0011, manteniendo callbacks de fechas.                                                                                                                                                                                                                                                                                       |
+| `entity/UuidV7Generator.java`              | Eliminado el generador propio, ya innecesario. No se altera ningún UUID persistido.                                                                                                                                                                                                                                                                                                                                                |
+| `repository/DepartmentRepository.java`     | Consulta de actualización con bloqueo pesimista de escritura. Serializa modificaciones sobre el mismo departamento.                                                                                                                                                                                                                                                                                                                |
+| `service/DepartmentService.java`           | PATCH carga la fila bloqueada. Traduce a conflicto únicamente SQLSTATE 23505 de los dos índices únicos de Department; propaga otras causas al manejador común. Mantiene comprobaciones preventivas y `saveAndFlush` para detectar carreras dentro de la transacción.                                                                                                                                                               |
+| `dto/CreateDepartmentRequest.java`         | Recorta nombre/código en el constructor antes de `@Valid`; conserva valores predeterminados y DTO separado de JPA.                                                                                                                                                                                                                                                                                                                 |
+| `dto/PatchDepartmentRequest.java`          | DTO con setters que distinguen omisión y null explícito, normalización previa y propiedad `isNotEmpty` para validar el objeto vacío. Se desactiva la inferencia del constructor Jackson para que no convierta campos omitidos en null explícito. La autodetección de getters está deshabilitada en este DTO de entrada: `notEmpty` es un detalle interno de validación y, si llega en JSON, se rechaza como propiedad desconocida. |
+| `controller/ApiExceptionHandler.java`      | Reutiliza ProblemDetailFactory para 404/409/422 de Department, con `code` e `instance`. Conserva únicamente manejadores específicos.                                                                                                                                                                                                                                                                                               |
+| `exception/GlobalExceptionHandler.java`    | Reconoce errores de conversión de parámetros como 400 `INVALID_PARAMETER`; conserva el comportamiento común de auth y errores internos.                                                                                                                                                                                                                                                                                            |
+| `config/SecurityConfig.java`               | Expone `Location` por CORS junto a `Retry-After`, para poder leer la URI creada desde un cliente web. Los requisitos de autorización existentes se conservan.                                                                                                                                                                                                                                                                      |
+| `backend/pom.xml`                          | Incorpora DepartmentPostgresIT al perfil `postgres-it`. Reutiliza las dependencias de pruebas existentes.                                                                                                                                                                                                                                                                                                                          |
+| `controller/DepartmentControllerTest.java` | Amplía validación, permisos, códigos/estructura de errores, UUID inválido, campos desconocidos y fallos 500/503 sin información interna.                                                                                                                                                                                                                                                                                           |
+| `service/DepartmentServiceTest.java`       | Amplía listado, detalle, inexistentes, límites normalizados, duplicados y clasificación selectiva de errores SQL. Ajusta la simulación del bloqueo.                                                                                                                                                                                                                                                                                |
+| `entity/UuidV7GeneratorTest.java`          | Conserva la prueba de versión/variante del identificador, ahora sobre la estrategia Hibernate. La persistencia real también la verifica.                                                                                                                                                                                                                                                                                           |
+| `DepartmentPostgresIT.java`                | Nueva suite PostgreSQL: migraciones, semillas, UUIDv7, restricciones, ciclo de vida, concurrencia y seguridad con JWT real y permisos actuales en BD.                                                                                                                                                                                                                                                                              |
+| `AuthenticationPostgresIT.java`            | Verifica específicamente que V1 se aplicó con éxito, sin asumir que sea la única migración del proyecto. Mantiene las comprobaciones de autenticación.                                                                                                                                                                                                                                                                             |
 
 No se han reescrito DepartmentController ni DepartmentResponse: ya separaban correctamente transporte, servicio y entidad. Tampoco se han modificado DatabaseJwtAuthenticationConverter, filtros JWT, handlers de seguridad, tablas de autenticación ni las excepciones de dominio existentes.
 
@@ -45,12 +45,12 @@ No se han reescrito DepartmentController ni DepartmentResponse: ya separaban cor
 
 Todas las rutas llevan prefijo `/api/v1`. El JWT debe identificar una cuenta activa, con CITIZEN y versión de token vigente, conforme a la seguridad existente.
 
-| Operación | Permisos adicionales | Resultado correcto |
-| --- | --- | --- |
-| `GET /departments` | Correo verificado | 200, array de departamentos activos e inactivos, ordenado por nombre según la collation PostgreSQL. |
-| `GET /departments/{departmentId}` | Correo verificado | 200, departamento solicitado, aunque esté inactivo. |
-| `POST /departments` | Correo verificado y ADMIN global | 201, DepartmentDTO y cabecera Location con URI del recurso creado. |
-| `PATCH /departments/{departmentId}` | Correo verificado y ADMIN global | 200, DepartmentDTO actualizado. |
+| Operación                           | Permisos adicionales             | Resultado correcto                                                                                  |
+| ----------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `GET /departments`                  | Correo verificado                | 200, array de departamentos activos e inactivos, ordenado por nombre según la collation PostgreSQL. |
+| `GET /departments/{departmentId}`   | Correo verificado                | 200, departamento solicitado, aunque esté inactivo.                                                 |
+| `POST /departments`                 | Correo verificado y ADMIN global | 201, DepartmentDTO y cabecera Location con URI del recurso creado.                                  |
+| `PATCH /departments/{departmentId}` | Correo verificado y ADMIN global | 200, DepartmentDTO actualizado.                                                                     |
 
 El DTO de respuesta contiene `id`, `name`, `code`, `description` y `active`. Las fechas quedan internas; no se exponen entidades JPA.
 
@@ -58,16 +58,16 @@ Nombre obligatorio de 2–120 caracteres; código obligatorio de 2–20, exclusi
 
 En PATCH, omitir un campo conserva su valor; null explícito devuelve 400. Esto mantiene los campos PATCH no anulables del contrato. Una descripción vacía elimina su contenido, sin convertirlo a SQL NULL. Un objeto vacío, cadenas fuera de límites o códigos inválidos devuelven 422. `active=false` desactiva y conserva UUID e historial; no hay DELETE. Si los valores enviados son idénticos, Hibernate puede no emitir UPDATE ni cambiar updatedAt.
 
-| Estado | Casos y códigos relevantes |
-| --- | --- |
-| 400 | JSON ilegible, tipos incorrectos o null explícito en PATCH (`INVALID_JSON`); UUID de ruta inválido (`INVALID_PARAMETER`). |
-| 401 | JWT ausente o no válido; tratamiento y cabecera Bearer de los handlers existentes. |
-| 403 | Correo sin verificar (`EMAIL_NOT_VERIFIED`) o privilegios insuficientes. |
-| 404 | UUID válido sin departamento: `DEPARTMENT_NOT_FOUND`. |
-| 409 | Nombre/código duplicado: `DEPARTMENT_DUPLICATE`, también ante la carrera detectada por PostgreSQL. |
-| 422 | `VALIDATION_ERROR`; propiedades JSON desconocidas: `UNKNOWN_PROPERTY`. |
-| 500 | Error interno o integridad no clasificable como duplicado: `INTERNAL_ERROR`, sin SQL privado. |
-| 503 | Indisponibilidad tipada de base de datos: `SERVICE_UNAVAILABLE`. |
+| Estado | Casos y códigos relevantes                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| 400    | JSON ilegible, tipos incorrectos o null explícito en PATCH (`INVALID_JSON`); UUID de ruta inválido (`INVALID_PARAMETER`). |
+| 401    | JWT ausente o no válido; tratamiento y cabecera Bearer de los handlers existentes.                                        |
+| 403    | Correo sin verificar (`EMAIL_NOT_VERIFIED`) o privilegios insuficientes.                                                  |
+| 404    | UUID válido sin departamento: `DEPARTMENT_NOT_FOUND`.                                                                     |
+| 409    | Nombre/código duplicado: `DEPARTMENT_DUPLICATE`, también ante la carrera detectada por PostgreSQL.                        |
+| 422    | `VALIDATION_ERROR`; propiedades JSON desconocidas: `UNKNOWN_PROPERTY`.                                                    |
+| 500    | Error interno o integridad no clasificable como duplicado: `INTERNAL_ERROR`, sin SQL privado.                             |
+| 503    | Indisponibilidad tipada de base de datos: `SERVICE_UNAVAILABLE`.                                                          |
 
 Los errores utilizan ProblemDetail (`type`, `title`, `status`, `detail`, `instance`, `code`; errores por campo cuando corresponde). No hay dos advice tratando las mismas excepciones específicas.
 
@@ -77,11 +77,11 @@ Se conserva sin cambios `backend/src/main/resources/db/migration/V2__create_depa
 
 `departments` tiene UUID PK (default SQL `uuidv7()`), nombre y código NOT NULL, descripción nullable, active NOT NULL DEFAULT TRUE y fechas timestamptz NOT NULL. Los índices `uk_departments_name_normalized` y `uk_departments_code_normalized` aseguran unicidad sobre `lower(...)`. Los CHECK validan nombre no vacío y formato/longitud del código; VARCHAR limita las longitudes máximas. La API normaliza previamente; la BD rechaza códigos sin normalizar. El backend genera UUIDv7 con Hibernate y conserva createdAt al actualizar; updatedAt se mantiene mediante callbacks JPA, no mediante un trigger para escrituras SQL externas.
 
-| Semilla | Código | UUID fijo conservado |
-| --- | --- | --- |
-| Mantenimiento Urbano | MANT | `0199f6de-0001-7000-8000-000000000001` |
-| Limpieza | LIMP | `0199f6de-0002-7000-8000-000000000002` |
-| Parques y Jardines | PARQ | `0199f6de-0003-7000-8000-000000000003` |
+| Semilla              | Código | UUID fijo conservado                   |
+| -------------------- | ------ | -------------------------------------- |
+| Mantenimiento Urbano | MANT   | `0199f6de-0001-7000-8000-000000000001` |
+| Limpieza             | LIMP   | `0199f6de-0002-7000-8000-000000000002` |
+| Parques y Jardines   | PARQ   | `0199f6de-0003-7000-8000-000000000003` |
 
 No se crean FK a equipos, pertenencias ni incidencias todavía no implementados. Los futuros módulos pueden referenciar estas semillas. Deben coordinar la siguiente versión Flyway libre: V2 ya está ocupada.
 
@@ -107,18 +107,18 @@ docker compose run --rm --no-deps -v /tmp/urbanpulse-departments-build:/app/targ
 
 El directorio target aislado evita interferencias con los archivos de compilación del IDE. El socket permite crear los contenedores efímeros y `host.docker.internal` permite alcanzar sus puertos desde el contenedor Maven en Docker Desktop. Las propiedades dinámicas de los tests sustituyen URL/usuario/contraseña JDBC por las del contenedor. No se ejecutó NeonConnectivityIT. No se instaló Java ni Maven en Windows.
 
-| Suite | Pruebas | Fallos / errores / omitidas |
-| --- | ---: | --- |
-| DepartmentServiceTest | 8 | 0 / 0 / 0 |
-| DepartmentControllerTest | 11 | 0 / 0 / 0 |
-| UuidV7GeneratorTest | 1 | 0 / 0 / 0 |
-| Resto de pruebas unitarias/MVC de auth, correo y seguridad | 35 | 0 / 0 / 0 |
-| **Total Surefire** | **55** | **0 / 0 / 0** |
-| DepartmentPostgresIT | 5 | 0 / 0 / 0 |
-| AuthenticationPostgresIT | 8 | 0 / 0 / 0 |
-| EmailVerificationPostgresIT | 12 | 0 / 0 / 0 |
-| **Total Failsafe** | **25** | **0 / 0 / 0** |
-| **Total verificado** | **80** | **0 / 0 / 0** |
+| Suite                                                      | Pruebas | Fallos / errores / omitidas |
+| ---------------------------------------------------------- | ------: | --------------------------- |
+| DepartmentServiceTest                                      |       8 | 0 / 0 / 0                   |
+| DepartmentControllerTest                                   |      11 | 0 / 0 / 0                   |
+| UuidV7GeneratorTest                                        |       1 | 0 / 0 / 0                   |
+| Resto de pruebas unitarias/MVC de auth, correo y seguridad |      35 | 0 / 0 / 0                   |
+| **Total Surefire**                                         |  **55** | **0 / 0 / 0**               |
+| DepartmentPostgresIT                                       |       5 | 0 / 0 / 0                   |
+| AuthenticationPostgresIT                                   |       8 | 0 / 0 / 0                   |
+| EmailVerificationPostgresIT                                |      12 | 0 / 0 / 0                   |
+| **Total Failsafe**                                         |  **25** | **0 / 0 / 0**               |
+| **Total verificado**                                       |  **80** | **0 / 0 / 0**               |
 
 Los cinco escenarios de DepartmentPostgresIT comprueban: ciclo de vida/migraciones/semillas/fechas; restricciones SQL y UUID por defecto; creaciones concurrentes con un éxito y un conflicto; PATCH simultáneos conservando ambos cambios; y JWT firmado real cuyo acceso cambia al verificar el correo, conceder ADMIN y retirarlo en BD. El transporte HTTP se prueba con MockMvc y la cadena real de seguridad, sin abrir un servidor público.
 
@@ -144,7 +144,7 @@ Los únicos cambios comunes de ejecución son la cabecera CORS Location y el 400
 
 ## 8. Pendientes reales y límites
 
-1. **Revisión interactiva de diagramas pendiente.** CONTRIBUTING pide «abrir los `.drawio` en diagrams.net; comprobar las cuatro páginas ER y la página de clases». El 30/10 la herramienta de control del navegador se detuvo al no poder determinar la URL activa con suficiente confianza. El 31/10 se pudo abrir diagrams.net en el navegador integrado, pero su selector no produjo una selección de archivo utilizable; un enlace servido localmente tampoco fue accesible desde ese navegador. Se detuvo el servidor temporal. La comprobación de XML y el render local de SVG se realizaron, pero no se presentan como cumplimiento de esa apertura manual. La comparación estructural con HEAD confirma que únicamente cambió la celda Department de cada fuente y que se conservan las cuatro páginas ER y la página de clases.
+1. Revisión visual de diagramas completada. Se han abierto en diagrams.net las cuatro páginas de relacional.drawio y la página de clases-simplificado.drawio. Se ha comprobado que se visualizan correctamente, sin textos cortados ni elementos solapados.
 2. Los diagramas de correo y C4 ya tenían pendientes documentados en main. Se conservan identificados en `docs/diagrams/README.md`; no se rediseñan módulos ajenos.
 3. No se ha probado un despliegue en Neon ni el frontend. No son pruebas pendientes del backend aislado de Department: son validaciones de despliegue/otros módulos. Antes de desplegar, comprobar historial/checksums reales de Flyway, especialmente la V1 que main amplió antes de su primer despliegue; no ejecutar `repair` ni sobrescribir historia a ciegas.
 4. Las dos advertencias de Redocly y los avisos de dependencias Java descritos no bloquean las pruebas. No hay dependencia nueva de runtime ni migración nueva.
@@ -191,7 +191,7 @@ Revisados los cuatro contratos y sus DTO, Department en ambas vistas de dominio,
 - [x] No se han añadido secretos ni datos personales reales.
 - [x] Se ha valorado la compatibilidad con la API existente.
 - [x] Se han revisado los archivos modificados.
-- [ ] Completar apertura manual de las cuatro páginas ER y la página de clases en diagrams.net conforme a CONTRIBUTING.
+- [x] Completar apertura manual de las cuatro páginas ER y la página de clases en diagrams.net conforme a CONTRIBUTING.
 
 ### Issue relacionado
 
@@ -199,6 +199,6 @@ No se proporcionó número de issue; no se inventa un `Closes`.
 
 ## 10. Veredicto
 
-**El backend de Department está implementado y supera la verificación completa, sin fallos funcionales conocidos. La rama está preparada para revisión técnica, pero no declaro cerrada al 100 % la lista de requisitos de la PR mientras quede la comprobación interactiva de diagramas exigida por CONTRIBUTING.** El impedimento concreto es la limitación del control del navegador indicada arriba; no hay pruebas PostgreSQL pendientes.
+El backend de Department está finalizado y supera la verificación de pruebas documentada, sin fallos funcionales conocidos. La documentación y los diagramas han sido revisados. La rama está preparada para publicar sus commits y abrir una Pull Request hacia main, sujeta a la revisión habitual del equipo.
 
-Los cambios permanecen sin stage y sin commit. No se han ejecutado git add, commit, push, cambio de rama, merge ni rebase, ni se ha creado/publicado una PR. El usuario conserva la revisión y autorización de esas operaciones.
+Las operaciones de publicación y creación de la Pull Request se realizan por separado. No se ha realizado ningún merge con main.
