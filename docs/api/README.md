@@ -74,9 +74,8 @@ Cada tag es una unidad de **revisión e implementación**, no una obligación de
 
 El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
-<<<<<<< HEAD
 Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. El tag Catálogos implementa exclusivamente `Department`, incluido el código corto único del DTO, su migración y sus endpoints; el resto continúa como diseño pendiente.
-=======
+
 La revisión de autenticación concreta ahora:
 
 | Aspecto              | Decisión de diseño                                                              | Contrato afectado                                                    |
@@ -90,7 +89,6 @@ La revisión de autenticación concreta ahora:
 | Identificadores      | UUIDv7 generado en Hibernate                                                    | PK persistentes; API `format: uuid` sin asumir versión               |
 
 Consulta también [contrato dominio–API](domain-openapi.md) y [diseño de autenticación](../auth-design.md).
->>>>>>> origin/main
 
 ## Validación y visualización
 

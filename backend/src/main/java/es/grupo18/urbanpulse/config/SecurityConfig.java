@@ -1,56 +1,5 @@
 package es.grupo18.urbanpulse.config;
 
-<<<<<<< HEAD
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.oauth2.jwt.BadJwtException;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.beans.factory.annotation.Value;
-
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-
-    @Bean
-    JwtDecoder jwtDecoder(@Value("${security.jwt.jwk-set-uri:}") String jwkSetUri) {
-        if (jwkSetUri.isBlank()) {
-            return token -> {
-                throw new BadJwtException("No se ha configurado el verificador JWT");
-            };
-        }
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-    }
-
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        authoritiesConverter.setAuthoritiesClaimName("roles");
-        authoritiesConverter.setAuthorityPrefix("ROLE_");
-
-        JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
-        authenticationConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-
-        return http
-                .securityMatcher("/api/v1/departments/**")
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/api/v1/departments/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/departments").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**").hasRole("ADMIN")
-                        .anyRequest().denyAll())
-                .oauth2ResourceServer(resourceServer -> resourceServer
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter)))
-=======
 import java.io.IOException;
 import java.time.*;
 import java.util.List;
@@ -87,6 +36,8 @@ import tools.jackson.databind.cfg.CoercionAction;
 import tools.jackson.databind.cfg.CoercionInputShape;
 import tools.jackson.databind.type.LogicalType;
 import tools.jackson.databind.json.JsonMapper;
+import org.springframework.security.authorization.AuthorizationManagers;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
 
 /**
  * Configura los componentes de seguridad de la aplicación. Incluye
@@ -272,10 +223,40 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email-verifications/confirm",
-                                "/api/v1/auth/email-verifications/resend", "/api/v1/users/me/password-changes")
+                        // Registro e inicio de sesión públicos
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login")
+                        .permitAll()
+
+                        // Operaciones de autenticación que requieren identidad
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/resend",
+                                "/api/v1/users/me/password-changes")
                         .authenticated()
+
+                        // Consulta de departamentos: usuario con correo verificado
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/departments",
+                                "/api/v1/departments/**")
+                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
+
+                        // Crear departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.POST, "/api/v1/departments")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Modificar departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Resto de rutas: requieren correo verificado
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
                         errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
@@ -303,7 +284,6 @@ public class SecurityConfig {
                         BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new EmailVerificationRateLimitFilter(limiter, limits, problems),
                         BearerTokenAuthenticationFilter.class)
->>>>>>> origin/main
                 .build();
     }
 }

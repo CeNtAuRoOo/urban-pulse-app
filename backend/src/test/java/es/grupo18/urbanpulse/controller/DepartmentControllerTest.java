@@ -12,10 +12,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+import es.grupo18.urbanpulse.exception.ProblemDetailFactory;
 import es.grupo18.urbanpulse.config.SecurityConfig;
 import es.grupo18.urbanpulse.dto.DepartmentResponse;
+import es.grupo18.urbanpulse.security.DatabaseJwtAuthenticationConverter;
 import es.grupo18.urbanpulse.service.DepartmentService;
+import es.grupo18.urbanpulse.repository.UserRepository;
+import es.grupo18.urbanpulse.security.InMemoryRateLimiter;
+import es.grupo18.urbanpulse.security.RestAccessDeniedHandler;
+import es.grupo18.urbanpulse.security.RestAuthenticationEntryPoint;
+import org.springframework.test.context.TestPropertySource;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -29,7 +35,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DepartmentController.class)
-@Import({ApiExceptionHandler.class, SecurityConfig.class})
+@Import({
+        ApiExceptionHandler.class,
+        SecurityConfig.class,
+        DatabaseJwtAuthenticationConverter.class,
+        RestAuthenticationEntryPoint.class,
+        RestAccessDeniedHandler.class,
+        ProblemDetailFactory.class
+})
+@TestPropertySource("classpath:auth-test.properties")
 class DepartmentControllerTest {
 
     @Autowired
@@ -41,13 +55,22 @@ class DepartmentControllerTest {
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private InMemoryRateLimiter limiter;
+
     @Test
     void authenticatedUserCanListDepartments() throws Exception {
         UUID id = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
         when(departmentService.findAll()).thenReturn(List.of(
                 new DepartmentResponse(id, "Mantenimiento Urbano", "MANT", "Conservación", true)));
 
-        mockMvc.perform(get("/api/v1/departments").with(jwt()))
+        mockMvc.perform(get("/api/v1/departments")
+                .with(jwt().authorities(
+                        new SimpleGrantedAuthority(
+                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].code").value("MANT"));
@@ -56,17 +79,19 @@ class DepartmentControllerTest {
     @Test
     void unauthenticatedWriteIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/departments")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void nonAdminWriteIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/departments")
-                        .with(jwt())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
+                .with(jwt().authorities(
+                        new SimpleGrantedAuthority(
+                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -77,9 +102,12 @@ class DepartmentControllerTest {
                 new DepartmentResponse(id, "Movilidad", "MOV", null, true));
 
         mockMvc.perform(post("/api/v1/departments")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
+                .with(jwt().authorities(
+                        new SimpleGrantedAuthority(
+                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                        new SimpleGrantedAuthority("ROLE_ADMIN")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/v1/departments/" + id))
                 .andExpect(jsonPath("$.active").value(true));
@@ -92,9 +120,12 @@ class DepartmentControllerTest {
                 new DepartmentResponse(id, "Limpieza", "LIMP", null, false));
 
         mockMvc.perform(patch("/api/v1/departments/{departmentId}", id)
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"active\":false}"))
+                .with(jwt().authorities(
+                        new SimpleGrantedAuthority(
+                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                        new SimpleGrantedAuthority("ROLE_ADMIN")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
@@ -104,9 +135,12 @@ class DepartmentControllerTest {
     @Test
     void invalidRequestReturnsContractValidationStatus() throws Exception {
         mockMvc.perform(post("/api/v1/departments")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"X\",\"code\":\"invalid code\"}"))
+                .with(jwt().authorities(
+                        new SimpleGrantedAuthority(
+                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                        new SimpleGrantedAuthority("ROLE_ADMIN")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"X\",\"code\":\"invalid code\"}"))
                 .andExpect(status().isUnprocessableContent());
     }
 }

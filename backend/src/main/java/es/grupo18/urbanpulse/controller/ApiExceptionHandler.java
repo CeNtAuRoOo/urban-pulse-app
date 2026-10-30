@@ -3,11 +3,9 @@ package es.grupo18.urbanpulse.controller;
 import es.grupo18.urbanpulse.service.DepartmentNotFoundException;
 import es.grupo18.urbanpulse.service.DuplicateDepartmentException;
 import es.grupo18.urbanpulse.service.InvalidDepartmentException;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -27,14 +25,6 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidDepartmentException.class)
     ResponseEntity<ProblemDetail> handleInvalidDepartment(InvalidDepartmentException exception) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, exception.getMessage());
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException exception) {
-        String errors = exception.getBindingResult().getAllErrors().stream()
-                .map(error -> error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
-        return problem(HttpStatus.UNPROCESSABLE_CONTENT, errors);
     }
 
     private ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
