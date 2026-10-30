@@ -1,441 +1,376 @@
 openapi: 3.0.3
-
 info:
   title: UrbanPulse API REST
-  version: 0.2.0
+  version: 0.4.0
   description:
-    Contrato de diseño sincronizado con el modelo de dominio UrbanPulse v1 y
-    ADR-0007/0009/0010/0011. Ambos forman una única referencia compartida; se refinan juntos por tag
-    antes de implementar. Sin endpoints de negocio desplegados. Contexto urbano y funciones avanzadas
-    pendientes de investigación. Las rutas de evaluaciones IA con motor, modelo y estado asíncrono no
-    forman parte de la versión activa; quedan como borrador exploratorio hasta definir su contrato.
-
+    Contrato del tag Autenticación implementado en el backend (registro, login,
+    cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
+    mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
+    requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
+    por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
-
 servers:
   - url: http://localhost:8888/api/v1
-    description: Backend local en desarrollo (ruta /api/v1 propuesta, aún no implementada).
-
+    description: Backend local en desarrollo (prefijo /api/v1 previsto).
 tags:
   - name: Autenticación
-    description: Registro y acceso mediante credenciales/JWT.
-
+    description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
-
   - name: Invitaciones
     description: Canje y emisión controlados según ADR-0007 (aceptado).
-
   - name: Catálogos
     description: Categorías y departamentos.
-
   - name: Incidencias
     description: Registro, consulta, edición y seguimiento.
-
   - name: Evidencias
     description: Fotografías privadas asociadas a incidencias.
-
   - name: Tramitación
-    description:
-      Validación, derivación departamental, asignación de trabajos, cambios de estado y
-      colaboración.
-
+    description: Validación, derivación departamental, asignación de trabajos, cambios de estado y colaboración.
   - name: Duplicados
     description: Detección y confirmación de avisos relacionados.
-
   - name: Contexto urbano
     description: Datos geográficos, activos y observaciones externas.
-
   - name: Mapas
     description: Representación cartográfica de incidencias.
-
   - name: Notificaciones
     description: Bandeja y preferencias de avisos.
-
   - name: Analítica
     description: Métricas y análisis territorial.
-
   - name: Informes
     description: Generación y descarga de informes.
-
   - name: Administración
     description: Fuentes externas, auditoría y administración técnica.
-
 security:
   - BearerAuth: []
-
 paths:
-  # Autenticación
-
   /auth/register:
-    $ref: "./paths/autenticacion.yaml#/~1auth~1register"
-
+    $ref: ./paths/autenticacion.yaml#/~1auth~1register
   /auth/login:
-    $ref: "./paths/autenticacion.yaml#/~1auth~1login"
-
-  # Usuarios
-
+    $ref: ./paths/autenticacion.yaml#/~1auth~1login
+  /auth/email-verifications/confirm:
+    $ref: ./paths/autenticacion.yaml#/~1auth~1email-verifications~1confirm
+  /auth/email-verifications/resend:
+    $ref: ./paths/autenticacion.yaml#/~1auth~1email-verifications~1resend
+  /users/me/password-changes:
+    $ref: ./paths/autenticacion.yaml#/~1users~1me~1password-changes
   /users/me:
-    $ref: "./paths/usuarios.yaml#/~1users~1me"
-
+    $ref: ./paths/usuarios.yaml#/~1users~1me
   /users:
-    $ref: "./paths/usuarios.yaml#/~1users"
-
+    $ref: ./paths/usuarios.yaml#/~1users
   /users/{userId}:
-    $ref: "./paths/usuarios.yaml#/~1users~1{userId}"
-
-  # Invitaciones
-
+    $ref: ./paths/usuarios.yaml#/~1users~1{userId}
   /staff-invitations:
-    $ref: "./paths/invitaciones.yaml#/~1staff-invitations"
-
+    $ref: ./paths/invitaciones.yaml#/~1staff-invitations
   /auth/staff-registrations:
-    $ref: "./paths/invitaciones.yaml#/~1auth~1staff-registrations"
-
+    $ref: ./paths/invitaciones.yaml#/~1auth~1staff-registrations
   /users/me/staff-invitation-redemptions:
     $ref: ./paths/invitaciones.yaml#/~1users~1me~1staff-invitation-redemptions
   /staff-invitations/{invitationId}/revocations:
-    $ref: "./paths/invitaciones.yaml#/~1staff-invitations~1{invitationId}~1revocations"
-
-  # Catálogos
-
+    $ref: ./paths/invitaciones.yaml#/~1staff-invitations~1{invitationId}~1revocations
   /categories:
-    $ref: "./paths/catalogos.yaml#/~1categories"
-
+    $ref: ./paths/catalogos.yaml#/~1categories
   /categories/{categoryId}:
-    $ref: "./paths/catalogos.yaml#/~1categories~1{categoryId}"
-
+    $ref: ./paths/catalogos.yaml#/~1categories~1{categoryId}
   /departments:
-    $ref: "./paths/catalogos.yaml#/~1departments"
-
+    $ref: ./paths/catalogos.yaml#/~1departments
   /departments/{departmentId}:
-    $ref: "./paths/catalogos.yaml#/~1departments~1{departmentId}"
-
+    $ref: ./paths/catalogos.yaml#/~1departments~1{departmentId}
   /incidents:
-    $ref: "./paths/incidencias.yaml#/~1incidents"
-
+    $ref: ./paths/incidencias.yaml#/~1incidents
   /incidents/mine:
-    $ref: "./paths/incidencias.yaml#/~1incidents~1mine"
-
+    $ref: ./paths/incidencias.yaml#/~1incidents~1mine
   /incidents/{incidentId}:
-    $ref: "./paths/incidencias.yaml#/~1incidents~1{incidentId}"
-
+    $ref: ./paths/incidencias.yaml#/~1incidents~1{incidentId}
   /incidents/{incidentId}/history:
-    $ref: "./paths/incidencias.yaml#/~1incidents~1{incidentId}~1history"
-
+    $ref: ./paths/incidencias.yaml#/~1incidents~1{incidentId}~1history
   /incidents/{incidentId}/attachments:
-    $ref: "./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments"
-
+    $ref: ./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments
   /incidents/{incidentId}/attachments/{attachmentId}:
-    $ref: "./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments~1{attachmentId}"
-
+    $ref: ./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments~1{attachmentId}
   /incidents/{incidentId}/attachments/{attachmentId}/content:
-    $ref: "./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments~1{attachmentId}~1content"
-
+    $ref: ./paths/evidencias.yaml#/~1incidents~1{incidentId}~1attachments~1{attachmentId}~1content
   /incidents/{incidentId}/reviews:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1reviews"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1reviews
   /incidents/{incidentId}/priority-decisions:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1priority-decisions"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1priority-decisions
   /incidents/{incidentId}/department:
     $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1department
   /incidents/{incidentId}/assignments:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1assignments"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1assignments
   /incidents/{incidentId}/assignments/{assignmentId}/acceptance:
     $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1assignments~1{assignmentId}~1acceptance
   /incidents/{incidentId}/status-changes:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1status-changes"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1status-changes
   /incidents/{incidentId}/comments:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1comments"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1comments
   /incidents/assigned-to-me:
-    $ref: "./paths/tramitacion.yaml#/~1incidents~1assigned-to-me"
-
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1assigned-to-me
   /incidents/{incidentId}/duplicate-candidates:
-    $ref: "./paths/duplicados.yaml#/~1incidents~1{incidentId}~1duplicate-candidates"
-
+    $ref: ./paths/duplicados.yaml#/~1incidents~1{incidentId}~1duplicate-candidates
   /incidents/{incidentId}/duplicate-links:
-    $ref: "./paths/duplicados.yaml#/~1incidents~1{incidentId}~1duplicate-links"
-
+    $ref: ./paths/duplicados.yaml#/~1incidents~1{incidentId}~1duplicate-links
   /incidents/{incidentId}/urban-context:
-    $ref: "./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1urban-context"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1urban-context
   /incidents/{incidentId}/asset-candidates:
-    $ref: "./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-candidates"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-candidates
   /incidents/{incidentId}/asset-association:
-    $ref: "./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-association"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-association
   /urban-assets:
-    $ref: "./paths/contexto-urbano.yaml#/~1urban-assets"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1urban-assets
   /urban-assets/{assetId}:
-    $ref: "./paths/contexto-urbano.yaml#/~1urban-assets~1{assetId}"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1urban-assets~1{assetId}
   /external-observations:
-    $ref: "./paths/contexto-urbano.yaml#/~1external-observations"
-
+    $ref: ./paths/contexto-urbano.yaml#/~1external-observations
   /map/incidents:
-    $ref: "./paths/mapas.yaml#/~1map~1incidents"
-
+    $ref: ./paths/mapas.yaml#/~1map~1incidents
   /notifications:
-    $ref: "./paths/notificaciones.yaml#/~1notifications"
-
+    $ref: ./paths/notificaciones.yaml#/~1notifications
   /notifications/{notificationId}:
-    $ref: "./paths/notificaciones.yaml#/~1notifications~1{notificationId}"
-
+    $ref: ./paths/notificaciones.yaml#/~1notifications~1{notificationId}
   /users/me/notification-preferences:
-    $ref: "./paths/notificaciones.yaml#/~1users~1me~1notification-preferences"
-
+    $ref: ./paths/notificaciones.yaml#/~1users~1me~1notification-preferences
   /analytics/statistics:
-    $ref: "./paths/analitica.yaml#/~1analytics~1statistics"
-
+    $ref: ./paths/analitica.yaml#/~1analytics~1statistics
   /zones/{zoneId}/analysis:
-    $ref: "./paths/analitica.yaml#/~1zones~1{zoneId}~1analysis"
-
+    $ref: ./paths/analitica.yaml#/~1zones~1{zoneId}~1analysis
   /analytics/correlations:
-    $ref: "./paths/analitica.yaml#/~1analytics~1correlations"
-
+    $ref: ./paths/analitica.yaml#/~1analytics~1correlations
   /reports:
-    $ref: "./paths/informes.yaml#/~1reports"
-
+    $ref: ./paths/informes.yaml#/~1reports
   /reports/{reportId}:
-    $ref: "./paths/informes.yaml#/~1reports~1{reportId}"
-
+    $ref: ./paths/informes.yaml#/~1reports~1{reportId}
   /reports/{reportId}/file:
-    $ref: "./paths/informes.yaml#/~1reports~1{reportId}~1file"
-
+    $ref: ./paths/informes.yaml#/~1reports~1{reportId}~1file
   /external-sources:
-    $ref: "./paths/administracion.yaml#/~1external-sources"
-
+    $ref: ./paths/administracion.yaml#/~1external-sources
   /external-sources/{sourceId}:
-    $ref: "./paths/administracion.yaml#/~1external-sources~1{sourceId}"
-
+    $ref: ./paths/administracion.yaml#/~1external-sources~1{sourceId}
   /audit-events:
-    $ref: "./paths/administracion.yaml#/~1audit-events"
-
+    $ref: ./paths/administracion.yaml#/~1audit-events
 components:
   securitySchemes:
     BearerAuth:
-      $ref: "./components/security-schemes.yaml#/BearerAuth"
+      $ref: ./components/security-schemes.yaml#/BearerAuth
   schemas:
     ProblemDetail:
-      $ref: "./components/schemas/comunes.yaml#/ProblemDetail"
+      $ref: ./components/schemas/comunes.yaml#/ProblemDetail
     FieldError:
-      $ref: "./components/schemas/comunes.yaml#/FieldError"
+      $ref: ./components/schemas/comunes.yaml#/FieldError
     PageMetadata:
-      $ref: "./components/schemas/comunes.yaml#/PageMetadata"
+      $ref: ./components/schemas/comunes.yaml#/PageMetadata
     CoordinatesDTO:
-      $ref: "./components/schemas/comunes.yaml#/CoordinatesDTO"
+      $ref: ./components/schemas/comunes.yaml#/CoordinatesDTO
     LocationDTO:
-      $ref: "./components/schemas/incidencias.yaml#/LocationDTO"
-    UserSummaryDTO:
-      $ref: "./components/schemas/usuarios.yaml#/UserSummaryDTO"
-    UserDTO:
-      $ref: "./components/schemas/usuarios.yaml#/UserDTO"
-    RegisterRequest:
-      $ref: "./components/schemas/autenticacion.yaml#/RegisterRequest"
-    LoginRequest:
-      $ref: "./components/schemas/autenticacion.yaml#/LoginRequest"
-    TokenDTO:
-      $ref: "./components/schemas/autenticacion.yaml#/TokenDTO"
-    UpdateProfileRequest:
-      $ref: "./components/schemas/usuarios.yaml#/UpdateProfileRequest"
-    AdminUpdateUserRequest:
-      $ref: "./components/schemas/usuarios.yaml#/AdminUpdateUserRequest"
-    InvitationRequest:
-      $ref: "./components/schemas/invitaciones.yaml#/InvitationRequest"
-    InvitationDTO:
-      $ref: "./components/schemas/invitaciones.yaml#/InvitationDTO"
-    InvitationCreatedDTO:
-      $ref: "./components/schemas/invitaciones.yaml#/InvitationCreatedDTO"
-    StaffRegistrationRequest:
-      $ref: "./components/schemas/invitaciones.yaml#/StaffRegistrationRequest"
-    CategoryDTO:
-      $ref: "./components/schemas/catalogos.yaml#/CategoryDTO"
-    CategoryWriteRequest:
-      $ref: "./components/schemas/catalogos.yaml#/CategoryWriteRequest"
-    CategoryPatchRequest:
-      $ref: "./components/schemas/catalogos.yaml#/CategoryPatchRequest"
-    DepartmentDTO:
-      $ref: "./components/schemas/catalogos.yaml#/DepartmentDTO"
-    DepartmentWriteRequest:
-      $ref: "./components/schemas/catalogos.yaml#/DepartmentWriteRequest"
-    DepartmentPatchRequest:
-      $ref: "./components/schemas/catalogos.yaml#/DepartmentPatchRequest"
+      $ref: ./components/schemas/incidencias.yaml#/LocationDTO
     IncidentStatus:
-      $ref: "./components/schemas/incidencias.yaml#/IncidentStatus"
+      $ref: ./components/schemas/incidencias.yaml#/IncidentStatus
     IncidentPriority:
-      $ref: "./components/schemas/incidencias.yaml#/IncidentPriority"
+      $ref: ./components/schemas/incidencias.yaml#/IncidentPriority
     CreateIncidentRequest:
-      $ref: "./components/schemas/incidencias.yaml#/CreateIncidentRequest"
+      $ref: ./components/schemas/incidencias.yaml#/CreateIncidentRequest
     UpdateIncidentRequest:
-      $ref: "./components/schemas/incidencias.yaml#/UpdateIncidentRequest"
+      $ref: ./components/schemas/incidencias.yaml#/UpdateIncidentRequest
     IncidentSummaryDTO:
-      $ref: "./components/schemas/incidencias.yaml#/IncidentSummaryDTO"
+      $ref: ./components/schemas/incidencias.yaml#/IncidentSummaryDTO
     IncidentDTO:
-      $ref: "./components/schemas/incidencias.yaml#/IncidentDTO"
+      $ref: ./components/schemas/incidencias.yaml#/IncidentDTO
     IncidentPageDTO:
-      $ref: "./components/schemas/incidencias.yaml#/IncidentPageDTO"
-    AttachmentDTO:
-      $ref: "./components/schemas/evidencias.yaml#/AttachmentDTO"
-    ReviewRequest:
-      $ref: "./components/schemas/tramitacion.yaml#/ReviewRequest"
-    ReviewDTO:
-      $ref: "./components/schemas/tramitacion.yaml#/ReviewDTO"
-    PriorityRequest:
-      $ref: "./components/schemas/tramitacion.yaml#/PriorityRequest"
-    PriorityDecisionDTO:
-      $ref: "./components/schemas/tramitacion.yaml#/PriorityDecisionDTO"
-    AssignmentRequest:
-      $ref: "./components/schemas/tramitacion.yaml#/AssignmentRequest"
-    AssignmentDTO:
-      $ref: "./components/schemas/tramitacion.yaml#/AssignmentDTO"
-    StatusChangeRequest:
-      $ref: "./components/schemas/tramitacion.yaml#/StatusChangeRequest"
-    StatusChangeDTO:
-      $ref: "./components/schemas/tramitacion.yaml#/StatusChangeDTO"
-    CommentRequest:
-      $ref: "./components/schemas/tramitacion.yaml#/CommentRequest"
-    CommentDTO:
-      $ref: "./components/schemas/tramitacion.yaml#/CommentDTO"
+      $ref: ./components/schemas/incidencias.yaml#/IncidentPageDTO
     HistoryEventDTO:
-      $ref: "./components/schemas/incidencias.yaml#/HistoryEventDTO"
-    DuplicateSuggestionDTO:
-      $ref: "./components/schemas/duplicados.yaml#/DuplicateSuggestionDTO"
-    DuplicateLinkRequest:
-      $ref: "./components/schemas/duplicados.yaml#/DuplicateLinkRequest"
-    DuplicateLinkDTO:
-      $ref: "./components/schemas/duplicados.yaml#/DuplicateLinkDTO"
-    UrbanAssetDTO:
-      $ref: "./components/schemas/contexto-urbano.yaml#/UrbanAssetDTO"
-    UrbanAssetCandidateDTO:
-      $ref: "./components/schemas/contexto-urbano.yaml#/UrbanAssetCandidateDTO"
-    UrbanAssetAssociationRequest:
-      $ref: "./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationRequest"
-    UrbanAssetAssociationDTO:
-      $ref: "./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationDTO"
-    ExternalObservationDTO:
-      $ref: "./components/schemas/contexto-urbano.yaml#/ExternalObservationDTO"
-    UrbanContextDTO:
-      $ref: "./components/schemas/contexto-urbano.yaml#/UrbanContextDTO"
-    MapFeatureDTO:
-      $ref: "./components/schemas/mapas.yaml#/MapFeatureDTO"
-    MapIncidentsDTO:
-      $ref: "./components/schemas/mapas.yaml#/MapIncidentsDTO"
-    NotificationDTO:
-      $ref: "./components/schemas/notificaciones.yaml#/NotificationDTO"
-    NotificationPreferencesDTO:
-      $ref: "./components/schemas/notificaciones.yaml#/NotificationPreferencesDTO"
-    NotificationPreferencesRequest:
-      $ref: "./components/schemas/notificaciones.yaml#/NotificationPreferencesRequest"
-    StatisticsDTO:
-      $ref: "./components/schemas/analitica.yaml#/StatisticsDTO"
-    CountBucketDTO:
-      $ref: "./components/schemas/analitica.yaml#/CountBucketDTO"
-    ZoneAnalysisDTO:
-      $ref: "./components/schemas/analitica.yaml#/ZoneAnalysisDTO"
-    CorrelationDTO:
-      $ref: "./components/schemas/analitica.yaml#/CorrelationDTO"
-    ReportRequest:
-      $ref: "./components/schemas/informes.yaml#/ReportRequest"
-    ReportDTO:
-      $ref: "./components/schemas/informes.yaml#/ReportDTO"
-    ExternalSourceDTO:
-      $ref: "./components/schemas/administracion.yaml#/ExternalSourceDTO"
-    ExternalSourceRequest:
-      $ref: "./components/schemas/administracion.yaml#/ExternalSourceRequest"
-    ExternalSourcePatchRequest:
-      $ref: "./components/schemas/administracion.yaml#/ExternalSourcePatchRequest"
-    AuditEventDTO:
-      $ref: "./components/schemas/administracion.yaml#/AuditEventDTO"
+      $ref: ./components/schemas/incidencias.yaml#/HistoryEventDTO
+    UserSummaryDTO:
+      $ref: ./components/schemas/usuarios.yaml#/UserSummaryDTO
+    UserDTO:
+      $ref: ./components/schemas/usuarios.yaml#/UserDTO
+    UpdateProfileRequest:
+      $ref: ./components/schemas/usuarios.yaml#/UpdateProfileRequest
+    AdminUpdateUserRequest:
+      $ref: ./components/schemas/usuarios.yaml#/AdminUpdateUserRequest
     UsersPageDTO:
-      $ref: "./components/schemas/usuarios.yaml#/UsersPageDTO"
-    NotificationsPageDTO:
-      $ref: "./components/schemas/notificaciones.yaml#/NotificationsPageDTO"
-    ReportsPageDTO:
-      $ref: "./components/schemas/informes.yaml#/ReportsPageDTO"
-    AuditPageDTO:
-      $ref: "./components/schemas/administracion.yaml#/AuditPageDTO"
+      $ref: ./components/schemas/usuarios.yaml#/UsersPageDTO
     RoleCode:
       $ref: ./components/schemas/usuarios.yaml#/RoleCode
-    RoleScope:
-      $ref: ./components/schemas/usuarios.yaml#/RoleScope
     DepartmentMembershipDTO:
       $ref: ./components/schemas/usuarios.yaml#/DepartmentMembershipDTO
+    GlobalRoleCode:
+      $ref: ./components/schemas/usuarios.yaml#/GlobalRoleCode
+    DepartmentRoleCode:
+      $ref: ./components/schemas/usuarios.yaml#/DepartmentRoleCode
+    RegisterRequest:
+      $ref: ./components/schemas/autenticacion.yaml#/RegisterRequest
+    LoginRequest:
+      $ref: ./components/schemas/autenticacion.yaml#/LoginRequest
+    ChangePasswordRequest:
+      $ref: ./components/schemas/autenticacion.yaml#/ChangePasswordRequest
+    ConfirmEmailRequest:
+      $ref: ./components/schemas/autenticacion.yaml#/ConfirmEmailRequest
+    TokenDTO:
+      $ref: ./components/schemas/autenticacion.yaml#/TokenDTO
+    InvitationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationRequest
+    InvitationDTO:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationDTO
+    InvitationCreatedDTO:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationCreatedDTO
+    StaffRegistrationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/StaffRegistrationRequest
+    ExistingAccountInvitationRedemptionRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
+    StaffGlobalRoleCode:
+      $ref: ./components/schemas/invitaciones.yaml#/StaffGlobalRoleCode
+    GlobalInvitationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/GlobalInvitationRequest
+    DepartmentInvitationRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/DepartmentInvitationRequest
+    CategoryDTO:
+      $ref: ./components/schemas/catalogos.yaml#/CategoryDTO
+    CategoryWriteRequest:
+      $ref: ./components/schemas/catalogos.yaml#/CategoryWriteRequest
+    CategoryPatchRequest:
+      $ref: ./components/schemas/catalogos.yaml#/CategoryPatchRequest
+    DepartmentDTO:
+      $ref: ./components/schemas/catalogos.yaml#/DepartmentDTO
+    DepartmentWriteRequest:
+      $ref: ./components/schemas/catalogos.yaml#/DepartmentWriteRequest
+    DepartmentPatchRequest:
+      $ref: ./components/schemas/catalogos.yaml#/DepartmentPatchRequest
+    ReviewRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/ReviewRequest
+    ReviewDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/ReviewDTO
+    PriorityRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/PriorityRequest
+    PriorityDecisionDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/PriorityDecisionDTO
+    AssignmentRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/AssignmentRequest
+    AssignmentDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/AssignmentDTO
+    StatusChangeRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/StatusChangeRequest
+    StatusChangeDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/StatusChangeDTO
+    CommentRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/CommentRequest
+    CommentDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/CommentDTO
     DepartmentReferralRequest:
       $ref: ./components/schemas/tramitacion.yaml#/DepartmentReferralRequest
     TeamWorkAssignmentRequest:
       $ref: ./components/schemas/tramitacion.yaml#/TeamWorkAssignmentRequest
     TechnicianWorkAssignmentRequest:
       $ref: ./components/schemas/tramitacion.yaml#/TechnicianWorkAssignmentRequest
-    ExistingAccountInvitationRedemptionRequest:
-      $ref: ./components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
-    GlobalRoleCode:
-      $ref: ./components/schemas/usuarios.yaml#/GlobalRoleCode
-    DepartmentRoleCode:
-      $ref: ./components/schemas/usuarios.yaml#/DepartmentRoleCode
-    GlobalInvitationRequest:
-      $ref: ./components/schemas/invitaciones.yaml#/GlobalInvitationRequest
-    DepartmentInvitationRequest:
-      $ref: ./components/schemas/invitaciones.yaml#/DepartmentInvitationRequest
+    AttachmentDTO:
+      $ref: ./components/schemas/evidencias.yaml#/AttachmentDTO
+    DuplicateSuggestionDTO:
+      $ref: ./components/schemas/duplicados.yaml#/DuplicateSuggestionDTO
+    DuplicateLinkRequest:
+      $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkRequest
+    DuplicateLinkDTO:
+      $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkDTO
+    UrbanAssetDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetDTO
+    UrbanAssetCandidateDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetCandidateDTO
+    UrbanAssetAssociationRequest:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationRequest
+    UrbanAssetAssociationDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationDTO
+    ExternalObservationDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/ExternalObservationDTO
+    UrbanContextDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanContextDTO
+    MapFeatureDTO:
+      $ref: ./components/schemas/mapas.yaml#/MapFeatureDTO
+    MapIncidentsDTO:
+      $ref: ./components/schemas/mapas.yaml#/MapIncidentsDTO
+    NotificationDTO:
+      $ref: ./components/schemas/notificaciones.yaml#/NotificationDTO
+    NotificationPreferencesDTO:
+      $ref: ./components/schemas/notificaciones.yaml#/NotificationPreferencesDTO
+    NotificationPreferencesRequest:
+      $ref: ./components/schemas/notificaciones.yaml#/NotificationPreferencesRequest
+    NotificationsPageDTO:
+      $ref: ./components/schemas/notificaciones.yaml#/NotificationsPageDTO
+    StatisticsDTO:
+      $ref: ./components/schemas/analitica.yaml#/StatisticsDTO
+    CountBucketDTO:
+      $ref: ./components/schemas/analitica.yaml#/CountBucketDTO
+    ZoneAnalysisDTO:
+      $ref: ./components/schemas/analitica.yaml#/ZoneAnalysisDTO
+    CorrelationDTO:
+      $ref: ./components/schemas/analitica.yaml#/CorrelationDTO
+    ReportRequest:
+      $ref: ./components/schemas/informes.yaml#/ReportRequest
+    ReportDTO:
+      $ref: ./components/schemas/informes.yaml#/ReportDTO
+    ReportsPageDTO:
+      $ref: ./components/schemas/informes.yaml#/ReportsPageDTO
+    ExternalSourceDTO:
+      $ref: ./components/schemas/administracion.yaml#/ExternalSourceDTO
+    ExternalSourceRequest:
+      $ref: ./components/schemas/administracion.yaml#/ExternalSourceRequest
+    ExternalSourcePatchRequest:
+      $ref: ./components/schemas/administracion.yaml#/ExternalSourcePatchRequest
+    AuditEventDTO:
+      $ref: ./components/schemas/administracion.yaml#/AuditEventDTO
+    AuditPageDTO:
+      $ref: ./components/schemas/administracion.yaml#/AuditPageDTO
   parameters:
     IncidentId:
-      $ref: "./components/parameters.yaml#/IncidentId"
+      $ref: ./components/parameters.yaml#/IncidentId
     AttachmentId:
-      $ref: "./components/parameters.yaml#/AttachmentId"
+      $ref: ./components/parameters.yaml#/AttachmentId
     UserId:
-      $ref: "./components/parameters.yaml#/UserId"
+      $ref: ./components/parameters.yaml#/UserId
     CategoryId:
-      $ref: "./components/parameters.yaml#/CategoryId"
+      $ref: ./components/parameters.yaml#/CategoryId
     DepartmentId:
-      $ref: "./components/parameters.yaml#/DepartmentId"
+      $ref: ./components/parameters.yaml#/DepartmentId
     AssetId:
-      $ref: "./components/parameters.yaml#/AssetId"
+      $ref: ./components/parameters.yaml#/AssetId
     ReportId:
-      $ref: "./components/parameters.yaml#/ReportId"
+      $ref: ./components/parameters.yaml#/ReportId
     AssessmentId:
-      $ref: "./components/parameters.yaml#/AssessmentId"
+      $ref: ./components/parameters.yaml#/AssessmentId
     TrainingId:
-      $ref: "./components/parameters.yaml#/TrainingId"
+      $ref: ./components/parameters.yaml#/TrainingId
     DocumentId:
-      $ref: "./components/parameters.yaml#/DocumentId"
+      $ref: ./components/parameters.yaml#/DocumentId
     SourceId:
-      $ref: "./components/parameters.yaml#/SourceId"
+      $ref: ./components/parameters.yaml#/SourceId
     InvitationId:
-      $ref: "./components/parameters.yaml#/InvitationId"
+      $ref: ./components/parameters.yaml#/InvitationId
     ZoneId:
-      $ref: "./components/parameters.yaml#/ZoneId"
+      $ref: ./components/parameters.yaml#/ZoneId
     Page:
-      $ref: "./components/parameters.yaml#/Page"
+      $ref: ./components/parameters.yaml#/Page
     PageSize:
-      $ref: "./components/parameters.yaml#/PageSize"
+      $ref: ./components/parameters.yaml#/PageSize
     FromDate:
-      $ref: "./components/parameters.yaml#/FromDate"
+      $ref: ./components/parameters.yaml#/FromDate
     ToDate:
-      $ref: "./components/parameters.yaml#/ToDate"
+      $ref: ./components/parameters.yaml#/ToDate
     AssignmentId:
       $ref: ./components/parameters.yaml#/AssignmentId
   responses:
     BadRequest:
-      $ref: "./components/responses.yaml#/BadRequest"
+      $ref: ./components/responses.yaml#/BadRequest
     Unauthorized:
-      $ref: "./components/responses.yaml#/Unauthorized"
+      $ref: ./components/responses.yaml#/Unauthorized
     Forbidden:
-      $ref: "./components/responses.yaml#/Forbidden"
+      $ref: ./components/responses.yaml#/Forbidden
     NotFound:
-      $ref: "./components/responses.yaml#/NotFound"
+      $ref: ./components/responses.yaml#/NotFound
     Conflict:
-      $ref: "./components/responses.yaml#/Conflict"
+      $ref: ./components/responses.yaml#/Conflict
     ValidationError:
-      $ref: "./components/responses.yaml#/ValidationError"
+      $ref: ./components/responses.yaml#/ValidationError
     TooManyRequests:
-      $ref: "./components/responses.yaml#/TooManyRequests"
+      $ref: ./components/responses.yaml#/TooManyRequests
     InternalError:
-      $ref: "./components/responses.yaml#/InternalError"
+      $ref: ./components/responses.yaml#/InternalError
     ServiceUnavailable:
-      $ref: "./components/responses.yaml#/ServiceUnavailable"
+      $ref: ./components/responses.yaml#/ServiceUnavailable
