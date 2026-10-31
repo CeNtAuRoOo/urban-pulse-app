@@ -137,6 +137,8 @@
                             <includes>
                                 <include>**/AuthenticationPostgresIT.java</include>
                                 <include>**/EmailVerificationPostgresIT.java</include>
+                                <include>**/NeonAttachmentStorageIT.java</include>
+                                <include>**AttachmentServiceIT.java</include>
                             </includes>
                         </configuration>
                         <executions>
