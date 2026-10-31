@@ -1,3 +1,7 @@
+package es.grupo18.urbanpulse.mappers;
+
+
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -11,10 +15,11 @@ public class AttachmentMapper
 
         return new AttachmentDTO(
                 attachment.getId(),
-                attachment.getIncident(),
+                UUID.randomUUID(), //TODO: Incident ID not yet added
                 attachment.getOriginalFilename(),
                 attachment.getContentType().getMimeType(),
                 attachment.getSizeBytes(),
+                UUID.randomUUID(), //TODO: User ID not yet added 
                 attachment.getCreatedAt(),
                 attachment.getDescription()
         );

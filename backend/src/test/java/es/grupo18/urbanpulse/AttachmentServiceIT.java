@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 import javax.imageio.ImageIO;
+
 import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import es.grupo18.urbanpulse.dto.attachment.AttachmentDTO;
@@ -32,7 +33,6 @@ import es.grupo18.urbanpulse.service.ObjectStorageService;
 import es.grupo18.urbanpulse.service.attachment.AttachmentContent;
 
 @SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.NONE,
     properties = {
         "spring.flyway.enabled=false",
         "security.email-verification.cleanup-cron=-",
@@ -54,21 +54,27 @@ class AttachmentServiceIT {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private User testUser;
 
     /**
      * Creates a test user before every test.
      *
-     * The user is persisted in PostgreSQL but the transaction
-     * is rolled back after each test.
+     * Uses the application's configured PasswordEncoder
+     * to generate a valid password hash.
      */
     @BeforeEach
     void setUp() {
 
+        String encodedPassword =
+                passwordEncoder.encode("test-password");
+
         testUser = new User(
                 "Attachment Test User",
                 "attachment-test-" + UUID.randomUUID() + "@example.com",
-                "test-password-hash"
+                encodedPassword
         );
 
         entityManager.persist(testUser);
@@ -76,7 +82,7 @@ class AttachmentServiceIT {
     }
 
     /**
-     * Removes uploaded objects from Neon after every test.
+     * Removes uploaded objects from storage after every test.
      *
      * Database changes are automatically rolled back.
      */
@@ -87,12 +93,12 @@ class AttachmentServiceIT {
             return;
         }
 
-        List<Attachment> userAttachments =
+        /*List<Attachment> userAttachments =
                 attachmentRepository.findAllByUser(testUser);
 
         for (Attachment attachment : userAttachments) {
             storage.delete(attachment.getStorageKey());
-        }
+        }*/
     }
 
     /**
@@ -162,7 +168,6 @@ class AttachmentServiceIT {
         assertTrue(result.sizeBytes() > 0);
         assertEquals("Test photograph", result.description());
 
-        // Verify metadata in PostgreSQL.
         Attachment saved = attachmentRepository
                 .findById(result.id())
                 .orElseThrow();
@@ -170,7 +175,6 @@ class AttachmentServiceIT {
         assertEquals(testUser.getId(), saved.getUser().getId());
         assertEquals("test-image.jpg", saved.getOriginalFilename());
 
-        // Verify the binary exists in Neon.
         byte[] downloaded = storage.download(saved.getStorageKey());
 
         assertNotNull(downloaded);
@@ -214,7 +218,6 @@ class AttachmentServiceIT {
         assertEquals("image/jpeg", content.contentType());
         assertEquals(content.data().length, content.sizeBytes());
 
-        // Verify that the downloaded image can be decoded.
         BufferedImage decoded = ImageIO.read(
                 new java.io.ByteArrayInputStream(content.data())
         );
@@ -367,17 +370,14 @@ class AttachmentServiceIT {
 
         String storageKey = beforeDeletion.getStorageKey();
 
-        // Soft-delete the attachment.
         attachmentService.deleteAttachment(created.id());
 
-        // Verify the database record still exists.
         Attachment deleted = attachmentRepository
                 .findById(created.id())
                 .orElseThrow();
 
         assertNotNull(deleted.getDeletedAt());
 
-        // Deleted attachments must no longer be accessible.
         assertTrue(
                 attachmentRepository
                         .findByIdAndDeletedAtIsNull(created.id())
@@ -389,7 +389,6 @@ class AttachmentServiceIT {
                 () -> attachmentService.getAttachment(created.id())
         );
 
-        // Soft deletion must not remove the actual Neon object.
         assertNotNull(storage.download(storageKey));
     }
 
