@@ -1,7 +1,7 @@
 package es.grupo18.urbanpulse;
 
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * Clase principal de UrbanPulse encargada de iniciar la aplicación Spring Boot.

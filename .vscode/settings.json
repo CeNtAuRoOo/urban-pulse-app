@@ -5,7 +5,27 @@
   "editor.formatOnSave": true,
   "prettier.requireConfig": true,
 
+  "java.completion.importOrder": [
+    "java",
+    "javax",
+    "jakarta",
+    "lombok",
+    "org.springframework",
+    "org",
+    "com",
+    "es.grupo18.urbanpulse",
+    "",
+    "#"
+  ],
+
+  "java.sources.organizeImports.starThreshold": 99,
+  "java.sources.organizeImports.staticStarThreshold": 99,
+
   "[java]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+
     "editor.defaultFormatter": "redhat.java"
   },
 
