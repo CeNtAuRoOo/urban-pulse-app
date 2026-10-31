@@ -137,6 +137,7 @@
                             <includes>
                                 <include>**/AuthenticationPostgresIT.java</include>
                                 <include>**/EmailVerificationPostgresIT.java</include>
+                                <include>**/StaffInvitationPostgresIT.java</include>
                             </includes>
                         </configuration>
                         <executions>
