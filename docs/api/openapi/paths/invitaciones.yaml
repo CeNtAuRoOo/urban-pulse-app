@@ -1,13 +1,13 @@
 /staff-invitations:
   post:
-    tags:
-      - Invitaciones
-    summary: Crear invitación municipal
-    description: "ADR-0007 aceptado: invitación de un solo uso; rol GLOBAL o rol DEPARTMENT con departamento.
-      Código revelado solo al crearla."
+    tags: [Invitaciones]
+    summary: Emitir invitación municipal
+    description: >-
+      ADMIN activo y EMAIL_VERIFIED. Crea solo una invitación y auditoría; no crea User. Vigencia de 7 días exactos por defecto. Permite duplicados. Código solo por EmailSender después del commit. 201 no garantiza entrega SMTP; ante fallo, revocar y emitir otra. Cuerpo máximo 16 KiB.
     operationId: postStaffInvitations
-    x-roles:
-      - ADMIN
+    security:
+      - BearerAuth: []
+    x-roles: [ADMIN]
     requestBody:
       required: true
       content:
@@ -16,48 +16,113 @@
             $ref: "../components/schemas/invitaciones.yaml#/InvitationRequest"
     responses:
       "201":
-        description: Recurso creado.
+        description: Invitación creada sin secreto; entrega SMTP solicitada.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/invitaciones.yaml#/InvitationCreatedDTO"
+              $ref: "../components/schemas/invitaciones.yaml#/InvitationDTO"
         headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
+          Cache-Control:
             schema:
               type: string
+              enum: [no-store]
+          Location:
+            description: Ruta consultable del recurso creado.
+            schema:
+              type: string
+              example: /api/v1/staff-invitations/019a0000-0000-7000-8000-000000000001
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
       "401":
         $ref: "../components/responses.yaml#/Unauthorized"
       "403":
         $ref: "../components/responses.yaml#/Forbidden"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
-
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
   get:
-    tags:
-      - Invitaciones
+    tags: [Invitaciones]
     summary: Listar invitaciones
-    description: Devuelve metadatos, nunca el código original en claro.
+    description: >-
+      ADMIN activo y EMAIL_VERIFIED. Filtros exactos aplicados en SQL antes de paginar. Orden createdAt DESC, id DESC. Página inicial 1; 20 elementos por defecto y máximo 100. Página fuera de rango devuelve data vacío con totales reales. Offset máximo 2147483647; sobrepasarlo devuelve 422. Inserciones concurrentes pueden desplazar páginas.
     operationId: getStaffInvitations
-    x-roles:
-      - ADMIN
+    security:
+      - BearerAuth: []
+    x-roles: [ADMIN]
+    parameters:
+      - $ref: "../components/parameters.yaml#/Page"
+      - $ref: "../components/parameters.yaml#/PageSize"
+      - name: status
+        in: query
+        schema:
+          $ref: "../components/schemas/invitaciones.yaml#/InvitationStatus"
+      - name: email
+        in: query
+        description: Coincidencia exacta tras trim y minúsculas; no admite vacío.
+        schema:
+          type: string
+          format: email
+          maxLength: 254
+      - name: role
+        in: query
+        schema:
+          $ref: "../components/schemas/usuarios.yaml#/RoleCode"
+      - name: departmentId
+        in: query
+        schema:
+          type: string
+          format: uuid
     responses:
       "200":
-        description: Operación correcta.
+        description: Página administrativa, sin códigos ni hashes.
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: "../components/schemas/invitaciones.yaml#/InvitationDTO"
+              $ref: "../components/schemas/invitaciones.yaml#/InvitationPageDTO"
+        headers:
+          Cache-Control:
+            schema:
+              type: string
+              enum: [no-store]
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
+/staff-invitations/{invitationId}:
+  get:
+    tags: [Invitaciones]
+    summary: Consultar invitación
+    description: >-
+      Solo ADMIN activo con EMAIL_VERIFIED. Nunca revela el código ni su HMAC.
+    operationId: getStaffInvitation
+    security:
+      - BearerAuth: []
+    x-roles: [ADMIN]
+    parameters:
+      - $ref: "../components/parameters.yaml#/InvitationId"
+    responses:
+      "200":
+        description: Metadatos administrativos.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/invitaciones.yaml#/InvitationDTO"
+        headers:
+          Cache-Control:
+            schema:
+              type: string
+              enum: [no-store]
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
       "401":
@@ -66,65 +131,25 @@
         $ref: "../components/responses.yaml#/Forbidden"
       "404":
         $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
-
-/auth/staff-registrations:
-  post:
-    tags:
-      - Invitaciones
-    summary: Canjear invitación
-    description: "Canje de invitación al registrar una cuenta nueva. Si el correo corresponde a una cuenta
-      existente, utilizar el canje autenticado sin crear usuario duplicado."
-    operationId: postAuthStaffRegistrations
-    security: []
-    x-roles:
-      - PUBLIC
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../components/schemas/invitaciones.yaml#/StaffRegistrationRequest"
-    responses:
-      "201":
-        description: Recurso creado.
-        content:
-          application/json:
-            schema:
-              $ref: "../components/schemas/usuarios.yaml#/UserDTO"
-        headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
-            schema:
-              type: string
-      "400":
-        $ref: "../components/responses.yaml#/BadRequest"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
-      "422":
-        $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 /staff-invitations/{invitationId}/revocations:
   post:
-    tags:
-      - Invitaciones
-    summary: Revocar invitación
-    description: Invalida una invitación activa. Operación administrativa auditada.
-    operationId: postStaffInvitationsInvitationIdRevocations
-    x-roles:
-      - ADMIN
+    tags: [Invitaciones]
+    summary: Revocar invitación activa
+    description: >-
+      Solo ADMIN activo y verificado; cuerpo vacío. Guarda revokedBy, revokedAt y auditoría en una transacción. Estados finales devuelven 409 INVITATION_NOT_ACTIVE; no retira permisos concedidos.
+    operationId: postStaffInvitationRevocation
+    security:
+      - BearerAuth: []
+    x-roles: [ADMIN]
     parameters:
       - $ref: "../components/parameters.yaml#/InvitationId"
     responses:
       "204":
-        description: Operación correcta, sin cuerpo de respuesta.
+        description: Revocación confirmada; sin cuerpo.
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
       "401":
@@ -135,44 +160,51 @@
         $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
-      "422":
-        $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 /users/me/staff-invitation-redemptions:
   post:
-    tags:
-      - Invitaciones
-    summary: Canjear invitación con cuenta existente
-    description: Añade el rol global o pertenencia departamental autorizados a la cuenta autenticada. 
-      Canje atómico y auditable; no cambia identidad/correo.
-    operationId: postUsersMeStaffInvitationRedemptions
-    x-roles:
-      - AUTHENTICATED
+    tags: [Invitaciones]
+    summary: Canjear invitación con cuenta verificada
+    description: >-
+      Requiere JWT de cuenta activa con CITIZEN y EMAIL_VERIFIED. Su email debe coincidir exactamente con el invitado. Concede solo el permiso almacenado, conserva ciudadanía e identidad y audita atómicamente. El JWT existente reconoce roles globales en la siguiente petición. Un permiso activo previo devuelve 409 PERMISSION_ALREADY_GRANTED sin consumir. Código inexistente, usado, revocado, caducado o de otro correo devuelve 422 INVALID_INVITATION_CODE indistinguible. Departamento inactivo o inexistente devuelve 422 INVALID_DEPARTMENT. Cuerpo máximo 16 KiB. Token buckets por usuario 10/900 s e IP 30/900 s, reposición gradual local por instancia.
+    operationId: postStaffInvitationRedemption
+    security:
+      - BearerAuth: []
+    x-roles: [CITIZEN]
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
+            $ref: "../components/schemas/invitaciones.yaml#/InvitationRedemptionRequest"
     responses:
-      '200':
-        description: Operación correcta.
+      "200":
+        description: Permiso concedido; no se crea usuario ni se emite otro JWT.
         content:
           application/json:
             schema:
-              $ref: ../components/schemas/usuarios.yaml#/UserDTO
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '422':
-        $ref: ../components/responses.yaml#/ValidationError
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
+              $ref: "../components/schemas/invitaciones.yaml#/InvitationRedemptionDTO"
+        headers:
+          Cache-Control:
+            schema:
+              type: string
+              enum: [no-store]
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses.yaml#/ValidationError"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"

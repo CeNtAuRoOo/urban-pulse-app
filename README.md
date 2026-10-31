@@ -1,87 +1,94 @@
 # UrbanPulse
 
-UrbanPulse es una **plataforma cloud para la gestión inteligente de incidencias urbanas**. Su finalidad es centralizar los reportes realizados por la ciudadanía y enriquecerlos con información contextual para mejorar su clasificación, priorización, seguimiento y resolución.
+**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad y las invitaciones municipales ya tienen implementación backend; el resto de funcionalidades sigue en diseño.
 
-La aplicación permitirá registrar incidencias (por ejemplo, semáforos averiados o desperfectos en la vía pública), consultar su evolución y facilitar al personal municipal su validación, asignación y gestión. El proyecto se encuentra **en desarrollo**: estas funcionalidades describen el alcance previsto, no funciones ya disponibles.
+## Estado del proyecto (31/10/2026)
 
-## Estado del proyecto
+| Área | Estado |
+| --- | --- |
+| Frontend web | Expo SDK 57/React Native Web con pantalla inicial, exportación web y desarrollo con Compose verificados. No hay integración real con los endpoints. |
+| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente. |
+| Backend | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `audit` y `shared`. |
+| Autenticación | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados. |
+| Invitaciones | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal. |
+| PostgreSQL | Migraciones Flyway V1/V2 probadas históricamente con PostgreSQL 18 efímero. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1/V2 en Neon**. |
+| Object Storage | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; operaciones de fotografías pendientes. |
+| Incidencias, tramitación, catálogos, equipos, analítica | Contrato y modelo revisables, **sin endpoints funcionales implementados**. |
+| Despliegue real/CI/CD | Pendientes. Compose de desarrollo y runner HTTP de pruebas no acreditan producción. |
 
-- **Frontend:** base universal Expo/React Native creada; pantalla inicial ejecutable en web. Se han validado TypeScript, ESLint, Expo Doctor, exportación web y desarrollo web con Docker Compose. La ejecución nativa en dispositivos y la imagen web de producción están pendientes de validación.
-- **Backend:** Java/Spring Boot arranca correctamente con Docker Compose y se ha verificado la conectividad JDBC con Neon PostgreSQL y el acceso al bucket privado mediante el SDK S3. **Módulo de autenticación implementado localmente**, con registro, login, cambio de contraseña, confirmación y reenvío por correo, cuatro entidades persistentes de identidad y migración Flyway V1 ampliada; **sin endpoints de incidencias ni demás operaciones de negocio**. La migración se ha probado en PostgreSQL efímero, pero no consta aplicada a Neon `development`.
-- **Infraestructura:** Docker Compose exclusivo para desarrollo, con frontend y backend históricamente comprobados y servicio SMTP local Mailpit ahora añadido (sin prueba conjunta backend+Mailpit). Neon PostgreSQL 18 y Neon Object Storage están aprovisionados en Frankfurt, con ramas `development` y `production`. El despliegue real de producción sigue pendiente.
+Las fuentes y exportaciones de los [diagramas C4, ER y clases](docs/diagrams/README.md) están **actualizadas** para V1/V2 y el alcance de Invitaciones. No quedan cambios manuales de estos diagramas pendientes de la entrega actual.
 
 ## Tecnologías
 
-| Parte                     | Tecnologías                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------- |
-| Frontend                  | Expo SDK 57, React Native, React Native Web, React, TypeScript, Expo Router      |
-| Herramientas frontend     | Node.js 24 (en Docker), npm, Metro, ESLint y Prettier                            |
-| Backend                   | Java 25, Spring Boot 4.1.2, Maven 3.9.16, Spring Security, JPA/Hibernate, Flyway |
-| Persistencia              | Neon PostgreSQL 18 (conexión de desarrollo comprobada)                           |
-| Evidencias                | Neon Object Storage (bucket privado; acceso probado)                             |
-| Desarrollo                | Docker, Docker Compose y VSCode                                                  |
-| Distribución web prevista | Exportación SPA de Expo y Nginx en contenedor independiente                      |
+- **Backend:** Java 25, Spring Boot 4.1.2, Maven, Spring Security, JWT HS256, JPA/Hibernate, Flyway, PostgreSQL 18, AWS SDK S3 y Spring Mail.
+- **Frontend:** React Native/Expo SDK 57, Expo Router, React Native Web, TypeScript, Node.js 24 en Docker.
+- **Infraestructura:** Neon PostgreSQL y Object Storage de desarrollo, Docker Compose, Mailpit local, PostgreSQL 18 Testcontainers y Redocly para OpenAPI.
 
 ## Instalación
-
-Requisitos: Git, Docker y Docker Compose v2. Para trabajar sin contenedores: Node.js compatible con Expo SDK 57 (en las imágenes se utiliza Node.js 24), npm y, para el backend, JDK 25 y Maven 3.9.16 o compatibles.
 
 ```bash
 git clone https://github.com/CeNtAuRoOo/urban-pulse-app.git
 cd urban-pulse-app
 ```
 
-El repositorio es **público**, por lo que su lectura y clonación no requieren iniciar sesión. Para proponer cambios se seguirá el flujo descrito en [CONTRIBUTING.md](CONTRIBUTING.md).
+Se necesitan Docker/Compose v2 y, para desarrollo sin contenedores, Node.js/npm y Java 25/Maven. Los ejemplos versionados `frontend/.env.example` y `backend/.env.example` indican las variables necesarias; los archivos con valores reales **no se versionan**.
 
-Para el frontend sin Docker:
-
-```bash
-cd frontend
-npm ci
-```
-
-`frontend/package-lock.json` debe estar versionado. Si el lockfile no existe todavía, generarlo una vez mediante `npm install` antes de utilizar `npm ci`.
-
-Para preparar las variables locales desde la raíz del repositorio:
+En PowerShell:
 
 ```powershell
 Copy-Item frontend/.env.example frontend/.env
 Copy-Item backend/.env.example backend/.env.development
 ```
 
-En Bash se puede utilizar `cp` en lugar de `Copy-Item`. Rellena las credenciales PostgreSQL y S3, `JWT_SECRET`, `JWT_ISSUER` y `CORS_ALLOWED_ORIGINS` **solo en `backend/.env.development`**, sin versionarlas. El backend debe utilizar la rama `development` de Neon y no compartir contraseñas con `production`. La base de datos no es necesaria para arrancar únicamente el frontend.
+Rellenar únicamente con credenciales autorizadas de **Neon `development`**, nunca de `production`. El backend necesita secretos independientes para `JWT_SECRET`, `EMAIL_VERIFICATION_SECRET` y `STAFF_INVITATION_SECRET` (Base64 con al menos 32 bytes aleatorios). La configuración del almacenamiento S3 y SMTP también se inyecta por entorno.
 
-## Ejecución (desarrollo)
+## Ejecución en desarrollo
 
-**Frontend web sin Docker**, desde `frontend/`:
+Frontend Expo Web en el host:
 
 ```bash
+cd frontend
+npm ci
 npx expo start --web --port 7777
 ```
 
-Abrir <http://localhost:7777>. La pantalla actual es una prueba de arranque, no la aplicación funcional de incidencias.
-
-**Frontend web con Docker Compose**, desde la raíz:
+En Docker, desde la raíz:
 
 ```bash
 docker compose up --build frontend
 ```
 
-Abrir <http://localhost:7777>. Para detenerlo, `Ctrl+C` o `docker compose down` desde otra terminal.
-
-**Frontend y backend en Docker Compose** (comprobado el 15/10/2026), desde la raíz:
+Para arrancar también el backend conectado a **Neon `development`** (solo después de comprobar URL, permisos y plan de migración Flyway):
 
 ```bash
 docker compose up --build
 ```
 
-El backend escucha en el puerto `8888` y conecta con Neon `development` mediante variables de entorno. Existen los cinco endpoints de autenticación; **no existen todavía los endpoints de incidencias**. Al arrancar la nueva versión, Flyway puede aplicar `V1__create_authentication.sql` sobre la base configurada; **verificar previamente que es Neon `development`, nunca `production`**. Consulta [la guía de desarrollo](docs/development.md).
+Frontend web: <http://localhost:7777>; backend: <http://localhost:8888>; bandeja Mailpit local: <http://localhost:8025>. Arrancar el backend con Flyway habilitado puede aplicar V1/V2 a la base configurada; **no** es un comando inocuo de conectividad. La guía completa y la distinción entre pruebas aisladas y recursos reales están en [Desarrollo](docs/development.md).
 
-La aplicación móvil se probará posteriormente con Expo Go o una compilación de desarrollo, utilizando un dispositivo/emulador y una URL de API accesible desde él.
+## API REST disponible
+
+La fuente editable es el [OpenAPI modular 0.5.0](docs/api/openapi/base-openapi.yaml), con [bundle YAML](docs/api/openapi.yaml) y [HTML](docs/api/openapi.html) regenerados mediante Redocly. El prefijo de las rutas es `/api/v1`.
+
+Autenticación implementa cinco POST:
+
+- `/auth/register` y `/auth/login`.
+- `/users/me/password-changes`.
+- `/auth/email-verifications/confirm` y `/auth/email-verifications/resend`.
+
+Invitaciones implementa otras cinco operaciones:
+
+- `POST /staff-invitations`, `GET /staff-invitations` y `GET /staff-invitations/{invitationId}`.
+- `POST /staff-invitations/{invitationId}/revocations`.
+- `POST /users/me/staff-invitation-redemptions`.
+
+Solo un `ADMIN` activo y verificado administra invitaciones; un `CITIZEN` activo y verificado las canjea con correo coincidente. La emisión crea **solo la invitación**, nunca un usuario; el código se entrega exclusivamente por correo después del commit y está protegido con HMAC. Los permisos globales son `OPERATOR`/`ADMIN` y los departamentales `TECHNICIAN`/`DEPARTMENT_COORDINATOR`. Ninguna respuesta administrativa contiene el código o su hash. Ver [ADR-0007](docs/adr/0007-invitaciones-personal.md) y [contrato API](docs/api/README.md).
+
+Los demás tags del contrato son **diseño**, no endpoints ya desplegados.
 
 ## Pruebas y validación
 
-Desde `frontend/`:
+Frontend desde `frontend/`:
 
 ```bash
 npx expo install --check
@@ -91,51 +98,30 @@ npm run lint
 npx expo export --platform web
 ```
 
-Estas comprobaciones **se ejecutaron satisfactoriamente el 13/10/2026**; Expo Doctor informó de 21/21 comprobaciones superadas. Se validaron también el arranque de Expo Web y la imagen de **desarrollo** de Compose. La exportación web genera `frontend/dist/` (ignorado por Git).
-
-La prueba puntual `NeonConnectivityIT` se ha superado contra Neon `development` (PostgreSQL y `HeadBucket` de Object Storage):
-
-Para el módulo auth y verificación de correo se dispone de tests unitarios/MVC e integración PostgreSQL 18 aislada mediante Testcontainers. Desde `backend/`, con Java 25, Maven y Docker:
+Backend desde `backend/`, con Java 25/Maven/Docker:
 
 ```bash
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Codex informa de **55 pruebas superadas** (35 unitarias/MVC y 20 de integración) en `mvn -B -ntp clean verify -Ppostgres-it`, con Java 25 y PostgreSQL 18 efímero. Esta cifra procede de la ejecución comunicada por Codex; no implica pruebas sobre Neon.
+**Pruebas completadas y documentadas:** frontend/Compose/Neon se comprobaron el 13–15/10/2026. La regresión de Autenticación y verificación alcanzó 55 pruebas; la entrega de Invitaciones registró **`BUILD SUCCESS` con 90 pruebas superadas** (48 unitarias/MVC y 42 de integración con PostgreSQL 18), además de un recorrido HTTP aislado con Mailpit y resultado satisfactorio. La secuencia de commits es **refactor (`c393418`) → Invitaciones (`81d8d85`) → pruebas (`0bb0ca3`) → documentación (`56fc44d`)**: las pruebas forman parte de la implementación ya verificada, no de una tarea pendiente para este PR. Véase [Desarrollo](docs/development.md) para alcance y entorno.
 
-```bash
-docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
-```
+El informe original también describe un runner HTTP con JAR, PostgreSQL en `tmpfs` y Mailpit (`127.0.0.1:18888` y `127.0.0.1:18025`). **Los archivos `compose.test.yaml`, `backend/Dockerfile.test` y `backend/scripts/invitations_http_test.py` no figuran en el estado local adjunto**; por tanto, el flujo no se presenta como reproducible desde este árbol. Sí puede ejecutarse la suite Maven de Testcontainers indicada arriba. `NeonConnectivityIT` es una prueba distinta, bajo demanda y solo con permisos para Neon `development`. Consulta [Desarrollo](docs/development.md) para evidencias y comandos disponibles.
 
-No se ejecuta con el arranque ordinario de Compose ni forma parte de los tests descubiertos por defecto por Surefire (`*IT`); se lanza **expresamente** para no consumir cuota innecesaria. Las pruebas de autenticación se realizan en memoria y en PostgreSQL efímero mediante Testcontainers, sin Neon. Se incorporarán tests de dominio a medida que exista funcionalidad. Los avisos de `npm audit` se revisarán aparte: una compilación correcta no implica ausencia de vulnerabilidades.
+## Configuración, despliegue y límites
 
-## Configuración
+La API usa JWT de acceso de 7200 s y roles vigentes consultados en PostgreSQL por petición; el cambio de contraseña revoca tokens previos mediante `tokenVersion`. La verificación de correo bloquea rutas de negocio hasta confirmar el código. Los limitadores de tasa son locales por instancia; su distribución entre réplicas queda pendiente. Las respuestas de errores utilizan `ProblemDetail`.
 
-**API de autenticación disponible en el código:** `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`), `POST /api/v1/users/me/password-changes` (`204`), `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202`/`204`). JWT HS256 de 7200 segundos: si el correo no está verificado, solo se permiten operaciones de autenticación limitadas. La confirmación activa el acceso con el JWT existente. Cambio de contraseña revoca JWT previos; fallos de PostgreSQL responden `503`. Ver [diseño e implementación](docs/auth-design.md).
+El SMTP local con Mailpit no acredita entrega en Internet; faltan bootstrap del primer ADMIN, retirada de permisos, CRUD de departamentos/equipos, outbox/reintentos, rotación coordinada de secretos, política de retención de invitaciones/auditoría, HTTPS/CI/CD y despliegue productivo. El C4 Deployment definitivo también está pendiente, pero **los diagramas actuales sí están actualizados**. Ver [Despliegue](docs/deployment.md) y [Seguridad](SECURITY.md).
 
-- `frontend/.env`: `EXPO_PUBLIC_API_URL=http://localhost:8888` para desarrollo web local. Las variables `EXPO_PUBLIC_*` **son públicas** dentro del cliente; nunca incluir secretos.
-- `backend/.env.development` (privado): JDBC (`SPRING_DATASOURCE_*`), acceso S3 (`AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), `JWT_SECRET` (Base64 de al menos 32 bytes aleatorios), `JWT_ISSUER`, `CORS_ALLOWED_ORIGINS`, `EMAIL_VERIFICATION_SECRET` y variables SMTP `MAIL_*` (sin secretos reales en Git). Los límites comunes se declaran en `application.properties`. Para producción, inyectar secretos y URLs de `production` mediante el proveedor de despliegue.
-- `backend/src/main/resources/application.properties`: puerto 8888, JDBC, HikariCP, JPA, Flyway, `storage.s3.*`, JWT, SMTP, limpieza programada y políticas de rate limiting. `StorageProperties` configura el cliente S3. Flyway crea tablas mediante migraciones y `ddl-auto=validate` solo verifica el mapeo.
-- `.editorconfig`, `.prettierrc.json` y `.vscode/`: convenciones del proyecto.
+## Documentación y contribución
 
-**Nota de redes:** `localhost` en un teléfono no apunta al ordenador; hay que utilizar la IP accesible del host o una API desplegada. Para web, el navegador no resuelve automáticamente el nombre Docker `backend`.
+- [Índice de documentación](docs/README.md), [arquitectura](docs/architecture.md) y [modelo de dominio](docs/domain-model.md).
+- [Diseño de autenticación](docs/auth-design.md), [ADR-0007: Invitaciones](docs/adr/0007-invitaciones-personal.md) y [API](docs/api/README.md).
+- [Diagramas](docs/diagrams/README.md), [ADR](docs/adr/README.md), [CHANGELOG](CHANGELOG.md) y [CONTRIBUTING](CONTRIBUTING.md).
 
-## Despliegue
-
-**No hay un despliegue de producción validado.** La existencia del código de autenticación no demuestra el arranque con la nueva migración sobre Neon `development`, ni su despliegue en producción. La estrategia acordada es desplegar la web SPA y la API REST en contenedores **independientes**, mientras Android/iOS se distribuyen como aplicaciones nativas. `compose.yaml` es exclusivamente de desarrollo.
-
-El `frontend/Dockerfile` prepara una compilación web con Expo y Nginx; todavía debe probarse como imagen de producción y recibir `EXPO_PUBLIC_API_URL` al construir. El backend dispone de un Dockerfile multietapa; el arranque previo **en desarrollo** y la conectividad con Neon están comprobados, pero **la puesta en marcha de la nueva V1 en Neon `development` y la imagen/despliegue de producción están pendientes de comprobación**. El proveedor de hosting de ambos contenedores sigue sin decidirse. Más detalles: [docs/deployment.md](docs/deployment.md).
-
-## Contribución
-
-Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para ramas, commits, PR y revisiones. La documentación de arquitectura, desarrollo y ADR se encuentra en [docs/](docs/README.md).
+Para modificar un tag, mantener coherentes OpenAPI, dominio, diagramas, migraciones, pruebas y ADR. Emplear ramas de trabajo y Conventional Commits, sin compartir secretos ni modificar experimentalmente Neon `production`.
 
 ## Licencia
 
-**Pendiente de decisión:** el repositorio es público, pero actualmente no dispone de archivo `LICENSE`. La publicación del código no concede por sí misma una licencia de reutilización. No se ha seleccionado todavía una licencia para el proyecto.
-
-### Correo en desarrollo (Mailpit)
-
-`compose.yaml` incorpora `mailpit`: visor local en <http://localhost:8025> y SMTP en `mailpit:1025` desde el contenedor backend (o `localhost:1025` desde el equipo anfitrión). Es un sumidero de pruebas: **no envía emails reales**, no requiere dominio ni cuenta de proveedor. Completar `MAIL_HOST`, `MAIL_PORT=1025`, `MAIL_SMTP_AUTH=false`, `MAIL_STARTTLS=false`, `MAIL_FROM=no-reply@urbanpulse.test` y `EMAIL_VERIFICATION_SECRET` privado de al menos 32 bytes aleatorios Base64 en `backend/.env.development`. Si se ejecuta el backend fuera de Compose, ajustar `MAIL_HOST=localhost`. Nunca reutilizar `JWT_SECRET` como clave HMAC de verificación.
-
-La V1 se amplió **antes de su primera aplicación**; no debe ejecutarse sobre una BD que ya contenga otra V1 con ese número y checksum. No se ha probado la ejecución completa de backend+Mailpit en Compose; Codex comprobó los módulos por separado.
+La licencia de distribución está pendiente de decisión; no inferir una licencia solo por el carácter público del repositorio.

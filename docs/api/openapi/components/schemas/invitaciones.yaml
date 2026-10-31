@@ -1,29 +1,86 @@
 InvitationRequest:
   oneOf:
-    - $ref: ./invitaciones.yaml#/GlobalInvitationRequest
-    - $ref: ./invitaciones.yaml#/DepartmentInvitationRequest
-  description: >-
-    ADR-0007/0009: el ámbito determina si se exige departmentId.
-    Los roles globales invitables son OPERATOR y ADMIN, nunca CITIZEN;
-    CITIZEN es inherente a toda cuenta.
+    - $ref: "./invitaciones.yaml#/GlobalInvitationRequest"
+    - $ref: "./invitaciones.yaml#/DepartmentInvitationRequest"
+  description: El rol selecciona dos variantes disjuntas; el destinatario se registra y verifica por Autenticación.
+StaffGlobalRoleCode:
+  type: string
+  enum: [OPERATOR, ADMIN]
+InvitationStatus:
+  type: string
+  enum: [ACTIVE, REDEEMED, REVOKED, EXPIRED]
+  description: Derivado de canje, revocación y caducidad; now igual a expiresAt ya es EXPIRED.
+GlobalInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [email, role]
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+      description: Obligatorio, trim y minúsculas como User.email.
+    role:
+      $ref: "./invitaciones.yaml#/StaffGlobalRoleCode"
+  description: No admite departmentId, ni siquiera null, ni expiresAt. Vigencia calculada por el servidor.
+DepartmentInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [email, role, departmentId]
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    role:
+      $ref: "./usuarios.yaml#/DepartmentRoleCode"
+    departmentId:
+      type: string
+      format: uuid
+      description: Departamento existente y activo al emitir y al canjear; no admite null.
+InvitationRedemptionRequest:
+  type: object
+  additionalProperties: false
+  required: [invitationCode]
+  properties:
+    invitationCode:
+      type: string
+      writeOnly: true
+      minLength: 43
+      maxLength: 43
+      pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+      description: Código de 256 bits Base64URL canónico sin padding, recibido exclusivamente por correo.
 InvitationDTO:
   type: object
+  additionalProperties: false
+  required: [id, email, role, status, createdBy, createdAt, expiresAt]
+  description: Metadatos solo para ADMIN. Nunca contiene código ni HMAC. Los opcionales se omiten, no son null.
   properties:
     id:
       type: string
       format: uuid
-    role:
-      $ref: ./usuarios.yaml#/RoleCode
     email:
       type: string
       format: email
-    status:
+      maxLength: 254
+    role:
       type: string
-      enum:
-        - ACTIVE
-        - REDEEMED
-        - REVOKED
-        - EXPIRED
+      enum: [OPERATOR, ADMIN, TECHNICIAN, DEPARTMENT_COORDINATOR]
+    departmentId:
+      type: string
+      format: uuid
+      description: Presente exclusivamente para roles departamentales.
+    status:
+      $ref: "./invitaciones.yaml#/InvitationStatus"
+    createdBy:
+      type: string
+      format: uuid
+    redeemedBy:
+      type: string
+      format: uuid
+    revokedBy:
+      type: string
+      format: uuid
     createdAt:
       type: string
       format: date-time
@@ -33,102 +90,38 @@ InvitationDTO:
     redeemedAt:
       type: string
       format: date-time
+    revokedAt:
+      type: string
+      format: date-time
+InvitationPageDTO:
+  type: object
+  additionalProperties: false
+  required: [data, pagination]
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "./invitaciones.yaml#/InvitationDTO"
+    pagination:
+      $ref: "./comunes.yaml#/PageMetadata"
+InvitationRedemptionDTO:
+  type: object
+  additionalProperties: false
+  required: [invitationId, role, scope, redeemedAt]
+  properties:
+    invitationId:
+      type: string
+      format: uuid
+    role:
+      type: string
+      enum: [OPERATOR, ADMIN, TECHNICIAN, DEPARTMENT_COORDINATOR]
+    scope:
+      type: string
+      enum: [GLOBAL, DEPARTMENT]
     departmentId:
       type: string
       format: uuid
-      description: Departamento destinatario; obligatorio para roles DEPARTMENT y ausente para roles GLOBAL.
-  required:
-    - id
-    - role
-    - status
-    - createdAt
-    - expiresAt
-  description: Metadatos de invitación; el código se revela solo en InvitationCreatedDTO.
-InvitationCreatedDTO:
-  allOf:
-    - $ref: "./invitaciones.yaml#/InvitationDTO"
-    - type: object
-      properties:
-        invitationCode:
-          type: string
-          description: Solo se revela al crear una invitación; nunca se almacena en claro.
-      required:
-        - invitationCode
-  description: Código entregado una sola vez.
-StaffRegistrationRequest:
-  type: object
-  properties:
-    invitationCode:
-      type: string
-    displayName:
-      type: string
-      minLength: 2
-      maxLength: 120
-    email:
-      type: string
-      format: email
-    password:
-      type: string
-      format: password
-      minLength: 8
-  required:
-    - invitationCode
-    - displayName
-    - email
-    - password
-  additionalProperties: false
-  description: >-
-    Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios
-    invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado
-    sin crear otro User. La verificación de cuentas ya existe en auth; falta acordar la política de invitaciones y vinculación de correo.
-ExistingAccountInvitationRedemptionRequest:
-  type: object
-  properties:
-    invitationCode:
-      type: string
-  required:
-    - invitationCode
-  additionalProperties: false
-StaffGlobalRoleCode:
-  type: string
-  enum:
-    - OPERATOR
-    - ADMIN
-  description: Roles globales privilegiados que pueden otorgarse mediante invitación.
-GlobalInvitationRequest:
-  type: object
-  properties:
-    role:
-      $ref: ./invitaciones.yaml#/StaffGlobalRoleCode
-    email:
-      type: string
-      format: email
-      description: Correo autorizado opcional; política definitiva pendiente.
-    expiresAt:
+      description: Presente solo para DEPARTMENT; se omite para GLOBAL.
+    redeemedAt:
       type: string
       format: date-time
-  required:
-    - role
-  additionalProperties: false
-  description: Invitación para rol global de personal (OPERATOR o ADMIN); no admite departmentId ni CITIZEN.
-DepartmentInvitationRequest:
-  type: object
-  properties:
-    role:
-      $ref: ./usuarios.yaml#/DepartmentRoleCode
-    departmentId:
-      type: string
-      format: uuid
-      description: Departamento de adscripción al canjear la invitación.
-    email:
-      type: string
-      format: email
-      description: Correo autorizado opcional; política definitiva pendiente.
-    expiresAt:
-      type: string
-      format: date-time
-  required:
-    - role
-    - departmentId
-  additionalProperties: false
-  description: Invitación para rol departamental; requiere departmentId. La cuenta conserva también CITIZEN.

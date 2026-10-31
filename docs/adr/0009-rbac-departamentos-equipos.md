@@ -1,6 +1,6 @@
 # ADR-0009: Roles globales y departamentales, pertenencias y equipos
 
-- **Estado:** Aceptado; roles globales del núcleo auth implementados, pertenencias/equipos pendientes.
+- **Estado:** Aceptado; roles globales y pertenencias por invitación implementados; equipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-27.
 - **Ámbito:** Dominio, autorización y organización municipal.
@@ -38,10 +38,22 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 ## Verificaciones pendientes por tag
 
 - Matriz fina de operaciones autorizadas, revocación y promoción de roles.
-- Si se permite más de una pertenencia activa del mismo rol por departamento y qué índice impide duplicados.
+- No se permite más de una pertenencia activa del mismo usuario/rol/departamento: V2 impone un índice único parcial con left_at IS NULL.
 - Desactivación de equipos, conservación de integrantes históricos y transferencias de técnicos con asignaciones abiertas.
-- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Pendientes:** resto de entidades, reglas departamentales, proyecciones de otros DTO y visibilidad contextual de datos personales.
+- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Implementados en Invitaciones:** Department y DepartmentMembership mínimos, roles departamentales y unicidad activa. **Pendientes:** equipos, autorización de operaciones de incidencias, proyecciones y visibilidad contextual.
 - Selección dinámica de campos `fields` y posible anotación por propiedad con condiciones `OWNER`/`ADMIN`/`NONE`: **propuesta en investigación, no adoptada aún ni incluida en esta implementación**.
 - Restricción de roles globales invitables a `OPERATOR`/`ADMIN` según ADR-0007.
 
-**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. Las relaciones departamentales y equipos siguen diseñados, sin migraciones ni implementación anticipada. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
+**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. V2 implementa departamentos y pertenencias para canjes. Team y TeamMembership siguen diseñados y sin migraciones. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
+
+## Incorporación municipal implementada (30/10/2026)
+
+[ADR-0007](0007-invitaciones-personal.md) concede permisos a una cuenta existente,
+activa y verificada, sin modificar CITIZEN. Department contiene UUIDv7, name,
+description y active, sin CRUD ni catálogo precargado. DepartmentMembership guarda
+UUIDv7, usuario, departamento, rol departamental, joinedAt/leftAt. El índice parcial
+solo permite un permiso activo idéntico; pueden existir varios históricos finalizados.
+CHECK impide roles globales y bajas anteriores al alta. Las FK restringen borrados.
+La baja de pertenencias y retirada de UserRole quedan fuera; no hay endpoints para ello.
+La lectura de JWT sigue resolviendo roles globales; no convierte TECHNICIAN en autoridad
+global ni implementa por anticipado la autorización contextual de otros tags.

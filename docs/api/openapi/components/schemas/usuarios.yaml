@@ -48,7 +48,7 @@ UserDTO:
       uniqueItems: true
     departmentMemberships:
       type: array
-      description: Adscripciones departamentales, visibles según autorización.
+      description: Proyección futura del tag Usuarios; auth y el canje no incluyen este campo. Las pertenencias se persisten desde Invitaciones.
       items:
         $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:

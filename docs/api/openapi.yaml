@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.4.0
-  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.5.0
+  description: Contrato de los tags Autenticación e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo y concesión de permisos por invitación). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -377,9 +377,11 @@ paths:
     post:
       tags:
         - Invitaciones
-      summary: Crear invitación municipal
-      description: 'ADR-0007 aceptado: invitación de un solo uso; rol GLOBAL o rol DEPARTMENT con departamento. Código revelado solo al crearla.'
+      summary: Emitir invitación municipal
+      description: ADMIN activo y EMAIL_VERIFIED. Crea solo una invitación y auditoría; no crea User. Vigencia de 7 días exactos por defecto. Permite duplicados. Código solo por EmailSender después del commit. 201 no garantiza entrega SMTP; ante fallo, revocar y emitir otra. Cuerpo máximo 16 KiB.
       operationId: postStaffInvitations
+      security:
+        - BearerAuth: []
       x-roles:
         - ADMIN
       requestBody:
@@ -390,47 +392,118 @@ paths:
               $ref: '#/components/schemas/InvitationRequest'
       responses:
         '201':
-          description: Recurso creado.
+          description: Invitación creada sin secreto; entrega SMTP solicitada.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationCreatedDTO'
+                $ref: '#/components/schemas/InvitationDTO'
           headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
+            Cache-Control:
               schema:
                 type: string
+                enum:
+                  - no-store
+            Location:
+              description: Ruta consultable del recurso creado.
+              schema:
+                type: string
+                example: /api/v1/staff-invitations/019a0000-0000-7000-8000-000000000001
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     get:
       tags:
         - Invitaciones
       summary: Listar invitaciones
-      description: Devuelve metadatos, nunca el código original en claro.
+      description: ADMIN activo y EMAIL_VERIFIED. Filtros exactos aplicados en SQL antes de paginar. Orden createdAt DESC, id DESC. Página inicial 1; 20 elementos por defecto y máximo 100. Página fuera de rango devuelve data vacío con totales reales. Offset máximo 2147483647; sobrepasarlo devuelve 422. Inserciones concurrentes pueden desplazar páginas.
       operationId: getStaffInvitations
+      security:
+        - BearerAuth: []
       x-roles:
         - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvitationStatus'
+        - name: email
+          in: query
+          description: Coincidencia exacta tras trim y minúsculas; no admite vacío.
+          schema:
+            type: string
+            format: email
+            maxLength: 254
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/RoleCode'
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Operación correcta.
+          description: Página administrativa, sin códigos ni hashes.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InvitationDTO'
+                $ref: '#/components/schemas/InvitationPageDTO'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /staff-invitations/{invitationId}:
+    get:
+      tags:
+        - Invitaciones
+      summary: Consultar invitación
+      description: Solo ADMIN activo con EMAIL_VERIFIED. Nunca revela el código ni su HMAC.
+      operationId: getStaffInvitation
+      security:
+        - BearerAuth: []
+      x-roles:
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        '200':
+          description: Metadatos administrativos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationDTO'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -439,98 +512,72 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
-  /auth/staff-registrations:
-    post:
-      tags:
-        - Invitaciones
-      summary: Canjear invitación
-      description: Canje de invitación al registrar una cuenta nueva. Si el correo corresponde a una cuenta existente, utilizar el canje autenticado sin crear usuario duplicado.
-      operationId: postAuthStaffRegistrations
-      security: []
-      x-roles:
-        - PUBLIC
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StaffRegistrationRequest'
-      responses:
-        '201':
-          description: Recurso creado.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/me/staff-invitation-redemptions:
     post:
       tags:
         - Invitaciones
-      summary: Canjear invitación con cuenta existente
-      description: Añade el rol global o pertenencia departamental autorizados a la cuenta autenticada. Canje atómico y auditable; no cambia identidad/correo.
-      operationId: postUsersMeStaffInvitationRedemptions
+      summary: Canjear invitación con cuenta verificada
+      description: Requiere JWT de cuenta activa con CITIZEN y EMAIL_VERIFIED. Su email debe coincidir exactamente con el invitado. Concede solo el permiso almacenado, conserva ciudadanía e identidad y audita atómicamente. El JWT existente reconoce roles globales en la siguiente petición. Un permiso activo previo devuelve 409 PERMISSION_ALREADY_GRANTED sin consumir. Código inexistente, usado, revocado, caducado o de otro correo devuelve 422 INVALID_INVITATION_CODE indistinguible. Departamento inactivo o inexistente devuelve 422 INVALID_DEPARTMENT. Cuerpo máximo 16 KiB. Token buckets por usuario 10/900 s e IP 30/900 s, reposición gradual local por instancia.
+      operationId: postStaffInvitationRedemption
+      security:
+        - BearerAuth: []
       x-roles:
-        - AUTHENTICATED
+        - CITIZEN
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExistingAccountInvitationRedemptionRequest'
+              $ref: '#/components/schemas/InvitationRedemptionRequest'
       responses:
         '200':
-          description: Operación correcta.
+          description: Permiso concedido; no se crea usuario ni se emite otro JWT.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
+                $ref: '#/components/schemas/InvitationRedemptionDTO'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /staff-invitations/{invitationId}/revocations:
     post:
       tags:
         - Invitaciones
-      summary: Revocar invitación
-      description: Invalida una invitación activa. Operación administrativa auditada.
-      operationId: postStaffInvitationsInvitationIdRevocations
+      summary: Revocar invitación activa
+      description: Solo ADMIN activo y verificado; cuerpo vacío. Guarda revokedBy, revokedAt y auditoría en una transacción. Estados finales devuelven 409 INVITATION_NOT_ACTIVE; no retira permisos concedidos.
+      operationId: postStaffInvitationRevocation
+      security:
+        - BearerAuth: []
       x-roles:
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/InvitationId'
       responses:
         '204':
-          description: Operación correcta, sin cuerpo de respuesta.
+          description: Revocación confirmada; sin cuerpo.
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -541,10 +588,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /categories:
     get:
       tags:
@@ -3075,7 +3122,7 @@ components:
           uniqueItems: true
         departmentMemberships:
           type: array
-          description: Adscripciones departamentales, visibles según autorización.
+          description: Proyección futura del tag Usuarios; auth y el canje no incluyen este campo. Las pertenencias se persisten desde Invitaciones.
           items:
             $ref: '#/components/schemas/DepartmentMembershipDTO'
       required:
@@ -3249,25 +3296,49 @@ components:
       oneOf:
         - $ref: '#/components/schemas/GlobalInvitationRequest'
         - $ref: '#/components/schemas/DepartmentInvitationRequest'
-      description: 'ADR-0007/0009: el ámbito determina si se exige departmentId. Los roles globales invitables son OPERATOR y ADMIN, nunca CITIZEN; CITIZEN es inherente a toda cuenta.'
+      description: El rol selecciona dos variantes disjuntas; el destinatario se registra y verifica por Autenticación.
     InvitationDTO:
       type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - role
+        - status
+        - createdBy
+        - createdAt
+        - expiresAt
+      description: Metadatos solo para ADMIN. Nunca contiene código ni HMAC. Los opcionales se omiten, no son null.
       properties:
         id:
           type: string
           format: uuid
-        role:
-          $ref: '#/components/schemas/RoleCode'
         email:
           type: string
           format: email
-        status:
+          maxLength: 254
+        role:
           type: string
           enum:
-            - ACTIVE
-            - REDEEMED
-            - REVOKED
-            - EXPIRED
+            - OPERATOR
+            - ADMIN
+            - TECHNICIAN
+            - DEPARTMENT_COORDINATOR
+        departmentId:
+          type: string
+          format: uuid
+          description: Presente exclusivamente para roles departamentales.
+        status:
+          $ref: '#/components/schemas/InvitationStatus'
+        createdBy:
+          type: string
+          format: uuid
+        redeemedBy:
+          type: string
+          format: uuid
+        revokedBy:
+          type: string
+          format: uuid
         createdAt:
           type: string
           format: date-time
@@ -3277,102 +3348,112 @@ components:
         redeemedAt:
           type: string
           format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+    InvitationPageDTO:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+    InvitationRedemptionDTO:
+      type: object
+      additionalProperties: false
+      required:
+        - invitationId
+        - role
+        - scope
+        - redeemedAt
+      properties:
+        invitationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - OPERATOR
+            - ADMIN
+            - TECHNICIAN
+            - DEPARTMENT_COORDINATOR
+        scope:
+          type: string
+          enum:
+            - GLOBAL
+            - DEPARTMENT
         departmentId:
           type: string
           format: uuid
-          description: Departamento destinatario; obligatorio para roles DEPARTMENT y ausente para roles GLOBAL.
-      required:
-        - id
-        - role
-        - status
-        - createdAt
-        - expiresAt
-      description: Metadatos de invitación; el código se revela solo en InvitationCreatedDTO.
-    InvitationCreatedDTO:
-      allOf:
-        - $ref: '#/components/schemas/InvitationDTO'
-        - type: object
-          properties:
-            invitationCode:
-              type: string
-              description: Solo se revela al crear una invitación; nunca se almacena en claro.
-          required:
-            - invitationCode
-      description: Código entregado una sola vez.
-    StaffRegistrationRequest:
+          description: Presente solo para DEPARTMENT; se omite para GLOBAL.
+        redeemedAt:
+          type: string
+          format: date-time
+    InvitationRedemptionRequest:
       type: object
+      additionalProperties: false
+      required:
+        - invitationCode
       properties:
         invitationCode:
           type: string
-        displayName:
-          type: string
-          minLength: 2
-          maxLength: 120
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-          minLength: 8
-      required:
-        - invitationCode
-        - displayName
-        - email
-        - password
-      additionalProperties: false
-      description: Alta de cuenta nueva con invitación; asignar CITIZEN además de los privilegios invitados. Si el email ya pertenece a una cuenta, utilizar canje autenticado sin crear otro User. La verificación de cuentas ya existe en auth; falta acordar la política de invitaciones y vinculación de correo.
-    ExistingAccountInvitationRedemptionRequest:
-      type: object
-      properties:
-        invitationCode:
-          type: string
-      required:
-        - invitationCode
-      additionalProperties: false
+          writeOnly: true
+          minLength: 43
+          maxLength: 43
+          pattern: ^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$
+          description: Código de 256 bits Base64URL canónico sin padding, recibido exclusivamente por correo.
+    InvitationStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - REDEEMED
+        - REVOKED
+        - EXPIRED
+      description: Derivado de canje, revocación y caducidad; now igual a expiresAt ya es EXPIRED.
     StaffGlobalRoleCode:
       type: string
       enum:
         - OPERATOR
         - ADMIN
-      description: Roles globales privilegiados que pueden otorgarse mediante invitación.
     GlobalInvitationRequest:
       type: object
+      additionalProperties: false
+      required:
+        - email
+        - role
       properties:
-        role:
-          $ref: '#/components/schemas/StaffGlobalRoleCode'
         email:
           type: string
           format: email
-          description: Correo autorizado opcional; política definitiva pendiente.
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-        - role
-      additionalProperties: false
-      description: Invitación para rol global de personal (OPERATOR o ADMIN); no admite departmentId ni CITIZEN.
+          maxLength: 254
+          description: Obligatorio, trim y minúsculas como User.email.
+        role:
+          $ref: '#/components/schemas/StaffGlobalRoleCode'
+      description: No admite departmentId, ni siquiera null, ni expiresAt. Vigencia calculada por el servidor.
     DepartmentInvitationRequest:
       type: object
+      additionalProperties: false
+      required:
+        - email
+        - role
+        - departmentId
       properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
         role:
           $ref: '#/components/schemas/DepartmentRoleCode'
         departmentId:
           type: string
           format: uuid
-          description: Departamento de adscripción al canjear la invitación.
-        email:
-          type: string
-          format: email
-          description: Correo autorizado opcional; política definitiva pendiente.
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-        - role
-        - departmentId
-      additionalProperties: false
-      description: Invitación para rol departamental; requiere departmentId. La cuenta conserva también CITIZEN.
+          description: Departamento existente y activo al emitir y al canjear; no admite null.
     CategoryDTO:
       type: object
       properties:
@@ -4553,7 +4634,7 @@ components:
         format: uuid
   responses:
     BadRequest:
-      description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación, tipo de contenido incorrecto o solicitud no interpretable.
+      description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación e invitaciones, tipo de contenido incorrecto o solicitud no interpretable.
       content:
         application/problem+json:
           schema:
@@ -4589,7 +4670,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     TooManyRequests:
-      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación y reenvío según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
+      description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación, reenvío y canje de invitaciones según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
       headers:
         Retry-After:
           description: Segundos recomendados antes de reintentar, cuando se pueda calcular.
@@ -4607,7 +4688,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ServiceUnavailable:
-      description: Servicio temporalmente no disponible. En auth se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
+      description: Servicio temporalmente no disponible. En auth e invitaciones se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
       content:
         application/problem+json:
           schema:

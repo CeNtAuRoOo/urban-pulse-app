@@ -1,25 +1,28 @@
 # Documentación de UrbanPulse
 
-Este directorio contiene documentación **viva**, separando las decisiones de diseño acordadas de la funcionalidad realmente implementada.
+La documentación del proyecto separa **funcionalidades implementadas**, **decisiones de diseño** y **validaciones realmente ejecutadas**. El backend actual (rama `feature/invitaciones-backend`) es un **monolito modular**. Autenticación e Invitaciones están implementadas; la API de incidencias y el resto de tags se mantienen como propuestas incrementales.
 
-| Documento                                     | Contenido                                                                                                                                       |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Diseño de autenticación](auth-design.md)     | **Implementación del tag Autenticación**: registro, login, cambio de contraseña, roles, JWT, pruebas y tareas futuras claramente diferenciadas. |
-| [Modelo de dominio v1](domain-model.md)       | Entidades, roles, ciclo de vida, asignaciones, limitaciones y revisión obligatoria por tag antes de implementar.                                |
-| [Diagramas](diagrams/README.md)               | C4 con fuente `c4.drawio`; modelo relacional de cuatro páginas y catálogo de clases Java simplificado, con fuentes y exportaciones.             |
-| [Arquitectura](architecture.md)               | Arquitectura objetivo y estado real de frontend, backend, Neon y almacenamiento.                                                                |
-| [Contrato dominio–API](api/domain-openapi.md) | Decisiones y operaciones armonizadas; tag Autenticación implementado, resto revisable por tag.                                                  |
-| [Diseño de API](api/README.md)                | OpenAPI `0.3.0` (tag Autenticación implementado; restante contrato en diseño); evolución conjunta por tag.                                      |
-| [ADR](adr/README.md)                          | Decisiones aceptadas, propuestas y asuntos pendientes. En autenticación se revisan los ADR-0005, 0007, 0009 y 0011.                             |
-| [Desarrollo](development.md)                  | Entorno y comandos de instalación, ejecución y verificaciones comprobadas.                                                                      |
-| [Despliegue](deployment.md)                   | Objetivo de contenedores independientes y despliegue futuro.                                                                                    |
+| Documento | Propósito |
+| --- | --- |
+| [Arquitectura](architecture.md) | Contenedores C4, arquitectura modular `auth`/`identity`/`invitations`/`organization`/`audit`/`shared`, dependencias y estado real. |
+| [Desarrollo](development.md) | Árbol actualizado, secretos de entorno, Maven/Testcontainers, evidencia histórica HTTP y comandos Redocly. |
+| [Despliegue](deployment.md) | Entornos Neon, preparación de producción y límites acreditados. |
+| [Diseño de autenticación](auth-design.md) | JWT, identidad, correo, controles de abuso, limpieza y decisiones de seguridad. |
+| [Modelo de dominio](domain-model.md) | Entidades y reglas de negocio; V1/V2 implementadas frente a modelo futuro de incidencias. |
+| [Diagramas](diagrams/README.md) | Inventario de `.drawio` y SVG **actualizados** de C4, ER y clases. |
+| [Contrato dominio–API](api/domain-openapi.md) | Alineación de modelo lógico, rutas/DTO y contrato vigente OpenAPI `0.5.0`. |
+| [Diseño de API](api/README.md) | Fuentes YAML modulares, regeneración Redocly y tags implementados frente a los todavía diseñados. |
+| [ADR](adr/README.md) | Justificación de las decisiones, incluida [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md), alcance y asuntos pendientes. |
 
-**Estado técnico comprobado a 15/10/2026:** frontend web y arranque conjunto de frontend/backend por Docker Compose; conectividad JDBC con Neon PostgreSQL 18 y acceso al bucket S3 privado desde backend de desarrollo. **Existen cinco endpoints de autenticación, las entidades JPA de identidad y la migración Flyway V1 ampliada probada en PostgreSQL efímero**. Siguen pendientes los endpoints del dominio de incidencias, otras entidades, flujo de fotografías, despliegue y CI/CD.
+## Estado y cronología
 
-**Modelo compartido (18/10/2026):** las dos vistas de dominio y OpenAPI `0.2.0` constituyeron una base inicial revisable. Cada equipo revisa conjuntamente ambas vistas y el contrato del tag antes de implementar. Una clase dibujada o una ruta documentada no demuestra que ya exista código. Ver [CONTRIBUTING](../CONTRIBUTING.md).
+- **13–15/10/2026:** frontend Expo Web, arranque Compose y conectividad JDBC/S3 con Neon `development` comprobados; esto ocurrió antes de las migraciones V1/V2 actuales.
+- **25–28/10/2026:** autenticación JWT y verificación de correo implementadas; evidencias anteriores de 23 y 55 pruebas.
+- **Informe fechado el 30/10/2026:** se comunicaron 90 pruebas sobre PostgreSQL efímero, un recorrido HTTP aislado con Mailpit y contrato OpenAPI `0.5.0` validado (dos avisos no bloqueantes). La fecha del informe no determina por sí sola el orden real de ejecución de los commits.
+- **Orden de commits hasta el 31/10/2026:** reorganización Java por módulos (`c393418`) **antes** de Invitaciones (`81d8d85`), pruebas aisladas (`0bb0ca3`) y documentación (`56fc44d`), con diagramas `.drawio`/SVG actualizados. Se registraron **90 pruebas superadas** y un recorrido HTTP satisfactorio; los archivos originales del runner HTTP no aparecen en el volcado local proporcionado.
 
-**Revisión adicional de autenticación (25/10/2026):** se documenta una propuesta de contrato `0.3.0` que incorpora registro con JWT, cambio de contraseña con invalidación mediante `tokenVersion`, lectura de permisos vigentes por petición, emailVerified, rol base `CITIZEN`, UUIDv7 desde Hibernate y rate limiting local. Se distingue en el [documento específico](auth-design.md) entre **funcionalidad pendiente de esta rama** y **mejoras futuras**. **La autenticación ya se ha implementado localmente**, con tests unitarios/MVC e integración aislada. Las demás operaciones de negocio mantienen su carácter de diseño.
+No consta migración de V1/V2 en Neon `development`, recepción de correo por un proveedor externo ni despliegue en producción. Una ruta existente en OpenAPI no implica endpoint ejecutable si pertenece a otro tag; una clase dibujada no implica entidad persistida.
 
-El [README principal](../README.md) recoge los pasos mínimos de puesta en marcha. La autenticación dispone de suite propia de pruebas con PostgreSQL efímero. La evidencia anterior del 25/10/2026 fue de 23 pruebas; la última ampliación del correo cuenta con 55 pruebas comunicadas por Codex (35 unitarias/MVC y 20 PostgreSQL efímero). Las pruebas de conectividad de infraestructura siguen siendo distintas.
+Los diagramas de identidad/organización, auditoría, Invitaciones, clases y C4 **ya no tienen pendiente una sincronización gráfica** para este módulo. Siguen pendientes diagramas **nuevos** que solo tendrán sentido al decidir la infraestructura de producción o desarrollar fotografías/incidencias. Para cambios futuros, revisar fuentes editables y SVG en el mismo PR.
 
-**Actualización de autenticación (28/10/2026):** el backend incluye cinco POST de auth, confirmación/reenvío por código HMAC-SHA256 y servicio SMTP configurable (Mailpit solo en desarrollo), además de limpieza de cuentas sin verificar tras 24 h. Documentación funcional en [auth-design.md](auth-design.md); contratos fuente en [api/openapi/base-openapi.yaml](api/openapi/base-openapi.yaml). Los diagramas de identidad y C4 requieren actualizar sus fuentes/editables y exportar los SVG correspondientes para reflejar la nueva entidad `EmailVerification` y Mailpit.
+El [README principal](../README.md) resume instalación y ejecución. La [guía de contribución](../CONTRIBUTING.md) establece cómo mantener sincronizados contrato, código, dominio, diagramas, pruebas y ADR sin incorporar secretos.

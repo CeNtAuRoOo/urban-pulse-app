@@ -1,6 +1,6 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado para User y las cuatro entidades de Invitaciones; restantes tipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-27.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
@@ -36,4 +36,4 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 - Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los restantes tipos de negocio siguen pendientes. Department, DepartmentMembership, StaffInvitation y AuditEvent usan el mismo generador Hibernate en V2.

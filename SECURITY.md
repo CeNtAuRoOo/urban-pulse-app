@@ -25,3 +25,21 @@ Inspeccionar `npm audit` y priorizar los avisos de riesgo elevado antes de distr
 El bucket `incident-evidence` ya existe con visibilidad privada y acceso S3 comprobado mediante `HeadBucket`. **La autorización de cada fotografía, la revisión de contenidos y las operaciones de subida/descarga todavía no están implementadas.** El módulo de autenticación ya incluye JWT HS256 de dos horas, BCrypt, control de rol `CITIZEN`, consulta de permisos vigentes en PostgreSQL, revocación mediante `tokenVersion` y limitación local por instancia. La rotación de claves, el despliegue HTTPS y el saneamiento de IP detrás de proxies se revisarán antes de producción.
 
 **Correo y cuentas no verificadas:** la API solo permite cambiar contraseña, confirmar y reenviar con JWT válido mientras `emailVerified=false`; otras rutas protegidas responden `403 EMAIL_NOT_VERIFIED`. Los códigos de ocho dígitos se almacenan como HMAC, nunca en claro ni en logs, y su emisión está limitada por buckets de usuario/IP. Mailpit en desarrollo no entrega fuera del equipo. El envío transaccional tras commit no garantiza recepción y permite reenvío manual. Las cuentas sin verificar se eliminan al superar las 24 horas por un barrido horario; revisar dicho borrado antes de añadir entidades dependientes. Guardar `EMAIL_VERIFICATION_SECRET` separado de `JWT_SECRET`, fuera de Git.
+
+## Invitaciones municipales
+
+ADMIN activo y verificado administra; el titular CITIZEN verificado canjea solo para
+su propio correo normalizado. HMAC-SHA256 de códigos aleatorios de 256 bits, con
+STAFF_INVITATION_SECRET externo e independiente del JWT y verificación. No se
+expone código/hash por API ni en logs o auditoría. Rotar esa clave invalida los
+códigos pendientes; coordinar revocación y nueva emisión. No hay reenvío de códigos.
+
+Canje, permiso y auditoría comparten transacción y bloqueos; SQL impide permisos
+activos duplicados. Las nuevas FK históricas restringen borrado; destinatario email
+sin FK y actores verificados permiten conservar la limpieza de cuentas pendientes.
+Los POST de invitaciones reutilizan 16 KiB; buckets de canje 10/900 s por usuario y
+30/900 s por IP, locales por instancia. Primer ADMIN, retirada de permisos, cuota
+de emisión por ADMIN, entrega fiable y SMTP productivo siguen fuera del módulo.
+El flujo HTTP aislado ya ejecutado utilizó `compose.test.yaml` con material sintético,
+sin credenciales reales ni puerto PostgreSQL publicado al host. Ese archivo no figura
+en el volcado local adjunto; nunca se deben reutilizar los fixtures en producción.
