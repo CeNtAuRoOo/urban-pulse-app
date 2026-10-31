@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — Cierre técnico de departamentos
+
+- Completado el subconjunto Department del tag Catálogos: listado/detalle con correo verificado y creación/PATCH con ADMIN global; desactivación sin DELETE.
+- UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
+- ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
+- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [informe de cierre](docs/departments-finalization.md) para comandos y resultados exactos.
+- Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones Department actualizadas. Pendiente únicamente la comprobación interactiva en diagrams.net indicada en el informe.
+
+
 ## 2026-10-28 — Verificación de correo y transporte SMTP (implementación local)
 
 - Implementados `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202` si se solicita envío, `204` si ya está verificado, `410` si ha caducado la cuenta). El registro inicial sigue devolviendo `201 TokenDTO` con acceso limitado.

@@ -1,10 +1,10 @@
-# Modelo de dominio de UrbanPulse (v1, núcleo de autenticación implementado)
+# Modelo de dominio de UrbanPulse (v1, autenticación y departamentos implementados)
 
-> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
+> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP. Department también está implementado, con V2 y cuatro operaciones REST; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
+La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth y de departamentos ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
 
 En particular, consultar la [especificación de autenticación implementada](auth-design.md), que separa el alcance realmente programado de las mejoras futuras y describe las pruebas disponibles.
 
@@ -43,33 +43,36 @@ La incidencia puede crearse sin datos externos o activo urbano identificado. La 
 
 ### 3.2. Identidad y organización
 
-| Concepto                       | Responsabilidad en diseño                                                                                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `User`                         | Cuenta única con credenciales protegidas, roles, estado y preferencias. Revisión auth: `emailVerified` y `tokenVersion`.    |
-| `Role`, `UserRole`, `RoleCode` | Catálogo y asignación N:M explícita de roles GLOBAL, con ámbito GLOBAL/DEPARTMENT derivado de `RoleCode` (sin `RoleScope`). |
-| `Department`                   | Unidad municipal que recibe incidencias.                                                                                    |
-| `DepartmentMembership`         | Vínculo temporal usuario–departamento–rol DEPARTMENT; delimita actuación.                                                   |
-| `Team`, `TeamMembership`       | Equipos reutilizables con pertenencias históricas; desactivar no borra trabajos.                                            |
-| `StaffInvitation`              | Alta/incorporación controlada de personal, código de un uso almacenado mediante hash/HMAC.                                  |
-| `NotificationPreferences`      | Valor embebido en User (`inApp`, `email`, `push`). Valores iniciales acordados: **todos true**.                             |
+| Concepto                        | Responsabilidad en el diseño                                                                                                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`                          | Cuenta única por identidad/correo con credenciales protegidas, estado, roles y preferencias de notificaciones. La revisión de autenticación incorpora `emailVerified` y `tokenVersion`. |
+| `Role`, `UserRole` y `RoleCode` | Catálogo de roles y asignación N:M explícita de roles globales. El ámbito GLOBAL/DEPARTMENT se deriva de `RoleCode`, sin entidad `RoleScope`.                                           |
+| `NotificationPreferences`       | Valor embebido en `User` (`inApp`, `email`, `push`), con todos los valores iniciales en `true`.                                                                                         |
+| `Department`                    | Unidad municipal responsable de recibir incidencias; dispone de nombre y código corto únicos.                                                                                           |
+| `DepartmentMembership`          | Relación temporal usuario–departamento–rol departamental; limita el ámbito de coordinación o actuación.                                                                                 |
+| `Team` y `TeamMembership`       | Equipos reutilizables de un departamento, con pertenencias históricas; desactivar no elimina trabajos históricos.                                                                       |
+| `StaffInvitation`               | Alta o incorporación controlada de personal; código de un solo uso que no se guarda en claro (ADR-0007).                                                                                |
+| `EmailVerification`             | Solicitud de verificación de correo asociada a `User`, con código HMAC y fechas de caducidad.                                                                                           |
 
 **Roles iniciales:** globales `CITIZEN`, `OPERATOR`, `ADMIN`; departamentales `DEPARTMENT_COORDINATOR`, `TECHNICIAN`. **Toda cuenta posee `CITIZEN`**, incluidos operadores, administradores, coordinadores y técnicos; los roles municipales se acumulan. Se mantiene un único `User` sin jerarquías de clases. `ANALYST` está aplazado.
 
-El operador central valida, prioriza y deriva sin adscripción departamental. El coordinador decide equipo/técnico en sus departamentos y el técnico ejecuta trabajos autorizados. Tener un rol no concede acceso indiscriminado: se comprueba también cuenta activa, pertenencia departamental, asignación, titularidad y estado. `TeamMembership` referencia una `DepartmentMembership` del mismo departamento y rol técnico; el historial no se borra.
+**Departamento implementado en el tag Catálogos:** `Department` usa UUIDv7, `name` (2–120) y `code` (2–20, mayúsculas ASCII, números, `_` o `-`) únicos sin distinción de mayúsculas/minúsculas; `description` es opcional con máximo 500 caracteres y `active` permite conservar referencias históricas al desactivar. Mantiene `createdAt` y `updatedAt` como `Instant`. Los valores se normalizan al crear o modificar (espacios en nombre/código y código en mayúsculas). El contrato expone esos cinco atributos de negocio, pero no las marcas de tiempo.
+
+Tener un rol no otorga acceso indiscriminado: se debe comprobar también la cuenta activa, la pertenencia activa al departamento, la asignación vigente, la titularidad del recurso y el estado. El operador central valida, prioriza y deriva sin adscripción departamental. El coordinador decide equipo/técnico en sus departamentos y el técnico ejecuta trabajos autorizados. `TeamMembership` referencia una `DepartmentMembership` y debe mantenerse la invariancia **equipo y miembro pertenecen al mismo departamento**; el historial no se borra.
 
 **Revisión específica de `User` para `auth`:**
 
-| Campo previsto           | Tipo lógico               | Requisito acordado                                                                       |
-| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------- |
-| `id`                     | `UUID`                    | UUIDv7 generado en Hibernate, columna `uuid`.                                            |
-| `displayName`            | `String`                  | Longitud de API 2..120, pendiente de comprobar con validación y SQL.                     |
-| `email`                  | `String`                  | Normalizado, único sin distinguir mayúsculas, no permite duplicados bajo concurrencia.   |
-| `passwordHash`           | `String`                  | Hash BCrypt; nunca API ni logs.                                                          |
-| `active`                 | `boolean`                 | Cuenta activa al registrarse; se comprueba en accesos protegidos.                        |
-| `emailVerified`          | `boolean`                 | `false` inicial; la verificación por HMAC lo establece en `true` dentro de una transacción.     |
-| `tokenVersion`           | `long`                    | `0` inicial; se incrementa atómicamente al cambiar contraseña e invalida JWT anteriores. |
-| `preferences`            | `NotificationPreferences` | `inApp/email/push` en `true` al alta.                                                    |
-| `createdAt`, `updatedAt` | `Instant`                 | Persistencia `timestamptz`.                                                              |
+| Campo previsto           | Tipo lógico               | Requisito acordado                                                                          |
+| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`                     | `UUID`                    | UUIDv7 generado en Hibernate, columna `uuid`.                                               |
+| `displayName`            | `String`                  | Longitud de API 2..120, pendiente de comprobar con validación y SQL.                        |
+| `email`                  | `String`                  | Normalizado, único sin distinguir mayúsculas, no permite duplicados bajo concurrencia.      |
+| `passwordHash`           | `String`                  | Hash BCrypt; nunca API ni logs.                                                             |
+| `active`                 | `boolean`                 | Cuenta activa al registrarse; se comprueba en accesos protegidos.                           |
+| `emailVerified`          | `boolean`                 | `false` inicial; la verificación por HMAC lo establece en `true` dentro de una transacción. |
+| `tokenVersion`           | `long`                    | `0` inicial; se incrementa atómicamente al cambiar contraseña e invalida JWT anteriores.    |
+| `preferences`            | `NotificationPreferences` | `inApp/email/push` en `true` al alta.                                                       |
+| `createdAt`, `updatedAt` | `Instant`                 | Persistencia `timestamptz`.                                                                 |
 
 **`Role`** mantiene `code` como PK natural y `description`; no almacena `scope`: el ámbito se deriva de `RoleCode.isGlobal()` / `RoleCode.isDepartmental()`. **`UserRole`** puede tener clave compuesta por usuario+rol y solo acepta roles GLOBAL; revisar integridad e implementación coherente con `User.globalRoles` del dibujo. En registro se asigna `CITIZEN` dentro de la misma transacción de creación del usuario. Los roles adicionales se concederán por invitaciones, fuera del alcance de la rama `auth`.
 
@@ -105,11 +108,12 @@ Recorrido representativo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT →
 
 ## 4. Identificadores, tipos y restricciones
 
-- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). Excepciones `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
-- **Fechas:** `Instant`/`timestamptz`. **Enumeraciones:** códigos de cadena estables, no ordinales.
+- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). También es el criterio aplicado a `Department`, cuya migración conserva `uuidv7()` como valor por defecto. Excepciones: `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
+- **Fechas:** `Instant` y `timestamptz`.
+- **Enumeraciones:** códigos de cadena estables, no ordinales; verificar el efecto de futuras modificaciones.
 - Los límites `[API]` del diagrama eran hipótesis del borrador; validar tamaños, nullability e índices según los casos de uso. `TEXT` no implica máximo arbitrario.
-- Respetar email único normalizado, objectKey único, par canónico de duplicados, XOR en Assignment, pertenencia al departamento, trabajo activo único, rol adecuado al ámbito calculado por su código, `CITIZEN` base y `tokenVersion` actualizado de forma transaccional; imponer en servicio y SQL cuando corresponda.
-- Las relaciones y cardinalidades dibujadas son hipótesis revisables; contrastar con DTO, integridad y pruebas. No materializar tablas antes de que las necesite un tag.
+- Respetar email único normalizado, `objectKey` único, par canónico de duplicados, XOR en `Assignment`, pertenencia al departamento, trabajo activo único, rol adecuado al ámbito calculado por su código, `CITIZEN` base y `tokenVersion` actualizado de forma transaccional; imponer en servicio y SQL cuando corresponda.
+- Las cardinalidades dibujadas y las FK son **hipótesis revisables**; contrastarlas con DTOs, integridad referencial, requisitos, datos de prueba y operaciones reales. No materializar tablas antes de que las necesite un tag.
 
 ## 5. Proceso obligatorio: dominio y OpenAPI por tag
 
@@ -149,7 +153,9 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 
 ## 7. Decisiones documentadas y estado
 
-**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`), `user_roles` (PK compuesta, `CHECK` solo globales) y `email_verifications` (código HMAC, PK/FK y fechas de caducidad). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API no tiene endpoints de perfiles, departamentos ni invitaciones.
+**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`), `user_roles` (PK compuesta, `CHECK` solo globales) y `email_verifications` (código HMAC, PK/FK y fechas de caducidad). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API todavía no tiene endpoints de perfiles ni invitaciones. El módulo Catálogos ya implementa los endpoints de consulta, creación y modificación de departamentos.
+
+**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base. El tag Catálogos materializa exclusivamente `Department` con SQL, entidad JPA y endpoints; las demás entidades continúan como diseño pendiente de implementación incremental.
 
 - [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, contraseña, revocación por versión, seguridad y rate limiting (**implementado en código; despliegue pendiente**).
 - [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal aceptadas, con restricción CITIZEN y canje existente; política operativa pendiente.
@@ -165,3 +171,13 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 `EmailVerification` tiene PK/FK compartida `user_id` con `User`, relación uno a cero/uno (un usuario puede no tener solicitud, por ejemplo una vez verificado), `code_hash` bytea de 32 bytes, `created_at` y `expires_at` como `Instant`. Un código dura como máximo diez minutos y nunca prolonga las 24 horas de verificación de la cuenta. No se persiste el código en claro. Confirmar borra la solicitud y marca `User.emailVerified`; reenvío la sustituye bajo bloqueo de `User`. La limpieza elimina los códigos caducados y, más tarde, las cuentas no verificadas con sus roles. **La política de borrado requiere revisión si futuras entidades incorporan FKs a `users`.**
 
 El acceso a operaciones de negocio exige email verificado (`EMAIL_VERIFIED`); una cuenta pendiente conserva JWT solo para autenticar, confirmar/reenviar y cambiar contraseña. Esto no introduce nuevos roles en `RoleCode` ni modifica `UserRole`.
+
+## Departamentos municipales — revisión 30/10/2026
+
+El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](departments-finalization.md) para resultados y limitaciones.

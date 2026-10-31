@@ -2,12 +2,12 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.4.0
-  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. El catálogo de departamentos también está implementado (consulta, alta y PATCH). Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
   - url: http://localhost:8888/api/v1
-    description: Backend local en desarrollo (prefijo /api/v1 previsto).
+    description: Backend local en desarrollo (prefijo /api/v1 implementado).
 security:
   - BearerAuth: []
 tags:
@@ -686,11 +686,12 @@ paths:
     get:
       tags:
         - Catálogos
-      summary: Listar departments
-      description: Catálogo disponible para los clientes autenticados.
+      summary: Listar departamentos
+      description: Incluye activos e inactivos, ordenados por nombre ascendente según collation PostgreSQL. Requiere correo verificado.
       operationId: getDepartments
       x-roles:
         - AUTHENTICATED
+      x-email-verified: true
       responses:
         '200':
           description: Operación correcta.
@@ -706,20 +707,19 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
       tags:
         - Catálogos
       summary: Crear departamento
-      description: Alta administrativa del catálogo.
+      description: Alta con rol global ADMIN y correo verificado. Nombre y código únicos sin distinguir mayúsculas.
       operationId: postDepartments
       x-roles:
         - ADMIN
+      x-email-verified: true
       requestBody:
         required: true
         content:
@@ -735,7 +735,7 @@ paths:
                 $ref: '#/components/schemas/DepartmentDTO'
           headers:
             Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
+              description: URI absoluta del departamento creado. Siempre presente en la respuesta 201.
               schema:
                 type: string
         '400':
@@ -744,23 +744,24 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /departments/{departmentId}:
     get:
       tags:
         - Catálogos
       summary: Consultar departamento
-      description: Detalle del elemento de catálogo.
+      description: Consulta por UUID, incluido si está inactivo. Requiere correo verificado.
       operationId: getDepartmentsDepartmentId
       x-roles:
         - AUTHENTICATED
+      x-email-verified: true
       parameters:
         - $ref: '#/components/parameters/DepartmentId'
       responses:
@@ -778,18 +779,19 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       tags:
         - Catálogos
       summary: Actualizar departamento
-      description: Actualización administrativa, sin borrar referencias históricas.
+      description: PATCH con rol global ADMIN y correo verificado; omitir conserva, null devuelve 400. Desactivar preserva referencias históricas.
       operationId: patchDepartmentsDepartmentId
       x-roles:
         - ADMIN
+      x-email-verified: true
       parameters:
         - $ref: '#/components/parameters/DepartmentId'
       requestBody:
@@ -819,6 +821,8 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents:
     post:
       tags:
@@ -927,9 +931,9 @@ paths:
             type: string
             enum:
               - createdAt
-              - -createdAt
+              - '-createdAt'
               - priority
-              - -priority
+              - '-priority'
           description: Orden permitido.
       responses:
         '200':
@@ -3429,28 +3433,45 @@ components:
         name:
           type: string
           example: Movilidad
+        code:
+          type: string
+          description: Código corto único, normalizado a mayúsculas.
+          example: MOV
+          pattern: ^[A-Z0-9_-]+$
         description:
           type: string
+          nullable: true
         active:
           type: boolean
       required:
         - id
         - name
+        - code
         - active
     DepartmentWriteRequest:
+      description: Se aplica trim a nombre y código antes de validar; se conservan espacios interiores del nombre. Unicidad sin distinguir mayúsculas. Active omitido o null equivale a true.
       type: object
       properties:
         name:
           type: string
           minLength: 2
           maxLength: 120
+        code:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: ^[A-Za-z0-9_-]+$
         description:
           type: string
+          nullable: true
           maxLength: 500
         active:
           type: boolean
+          nullable: true
+          default: true
       required:
         - name
+        - code
       additionalProperties: false
     DepartmentPatchRequest:
       type: object
@@ -3459,12 +3480,17 @@ components:
           type: string
           minLength: 2
           maxLength: 120
+        code:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: ^[A-Za-z0-9_-]+$
         description:
           type: string
           maxLength: 500
         active:
           type: boolean
-      description: Cambia uno o varios atributos del departamento.
+      description: Cambia uno o varios atributos. Omitir conserva el valor; null explícito se rechaza con 400. Descripción vacía borra su contenido. Trim de nombre y código antes de validar; código en mayúsculas. Un objeto vacío devuelve 422. Active false desactiva sin borrar.
       additionalProperties: false
       minProperties: 1
     ReviewRequest:
@@ -4444,7 +4470,7 @@ components:
       name: departmentId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): departmentId.'
+      description: Identificador UUID de departamento; altas con UUIDv7.
       schema:
         type: string
         format: uuid

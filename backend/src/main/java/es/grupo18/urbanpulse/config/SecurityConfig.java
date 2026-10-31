@@ -36,6 +36,8 @@ import tools.jackson.databind.cfg.CoercionAction;
 import tools.jackson.databind.cfg.CoercionInputShape;
 import tools.jackson.databind.type.LogicalType;
 import tools.jackson.databind.json.JsonMapper;
+import org.springframework.security.authorization.AuthorizationManagers;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
 
 /**
  * Configura los componentes de seguridad de la aplicación. Incluye
@@ -162,7 +164,7 @@ public class SecurityConfig {
         cors.setAllowedOrigins(properties.allowedOrigins());
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        cors.setExposedHeaders(List.of("Retry-After"));
+        cors.setExposedHeaders(List.of("Retry-After", "Location"));
         cors.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
@@ -221,10 +223,40 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email-verifications/confirm",
-                                "/api/v1/auth/email-verifications/resend", "/api/v1/users/me/password-changes")
+                        // Registro e inicio de sesión públicos
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login")
+                        .permitAll()
+
+                        // Operaciones de autenticación que requieren identidad
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/resend",
+                                "/api/v1/users/me/password-changes")
                         .authenticated()
+
+                        // Consulta de departamentos: usuario con correo verificado
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/departments",
+                                "/api/v1/departments/**")
+                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
+
+                        // Crear departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.POST, "/api/v1/departments")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Modificar departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Resto de rutas: requieren correo verificado
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
                         errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))

@@ -4,7 +4,7 @@ info:
   version: 0.4.0
   description:
     Contrato del tag Autenticación implementado en el backend (registro, login,
-    cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
+    cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. El catálogo de departamentos también está implementado (consulta, alta y PATCH). Las restantes áreas del API
     mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
     requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
     por tag. Funciones avanzadas opcionales aplazadas.
@@ -12,7 +12,7 @@ info:
     name: Equipo UrbanPulse
 servers:
   - url: http://localhost:8888/api/v1
-    description: Backend local en desarrollo (prefijo /api/v1 previsto).
+    description: Backend local en desarrollo (prefijo /api/v1 implementado).
 tags:
   - name: Autenticación
     description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.

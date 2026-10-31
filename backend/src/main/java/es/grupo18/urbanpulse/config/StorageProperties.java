@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse.config;
 
 import java.net.URI;

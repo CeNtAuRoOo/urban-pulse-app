@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse;
 
 import static org.junit.jupiter.api.Assertions.*;

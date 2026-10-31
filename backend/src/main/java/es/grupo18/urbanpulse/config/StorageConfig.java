@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

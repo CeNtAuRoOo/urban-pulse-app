@@ -45,3 +45,7 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 - Restricción de roles globales invitables a `OPERATOR`/`ADMIN` según ADR-0007.
 
 **Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. Las relaciones departamentales y equipos siguen diseñados, sin migraciones ni implementación anticipada. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
+
+### Revisión Department — 30/10/2026
+
+Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).

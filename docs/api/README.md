@@ -1,12 +1,12 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: contrato del tag Autenticación implementado; demás tags en diseño
+## Estado: Autenticación y Departamentos implementados
 
-UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; el resto de endpoints de negocio continúa pendiente.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; también existen las cuatro operaciones de Departamentos; los demás endpoints de negocio continúan pendientes.
 
 El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **La implementación de autenticación ya existe en el backend**. Las vistas del dominio deben seguir sincronizadas con la migración SQL efectiva; el despliegue sobre Neon `development` aún no consta.
 
-Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autenticado de contraseña, invalidación de todos los JWT previos con `tokenVersion`, consulta de cuenta y permisos actuales por acceso protegido, campo `User.emailVerified`, roles de ciudadanía como base de todas las cuentas, UUIDv7 generado por Hibernate y limitación de peticiones local. Además, se excluye `CITIZEN` de invitaciones para personal global. La verificación obligatoria por correo, recuperación de contraseña olvidada, refresh tokens y `GET fields` siguen aplazados.
+Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autenticado de contraseña, invalidación de todos los JWT previos con `tokenVersion`, consulta de cuenta y permisos actuales por acceso protegido, campo `User.emailVerified`, roles de ciudadanía como base de todas las cuentas, UUIDv7 generado por Hibernate y limitación de peticiones local. Además, se excluye `CITIZEN` de invitaciones para personal global. La recuperación de contraseña olvidada, refresh tokens y `GET fields` siguen aplazados.
 
 **Ajustes generales anteriores:** los códigos de rol se restringen por ámbito (`GlobalRoleCode`/`DepartmentRoleCode`), los identificadores urbanos distinguen entidades UUID de IDs externos, y `StatusChangeDTO` admite que falten `fromStatus` y `changedBy`. Se desactivaron las dos operaciones de evaluación IA que presuponían un motor no acordado; sus archivos YAML permanecen como exploración no activa.
 
@@ -74,6 +74,8 @@ Cada tag es una unidad de **revisión e implementación**, no una obligación de
 
 El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
+Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. El tag Catálogos implementa exclusivamente `Department`, incluido el código corto único del DTO, su migración y sus endpoints; el resto continúa como diseño pendiente.
+
 La revisión de autenticación concreta ahora:
 
 | Aspecto              | Decisión de diseño                                                              | Contrato afectado                                                    |
@@ -98,7 +100,7 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.y
 npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. No se afirma que se hayan ejecutado en la última revisión. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.4.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
+Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. Ejecutados el 30/10/2026 con Redocly 2.16.0: lint válido (dos advertencias), bundle y HTML regenerados. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.4.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
 
 ## Cuestiones aún abiertas
 
@@ -125,3 +127,13 @@ El tag **Autenticación** incluye cinco operaciones ejecutables: registro `201`,
 Las cuentas `emailVerified=false` obtienen JWT pero solo pueden acceder a las operaciones de autenticación permitidas; las rutas protegidas de negocio responden `403 EMAIL_NOT_VERIFIED`. Las cuotas de confirmación y reenvío (`429`) son buckets por usuario/IP en memoria. El envío SMTP se solicita después del commit, pero `201` y `202` **no garantizan recepción** del correo; Mailpit es solo una infraestructura local de pruebas. El resto de los tags permanecen diseños revisables.
 
 Los archivos editables son `openapi/base-openapi.yaml`, `openapi/paths/autenticacion.yaml`, `openapi/components/schemas/autenticacion.yaml` y `openapi/components/responses.yaml`. Tras editarlos, ejecutar lint y regenerar `openapi.yaml` y `openapi.html` con Redocly; **no mantener estos dos derivados a mano**. La revisión del contrato pasa a `info.version: 0.4.0` (no cambia el prefijo HTTP `/api/v1`).
+
+## Departamentos municipales — revisión 30/10/2026
+
+El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](../departments-finalization.md) para resultados y limitaciones.

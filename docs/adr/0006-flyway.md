@@ -36,10 +36,14 @@ Flyway ya creó su tabla técnica `flyway_schema_history` en `development` (evid
 
 ## Consideraciones pendientes
 
-Repetir pruebas de la V1 actual tras los últimos cambios y **aplicarla de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. No modificar la V1 después de aplicarla en algún entorno: añadir V2 para cambios posteriores. Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
+V1 y V2 se han probado juntas en PostgreSQL aislado el 30/10/2026. Queda **aplicarlas de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. No modificar la V1 después de aplicarla en algún entorno: añadir una nueva versión libre para cambios posteriores (V2 ya corresponde a departamentos). Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
 
 ### Ampliación previa a la primera aplicación de V1 — 28/10/2026
 
 La V1 `V1__create_authentication.sql` se amplió en la rama de autenticación **antes de aplicarse a Neon `development`** para incluir `email_verifications`, PK/FK compartida con `users`, restricciones sobre hash/caducidad e índices para barrido. Esto es una excepción válida **solo cuando la V1 original no está aplicada en la base de destino**. Flyway registra checksums: si alguna BD ya ejecutó una V1 anterior, no sustituirla silenciosamente ni alterar `flyway_schema_history`; crear una nueva migración compatible en su lugar. La V1 ampliada fue probada en PostgreSQL 18 efímero por Testcontainers; la aplicación sobre Neon compartido no está acreditada.
 
 Las operaciones transaccionales de registro/confirmación/reenvío usan la tabla; la limpieza periódica borra solicitudes caducadas y cuentas no verificadas de más de 24 horas, con lotes y bloqueos. Esta limpieza de datos **no es una migración de esquema Flyway** y debe revisarse antes de agregar nuevas FK a `users`.
+
+### Revisión Department — 30/10/2026
+
+Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).
