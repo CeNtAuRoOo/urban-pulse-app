@@ -1,8 +1,8 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado y probado para `User` y `Department`; futuros tipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión:** 2026-10-27.
+- **Revisión:** 2026-10-30.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
@@ -36,4 +36,8 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 - Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+**Estado real:** generado mediante Hibernate para `User` y `Department`, comprobado en las suites PostgreSQL aisladas; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+
+### Revisión Department — 30/10/2026
+
+Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).

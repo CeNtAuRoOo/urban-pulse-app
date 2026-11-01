@@ -111,6 +111,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> unexpected(Exception ex, HttpServletRequest request) {
+        if (ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException) {
+            return response(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Parámetro no válido.", request);
+        }
         if (ex instanceof ErrorResponse error && error.getStatusCode().is4xxClientError()) {
             return response(HttpStatus.valueOf(error.getStatusCode().value()), "HTTP_ERROR", "Petición no admitida.",
                     request);

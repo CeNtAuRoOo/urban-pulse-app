@@ -34,7 +34,7 @@ DepartmentId:
   name: departmentId
   in: path
   required: true
-  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): departmentId."
+  description: "Identificador UUID de departamento; altas con UUIDv7."
   schema:
     type: string
     format: uuid
