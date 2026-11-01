@@ -143,11 +143,12 @@
   get:
     tags:
       - Catálogos
-    summary: Listar departments
-    description: Catálogo disponible para los clientes autenticados.
+    summary: Listar departamentos
+    description: Incluye activos e inactivos, ordenados por nombre ascendente según collation PostgreSQL. Requiere correo verificado.
     operationId: getDepartments
     x-roles:
       - AUTHENTICATED
+    x-email-verified: true
     responses:
       "200":
         description: Operación correcta.
@@ -163,10 +164,8 @@
         $ref: "../components/responses.yaml#/Unauthorized"
       "403":
         $ref: "../components/responses.yaml#/Forbidden"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
 
@@ -174,10 +173,11 @@
     tags:
       - Catálogos
     summary: Crear departamento
-    description: Alta administrativa del catálogo.
+    description: Alta con rol global ADMIN y correo verificado. Nombre y código únicos sin distinguir mayúsculas.
     operationId: postDepartments
     x-roles:
       - ADMIN
+    x-email-verified: true
     requestBody:
       required: true
       content:
@@ -193,7 +193,7 @@
               $ref: "../components/schemas/catalogos.yaml#/DepartmentDTO"
         headers:
           Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
+            description: URI absoluta del departamento creado. Siempre presente en la respuesta 201.
             schema:
               type: string
       "400":
@@ -202,12 +202,12 @@
         $ref: "../components/responses.yaml#/Unauthorized"
       "403":
         $ref: "../components/responses.yaml#/Forbidden"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
 
@@ -216,10 +216,11 @@
     tags:
       - Catálogos
     summary: Consultar departamento
-    description: Detalle del elemento de catálogo.
+    description: Consulta por UUID, incluido si está inactivo. Requiere correo verificado.
     operationId: getDepartmentsDepartmentId
     x-roles:
       - AUTHENTICATED
+    x-email-verified: true
     parameters:
       - $ref: "../components/parameters.yaml#/DepartmentId"
     responses:
@@ -237,8 +238,8 @@
         $ref: "../components/responses.yaml#/Forbidden"
       "404":
         $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
 
@@ -246,10 +247,11 @@
     tags:
       - Catálogos
     summary: Actualizar departamento
-    description: Actualización administrativa, sin borrar referencias históricas.
+    description: PATCH con rol global ADMIN y correo verificado; omitir conserva, null devuelve 400. Desactivar preserva referencias históricas.
     operationId: patchDepartmentsDepartmentId
     x-roles:
       - ADMIN
+    x-email-verified: true
     parameters:
       - $ref: "../components/parameters.yaml#/DepartmentId"
     requestBody:
@@ -277,5 +279,7 @@
         $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
