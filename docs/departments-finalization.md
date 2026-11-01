@@ -148,14 +148,15 @@ Los únicos cambios comunes de ejecución son la cabecera CORS Location y el 400
 2. Los diagramas de correo y C4 ya tenían pendientes documentados en main. Se conservan identificados en `docs/diagrams/README.md`; no se rediseñan módulos ajenos.
 3. No se ha probado un despliegue en Neon ni el frontend. No son pruebas pendientes del backend aislado de Department: son validaciones de despliegue/otros módulos. Antes de desplegar, comprobar historial/checksums reales de Flyway, especialmente la V1 que main amplió antes de su primer despliegue; no ejecutar `repair` ni sobrescribir historia a ciegas.
 4. Las dos advertencias de Redocly y los avisos de dependencias Java descritos no bloquean las pruebas. No hay dependencia nueva de runtime ni migración nueva.
+5. **Auditoría administrativa (RF18):** el enunciado exige registrar acciones administrativas, decisiones asistidas y cambios relevantes. La implementación actual de Department controla la autorización mediante JWT y el rol global ADMIN, pero no incorpora un historial de auditoría específico que identifique al administrador responsable de cada creación, modificación o desactivación. Por tanto, esta PR no declara cumplido RF18. Se propone abordar el registro de estas operaciones mediante un mecanismo transversal de auditoría, coherente con `AuditEvent` y ADR-0010. El alcance y el momento de implementación deben acordarse con el equipo antes de aprobar la integración.
 
 Category, Team, DepartmentMembership, invitaciones, DELETE, paginación/filtros no contratados y pantallas frontend quedan fuera del alcance. No se declara validado todo el tag Catálogos.
 
-## 9. Propuesta de Pull Request
+## 9. Pull Request #11 — Revisión de departamentos
 
 **Título:** `feat(catalogos): completar la gestión de departamentos y su integración con seguridad`
 
-Descripción siguiendo la plantilla del repositorio:
+Descripción preparada siguiendo la plantilla del repositorio. La Pull Request #11 se encuentra publicada en GitHub y pendiente de aprobación.
 
 ### Descripción
 
@@ -199,6 +200,10 @@ No se proporcionó número de issue; no se inventa un `Closes`.
 
 ## 10. Veredicto
 
-El backend de Department está finalizado y supera la verificación de pruebas documentada, sin fallos funcionales conocidos. La documentación y los diagramas han sido revisados. La rama está preparada para publicar sus commits y abrir una Pull Request hacia main, sujeta a la revisión habitual del equipo.
+El backend de Department está finalizado y supera la verificación de pruebas documentada, sin fallos funcionales conocidos. La documentación y los diagramas han sido revisados visualmente y actualizados conforme al alcance de esta funcionalidad.
 
-Las operaciones de publicación y creación de la Pull Request se realizan por separado. No se ha realizado ningún merge con main.
+Los cambios se han publicado en la rama `feature/department-management` y se ha abierto la [Pull Request #11](https://github.com/CeNtAuRoOo/urban-pulse-app/pull/11) hacia `main`.
+
+La Pull Request se encuentra en fase de revisión por el equipo. Se han recibido observaciones relativas principalmente a la coherencia de la documentación y a la necesidad de aclarar el alcance de la auditoría administrativa (RF18).
+
+Las correcciones documentales se incluyen en esta rama para su revisión. No se ha realizado ningún merge con `main`. La integración queda pendiente de resolver la decisión sobre la auditoría administrativa (RF18), completar las comprobaciones correspondientes y obtener la aprobación requerida.

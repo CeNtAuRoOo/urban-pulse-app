@@ -6,8 +6,7 @@
 - UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
 - ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
 - V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [informe de cierre](docs/departments-finalization.md) para comandos y resultados exactos.
-- Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones Department actualizadas. Pendiente únicamente la comprobación interactiva en diagrams.net indicada en el informe.
-
+- Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 ## 2026-10-28 — Verificación de correo y transporte SMTP (implementación local)
 
