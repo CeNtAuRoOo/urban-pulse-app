@@ -1,16 +1,23 @@
 package es.grupo18.urbanpulse.exception;
 
 import java.util.List;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.http.*;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.ErrorResponse;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
@@ -146,5 +153,23 @@ public class GlobalExceptionHandler {
         }
 
         return response.body(problems.create(status, code, detail, request.getRequestURI()));
+    }
+
+    /**
+     * Gestiona los intentos de acceder a recursos que no existen.
+     *
+     * @param ex      excepción de recurso no encontrado
+     * @param request petición HTTP que ha provocado el error
+     * @return respuesta HTTP 404
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ProblemDetail> notFound(
+            EntityNotFoundException ex,
+            HttpServletRequest request) {
+        return response(
+                HttpStatus.NOT_FOUND,
+                "NOT_FOUND",
+                "El recurso solicitado no existe.",
+                request);
     }
 }
