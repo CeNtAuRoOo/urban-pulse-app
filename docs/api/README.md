@@ -1,8 +1,8 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: Autenticación y Departamentos implementados
+## Estado: Autenticación, Departamentos y Categorías implementados
 
-UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; también existen las cuatro operaciones de Departamentos; los demás endpoints de negocio continúan pendientes.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; también existen cuatro operaciones de Departamentos y cuatro de Categorías; los demás endpoints de negocio continúan pendientes.
 
 El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **La implementación de autenticación ya existe en el backend**. Las vistas del dominio deben seguir sincronizadas con la migración SQL efectiva; el despliegue sobre Neon `development` aún no consta.
 
@@ -11,6 +11,12 @@ Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autentica
 **Ajustes generales anteriores:** los códigos de rol se restringen por ámbito (`GlobalRoleCode`/`DepartmentRoleCode`), los identificadores urbanos distinguen entidades UUID de IDs externos, y `StatusChangeDTO` admite que falten `fromStatus` y `changedBy`. Se desactivaron las dos operaciones de evaluación IA que presuponían un motor no acordado; sus archivos YAML permanecen como exploración no activa.
 
 ## Fuente editable y organización del contrato
+
+**Categorías implementadas (02/11/2026):** `GET /api/v1/categories` y `GET /api/v1/categories/{categoryId}` devuelven 200 para usuarios verificados, incluidas categorías inactivas; listado completo por nombre ascendente según PostgreSQL y UUID como desempate. `POST` devuelve 201 con Location absoluta y `PATCH` devuelve 200; ambas requieren ADMIN global verificado. Se consultan los permisos actuales en BD.
+
+Category expone `id`, `name` (2–100), `description` nullable (hasta 500) y `active`, sin `code`. Los límites cuentan puntos de código Unicode; trim del nombre precede a validación y persistencia. Nombre único sin distinguir mayúsculas, incluidas filas inactivas. Creación: descripción omitida/null → null, active omitido/null → true. PATCH: omitir conserva, null → 400, objeto vacío → 422, descripción vacía limpia; active permite desactivar/reactivar sin borrar. SQL V3 y bloqueo de fila protegen unicidad y actualizaciones concurrentes.
+
+Errores: 400 `INVALID_JSON`/`INVALID_PARAMETER`, 401 `UNAUTHORIZED`, 403 `EMAIL_NOT_VERIFIED`/`FORBIDDEN`, 404 `CATEGORY_NOT_FOUND`, 409 `CATEGORY_DUPLICATE`, 422 `VALIDATION_ERROR`/`UNKNOWN_PROPERTY`, 500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`. Se reutiliza ProblemDetail y los manejadores comunes. [Informe, comandos y pendientes](../categories-finalization.md); RF18 permanece pendiente.
 
 ```text
 docs/api/
@@ -74,7 +80,7 @@ Cada tag es una unidad de **revisión e implementación**, no una obligación de
 
 El contrato dominio–OpenAPI anterior armonizó roles globales/departamentales, estados `ASSIGNED_TO_DEPARTMENT`/`WORK_ASSIGNED`, operador neutral, derivación versus trabajo, aceptación y reasignación, invitaciones, duplicados y UUID.
 
-Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. El tag Catálogos implementa exclusivamente `Department`, incluido el código corto único del DTO, su migración y sus endpoints; el resto continúa como diseño pendiente.
+Los módulos opcionales de IA entrenada, _hotspots_ predictivos y RAG permanecen como material exploratorio, fuera de las rutas de la especificación base activa. El tag Catálogos implementa `Department` (con código corto) y `Category` (sin código), sus migraciones y cuatro operaciones por recurso; los demás módulos continúan como diseño pendiente.
 
 La revisión de autenticación concreta ahora:
 
@@ -130,7 +136,7 @@ Los archivos editables son `openapi/base-openapi.yaml`, `openapi/paths/autentica
 
 ## Departamentos municipales — revisión 30/10/2026
 
-El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
 
 Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
 

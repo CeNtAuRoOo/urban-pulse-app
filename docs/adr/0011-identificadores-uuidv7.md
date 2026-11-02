@@ -1,6 +1,6 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User` y `Department`; futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, `Department` y `Category`; futuros tipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-30.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
@@ -36,7 +36,9 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 - Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado real:** generado mediante Hibernate para `User` y `Department`, comprobado en las suites PostgreSQL aisladas; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+**Estado real:** generado mediante Hibernate para `User`, `Department` y `Category`, comprobado en las suites PostgreSQL aisladas; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+
+Category (02/11/2026) aplica el mismo generador Hibernate; V3 mantiene `uuidv7()` como default para inserciones SQL externas. No introduce fechas internas: el UUID no sustituye auditoría, y las operaciones de este catálogo no requieren marcas temporales. RF18 sigue pendiente. [Pruebas de CategoryPostgresIT](../categories-finalization.md).
 
 ### Revisión Department — 30/10/2026
 

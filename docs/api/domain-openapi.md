@@ -1,6 +1,6 @@
 # UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos también está implementado; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.4.0` recogía el núcleo auth y `0.4.0` añade la verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.4.0` recogía el núcleo auth y `0.4.0` añade la verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -47,6 +47,21 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 | Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                          | No se implementan estas capacidades aún.                                                       |
 
 ## 3. Diferencia esencial: derivación frente a trabajo
+
+### Category: contrato implementado el 02/11/2026
+
+| Operación (prefijo `/api/v1`) | Permisos | Resultado |
+| --- | --- | --- |
+| `GET /categories` | JWT y correo verificado | 200, array de activas e inactivas por nombre/UUID ascendente |
+| `GET /categories/{categoryId}` | JWT y correo verificado | 200, también para inactivas; 404 si no existe |
+| `POST /categories` | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta |
+| `PATCH /categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado bajo bloqueo de fila |
+
+V3 y JPA representan únicamente `id`, `name`, `description` nullable y `active`. El nombre se recorta antes de validar (2–100 puntos de código Unicode), sin cambiar espacios interiores; es único sin distinguir mayúsculas también entre inactivas. Descripción opcional de hasta 500 puntos de código, sin trim. Creación admite description null y active null/omitido como true; PATCH omite para conservar, rechaza null explícito (400), rechaza objeto vacío (422) y permite description vacía y desactivar/reactivar sin eliminar. Incident y su relación opcional con Category siguen en diseño, sin FK física.
+
+Se concretan 404 `CATEGORY_NOT_FOUND` y 409 `CATEGORY_DUPLICATE`; los demás errores usan el contrato común 400/401/403/422/500/503. La unicidad concurrente solo se traduce a 409 para SQLSTATE 23505 del índice conocido. No se añade auditoría RF18 ni fechas de catálogo sin uso funcional. Véase [informe de cierre](../categories-finalization.md).
+
+### Flujo previsto de incidencias
 
 Recorrido representativo, no matriz completa:
 
@@ -111,7 +126,7 @@ Se incorpora `EmailVerification` (PK/FK compartida con `User`) con HMAC-SHA256 d
 
 ## Departamentos municipales — revisión 30/10/2026
 
-El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
 
 Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
 

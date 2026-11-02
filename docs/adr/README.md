@@ -20,11 +20,16 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | [0006](0006-flyway.md)                     | Migraciones PostgreSQL con Flyway                                     | Aceptado                                                 |
 | [0007](0007-invitaciones-personal.md)      | Invitaciones para personal, incluida incorporación a cuenta existente | **Aceptado**; reglas operativas pendientes               |
 | [0008](0008-frontend-spa-nginx.md)         | Exportación web SPA y Nginx independiente                             | Aceptado; imagen de producción pendiente de validación   |
-| [0009](0009-rbac-departamentos-equipos.md) | Roles globales/departamentales, coordinadores y equipos               | Roles globales en auth; departamentos/equipos pendientes |
+| [0009](0009-rbac-departamentos-equipos.md) | Roles globales/departamentales, coordinadores y equipos               | Aceptado; roles globales y catálogo Department implementados; pertenencias, roles departamentales y equipos pendientes |
 | [0010](0010-ciclo-vida-y-asignaciones.md)  | Estados de incidencias, derivación y asignaciones de trabajo          | Aceptado como diseño; transiciones finas pendientes      |
-| [0011](0011-identificadores-uuidv7.md)     | UUIDv7 como identificador base                                        | UUIDv7 probado para `User`; resto pendiente              |
+| [0011](0011-identificadores-uuidv7.md)     | UUIDv7 como identificador base                                        | Aceptado; generación Hibernate probada para `User`, `Department` y `Category`; demás tipos pendientes |
 
 **Al implementar cada tag**, verificar que el [modelo de dominio base](../domain-model.md), su contrato OpenAPI y los ADR afectados continúan siendo coherentes. Si una decisión cambia materialmente, actualizarla con trazabilidad o crear un ADR sucesor; no modificar decisiones en silencio.
 
-La adopción de Object Storage y su conectividad están comprobadas; la gestión real de fotografías no lo está. Las entidades `User`, `Role`, `UserRole` y `EmailVerification` del núcleo de autenticación están implementadas; **el resto de entidades del dominio compartido sigue pendiente**. JWT, BCrypt, validación de CITIZEN y protección de rutas de auth están implementados en el backend, sin despliegue de la V1 en Neon confirmado.
-**Ampliación 28/10/2026:** el ADR-0005 recoge la verificación de correo mediante JWT limitado y código HMAC de ocho dígitos; el ADR-0006 registra la ampliación de V1 previa a la primera aplicación. Mailpit es una herramienta de desarrollo, no proveedor SMTP de producción.
+## Estado de implementación (02/11/2026)
+
+La adopción de Object Storage y su conectividad están comprobadas; la gestión real de fotografías no lo está. Están implementadas `User`, `Role`, `UserRole` y `EmailVerification` del núcleo de autenticación, además de `Department` (V2) y `Category` (V3). Las demás entidades del dominio compartido siguen pendientes. JWT, BCrypt, CITIZEN y verificación de correo protegen las rutas; escribir en ambos catálogos requiere ADMIN global vigente en PostgreSQL.
+
+V1/V2/V3 y UUIDv7 de User, Department y Category se verifican en PostgreSQL efímero, sin despliegue confirmado en Neon. Las decisiones aceptadas de roles departamentales, equipos, incidencias y auditoría RF18 no equivalen a su implementación. Los resultados actuales de pruebas figuran en la [última revisión de categorías](../categories-finalization.md#10-última-revisión-antes-de-commits).
+
+**Evidencia histórica (28/10/2026):** el ADR-0005 recogió la verificación de correo mediante JWT limitado y código HMAC de ocho dígitos; el ADR-0006 registró la ampliación de V1 previa a su primera aplicación. Mailpit es una herramienta de desarrollo, no proveedor SMTP de producción. La verificación de Department del 30–31/10 y la primera de Category del 02/11 se conservan en sus informes como evidencia histórica; no sustituyen los resultados de la última revisión.

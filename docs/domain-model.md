@@ -1,10 +1,10 @@
-# Modelo de dominio de UrbanPulse (v1, autenticación y departamentos implementados)
+# Modelo de dominio de UrbanPulse (v1, autenticación y catálogos implementados)
 
-> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP. Department también está implementado, con V2 y cuatro operaciones REST; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
+> **Estado:** dominio v1 compartido y todavía revisable en los demás tags. **El núcleo de autenticación sí está implementado** mediante las entidades `User`, `Role`, `UserRole`, preferencias embebidas, migración Flyway V1 y cinco endpoints HTTP. Department y Category están implementados, con V2/V3 y cuatro operaciones REST por recurso; las otras entidades del modelo siguen propuestas. Los diagramas de identidad incluyen las decisiones aprobadas, pero no son el esquema SQL ejecutable. La implementación se contrasta incrementalmente por tag.
 
 ## 1. Fuentes, alcance y cómo interpretar el modelo
 
-La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth y de departamentos ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
+La referencia de requisitos es «UrbanPulse: Plataforma cloud para la gestión inteligente de incidencias urbanas» (_Descripción inicial del proyecto_). Las decisiones se registran en los [ADR](adr/README.md); el [contrato OpenAPI modular](api/README.md) y los [diagramas](diagrams/README.md) son propuestas revisables. Los acuerdos base se sincronizaron con OpenAPI `0.2.0` y el tag de autenticación usa OpenAPI `0.4.0`. El código de auth, departamentos y categorías ya existe; las demás rutas siguen siendo diseños por validar, aunque figuren en el contrato.
 
 En particular, consultar la [especificación de autenticación implementada](auth-design.md), que separa el alcance realmente programado de las mejoras futuras y describe las pruebas disponibles.
 
@@ -40,6 +40,14 @@ Páginas ER: (1) incidencias/evidencias, (2) tramitación, (3) identidad/organiz
 | `DuplicateSuggestionDTO`   | Sugerencia calculada por proximidad espacial/temporal y posiblemente categoría; no entidad ni confirmación automática.                                 |
 
 La incidencia puede crearse sin datos externos o activo urbano identificado. La fotografía requiere autorización, MIME, tamaño y tratamiento de privacidad a revisar en Evidencias (ADR-0004).
+
+**Category implementada (02/11/2026):** clasifica incidencias y contiene únicamente `id` UUIDv7 de Hibernate, `name`, `description` nullable y `active`. V3 crea `categories`, sin semillas ni FK hacia Incident. No tiene `code`, `createdAt` ni `updatedAt`: las fechas no son necesarias para las operaciones contratadas ni sustituyen la auditoría pendiente RF18.
+
+El nombre se normaliza con `trim()`, conserva espacios interiores y admite 2–100 puntos de código Unicode; no puede estar en blanco. La descripción, sin recortar, admite hasta 500. PostgreSQL impone límites, nombre normalizado y no blanco e índice único `lower(name)`, incluyendo filas inactivas. Las comprobaciones preventivas del repositorio usan el mismo `lower`, evitando diferencias de conversión de mayúsculas. No se normalizan acentos ni formas Unicode equivalentes.
+
+En creación, descripción omitida/null se guarda como null y active omitido/null implica true. En PATCH, omitir conserva, null explícito devuelve 400, objeto vacío devuelve 422 y descripción vacía limpia su contenido. Desactivación y reactivación conservan UUID y nombre reservado; no hay borrado. Bloqueo pesimista durante PATCH evita perder cambios concurrentes en campos omitidos. El listado incluye activas/inactivas por nombre ascendente (collation PostgreSQL), con UUID como desempate.
+
+La relación futura sigue siendo **Category 0..N Incident; cada Incident tiene 0..1 Category**. No se crea Incident ni su FK en esta entrega. Los diagramas ER01 y de clases recogen nulabilidad y restricciones de Category. GET exige correo verificado y escritura ADMIN global verificado. Contrato, pruebas y límites: [cierre de categorías](categories-finalization.md).
 
 ### 3.2. Identidad y organización
 
@@ -108,7 +116,7 @@ Recorrido representativo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT →
 
 ## 4. Identificadores, tipos y restricciones
 
-- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). También es el criterio aplicado a `Department`, cuya migración conserva `uuidv7()` como valor por defecto. Excepciones: `Role.code` y clave compuesta de `UserRole`. `createdAt` continúa siendo obligatorio y UUID no es mecanismo de seguridad.
+- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). También es el criterio aplicado a `Department`, cuya migración conserva `uuidv7()` como valor por defecto. Excepciones: `Role.code` y clave compuesta de `UserRole`. `createdAt` se conserva donde existe (User y Department); Category no necesita fechas internas. UUID no es mecanismo de seguridad.
 - **Fechas:** `Instant` y `timestamptz`.
 - **Enumeraciones:** códigos de cadena estables, no ordinales; verificar el efecto de futuras modificaciones.
 - Los límites `[API]` del diagrama eran hipótesis del borrador; validar tamaños, nullability e índices según los casos de uso. `TEXT` no implica máximo arbitrario.
@@ -143,7 +151,7 @@ Este documento complementa [guía API](api/README.md), [contrato integrado](api/
 
 ## 6. Consistencia del dominio con OpenAPI
 
-Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.4.0` recoge la verificación de correo del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas. **El núcleo de autenticación ya tiene SQL V1 y entidades JPA** (`User`, `Role`, `UserRole`, `EmailVerification`); el resto del dominio continúa en diseño.
+Dominio v1 y OpenAPI `0.2.0` constituyeron una referencia base de diseño armonizada; OpenAPI `0.4.0` recoge la verificación de correo del tag Autenticación. Mantener esta semántica en las exportaciones de diagramas. **El núcleo de autenticación ya tiene SQL V1 y entidades JPA** (`User`, `Role`, `UserRole`, `EmailVerification`); Department y Category también están implementados; los demás módulos continúan en diseño.
 
 El contrato mantiene DTO independientes de JPA. Roles globales/departamentales acotados, estados de asignación, invitaciones, duplicados, IDs urbanos internos/externos y UUID siguen las decisiones anteriores. `StatusChangeDTO.fromStatus`/`changedBy` son opcionales cuando no existan. Evaluaciones IA que requieran un modelo no elegido permanecen fuera de rutas activas.
 
@@ -153,9 +161,9 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 
 ## 7. Decisiones documentadas y estado
 
-**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`), `user_roles` (PK compuesta, `CHECK` solo globales) y `email_verifications` (código HMAC, PK/FK y fechas de caducidad). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API todavía no tiene endpoints de perfiles ni invitaciones. El módulo Catálogos ya implementa los endpoints de consulta, creación y modificación de departamentos.
+**Alcance SQL/JPA implementado:** `users` (UUIDv7 Hibernate, BCrypt, `active`, `email_verified`, `token_version`, preferencias y fechas), `roles` (códigos fijos sin `scope`), `user_roles` (PK compuesta, `CHECK` solo globales) y `email_verifications` (código HMAC, PK/FK y fechas de caducidad). `CITIZEN` se asigna al registrar y se exige al autenticar. El rol base todavía no está forzado por una restricción universal SQL para inserciones externas. La API todavía no tiene endpoints de perfiles ni invitaciones. El módulo Catálogos ya implementa los endpoints de consulta, creación y modificación de departamentos y categorías.
 
-**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base. El tag Catálogos materializa exclusivamente `Department` con SQL, entidad JPA y endpoints; las demás entidades continúan como diseño pendiente de implementación incremental.
+**Actualización dominio–OpenAPI:** el contrato modular `0.2.0` y el dominio v1 representan el mismo diseño base. El tag Catálogos materializa `Department` (V2) y `Category` (V3) con SQL, entidades JPA y endpoints; las demás entidades continúan como diseño pendiente de implementación incremental.
 
 - [ADR-0005](adr/0005-jwt-spring-security.md): autenticación JWT, contraseña, revocación por versión, seguridad y rate limiting (**implementado en código; despliegue pendiente**).
 - [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal aceptadas, con restricción CITIZEN y canje existente; política operativa pendiente.
@@ -174,7 +182,7 @@ El acceso a operaciones de negocio exige email verificado (`EMAIL_VERIFIED`); un
 
 ## Departamentos municipales — revisión 30/10/2026
 
-El tag Catálogos implementa exclusivamente `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
 
 Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
 

@@ -47,3 +47,7 @@ Las operaciones transaccionales de registro/confirmación/reenvío usan la tabla
 ### Revisión Department — 30/10/2026
 
 Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).
+
+### Revisión Category — 02/11/2026
+
+V3 crea exclusivamente `categories`, sin semillas ni FK a módulos pendientes, y conserva V1/V2 sin cambios. Las tres migraciones se verifican con PostgreSQL 18 efímero y Hibernate `ddl-auto=validate`. La siguiente ampliación deberá usar una versión posterior a V3. No se han aplicado migraciones a Neon en esta tarea. [Evidencia](../categories-finalization.md).
