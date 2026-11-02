@@ -1,6 +1,6 @@
 # UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag.La versión 0.2.0 sirvió como base de diseño y la 0.4.0 incorpora el núcleo de autenticación, incluida la verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. La versión `0.2.0` sirvió como base de diseño y la `0.4.0` incorpora el núcleo de autenticación, incluida la verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 

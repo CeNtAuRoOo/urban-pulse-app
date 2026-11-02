@@ -203,8 +203,6 @@ OpenAPI: **0 errores, 2 advertencias previas** (`info-license` y servidor localh
 
 ### Revisión de archivos nuevos y límites
 
-Se enumeraron expresamente los **16 archivos sin seguimiento** con `git ls-files --others --exclude-standard`, incluidos los 15 archivos de la implementación de Category y el archivo preexistente `repomix-output.xml`. Se revisaron entidad, DTO, controlador, servicio, repositorio, excepciones, V3, las tres clases de pruebas, informe y exportador gráfico; no se detectaron cambios funcionales necesarios fuera del alcance.
-
 Además del diff normal, se comparó cada archivo nuevo contra un archivo vacío usando:
 
 ```sh
