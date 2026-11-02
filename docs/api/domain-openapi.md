@@ -1,6 +1,6 @@
 # UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.4.0` recogía el núcleo auth y `0.4.0` añade la verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag.La versión 0.2.0 sirvió como base de diseño y la 0.4.0 incorpora el núcleo de autenticación, incluida la verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -35,27 +35,27 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 
 **Estado posterior (28/10/2026):** cinco operaciones implementadas; registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los cinco POST limitado a 16 KiB; `429` para registro, login, confirmación y reenvío, no cambio de contraseña. Las otras rutas de este contrato permanecen como diseño.
 
-| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO` con JWT limitado y código enviado tras commit por SMTP local. |
-| Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.        |
-| Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                       |
-| Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                      |
-| Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                  |
-| Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                         |
-| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                         |
-| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                          | No se implementan estas capacidades aún.                                                       |
+| Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.              |
+| Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                             |
+| Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                            |
+| Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                        |
+| Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                               |
+| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                               |
+| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                                  | No se implementan estas capacidades aún.                                                            |
 
 ## 3. Diferencia esencial: derivación frente a trabajo
 
 ### Category: contrato implementado el 02/11/2026
 
-| Operación (prefijo `/api/v1`) | Permisos | Resultado |
-| --- | --- | --- |
-| `GET /categories` | JWT y correo verificado | 200, array de activas e inactivas por nombre/UUID ascendente |
-| `GET /categories/{categoryId}` | JWT y correo verificado | 200, también para inactivas; 404 si no existe |
-| `POST /categories` | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta |
-| `PATCH /categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado bajo bloqueo de fila |
+| Operación (prefijo `/api/v1`)    | Permisos                           | Resultado                                                    |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
+| `GET /categories`                | JWT y correo verificado            | 200, array de activas e inactivas por nombre/UUID ascendente |
+| `GET /categories/{categoryId}`   | JWT y correo verificado            | 200, también para inactivas; 404 si no existe                |
+| `POST /categories`               | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta                             |
+| `PATCH /categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado bajo bloqueo de fila                |
 
 V3 y JPA representan únicamente `id`, `name`, `description` nullable y `active`. El nombre se recorta antes de validar (2–100 puntos de código Unicode), sin cambiar espacios interiores; es único sin distinguir mayúsculas también entre inactivas. Descripción opcional de hasta 500 puntos de código, sin trim. Creación admite description null y active null/omitido como true; PATCH omite para conservar, rechaza null explícito (400), rechaza objeto vacío (422) y permite description vacía y desactivar/reactivar sin eliminar. Incident y su relación opcional con Category siguen en diseño, sin FK física.
 

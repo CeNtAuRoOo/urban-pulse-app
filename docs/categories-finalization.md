@@ -23,25 +23,25 @@ La fuente relacional ya proponía nombre único y cuatro atributos. Se concretar
 
 ## 3. Contrato HTTP y seguridad
 
-| Método | Ruta | Permisos | Éxito |
-| --- | --- | --- | --- |
-| GET | `/api/v1/categories` | JWT válido y correo verificado | 200, array completo |
-| GET | `/api/v1/categories/{categoryId}` | JWT válido y correo verificado | 200, recurso |
-| POST | `/api/v1/categories` | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta |
-| PATCH | `/api/v1/categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado |
+| Método | Ruta                              | Permisos                           | Éxito                            |
+| ------ | --------------------------------- | ---------------------------------- | -------------------------------- |
+| GET    | `/api/v1/categories`              | JWT válido y correo verificado     | 200, array completo              |
+| GET    | `/api/v1/categories/{categoryId}` | JWT válido y correo verificado     | 200, recurso                     |
+| POST   | `/api/v1/categories`              | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta |
+| PATCH  | `/api/v1/categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado         |
 
 La respuesta contiene `id`, `name`, `description` (puede ser null) y `active`. SecurityConfig incluye expresamente las rutas de Category en las reglas de Catálogos. El conversor JWT existente consulta estado, versión del token, verificación y roles globales actuales en PostgreSQL. Las etiquetas x-roles no aplican autorización. Los campos adicionales, incluido `roles` o `code`, se rechazan; el cuerpo no concede permisos. Las reglas existentes de auth y Department se conservan.
 
-| Estado | Casos y códigos |
-| --- | --- |
-| 400 | JSON malformado, tipos incorrectos, claves duplicadas/contenido adicional o null en PATCH: `INVALID_JSON`; UUID de ruta inválido: `INVALID_PARAMETER` |
-| 401 | JWT ausente, inválido, caducado o revocado: `UNAUTHORIZED`, con WWW-Authenticate Bearer |
-| 403 | Cuenta sin verificar: `EMAIL_NOT_VERIFIED`; privilegios insuficientes: `FORBIDDEN` |
-| 404 | UUID válido inexistente: `CATEGORY_NOT_FOUND` |
-| 409 | Nombre duplicado, incluso bajo concurrencia: `CATEGORY_DUPLICATE` |
-| 422 | Datos inválidos/PATCH vacío: `VALIDATION_ERROR`; campos desconocidos: `UNKNOWN_PROPERTY` |
-| 500 | Fallo inesperado o integridad no clasificada: `INTERNAL_ERROR` |
-| 503 | Indisponibilidad identificada de BD: `SERVICE_UNAVAILABLE` |
+| Estado | Casos y códigos                                                                                                                                       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | JSON malformado, tipos incorrectos, claves duplicadas/contenido adicional o null en PATCH: `INVALID_JSON`; UUID de ruta inválido: `INVALID_PARAMETER` |
+| 401    | JWT ausente, inválido, caducado o revocado: `UNAUTHORIZED`, con WWW-Authenticate Bearer                                                               |
+| 403    | Cuenta sin verificar: `EMAIL_NOT_VERIFIED`; privilegios insuficientes: `FORBIDDEN`                                                                    |
+| 404    | UUID válido inexistente: `CATEGORY_NOT_FOUND`                                                                                                         |
+| 409    | Nombre duplicado, incluso bajo concurrencia: `CATEGORY_DUPLICATE`                                                                                     |
+| 422    | Datos inválidos/PATCH vacío: `VALIDATION_ERROR`; campos desconocidos: `UNKNOWN_PROPERTY`                                                              |
+| 500    | Fallo inesperado o integridad no clasificada: `INTERNAL_ERROR`                                                                                        |
+| 503    | Indisponibilidad identificada de BD: `SERVICE_UNAVAILABLE`                                                                                            |
 
 Los errores reutilizan `ApiException`, `GlobalExceptionHandler` y `ProblemDetailFactory`: `application/problem+json`, estado, código, detalle seguro e instance con la ruta. No se modifica ApiExceptionHandler ni se crea otro advice. No se devuelven SQL, causas internas, credenciales ni tokens. Se mantiene la configuración existente que desactiva el log de errores SQL de Hibernate.
 
@@ -69,19 +69,19 @@ docker run --rm --mount "type=bind,source=$PWD/backend,target=/app" --mount type
 
 El target aislado evita interferir con la compilación del IDE. No se pasan variables ni credenciales de Neon al contenedor. Las propiedades dinámicas de las suites apuntan únicamente a sus contenedores PostgreSQL efímeros. El socket Docker y host.docker.internal permiten usar Testcontainers desde Maven en Docker Desktop.
 
-| Suite | Pruebas | Fallos / errores / omitidas |
-| --- | ---: | --- |
-| CategoryServiceTest | 7 | 0 / 0 / 0 |
-| CategoryControllerTest | 15 | 0 / 0 / 0 |
-| DepartmentServiceTest + DepartmentControllerTest | 19 | 0 / 0 / 0 |
-| Resto de unitarias/MVC (auth, correo, seguridad y UUID) | 36 | 0 / 0 / 0 |
-| **Total Surefire** | **77** | **0 / 0 / 0** |
-| CategoryPostgresIT | 6 | 0 / 0 / 0 |
-| DepartmentPostgresIT | 5 | 0 / 0 / 0 |
-| AuthenticationPostgresIT | 8 | 0 / 0 / 0 |
-| EmailVerificationPostgresIT | 12 | 0 / 0 / 0 |
-| **Total Failsafe** | **31** | **0 / 0 / 0** |
-| **Total** | **108** | **0 / 0 / 0** |
+| Suite                                                   | Pruebas | Fallos / errores / omitidas |
+| ------------------------------------------------------- | ------: | --------------------------- |
+| CategoryServiceTest                                     |       7 | 0 / 0 / 0                   |
+| CategoryControllerTest                                  |      15 | 0 / 0 / 0                   |
+| DepartmentServiceTest + DepartmentControllerTest        |      19 | 0 / 0 / 0                   |
+| Resto de unitarias/MVC (auth, correo, seguridad y UUID) |      36 | 0 / 0 / 0                   |
+| **Total Surefire**                                      |  **77** | **0 / 0 / 0**               |
+| CategoryPostgresIT                                      |       6 | 0 / 0 / 0                   |
+| DepartmentPostgresIT                                    |       5 | 0 / 0 / 0                   |
+| AuthenticationPostgresIT                                |       8 | 0 / 0 / 0                   |
+| EmailVerificationPostgresIT                             |      12 | 0 / 0 / 0                   |
+| **Total Failsafe**                                      |  **31** | **0 / 0 / 0**               |
+| **Total**                                               | **108** | **0 / 0 / 0**               |
 
 Los escenarios PostgreSQL de Category comprueban migraciones y validación JPA, UUIDv7, persistencia y ciclo de vida, orden del listado, restricciones directas SQL, límites Unicode, nombres reservados por inactivas, JWT firmado con cambios efectivos de verificación/ADMIN y revocación, creaciones concurrentes, renombrados concurrentes con rollback del perdedor y espera del bloqueo durante PATCH sin perder campos. MVC cubre las cuatro operaciones, Location, JSON estricto, permisos y errores 400/401/403/404/409/422/500/503. Los tests de servicio comprueban normalización, valores predeterminados, límites, inexistentes, duplicados y traducción selectiva de integridad.
 
@@ -155,13 +155,13 @@ Revisión acotada solicitada el **02/11/2026**, realizada únicamente en `featur
 
 ### Archivos modificados en esta revisión
 
-| Archivo | Corrección |
-| --- | --- |
-| `docs/README.md` | Estado vigente de autenticación, Department y Category, enlaces a ambos informes y UUIDv7 probado para User/Department/Category. Se separan los resultados históricos (23, 55, 80 y 108 pruebas) de la ejecución actual. Se elimina la atribución anacrónica de los cinco endpoints auth a la comprobación de infraestructura del 15/10. |
-| `docs/adr/README.md` | ADR-0009 distingue Department implementado de pertenencias/roles departamentales y equipos pendientes; ADR-0011 refleja los tres tipos con UUIDv7 probado. Estado de V1/V2/V3, Category y evidencia histórica de correo explicitados. |
-| `backend/src/test/java/es/grupo18/urbanpulse/CategoryPostgresIT.java` | Refuerzo de `rowLockMakesPartialUpdateWaitAndPreserveCommittedFields` mediante observación del bloqueo real en PostgreSQL. |
-| `backend/src/test/java/es/grupo18/urbanpulse/controller/CategoryControllerTest.java` | Nueva prueba `responsesIncludeExplicitNullDescriptionAsRequiredByOpenApi` para las cuatro operaciones. |
-| `docs/categories-finalization.md` | Resultados de esta revisión, alcance de archivos nuevos y limitaciones, manteniendo las ejecuciones anteriores como históricas. |
+| Archivo                                                                              | Corrección                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/README.md`                                                                     | Estado vigente de autenticación, Department y Category, enlaces a ambos informes y UUIDv7 probado para User/Department/Category. Se separan los resultados históricos (23, 55, 80 y 108 pruebas) de la ejecución actual. Se elimina la atribución anacrónica de los cinco endpoints auth a la comprobación de infraestructura del 15/10. |
+| `docs/adr/README.md`                                                                 | ADR-0009 distingue Department implementado de pertenencias/roles departamentales y equipos pendientes; ADR-0011 refleja los tres tipos con UUIDv7 probado. Estado de V1/V2/V3, Category y evidencia histórica de correo explicitados.                                                                                                    |
+| `backend/src/test/java/es/grupo18/urbanpulse/CategoryPostgresIT.java`                | Refuerzo de `rowLockMakesPartialUpdateWaitAndPreserveCommittedFields` mediante observación del bloqueo real en PostgreSQL.                                                                                                                                                                                                               |
+| `backend/src/test/java/es/grupo18/urbanpulse/controller/CategoryControllerTest.java` | Nueva prueba `responsesIncludeExplicitNullDescriptionAsRequiredByOpenApi` para las cuatro operaciones.                                                                                                                                                                                                                                   |
+| `docs/categories-finalization.md`                                                    | Resultados de esta revisión, alcance de archivos nuevos y limitaciones, manteniendo las ejecuciones anteriores como históricas.                                                                                                                                                                                                          |
 
 La espera anterior de 300 ms solo acreditaba que un Future no había terminado; un hilo lento podía cumplir esa condición sin haber intentado bloquear la fila. Ahora ambas operaciones se ejecutan en transacciones con PID PostgreSQL identificado. Antes de liberar la primera, se consulta `pg_blocking_pids` hasta observar que el PID de la segunda está bloqueado por el de la primera. Después se liberan las transacciones y se verifican ambos cambios persistidos y la descripción preservada.
 
@@ -179,18 +179,18 @@ mvn -B -ntp verify -Ppostgres-it
 
 Resultado: **BUILD SUCCESS**, **02/11/2026 11:36:57 Europe/Madrid** (`10:36:57Z`), **1 min 15 s**. Incluye compilación, empaquetado, pruebas unitarias/MVC y las cuatro suites de PostgreSQL 18.6 efímero. No se ejecutó contra Neon ni se cargó `.env.development`.
 
-| Suite / grupo | Pruebas | Fallos / errores / omitidas |
-| --- | ---: | --- |
-| CategoryControllerTest | 16 | 0 / 0 / 0 |
-| CategoryServiceTest | 7 | 0 / 0 / 0 |
-| Resto de unitarias/MVC (incluidos auth, correo y Department) | 55 | 0 / 0 / 0 |
-| **Surefire** | **78** | **0 / 0 / 0** |
-| CategoryPostgresIT | 6 | 0 / 0 / 0 |
-| DepartmentPostgresIT | 5 | 0 / 0 / 0 |
-| AuthenticationPostgresIT | 8 | 0 / 0 / 0 |
-| EmailVerificationPostgresIT | 12 | 0 / 0 / 0 |
-| **Failsafe** | **31** | **0 / 0 / 0** |
-| **Total vigente** | **109** | **0 / 0 / 0** |
+| Suite / grupo                                                | Pruebas | Fallos / errores / omitidas |
+| ------------------------------------------------------------ | ------: | --------------------------- |
+| CategoryControllerTest                                       |      16 | 0 / 0 / 0                   |
+| CategoryServiceTest                                          |       7 | 0 / 0 / 0                   |
+| Resto de unitarias/MVC (incluidos auth, correo y Department) |      55 | 0 / 0 / 0                   |
+| **Surefire**                                                 |  **78** | **0 / 0 / 0**               |
+| CategoryPostgresIT                                           |       6 | 0 / 0 / 0                   |
+| DepartmentPostgresIT                                         |       5 | 0 / 0 / 0                   |
+| AuthenticationPostgresIT                                     |       8 | 0 / 0 / 0                   |
+| EmailVerificationPostgresIT                                  |      12 | 0 / 0 / 0                   |
+| **Failsafe**                                                 |  **31** | **0 / 0 / 0**               |
+| **Total vigente**                                            | **109** | **0 / 0 / 0**               |
 
 También se ejecutó:
 
@@ -211,8 +211,14 @@ Además del diff normal, se comparó cada archivo nuevo contra un archivo vacío
 git -c core.autocrlf=false -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol diff --no-index --check -- backend/target/review-empty.tmp <archivo>
 ```
 
-Esta configuración solo afecta a la invocación y reconoce CRLF sin confundir el retorno de carro con espacios sobrantes. Los **15 archivos de Category no tienen errores de whitespace**. El código de salida 1 de no-index indica diferencias respecto al archivo vacío; los errores de whitespace añaden el bit 2. También se revisaron marcadores de conflicto y firmas comunes de secretos sin hallazgos; esto no equivale a una auditoría de seguridad exhaustiva.
-
-`repomix-output.xml` es una exportación agregada preexistente de unos 18 MB, ajena a la implementación. Presenta **36 avisos de whitespace** en esa comparación; se conserva sin modificar ni borrar (hash comprobado), y debe quedar fuera de los futuros commits de Category. Se inspeccionaron su cabecera, inventario y comprobaciones automáticas; no se revisaron manualmente sus 18 MB completos. No se incorporó ninguna excepción a `.gitignore` ni se preparó el índice de Git.
+Se revisaron expresamente los **15 archivos nuevos de la implementación de Category**, incluyendo entidad, DTO, controlador, servicio, repositorio, excepciones, migración V3, tres clases de pruebas, informe de cierre y exportador gráfico. No se detectaron cambios funcionales necesarios fuera del alcance.
 
 Todas las verificaciones solicitadas se ejecutaron; ninguna prueba de esta revisión quedó sin ejecutar. No se regeneraron OpenAPI ni los SVG porque sus fuentes no cambiaron, y no se repitió la revisión visual previa. No se probaron despliegue en Neon, frontend ni una apertura completa en diagrams.net: siguen fuera de esta revisión. RF18 permanece pendiente. La comparación con el estado inicial de esta revisión confirma que solo se modificaron los cinco archivos enumerados arriba.
+
+## 11. Estado posterior a la revisión (02/11/2026)
+
+Las referencias anteriores al trabajo local sin commits ni push, así como las propuestas de commits, describen el estado del proyecto en el momento de aquellas revisiones. Se conservan como evidencia histórica de la implementación y sus verificaciones.
+
+Posteriormente se crearon y publicaron en `feature/category-management` los commits `9c240ed` (implementación), `d0c6e33` (pruebas), `a6fb5a9` (documentación) y `9328462` (correcciones documentales).
+
+Tras su publicación, la rama quedó sincronizada con GitHub y preparada para abrir un Pull Request contra `main`. La integración en `main`, el despliegue en Neon y la auditoría administrativa RF18 permanecen fuera del alcance de este cierre.
