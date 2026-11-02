@@ -83,7 +83,7 @@ La aplicación móvil se probará posteriormente con Expo Go o una compilación 
 
 ## Pruebas y validación
 
-**Última verificación backend (02/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **108 pruebas superadas** (77 unitarias/MVC y 31 PostgreSQL), incluidas categorías, departamentos, autenticación y correo. OpenAPI válido con dos advertencias previas; fuentes y exportaciones de Category actualizadas. [Comando reproducible, resultados y límites](docs/categories-finalization.md).
+**Última verificación backend (02/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **109 pruebas superadas** (78 unitarias/MVC y 31 PostgreSQL), incluidas categorías, departamentos, autenticación y correo. OpenAPI válido con dos advertencias previas; fuentes y exportaciones de Category actualizadas. [Comando reproducible, resultados y límites](docs/categories-finalization.md).
 
 Desde `frontend/`:
 
