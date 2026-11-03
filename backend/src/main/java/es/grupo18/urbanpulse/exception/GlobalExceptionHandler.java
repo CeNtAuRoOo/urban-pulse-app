@@ -13,6 +13,7 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -170,6 +171,28 @@ public class GlobalExceptionHandler {
                 HttpStatus.NOT_FOUND,
                 "NOT_FOUND",
                 "El recurso solicitado no existe.",
+                request);
+    }
+
+    /**
+     * Gestiona los errores producidos cuando un parámetro de la petición
+     * no tiene el formato esperado, por ejemplo, cuando se proporciona
+     * un identificador UUID con un formato incorrecto.
+     * Devuelve un estado HTTP 400 (Bad Request).
+     *
+     * @param ex      excepción producida por el formato incorrecto del parámetro
+     * @param request petición HTTP que ha provocado el error
+     * @return respuesta HTTP 400 con los detalles del error
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+
+        return response(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_PARAMETER",
+                "Uno de los parámetros de la petición tiene un formato inválido.",
                 request);
     }
 }

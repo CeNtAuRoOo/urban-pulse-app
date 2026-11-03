@@ -138,6 +138,11 @@
                                 <include>**/AuthenticationPostgresIT.java</include>
                                 <include>**/EmailVerificationPostgresIT.java</include>
                             </includes>
+                            <includes>
+                                <include>**/AuthenticationPostgresIT.java</include>
+                                <include>**/EmailVerificationPostgresIT.java</include>
+                                <include>**/UserRepositoryPostgresIT.java</include>
+                            </includes>
                         </configuration>
                         <executions>
                             <execution>
