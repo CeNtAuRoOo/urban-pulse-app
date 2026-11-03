@@ -260,21 +260,23 @@ public class SecurityConfig {
                                 "/api/v1/users/me/password-changes")
                         .authenticated()
 
-                        // Consulta de departamentos: usuario con correo verificado
+                        // Consulta de catálogos: usuario con correo verificado
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/departments",
-                                "/api/v1/departments/**")
+                                "/api/v1/departments/**",
+                                "/api/v1/categories",
+                                "/api/v1/categories/**")
                         .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
 
-                        // Crear departamentos: administrador con correo verificado
-                        .requestMatchers(HttpMethod.POST, "/api/v1/departments")
+                        // Crear catálogos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.POST, "/api/v1/departments", "/api/v1/categories")
                         .access(AuthorizationManagers.allOf(
                                 AuthorityAuthorizationManager.hasAuthority(
                                         DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
-                        // Modificar departamentos: administrador con correo verificado
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**")
+                        // Modificar catálogos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**", "/api/v1/categories/**")
                         .access(AuthorizationManagers.allOf(
                                 AuthorityAuthorizationManager.hasAuthority(
                                         DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),

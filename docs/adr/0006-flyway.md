@@ -19,49 +19,18 @@ Se estudiaron esquemas generados automáticamente por Hibernate, SQL aplicado ma
 - Ejecutar integración SQL y JPA con PostgreSQL 18 efímero a través de Testcontainers, sin utilizar una base compartida ni material sensible.
 - Si una migración **ya** se aplicó en algún entorno, **no modificar su contenido ni editar directamente `flyway_schema_history`**. Diseñar una siguiente versión compatible para cambios posteriores.
 
-## Historial anterior a la consolidación (migraciones ya retiradas)
+## Esquema inicial vigente
 
-| Fichero | Alcance | Observación |
-| --- | --- | --- |
-| `V1__create_authentication.sql` | `users`, `roles`, `user_roles`, `email_verifications`, checks, índices y cinco roles | Amplió verificación de correo **antes** de la primera aplicación prevista sobre Neon; comprobada en PostgreSQL efímero |
-| `V2__create_staff_invitations.sql` | `departments`, `department_memberships`, `staff_invitations`, `audit_events` | Añadida **después de la reorganización de directorios** al implementar Invitaciones; V1 permaneció intacta |
+`V1__initial_schema.sql` es la única migración activa. Crea `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events` y `categories`. Inicializa únicamente los cinco roles; no crea cuentas ADMIN ni catálogos ficticios.
 
-La primera comprobación histórica de Neon en octubre utilizó `NeonConnectivityIT` para JDBC y S3 `HeadBucket`, con Flyway y validación Hibernate desactivadas **solo en ese test**. No prueba la aplicación de V1/V2 sobre Neon `development`. Ante un despliegue real, preparar copias de seguridad, plan de migración/reversión, permisos del rol migrador, ventana de intervención y comprobación de las conexiones. No experimentar en `production`.
+Antes del primer despliegue funcional se consolidaron las migraciones de autenticación, las dos V2 desarrolladas en paralelo para Departamentos e Invitaciones y la V3 de Categorías. La decisión del 02/11/2026 eliminó las semillas departamentales; la ampliación del 03/11 conserva esa política para ambos catálogos. La premisa es un destino vacío, sin migraciones funcionales previas que deban conservarse. No autoriza modificar una base existente ni ejecutar `repair` para ocultar discrepancias.
 
-### Ampliación V1 — verificación de correo (28/10/2026)
+Department conserva nombre/código únicos mediante índices `lower(...)`, CHECK de formato, descripción nullable, active y fechas `timestamptz`. `createdAt`/`updatedAt` se mantienen mediante callbacks JPA, no triggers para escrituras SQL externas. Category tiene nombre único `lower(name)` incluso inactivo, descripción nullable y active predeterminado true; no tiene código ni fechas. Sus CHECK preservan los límites Unicode, `Character.isWhitespace` y el recorte de `String.trim()` en inserciones SQL externas. Ambos catálogos usan UUIDv7 Hibernate y default SQL `uuidv7()`.
 
-V1 se completó para incluir `email_verifications`, vinculada al usuario con PK/FK, HMAC del código, fechas/caducidad, restricciones e índices de barrido **antes de su primer despliegue previsto**. El hecho de ser correcto mientras V1 no haya sido aplicada **no** permite sobreescribirla más tarde si algún entorno conserva otro checksum: habría que añadir una nueva migración de corrección. `EmailVerificationCleanup` borra códigos vencidos y cuentas que sigan sin verificar pasadas 24 horas, en transacciones con lotes y `SKIP LOCKED`; **la limpieza de datos no es una migración Flyway** y su impacto sobre nuevas FK debe revisarse.
+Se conservan las PK/FK y restricciones históricas de Invitaciones: email normalizado sin FK al destinatario, hash HMAC de 32 bytes único, coherencia rol/ámbito, fechas y actores de estados finales, pertenencias activas únicas e índices de consulta. Las referencias históricas utilizan `RESTRICT`; auditoría conserva detalles JSONB. No se crea FK a Incident ni tablas de módulos pendientes.
 
-### V2 — Invitaciones y organización mínima (31/10/2026)
+## Validación y consecuencias
 
-V2 añade cuatro tablas, sin datos de usuarios ADMIN ni departamentos ficticios para producción. `departments` soporta el ámbito administrativo; `department_memberships` conserva `joined_at`/`left_at`, restringe roles departamentales, y un índice parcial único impide pertenencias activas duplicadas. `staff_invitations` exige email normalizado sin FK a `users`, `code_hash bytea` de **32 bytes** único, rol/ámbito coherentes, fechas consistentes, pares fecha-actor para canje/revocación, exclusión de estados finales e índices para filtros/listado. `audit_events` almacena actor, acción, recurso, JSONB de detalles y marcas de tiempo, con campos opcionales.
+El perfil `postgres-it` ejecuta las cinco suites de Autenticación, correo, Invitaciones, Departamentos y Categorías sobre PostgreSQL 18 efímero con Hibernate `validate`. Comprueba una sola versión en Flyway, nueve tablas funcionales, cinco roles y ausencia de semillas de catálogo. [Comandos y resultados](../development.md#verificación-del-backend).
 
-Las FK históricas a usuarios/departamentos emplean `ON DELETE RESTRICT` para preservar trazabilidad; no se usan cascadas destructivas. Los actores de invitaciones están verificados, por lo que la limpieza de cuentas **no verificadas** no consume invitaciones ni destruye su auditoría. Antes de producción hace falta definir política RGPD de conservación y posible anonimización/retirada controlada de estos registros.
-
-## Validación aislada y reproducibilidad
-
-`backend/pom.xml` define el perfil `postgres-it` para ejecutar explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT` y `DepartmentPostgresIT`, cada una con PostgreSQL 18 efímero. `NeonConnectivityIT` en `shared/storage/integration/` **no** se incluye; se invoca bajo demanda con credenciales controladas contra `development`.
-
-Desde `backend/`:
-
-```bash
-mvn -B -ntp clean verify -Ppostgres-it
-```
-
-**Validación completada (informe del 30/10/2026):** **90 pruebas superadas** (48 unitarias/MVC + 42 IT), Flyway V1/V2 y Hibernate `validate` correctos en PostgreSQL 18 aislado, más un flujo HTTP satisfactorio del JAR con PostgreSQL `tmpfs` y Mailpit. La reorganización de directorios es **anterior a Invitaciones y al commit de pruebas** en Git. Este resultado no acredita todavía la aplicación de V1/V2 a Neon. Los comandos y resultados históricos están en [Desarrollo](../development.md). Los archivos del runner HTTP descrito en el informe no figuran en el estado local adjunto.
-
-## Consecuencias y pendientes
-
-Flyway reduce la deriva del esquema y permite construir entornos reproducibles, pero exige disciplina para gestionar checksums, compatibilidad de migraciones, cambios de restricciones e índices y posibilidad de reversión. Todavía quedan por decidir el rol exclusivo de migración, ejecución en CI/CD, plan de backup/restauración, índice/métricas de bases reales, política para datos históricos restringidos y migraciones por tags futuros.
-
-No se crearán por adelantado las tablas del resto de dominios de incidencias, equipos, contexto o analítica solo porque figuren en las vistas ER. Véase [modelo de dominio](../domain-model.md), [arquitectura](../architecture.md), [ADR-0007](0007-invitaciones-personal.md) y [desarrollo](../development.md).
-
-## Integración aprobada — 02/11/2026
-
-La rama de Departamentos documentó el 30/10 una segunda migración con catálogo precargado y pruebas propias ([informe histórico](../departments-finalization.md)). Esa decisión coexistía con la segunda migración independiente de Invitaciones descrita arriba.
-
-Por autorización expresa, se asume que ninguna de las migraciones anteriores se aplicó a una base que deba conservarse y que el destino estará vacío. Se consolidan en **una única `V1__initial_schema.sql`**, sin V2 activas. Esta excepción no modifica la regla de inmutabilidad para bases ya migradas ni permite repair o edición de `flyway_schema_history`.
-
-V1 crea, por dependencias, `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations` y `audit_events`. Conserva roles, checks, PK/FK, índices funcionales/parciales y referencias históricas. Department adopta código obligatorio, unicidad de nombre/código y fechas de main, con default SQL `uuidv7()`; la generación JPA continúa en Hibernate. **No se precargan departamentos** ni cuentas ADMIN; sí los cinco roles. No se requiere SQL manual para inicializar el esquema.
-
-El catálogo se administra mediante API. Pruebas de las cuatro suites con PostgreSQL 18 vacío y Hibernate `validate`: resultados actuales en [Desarrollo](../development.md#verificación-de-la-integración-del-02112026). Las cifras y V2 citadas en el historial anterior no describen el esquema activo.
+La conectividad histórica JDBC/S3 con Neon no acredita la aplicación de la V1 consolidada. El primer despliegue requiere comprobar destino, historial, permisos, backup y plan de migración. Después de aplicar V1, cualquier evolución necesita una versión nueva coordinada. Siguen pendientes automatización CI/CD, rol migrador dedicado y políticas operativas de conservación; no se anticipan tablas por aparecer en los diagramas.

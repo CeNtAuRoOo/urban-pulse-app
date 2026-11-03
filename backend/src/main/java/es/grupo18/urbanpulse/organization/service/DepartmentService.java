@@ -166,7 +166,7 @@ public class DepartmentService {
     }
 
     /**
-     * Recorta los extremos sin alterar espacios interiores; rechaza longitudes fuera de 2–120.
+     * Recorta los extremos sin alterar espacios interiores; admite de 2 a 120 puntos de código Unicode.
      *
      * @param name nombre no nulo validado en la entrada
      * @return nombre normalizado
@@ -174,7 +174,8 @@ public class DepartmentService {
      */
     private String normalizeName(String name) {
         String normalized = name.trim();
-        if (normalized.length() < 2 || normalized.length() > 120) {
+        int length = normalized.codePointCount(0, normalized.length());
+        if (length < 2 || length > 120) {
             throw new InvalidDepartmentException("El nombre debe contener entre 2 y 120 caracteres");
         }
         return normalized;

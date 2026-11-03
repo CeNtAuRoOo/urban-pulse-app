@@ -46,7 +46,7 @@ Las cuotas de canje son independientes, **10/900 s por usuario** y **30/900 s po
 
 El JWT es compacto y no exige almacenamiento de sesión, pero el sistema depende de PostgreSQL para validar permisos actuales; una base temporalmente indisponible debe causar `503`, **no** un `401` falso ni una autorización basada en permisos antiguos. La seguridad de cada tag necesita comprobar sus propias reglas de negocio además de los filtros HTTP. El rate limiting local no protege múltiples réplicas como un límite global ni se debe confiar ciegamente en `Forwarded` tras un proxy.
 
-No están incluidos: refresh tokens, recuperación de contraseña olvidada, logout individual por token, bootstrap del primer ADMIN, retirada de permisos, gestión completa de departamentos/equipos, proveedor SMTP público, keyring/rotación segura y autorización granular de incidencias. La propuesta de selección `GET fields` y permisos por campo requiere un estudio propio, no tablas anticipadas.
+No están incluidos: refresh tokens, recuperación de contraseña olvidada, logout individual por token, bootstrap del primer ADMIN, retirada de permisos, gestión de equipos y asignaciones de trabajo, proveedor SMTP público, keyring/rotación segura y autorización granular de incidencias. La propuesta de selección `GET fields` y permisos por campo requiere un estudio propio, no tablas anticipadas.
 
 ## Referencias
 

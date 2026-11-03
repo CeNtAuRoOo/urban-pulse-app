@@ -1,6 +1,5 @@
 # ADR-0007: Invitaciones para incorporar permisos municipales
 
-> **Lectura histórica:** el alcance previo y las menciones a V2 corresponden a la entrega original. La revisión del 02/11/2026 al final recoge el estado integrado vigente.
 - **Estado:** Aceptado; módulo backend implementado. El [contrato](../api/README.md), las [pruebas](../development.md) y el [modelo](../domain-model.md) se mantienen en sus documentos respectivos.
 - **Fecha original:** 2026-10-11.
 - **Decisión definitiva:** 2026-10-30; sustituye el borrador de registro especial de personal.
@@ -13,7 +12,7 @@ La identidad ciudadana y la concesión de permisos municipales tienen ciclos dis
 
 1. Solo `ADMIN` activo con `CITIZEN` y `EMAIL_VERIFIED` puede emitir, listar, consultar y revocar. Spring Security aplica autorización real; `x-roles` solo documenta.
 2. Emitir crea `StaffInvitation` y `AuditEvent`, **nunca** `User`. Email normalizado exactamente como `User.normalizeEmail` (trim/minúsculas), obligatorio y de máximo 254 caracteres.
-3. `OPERATOR`/`ADMIN` son globales invitables y no admiten `departmentId`, ni siquiera `null`. `TECHNICIAN`/`DEPARTMENT_COORDINATOR` requieren departamento existente y activo al emitir y al canjear. `CITIZEN` no es invitable. `Department` existe como soporte mínimo sin CRUD ni equipos.
+3. `OPERATOR`/`ADMIN` son globales invitables y no admiten `departmentId`, ni siquiera `null`. `TECHNICIAN`/`DEPARTMENT_COORDINATOR` requieren departamento existente y activo al emitir y al canjear. `CITIZEN` no es invitable. `Department` se comparte con la administración de Departamentos de `organization`, que ofrece listado, detalle, alta y PATCH; Invitaciones reutiliza su entidad, repositorio y bloqueo de fila. Los equipos siguen pendientes.
 4. El destinatario se registra en `/auth/register`, verifica su correo o utiliza una cuenta ya verificada. Solo envía `invitationCode` al canje autenticado. `User.email` debe coincidir con `StaffInvitation.email`. No se alteran identidad, contraseña, correo, `tokenVersion` ni permisos anteriores.
 5. Vigencia por defecto de **siete días exactos de 24 horas** desde `Clock.instant()`. `security.staff-invitation.ttl-days` admite 1..30; el cliente no establece `expiresAt`. El instante de vencimiento no es válido. `ACTIVE`, `REDEEMED`, `REVOKED`, `EXPIRED` se derivan de fechas; no hay columna `status`, reactivación ni scheduler de invitaciones.
 6. `SecureRandom` genera 32 bytes (256 bits) Base64URL canónicos sin padding, de 43 caracteres. Solo se almacena HMAC-SHA256 con propósito y clave específica (`bytea` de 32 bytes e índice único), separado de JWT y verificación de correo. `STAFF_INVITATION_SECRET` se suministra externamente como Base64 de al menos 32 bytes. Rotarlo invalida códigos pendientes; no hay keyring.
@@ -35,16 +34,16 @@ Errores: `400` JSON/tipos no interpretables y cuerpo mayor de 16 KiB; `401` JWT/
 
 ## Alcance y consecuencias
 
-Se reutilizan identidad, autenticación y transporte SMTP: `invitations` no registra usuarios mediante `AuthService`. La protección de cuota es local, no distribuida. Listados administrativos con correos personales solo son visibles a `ADMIN` verificado. No se implementa frontend, bootstrap productivo de ADMIN, retirada de `UserRole`/`DepartmentMembership`, CRUD de Catálogos, equipos (`Team`/`TeamMembership`), auditoría pública, outbox/reintentos, proveedor SMTP público ni despliegue/migración sobre Neon. Las cuentas ADMIN de pruebas son **fixtures exclusivamente efímeros**.
+Se reutilizan identidad, autenticación y transporte SMTP: `invitations` no registra usuarios mediante `AuthService`. La protección de cuota es local, no distribuida. Listados administrativos con correos personales solo son visibles a `ADMIN` verificado. No se implementa frontend, bootstrap productivo de ADMIN, retirada de `UserRole`/`DepartmentMembership`, equipos (`Team`/`TeamMembership`), auditoría pública, outbox/reintentos, proveedor SMTP público ni despliegue/migración sobre Neon. Las cuentas ADMIN de pruebas son **fixtures exclusivamente efímeros**.
 
 Antes de producción deberá acordarse una política de retención para invitaciones y auditoría (datos personales), así como una estrategia de baja/anonimización con FK históricas `RESTRICT`, rotación del secreto y tratamiento de invitaciones pendientes al revocar permisos. También deben estudiarse cuota de emisión por ADMIN y coordinación entre varias instancias.
 
+## Persistencia y administración departamental
+
+Las tablas de Invitaciones pertenecen a la única V1 junto con identidad y los catálogos ([ADR-0006](0006-flyway.md)). `organization` administra los departamentos compartidos, sin semillas. PATCH utiliza el mismo bloqueo de fila que emisión/canje; se conserva el orden usuario → invitación → departamento y se rechazan unidades inactivas. Desactivar no revoca pertenencias ni borra historia. Category permanece independiente y no altera la concesión de permisos.
+
 ## Validación y diagramas
 
-V1 permanece intacta; V2 incorpora `departments`, `department_memberships`, `staff_invitations` y `audit_events`. Hibernate valida el esquema. El perfil Maven `postgres-it` incluye las tres suites IT de auth e Invitaciones y excluye Neon; el informe histórico fechado el 30/10/2026 declara **90 pruebas superadas y un flujo HTTP aislado con PostgreSQL/Mailpit**. El historial Git sitúa el refactor de directorios antes de los commits de Invitaciones y pruebas. Los resultados, límites y comandos se recogen en [Desarrollo](../development.md), sin presentarlos como una ejecución nueva.
+Las suites del perfil `postgres-it` comprueban las cinco áreas con PostgreSQL efímero y excluyen Neon. [Desarrollo](../development.md#verificación-del-backend) mantiene los comandos y resultados vigentes, incluida la regresión entre administración departamental y canje.
 
-Los diagramas **ER02, ER03, clases simplificadas y C4 ya fueron actualizados**, junto con sus SVG, en el último commit de documentación de la rama; véase [inventario de diagramas](../diagrams/README.md). No existe excepción de gráficos pendiente para este módulo. Se mantienen pendientes únicamente diagramas **nuevos** de otras áreas y el despliegue futuro.
-
-## Integración con Departamentos — 02/11/2026
-
-El alcance y resultados anteriores describen la entrega de Invitaciones. Ahora `organization` administra los departamentos compartidos mediante API; el contrato completo y la ausencia de semillas han sido aprobados. Las tablas de ambas funcionalidades forman parte de una sola V1 ([ADR-0006](0006-flyway.md)). PATCH utiliza el mismo bloqueo de fila que emisión/canje; se mantiene el orden usuario → invitación → departamento y se rechazan unidades inactivas. Desactivar no revoca pertenencias ni borra historia. El perfil aislado incorpora también `DepartmentPostgresIT`; no se amplía la auditoría de Departamentos sin especificación.
+Las fuentes ER02, ER03, clases y C4 reflejan Invitaciones, auditoría, correo y departamentos compartidos. Los SVG regenerados manualmente corresponden estructuralmente a sus fuentes e incluyen ambos catálogos; véase [inventario de diagramas](../diagrams/README.md). Los flujos de incidencias y el despliegue definitivo requieren nuevos diseños al implementarse.

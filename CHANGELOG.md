@@ -1,15 +1,32 @@
 # Changelog
 
+Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
+
+## [Unreleased]
+
+### Corregido
+
+- Longitudes Unicode de nombre y descripción de Departamentos alineadas con PostgreSQL y OpenAPI, tanto en alta como en PATCH; los caracteres suplementarios cuentan como un punto de código.
+
+### Pendientes actuales
+
+Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, retirada de permisos, equipos, incidencias/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
+
+## 2026-11-03 — Categorías en el backend modular
+
+- Cuatro operaciones de Categorías en `categories`, con correo verificado y ADMIN global para escritura. Nombre Unicode único incluso inactivo, PATCH estricto y desactivación/reactivación sin borrado.
+- Definición de Categorías incorporada a la única V1 para bases vacías, sin semillas, código ni fechas internas. Se conservan las restricciones y bloqueos de los demás módulos.
+- Pruebas MVC, de servicio y PostgreSQL: unicidad concurrente, renombrados, bloqueo de actualizaciones parciales y permisos vigentes. [Resultados](docs/development.md#verificación-del-backend).
+- Contratos y documentación de catálogos mantenidos en API, dominio, arquitectura y ADR; OpenAPI 0.5.0, bundle/HTML y fuentes drawio actualizados. RF18 e Incidencias continúan pendientes.
+
 ## 2026-11-02 — Integración de Departamentos e Invitaciones
 
 - Administración de departamentos incorporada en `organization`, con entidad/repositorio compartidos y bloqueos compatibles con canjes y pertenencias.
 - Contrato completo de Department aprobado; única `V1__initial_schema.sql` para bases vacías, sin departamentos precargados.
 - Se conservan las suites de ambas ramas y se cubre la interacción entre PATCH, canje e historial.
-- Documentación modular y fuentes `.drawio` integradas; SVG originales conservados para exportación manual posterior. Resultados de ejecución en [Desarrollo](docs/development.md).
+- Documentación modular y fuentes `.drawio` integradas. En esta entrega se conservaron los SVG originales; posteriormente se regeneraron manualmente desde diagrams.net, como recoge el [estado actual de los diagramas](docs/diagrams/README.md#criterios-de-sincronización). Resultados de ejecución en [Desarrollo](docs/development.md).
 
-Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
-
-## [Unreleased]
+## 2026-10-31 — Entrega modular de Invitaciones
 
 ### 2026-10-31 — Reorganización del backend por funcionalidades
 
@@ -34,12 +51,12 @@ Commits siguientes a la reorganización: `81d8d85` (`feat(backend): implementar 
 - Servicio único de transacciones: bloqueos de usuario → invitación → departamento; validación de cuenta/JWT/rol/email/permisos, concesión y auditoría atómicas. La emisión utiliza `StaffInvitationRequested` y `StaffInvitationEmailListener` para SMTP **después del commit**; no hay outbox/reintentos ni garantía de recepción.
 - Canje con cuotas independientes por usuario (10/900 s) e IP (30/900 s) y protección de cuerpo de 16 KiB. Respuestas de error uniformes `ProblemDetail` y `429 Retry-After`; consulta paginada `PageMetadata`.
 - OpenAPI modular **0.5.0**: retirada del diseño `/auth/staff-registrations` y de la respuesta con secreto, nuevas respuestas/DTO y GET individual. El bundle `openapi.yaml` y el HTML se generan desde fuentes Redocly.
-- Tests con JUnit/MVC y Testcontainers PostgreSQL 18; el informe histórico describe además un runner HTTP con JAR, PostgreSQL `tmpfs`, Mailpit y fixtures sintéticos, sin Neon. **Los archivos de ese runner no aparecen en el volcado local adjunto**, por lo que no se puede dar por reproducible en el árbol actual.
+- Tests con JUnit/MVC y Testcontainers PostgreSQL 18; el informe histórico describe además un runner HTTP con JAR, PostgreSQL `tmpfs`, Mailpit y fixtures sintéticos, sin Neon. **Los archivos de ese runner no aparecen en el repositorio**, por lo que no se puede dar por reproducible en el árbol actual.
 - Sin frontend de invitaciones, bootstrap productivo del primer ADMIN, retirada de permisos, CRUD de Catálogos/equipos, SMTP público, despliegue real ni migración de Neon. Ver [ADR-0007](docs/adr/0007-invitaciones-personal.md), [API](docs/api/README.md) y [Desarrollo](docs/development.md).
 
 ### 2026-10-31 — Documentación y diagramas sincronizados
 
-Commit `56fc44d` y corrección documental posterior preparada para `git commit --amend`:
+Documentación de la entrega `56fc44d`:
 
 - Actualizadas arquitectura y desarrollo para reflejar el monolito **modular**, los paquetes y la nueva ubicación de las pruebas.
 - Fuentes `.drawio` y SVG de C4, ER02, ER03 y clases simplificadas **ya actualizadas** para la implementación, la auditoría, el correo y el alcance de fotografías. Se elimina la excepción gráfica y las indicaciones de cambios manuales pendientes.
@@ -62,7 +79,7 @@ Commit `56fc44d` y corrección documental posterior preparada para `git commit -
 - Cuotas en memoria por usuario/IP y cuerpos de cinco POST con máximo 16 KiB. Limpieza horaria de códigos y cuentas sin verificar con lotes y `SKIP LOCKED`.
 - Evidencia histórica: Codex comunicó **55 pruebas (35 unitarias/MVC + 20 PostgreSQL IT)**. Quedaban pendientes entrega SMTP externa, recuperación de contraseña, primera cuenta ADMIN, despliegue en Neon y evolución de la política de limpieza.
 
-## [Unreleased] — Evolución histórica del diseño y Autenticación
+## Octubre de 2026 — Evolución histórica del diseño y Autenticación
 
 ### Implementación del tag Autenticación (27/10/2026)
 
@@ -74,24 +91,23 @@ Commit `56fc44d` y corrección documental posterior preparada para `git commit -
 
 ### Diseño y contrato original (octubre de 2026)
 
-- Modelo de dominio v1 con relacional de cuatro páginas, catálogo simplificado de clases y C4 fuente `.drawio`; contrato OpenAPI 3.0.3 modular por tags y diseño *design-first*.
+- Modelo de dominio v1 con relacional de cuatro páginas, catálogo simplificado de clases y C4 fuente `.drawio`; contrato OpenAPI 3.0.3 modular por tags y diseño _design-first_.
 - OpenAPI `0.2.0` armonizó roles globales/departamentales, asignaciones, identificadores, sugerencias de duplicados y contextos; `0.3.0` fijó auth/JWT; `0.4.0` añadió verificación; `0.5.0` incorpora Invitaciones. Las referencias a versiones antiguas son **históricas**, no el contrato vigente.
 - ADR-0005 (JWT), ADR-0007 (invitar personal), ADR-0009 (roles por ámbito), ADR-0010 (derivación/asignaciones) y ADR-0011 (UUIDv7); las entidades de negocio pendientes no se deben crear por aparecer en diagramas.
 - Primera versión del backend Spring Boot, Expo Router/React Native Web, Dockerfiles de desarrollo y producción prevista, PostgreSQL/S3 Neon de desarrollo y documentación inicial.
 - Conectividad histórica (15/10): Docker Compose conjunto, JDBC Neon PostgreSQL 18 y `HeadBucket` privado, **sin** acreditar operaciones S3 de contenido ni migraciones de autenticación a Neon.
 - Frontend (13/10): comprobaciones TypeScript, ESLint, Expo Doctor 21/21 y exportación web superadas; no equivalen a pruebas funcionales de incidencias o dispositivos.
 
-### Pendientes generales
+### Límites de aquellas versiones
 
-Aplicación controlada de V1/V2 a `development`, desplegar sin utilizar `production` para experimentar, primer administrador, retirada de permisos, CRUD de departamentos/equipos, flujos de incidencias/fotografías, frontend conectado, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. La rama solo implementa los tags identificados expresamente como activos.
+Las entregas originales de Autenticación e Invitaciones no incluían administración de catálogos y usaban V1/V2. Departamentos y Categorías se incorporaron después y sus migraciones se consolidaron en la única V1 vigente, según las entradas del 02 y 03/11/2026. La aplicación de ese esquema consolidado en Neon sigue sin acreditarse; los pendientes funcionales actuales figuran al comienzo del documento.
 
 ## 2026-10-30 — Cierre técnico de departamentos (histórico de main)
-
 
 - Completado el subconjunto Department del tag Catálogos: listado/detalle con correo verificado y creación/PATCH con ADMIN global; desactivación sin DELETE.
 - UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
 - ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
-- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [informe de cierre](docs/departments-finalization.md) para comandos y resultados exactos.
+- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [contrato de Departamentos](docs/api/README.md#51-departamentos-implementados-catálogos) para comandos y resultados exactos.
 - Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.

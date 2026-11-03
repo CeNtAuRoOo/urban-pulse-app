@@ -4,6 +4,8 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import org.hibernate.validator.constraints.CodePointLength;
+
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonSetter;
@@ -13,13 +15,13 @@ import com.fasterxml.jackson.annotation.Nulls;
 @JsonAutoDetect(getterVisibility = JsonAutoDetect.Visibility.NONE,
         isGetterVisibility = JsonAutoDetect.Visibility.NONE)
 public class PatchDepartmentRequest {
-    @Size(min = 2, max = 120)
+    @CodePointLength(min = 2, max = 120)
     @Pattern(regexp = "(?s).*\\S.*")
     private String name;
     @Size(min = 2, max = 20)
     @Pattern(regexp = "[A-Za-z0-9_-]+")
     private String code;
-    @Size(max = 500)
+    @CodePointLength(max = 500)
     private String description;
     private Boolean active;
 

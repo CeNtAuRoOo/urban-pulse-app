@@ -42,4 +42,4 @@ Los POST de invitaciones reutilizan 16 KiB; buckets de canje 10/900 s por usuari
 de emisión por ADMIN, entrega fiable y SMTP productivo siguen fuera del módulo.
 El flujo HTTP aislado ya ejecutado utilizó `compose.test.yaml` con material sintético,
 sin credenciales reales ni puerto PostgreSQL publicado al host. Ese archivo no figura
-en el volcado local adjunto; nunca se deben reutilizar los fixtures en producción.
+en el repositorio; nunca se deben reutilizar los fixtures en producción.

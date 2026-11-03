@@ -1,6 +1,6 @@
 # Guía de contribución
 
-UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación, Invitaciones y Departamentos con migración V1 consolidada). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
+UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación, Invitaciones, Departamentos y Categorías con migración V1 consolidada). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
 
 ## Flujo de trabajo
 
@@ -40,8 +40,6 @@ La documentación del [modelo de dominio](docs/domain-model.md) es una referenci
 6. Implementar solo las entidades necesarias en cada tag; no añadir todas las tablas previstas anticipadamente ni usar `ddl-auto=update`.
 7. Describir con precisión qué se implementó, qué se probó y qué permanece como diseño o tarea futura.
 
-**Excepción de esta integración (02/11/2026):** las fuentes `.drawio` se actualizan, pero los SVG deben conservar exactamente el contenido previo de `feature/invitaciones-backend`. Su revisión y exportación manual las realizará el responsable después. La regla general de sincronización se mantiene para cambios futuros.
-
 ## Verificaciones por ámbito
 
 **Frontend**, desde `frontend/`:
@@ -60,7 +58,7 @@ mvn -B -ntp test
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT` y `StaffInvitationPostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
+El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
 
 ```bash
 docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
@@ -80,7 +78,7 @@ Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y
 
 **Documentación:** comprobar vínculos relativos, presencia de todos los SVG que se enlazan, correspondencia `.drawio`/exportación, ausencia de referencias a informes temporales y coherencia con el árbol Java actual. Ejecutar `git diff --check` y comprobar que no se han incorporado secretos, datos personales reales, `.env`, `target`, `dist` o `node_modules`.
 
-El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backend/scripts/invitations_http_test.py` con PostgreSQL/Mailpit efímeros, **pero esos archivos no figuran en el estado local adjunto**. No presentar ese flujo como reproducible sin restaurar y revisar el runner. Las suites Maven/Testcontainers configuradas en el proyecto se describen en [Desarrollo](docs/development.md); la política funcional y de seguridad, en [ADR-0007](docs/adr/0007-invitaciones-personal.md).
+El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backend/scripts/invitations_http_test.py` con PostgreSQL/Mailpit efímeros, **pero esos archivos no figuran en el repositorio**. No presentar ese flujo como reproducible sin restaurar y revisar el runner. Las suites Maven/Testcontainers configuradas en el proyecto se describen en [Desarrollo](docs/development.md); la política funcional y de seguridad, en [ADR-0007](docs/adr/0007-invitaciones-personal.md).
 
 ## Pull Requests
 

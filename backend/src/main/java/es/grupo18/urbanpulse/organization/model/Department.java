@@ -51,19 +51,21 @@ public class Department {
     /**
      * Inicializa una unidad normalizando nombre y código, sin precargar catálogos.
      *
-     * @param name nombre de 2–120 caracteres tras trim
+     * @param name nombre de 2–120 puntos de código Unicode tras trim
      * @param code código ASCII de 2–20 caracteres, convertido a mayúsculas
-     * @param description descripción opcional de hasta 500 caracteres
+     * @param description descripción opcional de hasta 500 puntos de código Unicode
      * @param active estado inicial; false impide emisión y canje
      * @throws IllegalArgumentException si las longitudes o el formato no son válidos
      */
     public Department(String name, String code, String description, boolean active) {
-        if (name == null || name.trim().length() < 2 || name.trim().length() > 120
+        String normalizedName = name == null ? null : name.trim();
+        int nameLength = normalizedName == null ? 0 : normalizedName.codePointCount(0, normalizedName.length());
+        if (nameLength < 2 || nameLength > 120
                 || code == null || !code.trim().matches("[A-Za-z0-9_-]{2,20}")
-                || (description != null && description.length() > 500)) {
+                || (description != null && description.codePointCount(0, description.length()) > 500)) {
             throw new IllegalArgumentException("Datos de departamento no válidos.");
         }
-        this.name = name.trim();
+        this.name = normalizedName;
         this.code = code.trim().toUpperCase(Locale.ROOT);
         this.description = description;
         this.active = active;

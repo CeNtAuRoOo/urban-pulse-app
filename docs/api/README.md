@@ -1,17 +1,17 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación** e **Invitaciones**, y **Departamentos** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
-| Ruta | Función | Edición |
-| --- | --- | --- |
-| [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml) | Entrada principal de la especificación modular, metadatos, servidores y tags | **Fuente editable** |
-| [`openapi/paths/`](openapi/paths/) | Recursos y métodos por tag, entre ellos [`invitaciones.yaml`](openapi/paths/invitaciones.yaml) y [`autenticacion.yaml`](openapi/paths/autenticacion.yaml) | **Fuente editable** |
-| [`openapi/components/schemas/`](openapi/components/schemas/) | DTO y esquemas de dominio y comunes | **Fuente editable** |
-| [`openapi/components/responses.yaml`](openapi/components/responses.yaml) | Respuestas de error/éxito compartidas | **Fuente editable** |
-| [`openapi.yaml`](openapi.yaml) | Bundle monolítico con los `$ref` resueltos | **Generado**: no editar a mano |
-| [`openapi.html`](openapi.html) | Documentación HTML renderizada | **Generado**: no editar a mano |
+| Ruta                                                                     | Función                                                                                                                                                   | Edición                        |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml)                 | Entrada principal de la especificación modular, metadatos, servidores y tags                                                                              | **Fuente editable**            |
+| [`openapi/paths/`](openapi/paths/)                                       | Recursos y métodos por tag, entre ellos [`invitaciones.yaml`](openapi/paths/invitaciones.yaml) y [`autenticacion.yaml`](openapi/paths/autenticacion.yaml) | **Fuente editable**            |
+| [`openapi/components/schemas/`](openapi/components/schemas/)             | DTO y esquemas de dominio y comunes                                                                                                                       | **Fuente editable**            |
+| [`openapi/components/responses.yaml`](openapi/components/responses.yaml) | Respuestas de error/éxito compartidas                                                                                                                     | **Fuente editable**            |
+| [`openapi.yaml`](openapi.yaml)                                           | Bundle monolítico con los `$ref` resueltos                                                                                                                | **Generado**: no editar a mano |
+| [`openapi.html`](openapi.html)                                           | Documentación HTML renderizada                                                                                                                            | **Generado**: no editar a mano |
 
 La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetail`. Los identificadores internos públicos apropiados se expresan como UUID; los IDs externos pueden ser cadenas. Los esquemas DTO **no** replican las tablas JPA y pueden tener campos opcionales omitidos (no equivale a `null`). `x-roles` explica la autorización prevista, pero el servidor aplica reglas reales y contextuales.
 
@@ -20,7 +20,7 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.2.0`**: base documental de dominio compartido por tags (roles, organización, incidencias, asignaciones, identificadores, contexto).
 - **`0.3.0`**: definición del núcleo de autenticación, registro con JWT, cambio de contraseña, invalidación por `tokenVersion` y permisos actuales desde PostgreSQL.
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
-- **`0.5.0` (vigente)**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal.
+- **`0.5.0` (vigente)**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Departamentos y Categorías, sin cambiar `/api/v1`.
 
 La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
 
@@ -35,25 +35,25 @@ La existencia de versiones históricas no implica que los 16 tags se hayan imple
 
 ## 4. Endpoints de Autenticación implementados
 
-| Método | Ruta bajo `/api/v1` | Estado y comportamiento |
-| --- | --- | --- |
-| `POST` | `/auth/register` | `201 TokenDTO`, crea `CITIZEN` y cuenta pendiente de confirmar correo |
-| `POST` | `/auth/login` | `200 TokenDTO`; credenciales incorrectas `401` genérico |
-| `POST` | `/users/me/password-changes` | `204`, revoca JWT anteriores incrementando `tokenVersion` |
-| `POST` | `/auth/email-verifications/confirm` | `204`; código decimal de ocho dígitos protegido por HMAC |
-| `POST` | `/auth/email-verifications/resend` | `202` solicitud de entrega, `204` si ya verificado, `410` si expiró la cuenta |
+| Método | Ruta bajo `/api/v1`                 | Estado y comportamiento                                                       |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------- |
+| `POST` | `/auth/register`                    | `201 TokenDTO`, crea `CITIZEN` y cuenta pendiente de confirmar correo         |
+| `POST` | `/auth/login`                       | `200 TokenDTO`; credenciales incorrectas `401` genérico                       |
+| `POST` | `/users/me/password-changes`        | `204`, revoca JWT anteriores incrementando `tokenVersion`                     |
+| `POST` | `/auth/email-verifications/confirm` | `204`; código decimal de ocho dígitos protegido por HMAC                      |
+| `POST` | `/auth/email-verifications/resend`  | `202` solicitud de entrega, `204` si ya verificado, `410` si expiró la cuenta |
 
 En el registro el JWT inicial es de acceso limitado hasta confirmar el correo. `EMAIL_VERIFIED` se obtiene de PostgreSQL en cada petición; el mismo JWT funciona tras la confirmación sin cambiar su versión. La verificación usa código de hasta diez minutos, cuenta no verificada hasta 24 horas y correo por `AFTER_COMMIT` con Mailpit exclusivamente local. Cinco POST auth con cuerpos de máximo 16 KiB y cuotas específicas de registro/login/verificación. Véase [autenticación](../auth-design.md).
 
 ## 5. Endpoints de Invitaciones implementados
 
-| Método | Ruta bajo `/api/v1` | Autorización | Respuesta |
-| --- | --- | --- | --- |
-| `POST` | `/staff-invitations` | `ADMIN` activo y verificado | `201 InvitationDTO`, `Location` |
-| `GET` | `/staff-invitations` | `ADMIN` activo y verificado | `200 InvitationPageDTO` |
-| `GET` | `/staff-invitations/{invitationId}` | `ADMIN` activo y verificado | `200 InvitationDTO` |
-| `POST` | `/staff-invitations/{invitationId}/revocations` | `ADMIN` activo y verificado | `204` |
-| `POST` | `/users/me/staff-invitation-redemptions` | `CITIZEN` activo y verificado | `200 InvitationRedemptionDTO` |
+| Método | Ruta bajo `/api/v1`                             | Autorización                  | Respuesta                       |
+| ------ | ----------------------------------------------- | ----------------------------- | ------------------------------- |
+| `POST` | `/staff-invitations`                            | `ADMIN` activo y verificado   | `201 InvitationDTO`, `Location` |
+| `GET`  | `/staff-invitations`                            | `ADMIN` activo y verificado   | `200 InvitationPageDTO`         |
+| `GET`  | `/staff-invitations/{invitationId}`             | `ADMIN` activo y verificado   | `200 InvitationDTO`             |
+| `POST` | `/staff-invitations/{invitationId}/revocations` | `ADMIN` activo y verificado   | `204`                           |
+| `POST` | `/users/me/staff-invitation-redemptions`        | `CITIZEN` activo y verificado | `200 InvitationRedemptionDTO`   |
 
 `InvitationRequest` es `oneOf`: `GlobalInvitationRequest` asigna `OPERATOR`/`ADMIN` **sin campo** `departmentId` (tampoco `null`), y `DepartmentInvitationRequest` requiere `TECHNICIAN`/`DEPARTMENT_COORDINATOR` con `departmentId` existente/activo. El cliente no escoge `expiresAt`. Se emite una invitación para un correo aunque no exista aún usuario; no crea identidad ni concede permisos hasta canje.
 
@@ -63,14 +63,45 @@ Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por I
 
 ### 5.1. Departamentos implementados (Catálogos)
 
-| Método | Ruta bajo `/api/v1` | Autorización | Respuesta |
-| --- | --- | --- | --- |
-| GET | `/departments` | Correo verificado | 200, activos/inactivos ordenados por nombre |
-| GET | `/departments/{departmentId}` | Correo verificado | 200, unidad solicitada |
-| POST | `/departments` | ADMIN y correo verificado | 201, DepartmentDTO y Location |
-| PATCH | `/departments/{departmentId}` | ADMIN y correo verificado | 200, DepartmentDTO |
+| Método | Ruta bajo `/api/v1`           | Autorización              | Respuesta                                   |
+| ------ | ----------------------------- | ------------------------- | ------------------------------------------- |
+| GET    | `/departments`                | Correo verificado         | 200, activos/inactivos ordenados por nombre |
+| GET    | `/departments/{departmentId}` | Correo verificado         | 200, unidad solicitada                      |
+| POST   | `/departments`                | ADMIN y correo verificado | 201, DepartmentDTO y Location               |
+| PATCH  | `/departments/{departmentId}` | ADMIN y correo verificado | 200, DepartmentDTO                          |
 
-El esquema `DepartmentDTO` corresponde al record Java `DepartmentResponse`; no expone fechas internas. No hay DELETE ni paginación. Omisión, null explícito, normalización, unicidad y errores se detallan una sola vez en [el contrato de Departamentos](../departments-finalization.md#3-funcionalidad-final). La fuente está en `paths/catalogos.yaml` y `components/schemas/catalogos.yaml`. Su integración conserva la versión documental 0.5.0 e incorpora el trabajo de Catálogos desarrollado en paralelo sobre 0.4.0.
+El DTO de respuesta contiene `id`, `name`, `code`, `description` y `active`. Las fechas quedan internas; no se exponen entidades JPA.
+
+Nombre obligatorio de 2–120 puntos de código Unicode; código obligatorio de 2–20, exclusivamente letras ASCII, números, guion y guion bajo. Se aplica `trim()` de Java a nombre/código antes de validar; se conservan espacios interiores del nombre. El código se convierte a mayúsculas con Locale.ROOT. Nombre y código son únicos sin distinguir mayúsculas. Las restricciones de longitud del contrato se refieren a los valores normalizados. Descripción opcional de hasta 500 puntos de código Unicode, sin recortarla automáticamente. Alta con `active=true` cuando se omite o envía null.
+
+En PATCH, omitir un campo conserva su valor; null explícito devuelve 400. Esto mantiene los campos PATCH no anulables del contrato. Una descripción vacía elimina su contenido, sin convertirlo a SQL NULL. Un objeto vacío, cadenas fuera de límites o códigos inválidos devuelven 422. `active=false` desactiva y conserva UUID e historial; no hay DELETE. Si los valores enviados son idénticos, Hibernate puede no emitir UPDATE ni cambiar updatedAt.
+
+Los errores de ambos catálogos se describen en [Errores compartidos](#errores-compartidos-de-catálogos).
+
+### Contrato de categorías
+
+**Categorías:** `GET /api/v1/categories` y `GET /api/v1/categories/{categoryId}` devuelven 200 para usuarios verificados, incluidas categorías inactivas; listado completo por nombre ascendente según PostgreSQL y UUID como desempate. `POST` devuelve 201 con Location absoluta y `PATCH` devuelve 200; ambas requieren ADMIN global verificado. Se consultan los permisos actuales en BD.
+
+`CategoryResponse` expone siempre `id`, `name`, `description` y `active`, sin `code`. En [el esquema OpenAPI](openapi/components/schemas/catalogos.yaml), `description` es una propiedad requerida y nullable: si no hay descripción, las cuatro operaciones devuelven explícitamente `"description": null`, sin omitir la clave. Este comportamiento está cubierto por `CategoryControllerTest`. Los límites y la normalización se mantienen en el [modelo de dominio](../domain-model.md#catálogo-category).
+
+Creación: descripción omitida/null → null, active omitido/null → true; `false` se conserva. PATCH: omitir conserva, null explícito → 400, objeto vacío → 422, `description: ""` limpia sin convertir a null; active permite desactivar/reactivar sin borrar. Los DTO rechazan propiedades desconocidas, incluidas `code` o `roles`; los permisos provienen del usuario autenticado.
+
+### Errores compartidos de catálogos
+
+Los errores usan `application/problem+json` y el contrato común `ProblemDetail` (`code`, `title`, `status`, `detail`, `instance`):
+
+| Estado | Código y condición                                                                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `INVALID_JSON`: JSON ilegible, tipos incorrectos, claves duplicadas, contenido sobrante o null explícito en PATCH; `INVALID_PARAMETER`: UUID mal formado. |
+| 401    | `UNAUTHORIZED`: JWT ausente, inválido, caducado o revocado; incluye `WWW-Authenticate: Bearer`.                                                           |
+| 403    | `EMAIL_NOT_VERIFIED` o `FORBIDDEN`, según verificación y permisos.                                                                                        |
+| 404    | `CATEGORY_NOT_FOUND` o `DEPARTMENT_NOT_FOUND`, según recurso.                                                                                             |
+| 409    | `CATEGORY_DUPLICATE`: nombre reservado por otra categoría; `DEPARTMENT_DUPLICATE`: nombre o código de otro departamento.                                  |
+| 422    | `VALIDATION_ERROR` o `UNKNOWN_PROPERTY`.                                                                                                                  |
+| 500    | `INTERNAL_ERROR`.                                                                                                                                         |
+| 503    | `SERVICE_UNAVAILABLE`: indisponibilidad tipada de PostgreSQL.                                                                                             |
+
+Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#4-persistencia-y-transacciones) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#verificación-del-backend), sus pruebas.
 
 ## 6. Revisión del contrato y del dominio por tag
 
@@ -90,15 +121,11 @@ npx --yes @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/ope
 npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-**Validación realizada (30/10/2026):** OpenAPI `0.5.0` superó el lint de Redocly **sin errores**, con dos avisos conocidos (`info.license` todavía sin decidir y servidor `localhost`). El bundle YAML y el HTML se generaron desde el contrato modular. Si cambian los `.yaml` en futuras entregas, regenerar los derivados; no editar directamente `openapi.yaml` ni `openapi.html`.
-
-Las **90 pruebas históricas de Invitaciones** y el recorrido HTTP aislado con Mailpit se detallan en [Desarrollo](../development.md). El refactor figura **antes** del commit de pruebas en Git. La ejecución contra PostgreSQL efímero no implica que la migración V1 consolidada se haya aplicado sobre Neon; los archivos originales del runner HTTP no aparecen en el árbol local aportado.
+**Validación del 03/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las cuatro operaciones de cada catálogo conviven con Autenticación e Invitaciones; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: perfil/consulta de usuarios, categorías y equipos, retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: perfil/consulta de usuarios, equipos, retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
-
-**Integración del 02/11/2026:** lint ejecutado sin errores y con los dos avisos anteriores; bundle y HTML regenerados con los comandos documentados. Se conservan las rutas de Autenticación, Invitaciones y Departamentos y el diseño de los demás recursos.

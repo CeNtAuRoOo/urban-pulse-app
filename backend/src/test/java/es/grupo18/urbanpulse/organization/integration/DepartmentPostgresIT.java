@@ -26,7 +26,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
 import es.grupo18.urbanpulse.organization.dto.CreateDepartmentRequest;
-import es.grupo18.urbanpulse.organization.dto.DepartmentResponse;
 import es.grupo18.urbanpulse.organization.dto.PatchDepartmentRequest;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 import es.grupo18.urbanpulse.organization.service.DepartmentService;
@@ -57,11 +56,16 @@ class DepartmentPostgresIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    @Autowired DepartmentService service;
-    @Autowired DepartmentRepository repository;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired MockMvc mvc;
-    @Autowired AuthService auth;
+    @Autowired
+    DepartmentService service;
+    @Autowired
+    DepartmentRepository repository;
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    MockMvc mvc;
+    @Autowired
+    AuthService auth;
     @MockitoBean
     EmailSender emailSender;
 
@@ -70,7 +74,8 @@ class DepartmentPostgresIT {
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class))
                 .containsExactly("1");
-        assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'", String.class))
+        assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
+                String.class))
                 .contains("users", "roles", "user_roles", "email_verifications", "departments",
                         "department_memberships", "staff_invitations", "audit_events");
     }
@@ -106,9 +111,55 @@ class DepartmentPostgresIT {
     }
 
     @Test
+    void unicodeBoundsMatchPostgresForCreateAndPatch() throws Exception {
+        var token = auth.register(new RegisterRequest(
+                "Administradora Unicode", "department-unicode@example.org", "password-123"));
+        jdbc.update("update users set email_verified=true where id=?", token.user().id());
+        jdbc.update("insert into user_roles values (?, 'ADMIN')", token.user().id());
+        String bearer = "Bearer " + token.accessToken();
+        String symbol = "\uD83D\uDE00";
+        String url = "/api/v1/departments";
+        mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"name\":\"" + symbol + "\",\"code\":\"UNICODE\"}"))
+                .andExpect(status().is(422));
+
+        var created = mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"name\":\"" + symbol.repeat(120) + "\",\"code\":\"UNICODE\",\"description\":\""
+                        + symbol.repeat(500) + "\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String location = created.getResponse().getHeader("Location");
+        assertThat(location).isNotNull();
+        for (String[] invalid : List.of(
+                new String[] { "name", symbol },
+                new String[] { "name", symbol.repeat(121) },
+                new String[] { "description", symbol.repeat(501) })) {
+            String body = "{\"" + invalid[0] + "\":\"" + invalid[1] + "\"}";
+            mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
+                    .andExpect(status().is(422));
+            String name = invalid[0].equals("name") ? invalid[1] : "Valid Unicode";
+            String description = invalid[0].equals("description") ? invalid[1] : "";
+            mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                    .content("{\"name\":\"" + name + "\",\"code\":\"INVALID\",\"description\":\"" + description + "\"}"))
+                    .andExpect(status().is(422));
+        }
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"name\":\"" + symbol.repeat(2) + "\",\"description\":\"" + symbol.repeat(500) + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value(symbol.repeat(2)));
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"name\":\"" + symbol.repeat(120) + "\"}"))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForMap("select length(name) as name_length, length(description) as description_length "
+                + "from departments where code='UNICODE'"))
+                .containsEntry("name_length", 120).containsEntry("description_length", 500);
+    }
+
+    @Test
     void migratesInitialSchemaAndRoundTripsLifecycle() {
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select count(*) from departments where id in ('0199f6de-0001-7000-8000-000000000001', '0199f6de-0002-7000-8000-000000000002', '0199f6de-0003-7000-8000-000000000003')", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from departments where id in ('0199f6de-0001-7000-8000-000000000001', '0199f6de-0002-7000-8000-000000000002', '0199f6de-0003-7000-8000-000000000003')",
+                Integer.class)).isZero();
         var created = service.create(new CreateDepartmentRequest("  Movilidad  ", " mov ", "Original", null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);
@@ -123,7 +174,8 @@ class DepartmentPostgresIT {
         assertThat(after.isActive()).isFalse();
         assertThat(after.getDescription()).isEmpty();
         assertThat(after.getName()).isEqualTo("Movilidad");
-        assertThat(service.findAll()).extracting(DepartmentResponse::id).contains(created.id());
+        assertThat(service.findAll())
+                .anySatisfy(department -> assertThat(department.id()).isEqualTo(created.id()));
         assertThatThrownBy(() -> service.create(new CreateDepartmentRequest("movilidad", "OTHER", null, true)))
                 .isInstanceOf(DuplicateDepartmentException.class);
         assertThatThrownBy(() -> service.create(new CreateDepartmentRequest("Otra unidad", "mov", null, true)))
@@ -132,7 +184,8 @@ class DepartmentPostgresIT {
 
     @Test
     void databaseRejectsDuplicatesAndInvalidValuesAndGeneratesDefaultUuid() {
-        UUID id = jdbc.queryForObject("insert into departments(name,code) values ('SQL unit','SQL') returning id", UUID.class);
+        UUID id = jdbc.queryForObject("insert into departments(name,code) values ('SQL unit','SQL') returning id",
+                UUID.class);
         assertThat(id.version()).isEqualTo(7);
         for (String sql : List.of(
                 "insert into departments(name,code) values ('sql UNIT','UNIQUE')",

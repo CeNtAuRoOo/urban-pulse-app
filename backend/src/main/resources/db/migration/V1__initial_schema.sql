@@ -1,3 +1,4 @@
+-- Autenticación
 CREATE TABLE users (
     id uuid PRIMARY KEY,
     display_name varchar(120) NOT NULL CHECK (char_length(display_name) BETWEEN 2 AND 120),
@@ -19,6 +20,7 @@ CREATE TABLE roles (
         ('CITIZEN', 'OPERATOR', 'ADMIN', 'DEPARTMENT_COORDINATOR', 'TECHNICIAN')),
     description text NOT NULL
 );
+
 CREATE TABLE user_roles (
     user_id uuid NOT NULL REFERENCES users(id),
     role_code varchar(32) NOT NULL REFERENCES roles(code),
@@ -27,7 +29,6 @@ CREATE TABLE user_roles (
 );
 CREATE INDEX user_roles_role_idx ON user_roles (role_code);
 
--- V1 ampliada antes del primer despliegue: no aplicar sobre una V1 anterior.
 CREATE TABLE email_verifications (
     user_id uuid PRIMARY KEY REFERENCES users(id),
     code_hash bytea NOT NULL CHECK (octet_length(code_hash) = 32),
@@ -45,7 +46,7 @@ INSERT INTO roles (code, description) VALUES
     ('DEPARTMENT_COORDINATOR', 'Coordinación departamental'),
     ('TECHNICIAN', 'Personal técnico departamental');
 
--- Catálogo municipal administrado mediante API; sin departamentos precargados.
+-- Departamentos
 CREATE TABLE departments (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(120) NOT NULL,
@@ -77,6 +78,7 @@ CREATE INDEX department_memberships_user_idx ON department_memberships (user_id)
 CREATE INDEX department_memberships_department_idx ON department_memberships (department_id);
 CREATE INDEX department_memberships_role_idx ON department_memberships (role_code);
 
+-- Invitaciones
 CREATE TABLE staff_invitations (
     id uuid PRIMARY KEY,
     code_hash bytea NOT NULL UNIQUE CHECK (octet_length(code_hash) = 32),
@@ -113,7 +115,7 @@ CREATE INDEX staff_invitations_redeemer_idx ON staff_invitations (redeemed_by_us
 CREATE INDEX staff_invitations_revoker_idx ON staff_invitations (revoked_by_user_id)
     WHERE revoked_by_user_id IS NOT NULL;
 
--- Las referencias históricas se conservan: un futuro borrado exige política explícita.
+-- Auditoría de eventos
 CREATE TABLE audit_events (
     id uuid PRIMARY KEY,
     actor_user_id uuid REFERENCES users(id) ON DELETE RESTRICT,
@@ -127,3 +129,22 @@ CREATE TABLE audit_events (
 );
 CREATE INDEX audit_events_actor_idx ON audit_events (actor_user_id);
 CREATE INDEX audit_events_resource_idx ON audit_events (resource_type, resource_id, occurred_at DESC);
+
+-- Categorías
+CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT chk_categories_name_length CHECK (char_length(name) BETWEEN 2 AND 100),
+    -- Java Character.isWhitespace, including Unicode spaces.
+    CONSTRAINT chk_categories_name_not_blank CHECK (
+        name !~ U&'^[\0009-\000D\001C-\0020\1680\2000-\2006\2008-\200A\2028\2029\205F\3000]+$'
+    ),
+    -- Java trim() removes U+0000..U+0020; PostgreSQL text cannot contain U+0000.
+    CONSTRAINT chk_categories_name_trimmed CHECK (
+        name = btrim(name, E'\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037\040')
+    )
+);
+
+CREATE UNIQUE INDEX uk_categories_name_normalized ON categories (lower(name));

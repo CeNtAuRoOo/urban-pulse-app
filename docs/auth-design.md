@@ -1,10 +1,10 @@
 # UrbanPulse — Autenticación, verificación de correo y seguridad
 
-> **Estado a 02/11/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (incluida ahora en la misma V1), que se incorporó después de reorganizar el backend por módulos. Existen pruebas previas con PostgreSQL 18 efímero; no consta aplicación de V1 consolidada sobre Neon `development` ni entrega SMTP pública. Las fuentes gráficas se integran; los SVG se exportarán manualmente.
+> **Estado a 03/11/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (incluida ahora en la misma V1), que se incorporó después de reorganizar el backend por módulos. Existen pruebas previas con PostgreSQL 18 efímero; no consta aplicación de V1 consolidada sobre Neon `development` ni entrega SMTP pública. Las fuentes gráficas y sus SVG regenerados manualmente están contrastados estructuralmente en el [inventario](diagrams/README.md).
 
 ## 1. Referencias, alcance y responsabilidades
 
-El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato implementado es OpenAPI `0.5.0` con cinco operaciones de auth y cinco de Invitaciones; los otros tags siguen en diseño.
+El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.5.0` incluye cinco operaciones de auth, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Ambos catálogos reutilizan la identidad y seguridad compartidas; los restantes recursos siguen en diseño.
 
 La organización de paquetes es **por funcionalidad**:
 
@@ -21,13 +21,13 @@ La clase principal sigue en `es.grupo18.urbanpulse.BackendApplication`. El cambi
 
 `User` posee UUIDv7, correo normalizado (trim/minúsculas), contraseña BCrypt, estado activo, `emailVerified`, `tokenVersion` y preferencias de notificación. Al registrarse, el usuario inicia con `CITIZEN`, `emailVerified=false`, `tokenVersion=0` y preferencias activadas por defecto. `Role` contiene los cinco códigos y `UserRole` relaciona globalmente roles con usuarios; el ámbito se determina en `RoleCode` (`isGlobal`/`isDepartmental`), **sin** `Role.scope` ni `RoleScope`. `EmailVerification` guarda el HMAC y vigencia del código asociado al usuario.
 
-| Método | Ruta bajo `/api/v1` | Respuesta normal |
-| --- | --- | --- |
-| `POST` | `/auth/register` | `201 TokenDTO`, crea usuario `CITIZEN`, genera verificación; no `Location` de perfil aún inexistente |
-| `POST` | `/auth/login` | `200 TokenDTO` o `401` genérico |
-| `POST` | `/users/me/password-changes` | `204`, requiere cuenta autenticada |
-| `POST` | `/auth/email-verifications/confirm` | `204`, confirma código asociado al titular |
-| `POST` | `/auth/email-verifications/resend` | `202` al solicitar envío, `204` si ya verificado, `410` si venció la cuenta |
+| Método | Ruta bajo `/api/v1`                 | Respuesta normal                                                                                     |
+| ------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `POST` | `/auth/register`                    | `201 TokenDTO`, crea usuario `CITIZEN`, genera verificación; no `Location` de perfil aún inexistente |
+| `POST` | `/auth/login`                       | `200 TokenDTO` o `401` genérico                                                                      |
+| `POST` | `/users/me/password-changes`        | `204`, requiere cuenta autenticada                                                                   |
+| `POST` | `/auth/email-verifications/confirm` | `204`, confirma código asociado al titular                                                           |
+| `POST` | `/auth/email-verifications/resend`  | `202` al solicitar envío, `204` si ya verificado, `410` si venció la cuenta                          |
 
 La emisión de registro crea cuenta/rol/verificación en una operación SQL. El correo se solicita **tras confirmar** la transacción; `201` acredita persistencia, **no recepción** del correo. El JWT inicial permite operaciones de autenticación expresamente exceptuadas mientras la cuenta sigue sin verificar, pero no las rutas protegidas de negocio.
 
@@ -70,7 +70,7 @@ Para repetir desde `backend/` (Java 25, Maven y Docker):
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Las suites de persistencia se ejecutan contra PostgreSQL 18 Testcontainers, no Neon; el perfil excluye `NeonConnectivityIT`. El flujo HTTP histórico se describe en [Desarrollo, pruebas aisladas](development.md), con la advertencia sobre los archivos de runner ausentes del estado local adjunto. La prueba de conectividad `NeonConnectivityIT` es **otra comprobación**, ejecutada históricamente en `development`, que no valida Flyway V1 consolidada sobre Neon ni operaciones completas de S3.
+Las suites de persistencia se ejecutan contra PostgreSQL 18 Testcontainers, no Neon; el perfil excluye `NeonConnectivityIT`. El flujo HTTP histórico se describe en [Desarrollo, pruebas aisladas](development.md), con la advertencia sobre los archivos de runner ausentes del repositorio. La prueba de conectividad `NeonConnectivityIT` es **otra comprobación**, ejecutada históricamente en `development`, que no valida Flyway V1 consolidada sobre Neon ni operaciones completas de S3.
 
 ## 8. Integración con el canje municipal
 
