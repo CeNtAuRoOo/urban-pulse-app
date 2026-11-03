@@ -1,6 +1,6 @@
 # UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Las otras áreas mantienen su carácter de diseño y revisión obligatoria por tag. `0.2.0` fue la base y `0.4.0` recogía el núcleo auth y `0.4.0` añade la verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. La versión `0.2.0` sirvió como base de diseño y la `0.4.0` incorpora el núcleo de autenticación, incluida la verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -35,18 +35,24 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 
 **Estado posterior (28/10/2026):** cinco operaciones implementadas; registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los cinco POST limitado a 16 KiB; `429` para registro, login, confirmación y reenvío, no cambio de contraseña. Las otras rutas de este contrato permanecen como diseño.
 
-| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO` con JWT limitado y código enviado tras commit por SMTP local. |
-| Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.        |
-| Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                       |
-| Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                      |
-| Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                  |
-| Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                         |
-| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                         |
-| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                          | No se implementan estas capacidades aún.                                                       |
+| Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.              |
+| Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                             |
+| Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                            |
+| Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                        |
+| Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                               |
+| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                               |
+| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                                  | No se implementan estas capacidades aún.                                                            |
 
 ## 3. Diferencia esencial: derivación frente a trabajo
+
+### Category: contrato implementado el 02/11/2026
+
+El [modelo de Category](../domain-model.md#catálogo-category) se corresponde con V3 y con los cuatro atributos de respuesta de [Catálogos](openapi/components/schemas/catalogos.yaml). `description` es nullable en SQL y se incluye incluso cuando vale null en JSON; no se añaden código corto ni fechas al contrato. Las cuatro operaciones, permisos, semántica de PATCH y errores se mantienen en la [guía HTTP de categorías](README.md#contrato-de-categorías). Incident y su relación opcional con Category siguen en diseño, sin FK física; RF18 permanece pendiente según la [arquitectura](../architecture.md#6-dominio-operativo-previsto).
+
+### Flujo previsto de incidencias
 
 Recorrido representativo, no matriz completa:
 
@@ -108,3 +114,13 @@ Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, 
 ### Implementación de verificación de correo (28/10/2026)
 
 Se incorpora `EmailVerification` (PK/FK compartida con `User`) con HMAC-SHA256 de ocho dígitos, caducidad de hasta diez minutos y límite de cuenta no verificada de 24 horas. Confirmación: `POST /auth/email-verifications/confirm`, JWT y DTO estricto, `204` o `422 INVALID_VERIFICATION_CODE`. Reenvío: `POST /auth/email-verifications/resend`, JWT y cuerpo vacío, `202`/`204`/`410 VERIFICATION_ACCOUNT_EXPIRED`. Las cinco operaciones mantienen 16 KiB máximo de cuerpo; confirmación y reenvío tienen `429` con quotas locales. `EMAIL_VERIFIED` se lee de PostgreSQL en cada petición y se exige para las rutas de negocio, con `403 EMAIL_NOT_VERIFIED`; el mismo JWT sirve tras confirmar sin invalidar la versión del token. El SMTP local es Mailpit, no entrega real garantizada. Recuperación de contraseña, invitaciones y notificaciones siguen fuera del código de este tag.
+
+## Departamentos municipales — revisión 30/10/2026
+
+La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](../departments-finalization.md) para resultados y limitaciones.

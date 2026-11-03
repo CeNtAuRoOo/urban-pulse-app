@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-02 — Gestión de categorías
+
+- Implementadas las cuatro operaciones de Category: consulta con correo verificado y creación/PATCH con ADMIN global. Desactivación/reactivación sin borrado y conservación del nombre reservado.
+- V3 crea únicamente `categories`, UUIDv7 Hibernate, nombre recortado único sin distinguir mayúsculas, descripción nullable y active. Sin código, fechas internas ni semillas; V1/V2 intactas.
+- DTO estrictos, omisión diferenciada de null en PATCH, límites Unicode coherentes con PostgreSQL y OpenAPI, bloqueo de fila y traducción selectiva de conflictos a ProblemDetail.
+- Pruebas unitarias/MVC y CategoryPostgresIT incluidas en `postgres-it`; última ejecución del 02/11: 109 superadas (78 unitarias/MVC y 31 PostgreSQL). [Resultados y comandos](docs/development.md#73-verificación-documentada-del-backend). Contrato modular, bundle/HTML y ambas fuentes/exportaciones de Category actualizados; [revisión visual completa pendiente](docs/diagrams/README.md#revisión-category-02112026).
+- RF18 (auditoría administrativa) continúa pendiente. Sin frontend, Incident ni despliegue en Neon en esta entrega.
+
+## 2026-10-30 — Cierre técnico de departamentos
+
+- Completado el subconjunto Department del tag Catálogos: listado/detalle con correo verificado y creación/PATCH con ADMIN global; desactivación sin DELETE.
+- UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
+- ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
+- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [informe de cierre](docs/departments-finalization.md) para comandos y resultados exactos.
+- Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
+
 ## 2026-10-28 — Verificación de correo y transporte SMTP (implementación local)
 
 - Implementados `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202` si se solicita envío, `204` si ya está verificado, `410` si ha caducado la cuenta). El registro inicial sigue devolviendo `201 TokenDTO` con acceso limitado.

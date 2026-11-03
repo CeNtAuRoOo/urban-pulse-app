@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado (15/10/2026):** frontend y backend arrancan juntos con Docker Compose. Las conexiones del backend con Neon PostgreSQL y Object Storage se han comprobado mediante un test manual de integración. Siguen pendientes los endpoints de negocio, las migraciones del dominio y las pruebas de operaciones completas con fotografías. Se distinguen comandos **comprobados** de procedimientos **pendientes**.
+> **Revisión documental: 03/11/2026.** El arranque conjunto por Compose y la conectividad con Neon corresponden al 15/10. Autenticación, Department y Category están implementados; la última ejecución documentada del 02/11 verificó V1–V3 y 109 pruebas en PostgreSQL aislado, sin acreditar su despliegue en Neon. Se distinguen evidencias históricas de procedimientos reproducibles; esta revisión documental no vuelve a ejecutar Maven ni Redocly.
 
 ## 1. Requisitos
 
@@ -31,7 +31,7 @@ urban-pulse-app/
 │   │   └── config/, controller/, dto/, entity/, repository/, service/
 │   ├── src/main/resources/
 │   │   ├── application.properties
-│   │   └── db/migration/         # Incluye Flyway V1 de autenticación y email
+│   │   └── db/migration/         # Flyway V1 auth/email, V2 Department y V3 Category
 │   ├── src/test/java/es/grupo18/urbanpulse/NeonConnectivityIT.java
 │   ├── .env.development          # Privado e ignorado por Git (crear localmente)
 │   ├── .env.example
@@ -186,7 +186,7 @@ Evitar `npm audit fix --force` sin comprobar compatibilidad con Expo SDK 57.
 - `StorageProperties` vincula y valida `storage.s3.endpoint`, `storage.s3.region` y `storage.s3.bucket`.
 - `StorageConfig` registra `S3Client` contra el endpoint Neon, usa direccionamiento **path-style** y obtiene credenciales desde las variables estándar `AWS_*`.
 - `application.properties` fija el puerto 8888, JDBC, HikariCP (máximo 5 conexiones), JWT 7200 s, políticas de rate limiting, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y `spring.sql.init.mode=never`. No existe perfil Spring de desarrollo adicional.
-- El módulo de identidad crea `users`, `roles`, `user_roles` mediante `V1__create_authentication.sql` (probada en PostgreSQL efímero). `flyway_schema_history` ya existía en Neon `development`, pero **no consta aplicada todavía esta V1 allí**. Un arranque normal del backend con la nueva versión y Flyway activo puede aplicar la migración a la base a la que apunten las variables.
+- V1 crea `users`, `roles`, `user_roles` y `email_verifications`; V2 añade departamentos y V3 categorías. Las tres se probaron en PostgreSQL efímero. `flyway_schema_history` ya existía en Neon `development`, pero **no consta la aplicación de V1–V3 allí**. Un arranque normal del backend con Flyway activo puede aplicar las migraciones a la base a la que apunten las variables; comprobar primero entorno, historial y checksums según el [ADR-0006](adr/0006-flyway.md).
 
 Desde la raíz, con `backend/.env.development` configurado:
 
@@ -194,7 +194,7 @@ Desde la raíz, con `backend/.env.development` configurado:
 docker compose up --build
 ```
 
-**Comprobado el 15/10/2026:** frontend y backend arrancan mediante Docker Compose. Esta comprobación de 15/10 era anterior al módulo auth y **no valida aún el nuevo despliegue/migración de autenticación en Neon**, ni la imagen Docker de producción. Para backend solo: `docker compose up --build backend`.
+**Comprobado el 15/10/2026:** frontend y backend arrancaron mediante Docker Compose. Esta comprobación era anterior a autenticación y catálogos y **no valida el despliegue de V1–V3 en Neon**, ni la imagen Docker de producción. Para backend solo: `docker compose up --build backend`.
 
 ### 7.1. Test de conectividad real (comprobado; ejecución explícita)
 
@@ -208,32 +208,65 @@ docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
 
 ### 7.2. Política de tests y consumo del plan gratuito
 
+Las suites de persistencia usan PostgreSQL efímero y `ddl-auto=validate`; no cargar `.env.development` ni ejecutar `NeonConnectivityIT` para esta verificación. El comando Docker sin credenciales externas y los resultados documentados figuran en la [sección 7.3](#73-verificación-documentada-del-backend).
+
 **Ejecución recomendada (Java 25, Maven 3.9, Docker):**
 
 ```bash
 cd backend
-mvn -B -ntp clean verify -Ppostgres-it
+mvn -B -ntp verify -Ppostgres-it
 ```
 
-Codex registró el **25/10/2026** 16 pruebas unitarias/MVC y 7 de integración PostgreSQL, todas superadas. La última ronda de cambios (503, CITIZEN y límites de cuerpo) añade o modifica pruebas; **repetir el comando y reflejar su resultado real antes del commit de código**. No confundir esa evidencia histórica con una verificación del nuevo estado.
+**Evidencia histórica de autenticación:** el 25/10/2026 se registraron 16 pruebas unitarias/MVC y 7 de integración; el 28/10, tras añadir correo, 35 y 20. Esas cifras describen etapas anteriores, no el conjunto actual. La ejecución del 02/11 incluye regresión de autenticación, correo y ambos catálogos. Tras futuros cambios de código, ejecutar la verificación y registrar su resultado real, sin reutilizar cifras antiguas como evidencia nueva.
 
 **Configuración de autenticación:** `JWT_SECRET` debe decodificarse a al menos 32 bytes aleatorios y jamás usar el valor ficticio de `auth-test.properties` fuera de tests. HS256, emisor configurable, 7200 s; BCrypt 12. `security.rate-limit`: registro/IP 5/300 s, login/IP 20/1200 s, login/email 5/300 s, máximo 10 000 claves y TTL propio de cada política. Los cinco POST auth admiten un cuerpo máximo de 16 KiB; registro/login consumen sus buckets, mientras confirmación/reenvío consumen buckets propios. Cambio de contraseña no consume buckets. `auth-test.properties` declara los parámetros de prueba y no debe copiarse al despliegue.
 
 **Puesta en marcha:** `server.forward-headers-strategy=none` toma la IP de la conexión; revisar proxies antes de producción. El frontend debe renovar login al recibir `401` por JWT revocado, pero no debe cerrar sesión ante un `503` de base indisponible. `503` se emite con `ProblemDetail` y sin `WWW-Authenticate`. Antes de ejecutar `docker compose up` con el nuevo backend, revisar que el destino Flyway es **development** y respaldar/planificar la reversión.
 
 - **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
-- **Integración local de persistencia:** ya disponible `AuthenticationPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
+- **Integración local de persistencia:** disponibles `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
 - **Integración real con Neon (`*IT`):** `NeonConnectivityIT` se ejecuta únicamente bajo demanda en `development`, con credenciales autorizadas; no participa en `postgres-it`, que usa solo Testcontainers.
 
-Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe exclusivamente para `AuthenticationPostgresIT`; `mvn clean verify -Ppostgres-it` añade esa suite con contenedor efímero y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
+Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe para `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT`; `mvn clean verify -Ppostgres-it` añade esas suites con contenedores efímeros y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
 
-Desde el contenedor, ejecutar solo los tests habituales (cuando existan):
+Para ejecutar desde contenedor sin cargar la configuración de Neon, usar el procedimiento siguiente. Superar pruebas aisladas no acredita ni autoriza por sí mismo el despliegue: la aplicación de V1–V3 en `development` requiere revisar el destino y el historial de Flyway; no experimentar en `production`.
 
-```bash
-docker compose run --rm backend mvn -B test
+### 7.3. Verificación documentada del backend
+
+**Última ejecución registrada: 02/11/2026, 11:36:57 Europe/Madrid (`10:36:57Z`), duración 1 min 15 s, BUILD SUCCESS.** Compilación, empaquetado y pruebas con Java 25, Maven 3.9.16 y PostgreSQL 18.6 efímero. No se ejecutaron contra Neon ni se cargó `.env.development`. La reorganización documental del 03/11 no repite esta ejecución.
+
+Comando reproducible en PowerShell desde la raíz, con Docker disponible y la imagen de desarrollo `urban-pulse-app-backend:latest` ya construida:
+
+```powershell
+docker run --rm --mount "type=bind,source=$PWD/backend,target=/app" --mount type=volume,source=urban-pulse-app_maven-cache,target=/root/.m2 --mount type=volume,source=urbanpulse-categories-build,target=/app/target --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -w /app urban-pulse-app-backend:latest mvn -B -ntp verify -Ppostgres-it
 ```
 
-La suite auth dispone de pruebas unitarias/MVC y pruebas de integración aisladas. Una vez repetidas las pruebas sobre el último código, aplicar la V1 de forma controlada a `development`, no a `production`.
+El volumen de `target` aísla la compilación del directorio local que usa el IDE; el socket Docker y `TESTCONTAINERS_HOST_OVERRIDE` permiten que Testcontainers cree y alcance sus contenedores. Las suites configuran sus conexiones dinámicamente. El nombre del volumen es el usado en la ejecución registrada; puede reutilizarse para verificar el backend completo, no solo Category. Los informes Surefire/Failsafe quedan en `surefire-reports` y `failsafe-reports` dentro de ese volumen. En el host, el comando de la sección 7.2 deja los informes en `backend/target/`.
+
+| Suite / grupo | Pruebas | Fallos / errores / omitidas |
+| ------------- | ------: | -------------------------- |
+| CategoryControllerTest | 16 | 0 / 0 / 0 |
+| CategoryServiceTest | 7 | 0 / 0 / 0 |
+| Resto de unitarias/MVC (auth, correo, Department y seguridad) | 55 | 0 / 0 / 0 |
+| **Surefire** | **78** | **0 / 0 / 0** |
+| CategoryPostgresIT | 6 | 0 / 0 / 0 |
+| DepartmentPostgresIT | 5 | 0 / 0 / 0 |
+| AuthenticationPostgresIT | 8 | 0 / 0 / 0 |
+| EmailVerificationPostgresIT | 12 | 0 / 0 / 0 |
+| **Failsafe** | **31** | **0 / 0 / 0** |
+| **Total** | **109** | **0 / 0 / 0** |
+
+Cobertura relevante de Category:
+
+- MVC: las cuatro operaciones, Location absoluta, permisos, JSON estricto y errores 400/401/403/404/409/422/500/503. `responsesIncludeExplicitNullDescriptionAsRequiredByOpenApi` comprueba presencia (`hasJsonPath`) y valor (`nullValue`) de `description` en las cuatro respuestas; no se detectó discrepancia con OpenAPI.
+- Servicio: normalización, valores predeterminados, límites, inexistentes, duplicados y traducción selectiva de integridad.
+- PostgreSQL: Flyway V1–V3 y validación Hibernate, UUIDv7, persistencia y ciclo de vida, orden del listado, restricciones SQL y Unicode, nombres reservados por inactivas, JWT firmado con verificación/ADMIN vigentes y revocación; creaciones y renombrados concurrentes con rollback del perdedor y PATCH sin pérdida de campos omitidos.
+
+`rowLockMakesPartialUpdateWaitAndPreserveCommittedFields` identifica los PID de ambas transacciones y exige que `pg_blocking_pids` muestre la segunda bloqueada por la primera antes de liberarla. Un Future sin terminar durante 300 ms no demostraría ese bloqueo. El sondeo de 20 ms y el límite de 10 s son salvaguardas, no la condición de éxito; la primera transacción tiene límite de 30 s y liberación en `finally`. Después se comprueban los cambios persistidos y la descripción conservada. No requiere infraestructura ni bibliotecas adicionales.
+
+La ejecución registró avisos de Unsafe/Lombok, agentes Mockito y acceso nativo JNA procedentes de dependencias existentes; no fallaron el build. Los WARN/ERROR de fallos simulados de correo y base de datos corresponden a escenarios esperados. Los logs locales históricos `backend/target/category-final-review-verify.log` y `backend/target/category-final-review-openapi.log` están ignorados por Git y no se distribuyen con el repositorio.
+
+La [validación de OpenAPI](api/README.md#validación-y-visualización) conserva sus comandos y resultado del 02/11: 0 errores y 2 advertencias previas. La [guía de diagramas](diagrams/README.md#revisión-category-02112026) distingue comprobación de XML/celdas de revisión visual completa. **No se probaron** despliegue en Neon, frontend ni apertura completa en diagrams.net tras Category; tampoco están implementadas la integración con incidencias ni la auditoría RF18. La prueba conjunta backend+Mailpit sigue pendiente. Los resultados aislados no resuelven esas limitaciones.
 
 ## 8. Producción web (configuración creada, prueba pendiente)
 
@@ -278,7 +311,7 @@ Comprobar que no se han añadido secretos, datos personales reales ni directorio
 
 ## 11. Próximas pruebas y referencias
 
-Pendientes: imagen Nginx de producción, modelo y migraciones reales, pruebas de persistencia aisladas, operaciones completas S3, aplicación móvil en dispositivo, Fast Refresh sistemático, funcionalidad de negocio y workflows GitHub Actions.
+Pendientes: imagen Nginx de producción, modelo y migraciones de los módulos restantes, operaciones completas S3, aplicación móvil en dispositivo, Fast Refresh sistemático, funcionalidad de negocio y workflows GitHub Actions.
 
 - [Arquitectura](architecture.md)
 - [Despliegue](deployment.md)
@@ -295,8 +328,20 @@ Desde la raíz:
 docker compose up -d mailpit
 ```
 
-La bandeja de pruebas se consulta en <http://localhost:8025> y el SMTP expone al host `127.0.0.1:1025`. Para probar la aplicación completa, arrancar también el backend **solo tras comprobar a qué base apunta** `backend/.env.development`: Flyway contiene la V1 ampliada y puede migrar esa base al iniciar. No utilizar nunca Neon `production` para pruebas. En el registro recibirás `201 TokenDTO` con acceso limitado y un código en Mailpit. Confirmar por `POST /api/v1/auth/email-verifications/confirm` con Bearer y `{ "code": "01234567" }` (sustituir por el código real); reenvío `POST /api/v1/auth/email-verifications/resend` sin cuerpo. El correo no se entrega fuera de Mailpit.
+La bandeja de pruebas se consulta en <http://localhost:8025> y el SMTP expone al host `127.0.0.1:1025`. Para probar la aplicación completa, arrancar también el backend **solo tras comprobar a qué base apunta** `backend/.env.development`: Flyway contiene V1–V3 y puede migrar esa base al iniciar. No utilizar nunca Neon `production` para pruebas. En el registro recibirás `201 TokenDTO` con acceso limitado y un código en Mailpit. Confirmar por `POST /api/v1/auth/email-verifications/confirm` con Bearer y `{ "code": "01234567" }` (sustituir por el código real); reenvío `POST /api/v1/auth/email-verifications/resend` sin cuerpo. El correo no se entrega fuera de Mailpit.
 
 El job `EmailVerificationCleanup` se programa por defecto a la hora en punto con `security.email-verification.cleanup-cron=0 0 * * * *`, 100 filas por lote y máximo diez lotes por fase. En tests el cron vale `-` y no se ejecuta. **Detalle de configuración pendiente de homogeneizar:** `.env.example` declara `EMAIL_VERIFICATION_CLEANUP_CRON`, pero `application.properties` no interpola esa variable; para usarla debe configurarse realmente la propiedad `security.email-verification.cleanup-cron` o cambiar el placeholder del archivo de configuración. Las cuentas no verificadas vencen tras 24 h y se eliminan cuando pase el siguiente barrido; no ejecutar esta limpieza sobre datos compartidos sin revisar su política.
 
-Tests declarados por Codex: `mvn -B -ntp clean verify -Ppostgres-it`, **55 superados**, mediante Testcontainers PostgreSQL 18; la prueba real backend+Mailpit en Compose sigue pendiente. El perfil `postgres-it` incluye `AuthenticationPostgresIT` y `EmailVerificationPostgresIT`.
+**Evidencia histórica del 28/10/2026:** `mvn -B -ntp clean verify -Ppostgres-it`, 55 pruebas superadas mediante Testcontainers PostgreSQL 18 para la ampliación de correo. La [última ejecución documentada del backend](#73-verificación-documentada-del-backend) incluye también los catálogos; la prueba real backend+Mailpit en Compose sigue pendiente.
+
+## Departamentos municipales — revisión 30/10/2026
+
+**Verificación histórica del 31/10/2026:** `mvn -B -ntp verify -Ppostgres-it` ejecutado dentro de Docker Compose con target aislado y socket Docker: **55 pruebas unitarias/MVC + 25 PostgreSQL, 0 fallos, 0 errores, 0 omitidas; BUILD SUCCESS**. Comando y límites de aquella comprobación en el [informe de departamentos](departments-finalization.md#6-pruebas-y-verificaciones-realizadas). La ejecución del 02/11 de la sección 7.3 incorpora Category y la regresión de Department.
+
+La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
+
+Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
+
+`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
+
+Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](departments-finalization.md) para resultados y limitaciones.

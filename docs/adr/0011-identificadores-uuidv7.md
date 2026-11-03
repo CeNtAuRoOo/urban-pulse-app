@@ -1,8 +1,8 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, `Department` y `Category`; futuros tipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión:** 2026-10-27.
+- **Revisión documental:** 2026-11-03.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
@@ -32,8 +32,14 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 ## Evidencias de implementación y pendientes
 
-- **Probado en `AuthenticationPostgresIT` con PostgreSQL 18 efímero:** inserción/recuperación de `User` mediante JPA y UUID con `id.version() == 7`; Flyway y validación Hibernate.
+- **Probado con PostgreSQL 18 efímero:** inserción/recuperación mediante JPA y UUID con `id.version() == 7` para `User`, `Department` y `Category` en `AuthenticationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT`, junto con Flyway y validación Hibernate. La [última ejecución documentada](../development.md#73-verificación-documentada-del-backend) es del 02/11/2026; la revisión documental del 03/11 no repite las suites.
 - Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
-**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+**Estado real:** generado mediante Hibernate para `User`, `Department` y `Category`, comprobado en las suites PostgreSQL aisladas; V1–V3 no constan aplicadas en Neon `development` ni `production`, y los demás tipos del modelo siguen por implementar.
+
+Category aplica el mismo generador Hibernate; V3 mantiene `uuidv7()` como default para inserciones SQL externas. No introduce fechas internas: el UUID no sustituye auditoría, y las operaciones de este catálogo no requieren marcas temporales. [Reglas de Category](../domain-model.md#catálogo-category) y [auditoría RF18 pendiente](../architecture.md#6-dominio-operativo-previsto).
+
+### Revisión Department — 30/10/2026
+
+Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).
