@@ -5,7 +5,7 @@
 - Implementadas las cuatro operaciones de Category: consulta con correo verificado y creación/PATCH con ADMIN global. Desactivación/reactivación sin borrado y conservación del nombre reservado.
 - V3 crea únicamente `categories`, UUIDv7 Hibernate, nombre recortado único sin distinguir mayúsculas, descripción nullable y active. Sin código, fechas internas ni semillas; V1/V2 intactas.
 - DTO estrictos, omisión diferenciada de null en PATCH, límites Unicode coherentes con PostgreSQL y OpenAPI, bloqueo de fila y traducción selectiva de conflictos a ProblemDetail.
-- Pruebas unitarias/MVC y CategoryPostgresIT incluidas en `postgres-it`; contrato modular, bundle/HTML y ambas fuentes/exportaciones de Category sincronizados. [Resultados y comandos](docs/categories-finalization.md).
+- Pruebas unitarias/MVC y CategoryPostgresIT incluidas en `postgres-it`; última ejecución del 02/11: 109 superadas (78 unitarias/MVC y 31 PostgreSQL). [Resultados y comandos](docs/development.md#73-verificación-documentada-del-backend). Contrato modular, bundle/HTML y ambas fuentes/exportaciones de Category actualizados; [revisión visual completa pendiente](docs/diagrams/README.md#revisión-category-02112026).
 - RF18 (auditoría administrativa) continúa pendiente. Sin frontend, Incident ni despliegue en Neon en esta entrega.
 
 ## 2026-10-30 — Cierre técnico de departamentos

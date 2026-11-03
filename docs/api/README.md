@@ -10,13 +10,30 @@ Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autentica
 
 **Ajustes generales anteriores:** los códigos de rol se restringen por ámbito (`GlobalRoleCode`/`DepartmentRoleCode`), los identificadores urbanos distinguen entidades UUID de IDs externos, y `StatusChangeDTO` admite que falten `fromStatus` y `changedBy`. Se desactivaron las dos operaciones de evaluación IA que presuponían un motor no acordado; sus archivos YAML permanecen como exploración no activa.
 
-## Fuente editable y organización del contrato
+## Contrato de categorías
 
 **Categorías implementadas (02/11/2026):** `GET /api/v1/categories` y `GET /api/v1/categories/{categoryId}` devuelven 200 para usuarios verificados, incluidas categorías inactivas; listado completo por nombre ascendente según PostgreSQL y UUID como desempate. `POST` devuelve 201 con Location absoluta y `PATCH` devuelve 200; ambas requieren ADMIN global verificado. Se consultan los permisos actuales en BD.
 
-Category expone `id`, `name` (2–100), `description` nullable (hasta 500) y `active`, sin `code`. Los límites cuentan puntos de código Unicode; trim del nombre precede a validación y persistencia. Nombre único sin distinguir mayúsculas, incluidas filas inactivas. Creación: descripción omitida/null → null, active omitido/null → true. PATCH: omitir conserva, null → 400, objeto vacío → 422, descripción vacía limpia; active permite desactivar/reactivar sin borrar. SQL V3 y bloqueo de fila protegen unicidad y actualizaciones concurrentes.
+`CategoryResponse` expone siempre `id`, `name`, `description` y `active`, sin `code`. En [el esquema OpenAPI](openapi/components/schemas/catalogos.yaml), `description` es una propiedad requerida y nullable: si no hay descripción, las cuatro operaciones devuelven explícitamente `"description": null`, sin omitir la clave. Este comportamiento está cubierto por `CategoryControllerTest`. Los límites y la normalización se mantienen en el [modelo de dominio](../domain-model.md#catálogo-category).
 
-Errores: 400 `INVALID_JSON`/`INVALID_PARAMETER`, 401 `UNAUTHORIZED`, 403 `EMAIL_NOT_VERIFIED`/`FORBIDDEN`, 404 `CATEGORY_NOT_FOUND`, 409 `CATEGORY_DUPLICATE`, 422 `VALIDATION_ERROR`/`UNKNOWN_PROPERTY`, 500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`. Se reutiliza ProblemDetail y los manejadores comunes. [Informe, comandos y pendientes](../categories-finalization.md); RF18 permanece pendiente.
+Creación: descripción omitida/null → null, active omitido/null → true; `false` se conserva. PATCH: omitir conserva, null explícito → 400, objeto vacío → 422, `description: ""` limpia sin convertir a null; active permite desactivar/reactivar sin borrar. Los DTO rechazan propiedades desconocidas, incluidas `code` o `roles`; los permisos provienen del usuario autenticado.
+
+Los errores usan `application/problem+json` y el contrato común `ProblemDetail` (`code`, `title`, `status`, `detail`, `instance`):
+
+| Estado | Código y condición |
+| ------ | ------------------ |
+| 400 | `INVALID_JSON`: JSON ilegible, tipos incorrectos, claves duplicadas, contenido sobrante o null explícito en PATCH; `INVALID_PARAMETER`: UUID mal formado. |
+| 401 | `UNAUTHORIZED`: JWT ausente, inválido, caducado o revocado; incluye `WWW-Authenticate: Bearer`. |
+| 403 | `EMAIL_NOT_VERIFIED` o `FORBIDDEN`, según verificación y permisos. |
+| 404 | `CATEGORY_NOT_FOUND`. |
+| 409 | `CATEGORY_DUPLICATE`: nombre reservado por otra categoría. |
+| 422 | `VALIDATION_ERROR` o `UNKNOWN_PROPERTY`. |
+| 500 | `INTERNAL_ERROR`. |
+| 503 | `SERVICE_UNAVAILABLE`: indisponibilidad tipada de PostgreSQL. |
+
+Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#6-dominio-operativo-previsto) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#73-verificación-documentada-del-backend), sus pruebas.
+
+## Fuente editable y organización del contrato
 
 ```text
 docs/api/
@@ -101,12 +118,14 @@ Consulta también [contrato dominio–API](domain-openapi.md) y [diseño de aute
 Desde la raíz, si se dispone de Node/npm y acceso a Redocly CLI:
 
 ```bash
-npx @redocly/cli lint docs/api/openapi/base-openapi.yaml
-npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml --output docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml --output docs/api/openapi.html
 ```
 
-Son comandos para regenerar artefactos derivados tras editar el YAML modular; **la actualización del backend no sustituye esta generación**. Ejecutados el 30/10/2026 con Redocly 2.16.0: lint válido (dos advertencias), bundle y HTML regenerados. Regenerar y revisar ambos diffs antes de confirmar el contrato, comprobando `info.version=0.4.0` y que no hay referencias rotas. Swagger Editor puede abrir el bundle único generado.
+El primer comando valida; los otros regeneran artefactos derivados tras editar el YAML modular. **La actualización del backend no sustituye esta generación.** La evidencia del 02/11/2026 registra Redocly 2.16.0 con **0 errores y 2 advertencias previas**: `info-license` y uso de servidor localhost. El bundle y el HTML se regeneraron al incorporar Category; la última revisión de ese día repitió solo lint, pues el contrato no había cambiado. La revisión documental del 03/11 no ejecuta Redocly ni regenera artefactos.
+
+Tras futuros cambios de contrato, regenerar y revisar ambos diffs, comprobando `info.version=0.4.0`, el prefijo HTTP `/api/v1` y la ausencia de referencias rotas. Swagger Editor puede abrir el bundle único generado. Las advertencias existentes no se consideran resueltas por un lint sin errores.
 
 ## Cuestiones aún abiertas
 

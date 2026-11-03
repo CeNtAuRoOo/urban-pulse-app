@@ -62,7 +62,7 @@ Se actualizan la celda Category de ER01 y la del catálogo de clases: UUIDv7 Hib
 
 `export-category.ps1` regenera exclusivamente los fragmentos Category de `relacional-01.svg` y `clases-simplificado.svg` leyendo ambas fuentes UTF-8. Conserva geometría y relaciones, como el exportador de Department. Comando: `powershell -NoProfile -ExecutionPolicy Bypass -File docs/diagrams/export-category.ps1` (política limitada al proceso). La exportación completa futura desde diagrams.net puede sustituir estos fragmentos.
 
-Se han parseado los XML y renderizado los dos SVG con Sharp, inspeccionando las celdas como PNG sin cortes ni solapamientos. No se ha abierto manualmente diagrams.net en esta revisión ni revisado visualmente todo el dominio. Los pendientes anteriores de correo, SMTP y C4 permanecen fuera del alcance.
+El 02/11 se parsearon los XML y se renderizaron los dos SVG con Sharp, inspeccionando las celdas como PNG sin cortes ni solapamientos. **Permanece pendiente la comprobación visual completa en diagrams.net tras los cambios de Category:** las cuatro páginas del relacional y la página del catálogo de clases. La revisión manual anterior de Department no cubre estos cambios posteriores. La reorganización documental del 03/11 no modifica ni regenera diagramas ni repite su inspección visual. Los pendientes anteriores de correo, SMTP y C4 permanecen fuera del alcance.
 
 ## Revisión Department (30/10/2026)
 

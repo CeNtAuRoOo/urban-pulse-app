@@ -50,16 +50,7 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 
 ### Category: contrato implementado el 02/11/2026
 
-| Operación (prefijo `/api/v1`)    | Permisos                           | Resultado                                                    |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
-| `GET /categories`                | JWT y correo verificado            | 200, array de activas e inactivas por nombre/UUID ascendente |
-| `GET /categories/{categoryId}`   | JWT y correo verificado            | 200, también para inactivas; 404 si no existe                |
-| `POST /categories`               | Lo anterior y ADMIN global vigente | 201, recurso y Location absoluta                             |
-| `PATCH /categories/{categoryId}` | Lo anterior y ADMIN global vigente | 200, recurso actualizado bajo bloqueo de fila                |
-
-V3 y JPA representan únicamente `id`, `name`, `description` nullable y `active`. El nombre se recorta antes de validar (2–100 puntos de código Unicode), sin cambiar espacios interiores; es único sin distinguir mayúsculas también entre inactivas. Descripción opcional de hasta 500 puntos de código, sin trim. Creación admite description null y active null/omitido como true; PATCH omite para conservar, rechaza null explícito (400), rechaza objeto vacío (422) y permite description vacía y desactivar/reactivar sin eliminar. Incident y su relación opcional con Category siguen en diseño, sin FK física.
-
-Se concretan 404 `CATEGORY_NOT_FOUND` y 409 `CATEGORY_DUPLICATE`; los demás errores usan el contrato común 400/401/403/422/500/503. La unicidad concurrente solo se traduce a 409 para SQLSTATE 23505 del índice conocido. No se añade auditoría RF18 ni fechas de catálogo sin uso funcional. Véase [informe de cierre](../categories-finalization.md).
+El [modelo de Category](../domain-model.md#catálogo-category) se corresponde con V3 y con los cuatro atributos de respuesta de [Catálogos](openapi/components/schemas/catalogos.yaml). `description` es nullable en SQL y se incluye incluso cuando vale null en JSON; no se añaden código corto ni fechas al contrato. Las cuatro operaciones, permisos, semántica de PATCH y errores se mantienen en la [guía HTTP de categorías](README.md#contrato-de-categorías). Incident y su relación opcional con Category siguen en diseño, sin FK física; RF18 permanece pendiente según la [arquitectura](../architecture.md#6-dominio-operativo-previsto).
 
 ### Flujo previsto de incidencias
 

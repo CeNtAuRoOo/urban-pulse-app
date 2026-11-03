@@ -83,7 +83,7 @@ La aplicación móvil se probará posteriormente con Expo Go o una compilación 
 
 ## Pruebas y validación
 
-**Última verificación backend (02/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **109 pruebas superadas** (78 unitarias/MVC y 31 PostgreSQL), incluidas categorías, departamentos, autenticación y correo. OpenAPI válido con dos advertencias previas; fuentes y exportaciones de Category actualizadas. [Comando reproducible, resultados y límites](docs/categories-finalization.md).
+**Última verificación backend documentada (02/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **109 pruebas superadas** (78 unitarias/MVC y 31 PostgreSQL), incluidas categorías, departamentos, autenticación y correo. [Comando reproducible, resultados y límites](docs/development.md#73-verificación-documentada-del-backend). Redocly registró 0 errores y 2 advertencias previas; véase [validación de OpenAPI](docs/api/README.md#validación-y-visualización). Esta revisión documental del 03/11 no vuelve a ejecutar esas pruebas.
 
 Desde `frontend/`:
 
@@ -119,7 +119,7 @@ No se ejecuta con el arranque ordinario de Compose ni forma parte de los tests d
 
 - **Autenticación:** `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`), `POST /api/v1/users/me/password-changes` (`204`), `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202`/`204`).
 - **Departamentos:** `GET /api/v1/departments` (`200`), `GET /api/v1/departments/{departmentId}` (`200`), `POST /api/v1/departments` (`201`) y `PATCH /api/v1/departments/{departmentId}` (`200`).
-- **Categorías:** `GET /api/v1/categories` (`200`), `GET /api/v1/categories/{categoryId}` (`200`), `POST /api/v1/categories` (`201`, Location) y `PATCH /api/v1/categories/{categoryId}` (`200`). Nombre único de 2–100 caracteres tras trim, descripción opcional hasta 500, active y UUIDv7; sin código corto. [Informe de implementación y pruebas actuales](docs/categories-finalization.md).
+- **Categorías:** `GET /api/v1/categories` (`200`), `GET /api/v1/categories/{categoryId}` (`200`), `POST /api/v1/categories` (`201`, Location) y `PATCH /api/v1/categories/{categoryId}` (`200`). Nombre único, descripción opcional, active y UUIDv7; sin código corto. [Reglas del catálogo](docs/domain-model.md#catálogo-category) y [contrato HTTP](docs/api/README.md#contrato-de-categorías).
 
 La autenticación utiliza JWT HS256 con una duración de 7200 segundos. Las operaciones de departamentos y categorías requieren autenticación y correo verificado; la creación y actualización exigen además el rol global `ADMIN`. La desactivación se realiza mediante PATCH, sin eliminar físicamente el registro.
 

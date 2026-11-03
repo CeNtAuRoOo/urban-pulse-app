@@ -41,13 +41,15 @@ Páginas ER: (1) incidencias/evidencias, (2) tramitación, (3) identidad/organiz
 
 La incidencia puede crearse sin datos externos o activo urbano identificado. La fotografía requiere autorización, MIME, tamaño y tratamiento de privacidad a revisar en Evidencias (ADR-0004).
 
-**Category implementada (02/11/2026):** clasifica incidencias y contiene únicamente `id` UUIDv7 de Hibernate, `name`, `description` nullable y `active`. V3 crea `categories`, sin semillas ni FK hacia Incident. No tiene `code`, `createdAt` ni `updatedAt`: las fechas no son necesarias para las operaciones contratadas ni sustituyen la auditoría pendiente RF18.
+#### Catálogo Category
 
-El nombre se normaliza con `trim()`, conserva espacios interiores y admite 2–100 puntos de código Unicode; no puede estar en blanco. La descripción, sin recortar, admite hasta 500. PostgreSQL impone límites, nombre normalizado y no blanco e índice único `lower(name)`, incluyendo filas inactivas. Las comprobaciones preventivas del repositorio usan el mismo `lower`, evitando diferencias de conversión de mayúsculas. No se normalizan acentos ni formas Unicode equivalentes.
+**Implementado el 02/11/2026:** su finalidad es clasificar incidencias y contiene únicamente `id` UUIDv7 de Hibernate, `name`, `description` nullable y `active`. V3 crea `categories`, sin semillas ni FK hacia Incident. No tiene `code`, `createdAt` ni `updatedAt`: las fechas no son necesarias para las operaciones contratadas ni sustituyen la [auditoría pendiente RF18](architecture.md#6-dominio-operativo-previsto).
 
-En creación, descripción omitida/null se guarda como null y active omitido/null implica true. En PATCH, omitir conserva, null explícito devuelve 400, objeto vacío devuelve 422 y descripción vacía limpia su contenido. Desactivación y reactivación conservan UUID y nombre reservado; no hay borrado. Bloqueo pesimista durante PATCH evita perder cambios concurrentes en campos omitidos. El listado incluye activas/inactivas por nombre ascendente (collation PostgreSQL), con UUID como desempate.
+El nombre se normaliza con `trim()`, conserva espacios interiores y admite 2–100 puntos de código Unicode; no puede estar en blanco. La descripción, sin recortar, admite hasta 500. `CodePointLength` cuenta puntos de código, en lugar de unidades UTF-16, para coincidir con PostgreSQL y OpenAPI. V3 usa `name VARCHAR(100) NOT NULL`, `description VARCHAR(500)` nullable y `active BOOLEAN NOT NULL DEFAULT true`; sus restricciones también exigen nombre recortado y no blanco en inserciones SQL externas. El índice único `lower(name)` incluye filas inactivas. Las comprobaciones preventivas del repositorio usan el mismo `lower`, evitando diferencias de conversión de mayúsculas. No se normalizan acentos ni formas Unicode equivalentes.
 
-La relación futura sigue siendo **Category 0..N Incident; cada Incident tiene 0..1 Category**. No se crea Incident ni su FK en esta entrega. Los diagramas ER01 y de clases recogen nulabilidad y restricciones de Category. GET exige correo verificado y escritura ADMIN global verificado. Contrato, pruebas y límites: [cierre de categorías](categories-finalization.md).
+La creación admite descripción ausente y activa la categoría por defecto. Desactivación y reactivación conservan UUID y nombre reservado; no hay borrado. Mantener el propio nombre o cambiar solo sus mayúsculas no produce conflicto consigo misma. El [contrato HTTP](api/README.md#contrato-de-categorías) define omisión/null, actualización parcial y orden del listado; la [arquitectura](architecture.md#6-dominio-operativo-previsto) describe las garantías de concurrencia.
+
+La relación futura sigue siendo **Category 0..N Incident; cada Incident tiene 0..1 Category**. No se crea Incident ni su FK en esta entrega. Los [diagramas ER01 y de clases](diagrams/README.md#revisión-category-02112026) recogen nulabilidad y restricciones de Category; la integración con incidencias permanece pendiente.
 
 ### 3.2. Identidad y organización
 
@@ -116,7 +118,7 @@ Recorrido representativo: `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT →
 
 ## 4. Identificadores, tipos y restricciones
 
-- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado ahora expresamente mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (comprobado para `User` en integración PostgreSQL efímera). También es el criterio aplicado a `Department`, cuya migración conserva `uuidv7()` como valor por defecto. Excepciones: `Role.code` y clave compuesta de `UserRole`. `createdAt` se conserva donde existe (User y Department); Category no necesita fechas internas. UUID no es mecanismo de seguridad.
+- **Identificadores:** UUIDv7 Java `UUID` y PostgreSQL `uuid` como PK para entidades con identidad propia, generado mediante `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` en Hibernate (**comprobado para `User`, `Department` y `Category` en integración con PostgreSQL efímero**). Las migraciones V2 y V3 conservan `uuidv7()` como valor por defecto para inserciones SQL externas. Excepciones: `Role.code` y clave compuesta de `UserRole`. `createdAt` se conserva donde existe (User y Department); Category no necesita fechas internas. UUID no es mecanismo de seguridad.
 - **Fechas:** `Instant` y `timestamptz`.
 - **Enumeraciones:** códigos de cadena estables, no ordinales; verificar el efecto de futuras modificaciones.
 - Los límites `[API]` del diagrama eran hipótesis del borrador; validar tamaños, nullability e índices según los casos de uso. `TEXT` no implica máximo arbitrario.
@@ -169,7 +171,7 @@ El contrato mantiene DTO independientes de JPA. Roles globales/departamentales a
 - [ADR-0007](adr/0007-invitaciones-personal.md): invitaciones de personal aceptadas, con restricción CITIZEN y canje existente; política operativa pendiente.
 - [ADR-0009](adr/0009-rbac-departamentos-equipos.md): roles GLOBAL/DEPARTMENT, CITIZEN base, pertenencias y equipos.
 - [ADR-0010](adr/0010-ciclo-vida-y-asignaciones.md): derivación frente a trabajo; transiciones por refinar.
-- [ADR-0011](adr/0011-identificadores-uuidv7.md): UUIDv7 generado desde Hibernate, comprobado en `User` con PostgreSQL efímero.
+- [ADR-0011](adr/0011-identificadores-uuidv7.md): UUIDv7 generado desde Hibernate, comprobado para `User`, `Department` y `Category` mediante pruebas de integración con PostgreSQL efímero.
 - [Diseño de autenticación](auth-design.md): especificación completa de la tarea de backend actual, mejoras futuras y tests requeridos.
 
 **Importante:** los cinco endpoints de autenticación, la V1 y las entidades de identidad ya existen en el código; **no consta V1 desplegada sobre Neon `development`**. Los demás tags siguen siendo revisables. Codex comunicó 55 pruebas correctas sobre la última implementación; queda pendiente comprobar el backend real junto con Mailpit y actualizar/reexportar las vistas gráficas.

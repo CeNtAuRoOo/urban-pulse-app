@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado técnico comprobado (15/10/2026):** frontend web y arranque conjunto frontend/backend con Docker Compose; Neon PostgreSQL y Neon Object Storage accesibles desde Spring Boot en `development`. **Con núcleo de autenticación Java/JPA/Flyway implementado localmente, pero sin endpoints de incidencias ni flujo funcional de fotografías.** El modelo de dominio v1 es un diseño compartido, no un esquema íntegramente validado ni código. **Tag Autenticación implementado en código; integración PostgreSQL efímera probada anteriormente, despliegue sobre Neon `development` pendiente.** Ver [diseño de autenticación](auth-design.md).
+> **Revisión documental: 03/11/2026.** Autenticación, Department y Category están implementados localmente; la última ejecución documentada del 02/11 superó 109 pruebas con Flyway V1–V3 en PostgreSQL efímero. No consta el despliegue de esas migraciones en Neon. La conectividad con Neon y el arranque conjunto frontend/backend del 15/10 son evidencias anteriores a estas funcionalidades. Incidencias y fotografías siguen pendientes; el modelo completo continúa siendo un diseño revisable. Esta revisión no vuelve a ejecutar las pruebas.
 
 ## 1. Alcance y principios
 
@@ -14,8 +14,8 @@ Web y móvil compartirán código Expo/React Native y **las mismas autorizacione
 | -------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Aplicación web       | Expo SDK 57, React Native Web, TypeScript, Expo Router      | Pantalla inicial y desarrollo web verificados.                                                        |
 | Android/iOS          | Expo / React Native                                         | Código compartido, sin prueba funcional completa en dispositivo.                                      |
-| API REST             | Java 25 / Spring Boot 4.1.2 / Maven / Spring Security / JPA | Cinco endpoints de autenticación/verificación implementados; negocio de incidencias pendiente.                      |
-| Base principal       | Neon PostgreSQL 18                                          | JDBC verificado en development; V1 auth probada en PostgreSQL efímero y pendiente de aplicar en Neon. |
+| API REST             | Java 25 / Spring Boot 4.1.2 / Maven / Spring Security / JPA | Cinco endpoints de autenticación/verificación y cuatro por catálogo (Department y Category) implementados; incidencias pendientes. |
+| Base principal       | Neon PostgreSQL 18                                          | JDBC verificado históricamente en development; Flyway V1–V3 probadas en PostgreSQL 18.6 efímero, sin aplicación acreditada en Neon. |
 | Fotografías          | Neon Object Storage compatible con S3                       | Bucket privado y `HeadBucket` comprobados; operaciones de contenido pendientes.                       |
 | Proveedores externos | Mapas, geocodificación, inventario, notificaciones          | Selección/integración pendientes.                                                                     |
 
@@ -37,7 +37,7 @@ Las fuentes editables están en [`diagrams/c4.drawio`](diagrams/c4.drawio). Un c
 
 - [Relacional multipágina](diagrams/relacional.drawio): tablas propuestas, PK/FK y relaciones en cuatro páginas (incidencias, tramitación, identidad/organización, territorio/contexto).
 - [Catálogo simplificado de clases](diagrams/clases-simplificado.drawio): clases Java candidatas, campos, enum, `@Embeddable` y DTO, sin conexiones UML por diseño. Exportaciones SVG indexadas en [diagramas](diagrams/README.md).
-- [Modelo de dominio](domain-model.md) y [contrato dominio–OpenAPI](api/domain-openapi.md) se revisan juntos por tag. El `0.2.0` fue base; la revisión `0.4.0` concreta auth y verificación de correo y exige actualizar manualmente las vistas gráficas antes de confirmar su sincronización.
+- [Modelo de dominio](domain-model.md) y [contrato dominio–OpenAPI](api/domain-openapi.md) se revisan juntos por tag. El `0.2.0` fue base; el contrato `0.4.0` incluye autenticación, verificación de correo, Department y Category implementados. Los pendientes de sincronización y comprobación visual se mantienen en la [guía de diagramas](diagrams/README.md).
 - [Diseño de autenticación](auth-design.md) registra las decisiones ya implementadas y diferencia las mejoras futuras.
 
 Aparecer en un dibujo no convierte una entidad en JPA real ni obliga a migrar su tabla en este tag. El PR del tag debe modificar contrato, diagramas y ADR coherentemente cuando evolucionen los requisitos.
@@ -63,13 +63,15 @@ Arquitectura aplicada al módulo auth: `Controller → Service → Repository �
 
 JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`. Al cambiar la contraseña se incrementa `tokenVersion` transaccionalmente, invalidando tokens previos en la siguiente petición. BCrypt para credenciales; rate limiting local por instancia y `429`. La verificación de email está implementada con Mailpit local sin proveedor externo real; la recuperación de contraseña queda pendiente. La política de permisos no usa los roles del JWT como fuente de verdad: consulta PostgreSQL, y los servicios aplicarán contexto de dominio cuando corresponda.
 
-**Persistencia:** Flyway gestiona versiones en `backend/src/main/resources/db/migration/`; `V1__create_authentication.sql` crea `users`, `roles`, `user_roles` y `email_verifications` y siembra cinco códigos. Se ha probado en PostgreSQL 18 efímero; **no consta aplicada a Neon `development`**. Hibernate `ddl-auto=validate` no crea tablas. UUIDv7 está configurado en Hibernate y comprobado para `User`, `Department` y `Category`. No experimentar en `production`.
+**Persistencia:** Flyway gestiona versiones en `backend/src/main/resources/db/migration/`: V1 crea `users`, `roles`, `user_roles` y `email_verifications` y siembra cinco roles; V2 crea departamentos y sus semillas; V3 crea únicamente categorías, sin semillas ni FK a módulos pendientes. Las tres se verificaron juntas en PostgreSQL 18 efímero; **no consta su aplicación en Neon `development` ni `production`**. Hibernate `ddl-auto=validate` no crea tablas. UUIDv7 está configurado en Hibernate y comprobado para `User`, `Department` y `Category`. [Política de migraciones](adr/0006-flyway.md) y [generación de identificadores](adr/0011-identificadores-uuidv7.md).
 
 **Contrato REST:** fuente modular en [`api/openapi/base-openapi.yaml`](api/openapi/base-openapi.yaml). Tras revisar y editar, regenerar `api/openapi.yaml` y `api/openapi.html` mediante Redocly; estos no son fuentes mantenidas a mano. Mantener identificadas las rutas implementadas de auth, departamentos y categorías frente a las rutas meramente diseñadas del resto de tags; regenerar los artefactos derivados tras modificar OpenAPI.
 
 ## 6. Dominio operativo previsto
 
-**Categorías implementadas (02/11/2026):** `CategoryController → CategoryService → CategoryRepository`, tres DTO separados y V3 `categories`. UUIDv7 Hibernate, nombre normalizado único con `lower(name)` y descripción nullable; sin código, semillas, fechas ni FK a Incident. PATCH usa bloqueo pesimista y flush transaccional; los errores específicos extienden `ApiException` y reutilizan el advice existente, sin otra infraestructura de errores. SecurityConfig exige EMAIL_VERIFIED para GET y además ADMIN global para POST/PATCH. [Reglas y verificación](categories-finalization.md). RF18 sigue pendiente.
+**Categorías implementadas (02/11/2026):** `CategoryController → CategoryService → CategoryRepository`, con DTO separados de creación, actualización y respuesta. PATCH usa `PESSIMISTIC_WRITE` durante la transacción para conservar los campos omitidos tras cambios concurrentes; si dos peticiones cambian el mismo campo prevalece la última escritura serializada, sin protocolo ETag/versionado. `saveAndFlush` permite traducir únicamente SQLSTATE `23505` del índice `uk_categories_name_normalized` a conflicto de nombre; otras violaciones de integridad siguen el manejo global. Los errores específicos extienden `ApiException` y reutilizan `GlobalExceptionHandler` y `ProblemDetailFactory`, sin otro advice. `SecurityConfig` exige EMAIL_VERIFIED para GET y además ADMIN global para POST/PATCH, consultado en PostgreSQL y nunca confiado al JSON o a roles del JWT. [Reglas de dominio](domain-model.md#catálogo-category), [contrato HTTP](api/README.md#contrato-de-categorías) y [pruebas](development.md#73-verificación-documentada-del-backend).
+
+**Auditoría administrativa (RF18) pendiente:** el catálogo no registra actor ni historial de operaciones. Requiere un diseño transversal de `AuditEvent` y su persistencia; añadir fechas internas o utilizar la parte temporal del UUID no satisface ese requisito.
 
 **Seguridad implementada:** JWT HS256 de 7200 s y BCrypt 12; cada petición protegida consulta actividad, versión y roles globales de PostgreSQL y exige el rol `CITIZEN`. El cambio de contraseña invalida JWT anteriores incrementando `tokenVersion` transaccionalmente. Fallo tipado de conexión/timeout PostgreSQL → `503`; JWT inválido → `401`; fallo interno → `500`. Registro y login usan limitadores independientes en memoria; los cinco POST auth limitan el cuerpo a 16 KiB. El acceso requiere `EMAIL_VERIFIED` salvo operaciones de autenticación limitadas para cuentas pendientes; confirmación/reenvío cuentan con buckets independientes. Los permisos departamentales/por titularidad quedan para otros tags.
 
@@ -94,6 +96,7 @@ JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`.
 - Evidencias: bucket privado `incident-evidence`; metadata PostgreSQL, binarios externos. Autorización por fotografía, formato/tamaño, EXIF, retención y limpieza de huérfanos pendientes.
 - Fallos de contexto urbano: degradar sin impedir el registro; no suponer proveedores existentes porque aparezcan en diagramas.
 - Secretos fuera de Git; HTTPS, configuración de CORS, políticas de transporte JWT y tratamiento de CSRF antes de despliegue.
+- Errores HTTP comunes sin SQL, causas internas, credenciales ni tokens; se conserva desactivado el logger de errores SQL de Hibernate para evitar exponer detalles de persistencia.
 - Rate limiting: inicialmente en memoria por instancia, no distribuido; requiere memoria limitada, reposición temporal y control de IP confiable detrás de proxy.
 
 ## 8. Verificaciones técnicas comprobadas y próximas etapas
@@ -101,7 +104,10 @@ JWT de acceso de **2 horas**, sin refresh; claims `sub`/`iat`/`exp`/`iss`/`ver`.
 - Frontend (13/10/2026): `expo install --check`, Expo Doctor 21/21, `tsc`, ESLint, exportación web y Compose de desarrollo comprobados.
 - Docker Compose conjunto (15/10/2026): frontend y backend arrancaron correctamente.
 - Neon `development` (15/10/2026): prueba manual `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test` con JDBC y `HeadBucket`; no valida pertenencia a rama por sí misma ni operaciones completas de fotos.
-- **Autenticación:** clases, migración y pruebas unitarias/MVC y PostgreSQL efímero disponibles; Codex informó de 55 tests superados (35 unitarios/MVC y 20 de integración) para el módulo actualizado. **Pendiente:** integración backend real+Mailpit, aplicar controladamente V1 a `development`, Android/iOS en dispositivo, frontend Nginx de producción, CI/CD y despliegue real.
+- **Autenticación (28/10/2026, histórico):** 55 pruebas superadas (35 unitarias/MVC y 20 de integración), anteriores a los catálogos.
+- **Última ejecución documentada (02/11/2026):** 109 pruebas superadas (78 unitarias/MVC y 31 PostgreSQL), sin fallos, errores ni omisiones; incluye autenticación, correo, Department, Category y Flyway V1–V3 en PostgreSQL efímero. [Comando, desglose y cobertura](development.md#73-verificación-documentada-del-backend). No se repite en esta revisión documental del 03/11.
+
+**Pendiente:** integración backend real+Mailpit, aplicación controlada de V1–V3 en Neon `development`, integración de categorías con incidencias, auditoría RF18, [comprobación visual completa tras Category](diagrams/README.md#revisión-category-02112026), Android/iOS en dispositivo, frontend Nginx de producción, CI/CD y despliegue real. La verificación aislada no acredita ninguno de esos pasos.
 
 **Siguiente trabajo:** comprobar el funcionamiento real backend+Mailpit, preparar el despliegue controlado en Neon `development` cuando corresponda y seguir con los demás tags tras acordar modelo, contrato y permisos; no crear anticipadamente todas las entidades.
 

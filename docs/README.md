@@ -11,7 +11,6 @@ Este directorio contiene documentación **viva**, separando las decisiones de di
 | [Contrato dominio–API](api/domain-openapi.md) | Decisiones y operaciones armonizadas; implementados Autenticación, Department y Category dentro de Catálogos. Los demás recursos siguen en diseño y se revisan por tag. |
 | [Diseño de API](api/README.md)                | OpenAPI `0.4.0`: implementados Autenticación y los catálogos Department y Category; el resto del contrato permanece en diseño. |
 | [Cierre de departamentos](departments-finalization.md) | Evidencia histórica de Department (30–31/10/2026), alcance y pendientes. |
-| [Cierre de categorías](categories-finalization.md) | Implementación de Category y resultados actuales de la revisión final, incluida regresión de autenticación y Departamentos. |
 | [ADR](adr/README.md)                          | Decisiones aceptadas, propuestas y asuntos pendientes. En autenticación se revisan los ADR-0005, 0007, 0009 y 0011.                                                                    |
 | [Desarrollo](development.md)                  | Entorno y comandos de instalación, ejecución y verificaciones comprobadas.                                                                                                             |
 | [Despliegue](deployment.md)                   | Objetivo de contenedores independientes y despliegue futuro.                                                                                                                           |
@@ -26,13 +25,13 @@ El backend cuenta con tres funcionalidades implementadas y verificadas localment
 
 El contrato OpenAPI se encuentra en la versión `0.4.0`. Las dos vistas de dominio y la documentación reflejan Department y Category. UUIDv7 está implementado mediante Hibernate y probado para User, Department y Category. Incidencias, equipos, pertenencias departamentales y otros módulos continúan pendientes; RF18 (auditoría administrativa) no está resuelto.
 
-La última revisión (02/11/2026, 11:36:57 Europe/Madrid) supera **109 pruebas: 78 unitarias/MVC y 31 PostgreSQL**, sin fallos, errores ni omisiones. Las migraciones Flyway V1, V2 y V3 se verifican conjuntamente en PostgreSQL efímero mediante Testcontainers; no consta su aplicación en Neon `development` ni un despliegue de producción. El [informe de categorías](categories-finalization.md#10-última-revisión-antes-de-commits) registra comandos, resultados y limitaciones. Las 80 pruebas de Department del 31/10 y las 108 de la primera implementación de Category son evidencias históricas.
+La última ejecución documentada (02/11/2026, 11:36:57 Europe/Madrid) superó **109 pruebas: 78 unitarias/MVC y 31 PostgreSQL**, sin fallos, errores ni omisiones. Las migraciones Flyway V1, V2 y V3 se verificaron conjuntamente en PostgreSQL efímero mediante Testcontainers; no consta su aplicación en Neon `development` ni un despliegue de producción. La [guía de desarrollo](development.md#73-verificación-documentada-del-backend) registra comandos, resultados y limitaciones. Las 80 pruebas de Department del 31/10 y las 108 de la primera implementación de Category son evidencias anteriores, sustituidas por esa última ejecución; la revisión documental del 03/11 no ejecuta de nuevo las suites.
 
-Los resultados y límites actuales se detallan en el [informe de cierre de categorías](categories-finalization.md).
+La información permanente de cada funcionalidad se mantiene por temas: [dominio](domain-model.md), [arquitectura](architecture.md), [API](api/README.md), [desarrollo](development.md), [ADR](adr/README.md) y [diagramas](diagrams/README.md).
 
 ## Evidencias históricas
 
-Los apartados siguientes documentan etapas anteriores. Sus referencias a funcionalidades pendientes, versiones OpenAPI y cifras de pruebas corresponden a esas fechas; el estado vigente se recoge arriba y en la última revisión del informe de categorías.
+Los apartados siguientes documentan etapas anteriores. Sus referencias a funcionalidades pendientes, versiones OpenAPI y cifras de pruebas corresponden a esas fechas; el estado vigente se recoge arriba y en los documentos temáticos enlazados.
 
 **Estado técnico comprobado a 15/10/2026:** frontend web y arranque conjunto de frontend/backend por Docker Compose; conectividad JDBC con Neon PostgreSQL 18 y acceso al bucket S3 privado desde backend de desarrollo. Esta evidencia precede a autenticación y catálogos y no valida el despliegue de sus migraciones. Los cinco endpoints de autenticación y la V1 ampliada corresponden a las entregas posteriores de octubre.
 
