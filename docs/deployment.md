@@ -1,6 +1,6 @@
 # Guía de despliegue de UrbanPulse
 
-> **Estado a 31/10/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1/V2 en Neon `development`**. Los diagramas C4/ER/clases existentes están actualizados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
+> **Estado a 02/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases incorporan la integración y los SVG se exportarán manualmente; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
 
 ## 1. Objetivo y separación de entornos
 
@@ -17,13 +17,13 @@ UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS E
 | Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI |
 | Android/iOS | Base de código compartida Expo/React Native | Ejecución funcional completa y distribución en dispositivos |
 | API Spring Boot | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `audit`, `shared`; puerto 8888 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen |
-| PostgreSQL | Migraciones Flyway V1/V2 verificadas en PostgreSQL 18 aislado; JDBC Neon comprobado históricamente | Aplicación planificada de V1/V2 a Neon `development` y gestión de backups |
+| PostgreSQL | V1 consolidada para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente | Aplicación planificada de V1 consolidada a Neon `development` y gestión de backups |
 | Object Storage | Cliente S3, bucket privado `incident-evidence` y `HeadBucket` | Subida, descarga, borrado y autorización por objeto |
 | SMTP | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local | Proveedor SMTP real, entregabilidad y recuperación/reintentos |
 
 ## 3. Diagramas arquitectónicos
 
-Las vistas [C4 de contexto y contenedores](diagrams/README.md) están actualizadas, con fuente editable [`c4.drawio`](diagrams/c4.drawio) y SVG asociados; incluyen el transporte de correo y el alcance inicial de fotografías. Los modelos ER y de clases de la implementación V1/V2 también están sincronizados en sus fuentes y exportaciones.
+Las vistas [C4 de contexto y contenedores](diagrams/README.md) están actualizadas, con fuente editable [`c4.drawio`](diagrams/c4.drawio) y SVG asociados; incluyen el transporte de correo y el alcance inicial de fotografías. Los modelos ER y de clases incorporan el esquema integrado en sus fuentes; los SVG conservan la versión anterior a esta integración.
 
 **[Pendiente: nuevo C4 Deployment]**. Cuando se decidan hosting, dominios, TLS, redes, topología y estrategia de operación, documentarlos en un diagrama de despliegue adicional (por ejemplo, `docs/diagrams/deployment.drawio`). Esto **no** es una tarea pendiente de corrección de los gráficos C4/ER/clases existentes.
 
@@ -48,7 +48,7 @@ docker run --rm -p 7777:7777 urbanpulse-frontend:local
 
 `backend/Dockerfile` es la imagen multietapa prevista para ejecutar el JAR, distinta de `backend/Dockerfile.dev` para desarrollo. El informe histórico menciona un `backend/Dockerfile.test` de pruebas, **no incluido en el árbol local aportado**. El servicio arranca por el puerto 8888, configurable con `SERVER_PORT`; usa Spring Security, JPA/Hibernate, Flyway, HikariCP y un cliente S3. Las variables se suministran externamente y no se versionan secretos.
 
-El código Java está ordenado por funcionalidades, no en paquetes globales `controller/entity/service`. [Arquitectura](architecture.md) y [desarrollo](development.md) describen su estructura exacta. `V1__create_authentication.sql` crea identidad/verificación y `V2__create_staff_invitations.sql` crea departamentos, pertenencias, invitaciones y auditoría. `spring.jpa.hibernate.ddl-auto=validate` comprueba el esquema; **Flyway puede modificarlo al iniciar** si las migraciones aún no figuran aplicadas.
+El código Java está ordenado por funcionalidades, no en paquetes globales `controller/entity/service`. [Arquitectura](architecture.md) y [desarrollo](development.md) describen su estructura exacta. `V1__initial_schema.sql` crea identidad/verificación, departamentos, pertenencias, invitaciones y auditoría. `spring.jpa.hibernate.ddl-auto=validate` comprueba el esquema; **Flyway puede modificarlo al iniciar** si las migraciones aún no figuran aplicadas.
 
 Antes de arrancar cualquier versión nueva conectada a Neon:
 
@@ -57,7 +57,7 @@ Antes de arrancar cualquier versión nueva conectada a Neon:
 3. Preparar copia de seguridad, ventana de cambio, credenciales de migración adecuadas, plan de reversión y verificación postdespliegue. No ensayar cambios sobre producción.
 4. Revisar el scheduler `EmailVerificationCleanup`: borra cuentas no verificadas después de 24 h y los códigos caducados; la configuración de su cron se hereda del entorno en que corre el backend.
 
-No consta un arranque del backend actual con V1/V2 sobre Neon compartido. La evidencia previa `NeonConnectivityIT` solo comprobó JDBC y `HeadBucket` en `development` con Flyway/Hibernate desactivados en ese test.
+No consta un arranque del backend actual con V1 consolidada sobre Neon compartido. La evidencia previa `NeonConnectivityIT` solo comprobó JDBC y `HeadBucket` en `development` con Flyway/Hibernate desactivados en ese test.
 
 ## 6. Seguridad y variables externas
 

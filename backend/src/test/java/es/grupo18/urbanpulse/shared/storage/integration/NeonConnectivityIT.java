@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse.shared.storage.integration;
 
 import java.sql.Connection;

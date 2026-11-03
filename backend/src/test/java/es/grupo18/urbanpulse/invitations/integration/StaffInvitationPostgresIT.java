@@ -45,7 +45,9 @@ import es.grupo18.urbanpulse.invitations.model.InvitationStatus;
 import es.grupo18.urbanpulse.invitations.repository.StaffInvitationRepository;
 import es.grupo18.urbanpulse.invitations.service.InvitationCodeService;
 import es.grupo18.urbanpulse.invitations.service.StaffInvitationService;
-import es.grupo18.urbanpulse.organization.model.Department;
+import es.grupo18.urbanpulse.organization.dto.CreateDepartmentRequest;
+import es.grupo18.urbanpulse.organization.dto.PatchDepartmentRequest;
+import es.grupo18.urbanpulse.organization.service.DepartmentService;
 import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
@@ -81,6 +83,8 @@ class StaffInvitationPostgresIT {
     StaffInvitationRepository invitations;
     @Autowired
     DepartmentRepository departments;
+    @Autowired
+    DepartmentService departmentService;
     @Autowired
     DepartmentMembershipRepository memberships;
     @Autowired
@@ -125,7 +129,7 @@ class StaffInvitationPostgresIT {
         when(limiter.acquire(anyString(), any())).thenReturn(new InMemoryRateLimiter.Decision(true, 0));
         admin = fixture("admin@example.org", true, true);
         citizen = fixture("person@example.org", true, false);
-        department = departments.saveAndFlush(new Department("Movilidad <urbana>", "Fixture aislado")).getId();
+        department = departmentService.create(new CreateDepartmentRequest("Movilidad <urbana>", "MOV", "Fixture aislado", true)).id();
         messages.clear();
         doAnswer(invocation -> {
             EmailMessage message = invocation.getArgument(0);
@@ -216,7 +220,7 @@ class StaffInvitationPostgresIT {
         service.redeem(citizen, 0, code());
         issue(RoleCode.TECHNICIAN);
         service.redeem(citizen, 0, code());
-        department = departments.saveAndFlush(new Department("Otra unidad", null)).getId();
+        department = departmentService.create(new CreateDepartmentRequest("Otra unidad", "OTRA", null, true)).id();
         issue(RoleCode.TECHNICIAN);
         service.redeem(citizen, 0, code());
         assertThat(memberships.count()).isEqualTo(2);
@@ -233,11 +237,68 @@ class StaffInvitationPostgresIT {
                 new DepartmentInvitationRequest("person@example.org", RoleCode.TECHNICIAN, UUID.randomUUID())));
         var dto = issue(RoleCode.TECHNICIAN);
         String secret = code();
-        jdbc.update("update departments set active=false where id=?", department);
+        departmentService.patch(department, new PatchDepartmentRequest(null, null, null, false));
         fails(422, "INVALID_DEPARTMENT", () -> issue(RoleCode.TECHNICIAN));
         fails(422, "INVALID_DEPARTMENT", () -> service.redeem(citizen, 0, secret));
         assertThat(service.get(admin, 0, dto.id()).status()).isEqualTo(InvitationStatus.ACTIVE);
         assertThat(memberships.count()).isZero();
+    }
+
+    @Test
+    void departmentAdministrationPreservesMembershipsAndInvitationHistory() {
+        var redeemed = issue(RoleCode.TECHNICIAN);
+        service.redeem(citizen, 0, code());
+        var pending = issue(RoleCode.DEPARTMENT_COORDINATOR);
+        String secret = code();
+        departmentService.patch(department, new PatchDepartmentRequest("Movilidad municipal", "MUNIC", null, false));
+        assertThat(memberships.count()).isEqualTo(1);
+        assertThat(memberships.findAll().getFirst().getLeftAt()).isNull();
+        assertThat(service.get(admin, 0, redeemed.id()).status()).isEqualTo(InvitationStatus.REDEEMED);
+        fails(422, "INVALID_DEPARTMENT", () -> service.redeem(citizen, 0, secret));
+        assertThat(service.get(admin, 0, pending.id()).status()).isEqualTo(InvitationStatus.ACTIVE);
+        departmentService.patch(department, new PatchDepartmentRequest(null, null, null, true));
+        service.redeem(citizen, 0, secret);
+        assertThat(memberships.count()).isEqualTo(2);
+        assertThat(departmentService.findById(department).code()).isEqualTo("MUNIC");
+    }
+
+    @Test
+    void redemptionWaitsForDepartmentPatchAndRejectsCommittedDeactivation() throws Exception {
+        var invitation = issue(RoleCode.TECHNICIAN);
+        String secret = code();
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<?> patch = executor.submit(() -> new TransactionTemplate(manager).executeWithoutResult(tx -> {
+                departmentService.patch(department, new PatchDepartmentRequest(null, null, null, false));
+                locked.countDown();
+                await(release);
+            }));
+            try {
+                assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+                Future<?> redemption = executor.submit(() -> fails(422, "INVALID_DEPARTMENT",
+                        () -> service.redeem(citizen, 0, secret)));
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                boolean waiting;
+                do {
+                    waiting = jdbc.queryForObject("""
+                            select exists(select 1 from pg_stat_activity
+                            where datname=current_database() and wait_event_type='Lock'
+                            and query like '%departments%' and pid <> pg_backend_pid())
+                            """, Boolean.class);
+                    if (!waiting) Thread.sleep(20);
+                } while (!waiting && System.nanoTime() < deadline);
+                assertThat(waiting).as("El canje espera el PATCH de departamento").isTrue();
+                release.countDown();
+                patch.get(10, TimeUnit.SECONDS);
+                redemption.get(10, TimeUnit.SECONDS);
+            } finally {
+                release.countDown();
+            }
+        }
+        assertThat(memberships.count()).isZero();
+        assertThat(audit.count()).isEqualTo(1);
+        assertThat(service.get(admin, 0, invitation.id()).status()).isEqualTo(InvitationStatus.ACTIVE);
     }
 
     @Test
@@ -571,7 +632,7 @@ class StaffInvitationPostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from users where id=?", admin))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2");
+                String.class)).containsExactly("1");
     }
 
     @Test

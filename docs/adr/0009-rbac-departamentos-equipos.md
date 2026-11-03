@@ -1,5 +1,6 @@
 # ADR-0009: Roles globales y departamentales, pertenencias y equipos
 
+> **Lectura histórica:** el alcance previo y las menciones a V2 corresponden a la entrega original. La revisión del 02/11/2026 al final recoge el estado integrado vigente.
 - **Estado:** Aceptado; roles globales y pertenencias por invitación implementados; equipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-27.
@@ -57,3 +58,9 @@ CHECK impide roles globales y bajas anteriores al alta. Las FK restringen borrad
 La baja de pertenencias y retirada de UserRole quedan fuera; no hay endpoints para ello.
 La lectura de JWT sigue resolviendo roles globales; no convierte TECHNICIAN en autoridad
 global ni implementa por anticipado la autorización contextual de otros tags.
+
+## Revisión integrada — 02/11/2026
+
+La revisión histórica de Departamentos (30/10, main) conservaba tabla y semillas en su segunda migración, con UUIDv7 Hibernate, consultas con EMAIL_VERIFIED y escrituras con ADMIN global ([informe](../departments-finalization.md)).
+
+La integración aprobada conserva la seguridad, adopta nombre/código únicos y fechas internas, y comparte `Department` con Invitaciones y pertenencias. La V1 consolidada no precarga departamentos; `uuidv7()` queda como default SQL y Hibernate VERSION_7 como generador JPA. Equipos siguen pendientes. Esta revisión sustituye la política de semillas anterior; no altera las evidencias históricas. [Migración vigente](0006-flyway.md#integración-aprobada--02112026).

@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación** e **Invitaciones** tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1/V2 en Neon.
+> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación** e **Invitaciones**, y **Departamentos** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -61,6 +61,17 @@ Las respuestas administrativas `201/200` incluyen `Cache-Control: no-store`; sus
 
 Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por IP**. Los tres POST de Invitaciones protegen el tamaño de cuerpo (16 KiB), con revocación sin cuerpo. `201` de emisión confirma persistencia, **no recepción SMTP**: el listener entrega `AFTER_COMMIT` y no hay reintentos/outbox. Se eliminaron del contrato `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`. `UserDTO` no añade pertenencias de departamento hasta que se diseñe el tag Usuarios. [ADR-0007: reglas y limitaciones](../adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](../development.md).
 
+### 5.1. Departamentos implementados (Catálogos)
+
+| Método | Ruta bajo `/api/v1` | Autorización | Respuesta |
+| --- | --- | --- | --- |
+| GET | `/departments` | Correo verificado | 200, activos/inactivos ordenados por nombre |
+| GET | `/departments/{departmentId}` | Correo verificado | 200, unidad solicitada |
+| POST | `/departments` | ADMIN y correo verificado | 201, DepartmentDTO y Location |
+| PATCH | `/departments/{departmentId}` | ADMIN y correo verificado | 200, DepartmentDTO |
+
+El esquema `DepartmentDTO` corresponde al record Java `DepartmentResponse`; no expone fechas internas. No hay DELETE ni paginación. Omisión, null explícito, normalización, unicidad y errores se detallan una sola vez en [el contrato de Departamentos](../departments-finalization.md#3-funcionalidad-final). La fuente está en `paths/catalogos.yaml` y `components/schemas/catalogos.yaml`. Su integración conserva la versión documental 0.5.0 e incorpora el trabajo de Catálogos desarrollado en paralelo sobre 0.4.0.
+
 ## 6. Revisión del contrato y del dominio por tag
 
 1. Elegir los casos de uso y contrastar el enunciado, roles y [ADR](../adr/README.md).
@@ -81,11 +92,13 @@ npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 
 **Validación realizada (30/10/2026):** OpenAPI `0.5.0` superó el lint de Redocly **sin errores**, con dos avisos conocidos (`info.license` todavía sin decidir y servidor `localhost`). El bundle YAML y el HTML se generaron desde el contrato modular. Si cambian los `.yaml` en futuras entregas, regenerar los derivados; no editar directamente `openapi.yaml` ni `openapi.html`.
 
-Las **90 pruebas de backend superadas** y el recorrido HTTP aislado con Mailpit se detallan en [Desarrollo](../development.md). El refactor figura **antes** del commit de pruebas en Git. La ejecución contra PostgreSQL efímero no implica que las migraciones V1/V2 se hayan aplicado sobre Neon; los archivos originales del runner HTTP no aparecen en el árbol local aportado.
+Las **90 pruebas históricas de Invitaciones** y el recorrido HTTP aislado con Mailpit se detallan en [Desarrollo](../development.md). El refactor figura **antes** del commit de pruebas en Git. La ejecución contra PostgreSQL efímero no implica que la migración V1 consolidada se haya aplicado sobre Neon; los archivos originales del runner HTTP no aparecen en el árbol local aportado.
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: perfil/consulta de usuarios, CRUD de departamentos y equipos, retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: perfil/consulta de usuarios, categorías y equipos, retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
+
+**Integración del 02/11/2026:** lint ejecutado sin errores y con los dos avisos anteriores; bundle y HTML regenerados con los comandos documentados. Se conservan las rutas de Autenticación, Invitaciones y Departamentos y el diseño de los demás recursos.

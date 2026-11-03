@@ -17,6 +17,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -245,10 +247,40 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email-verifications/confirm",
-                                "/api/v1/auth/email-verifications/resend", "/api/v1/users/me/password-changes")
+                        // Registro e inicio de sesión públicos
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login")
+                        .permitAll()
+
+                        // Operaciones de autenticación que requieren identidad
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/resend",
+                                "/api/v1/users/me/password-changes")
                         .authenticated()
+
+                        // Consulta de departamentos: usuario con correo verificado
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/departments",
+                                "/api/v1/departments/**")
+                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
+
+                        // Crear departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.POST, "/api/v1/departments")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Modificar departamentos: administrador con correo verificado
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
+                        // Resto de rutas: requieren correo verificado
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
                         errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))

@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 31/10/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `audit` y `shared`. Autenticación e Invitaciones están implementadas; los demás tags de negocio siguen siendo diseño. Existen Flyway V1/V2 y pruebas previas en PostgreSQL 18 aislado; **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Los gráficos C4, ER y clases se actualizaron en el último commit de documentación.
+> **Estado a 02/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `audit` y `shared`. Autenticación, Invitaciones y Departamentos están implementados; los demás tags de negocio siguen siendo diseño. Existe una V1 consolidada y hay pruebas previas en PostgreSQL 18 aislado; **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases incorporan la integración; los SVG se conservan para exportación manual.
 
 ## 1. Propósito y decisiones arquitectónicas
 
@@ -16,8 +16,8 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 | --- | --- | --- |
 | Web | Expo SDK 57, React Native Web, TypeScript, Expo Router | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado. |
 | Android/iOS | Expo/React Native | Código compartido; prueba funcional completa en dispositivos pendiente. |
-| API REST | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | Cinco operaciones de auth y cinco de Invitaciones disponibles; módulos de negocio pendientes. |
-| Datos relacionales | PostgreSQL 18 en Neon / Testcontainers para pruebas | JDBC Neon comprobado históricamente; V1/V2 validadas con PostgreSQL efímero, aplicación a Neon no acreditada. |
+| API REST | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | Cinco operaciones de auth, cinco de Invitaciones y cuatro de Departamentos disponibles; módulos de negocio pendientes. |
+| Datos relacionales | PostgreSQL 18 en Neon / Testcontainers para pruebas | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada. |
 | Objetos privados | Neon Object Storage, S3 | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes. |
 | Transporte SMTP | Spring Mail / Mailpit local | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo. |
 | Mapas/contexto/otras notificaciones | Por seleccionar | Diseño, sin integración funcional. |
@@ -32,7 +32,7 @@ La fuente editable de ambas vistas es [`diagrams/c4.drawio`](diagrams/c4.drawio)
 
 ### Vistas del dominio
 
-- [Modelo relacional](diagrams/relacional.drawio) y exportaciones ER01–ER04: dominio lógico, incluidos los esquemas de identidad y organización de V1/V2.
+- [Modelo relacional](diagrams/relacional.drawio) y exportaciones ER01–ER04: dominio lógico, incluidos los esquemas de identidad y organización de V1 consolidada.
 - [Clases simplificadas](diagrams/clases-simplificado.drawio), sin asociaciones UML gráficas por diseño: campos, tipos, enumeraciones, embebidos y DTO de apoyo.
 - [Inventario gráfico actualizado](diagrams/README.md), [modelo de dominio](domain-model.md) y [contrato dominio–OpenAPI](api/domain-openapi.md).
 
@@ -68,8 +68,11 @@ urbanpulse/
 │   ├── security/         # InvitationRateLimitFilter
 │   └── service/          # StaffInvitationService, InvitationCodeService
 ├── organization/
+│   ├── api/              # DepartmentController y errores específicos
+│   ├── dto/              # Alta, PATCH y respuesta
 │   ├── model/            # Department, DepartmentMembership
-│   └── repository/
+│   ├── repository/       # Catálogo y pertenencias
+│   └── service/          # DepartmentService y excepciones
 ├── audit/
 │   ├── model/            # AuditEvent
 │   └── repository/
@@ -89,7 +92,7 @@ La misma división se reproduce en `backend/src/test/java/es/grupo18/urbanpulse/
 - **`auth`**: registro ciudadano, login, cambio de contraseña, verificación/reenvío del correo y limpieza de cuentas pendientes; usa identidad, seguridad y correo compartidos.
 - **`identity`**: modelo canónico de usuarios y roles globales. No genera invitaciones ni conoce dependencias HTTP.
 - **`invitations`**: ciclo de emisión/listado/consulta/revocación/canje, códigos HMAC, cuotas y notificación SMTP; utiliza `identity`, `organization`, `audit` y utilidades `shared`, pero **no** depende de `AuthService` para registrar al invitado.
-- **`organization`**: modelo y persistencia mínimos de departamentos y pertenencias. No ofrece todavía CRUD de catálogos ni equipos.
+- **`organization`**: administración de departamentos y persistencia de pertenencias. Comparte entidad y bloqueos con Invitaciones; categorías y equipos siguen pendientes.
 - **`audit`**: persistencia de eventos de invitaciones; no existe un endpoint de consulta pública.
 - **`shared`**: adaptadores y preocupaciones transversales: `SecurityConfig` centralizado, autorización JWT contra datos vigentes, errores, paginación, limitación en memoria, SMTP y almacenamiento S3.
 
@@ -101,12 +104,13 @@ Flyway gestiona migraciones en `backend/src/main/resources/db/migration/`:
 
 | Migración | Alcance |
 | --- | --- |
-| `V1__create_authentication.sql` | `users`, `roles`, `user_roles`, `email_verifications`; siembra de los cinco códigos de rol y restricciones de identidad. |
-| `V2__create_staff_invitations.sql` | `departments`, `department_memberships`, `staff_invitations`, `audit_events`; integridad, índices y FK históricas `RESTRICT`. |
+| `V1__initial_schema.sql` | `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events`; cinco roles, restricciones e índices de ambas funcionalidades, FK históricas `RESTRICT`, sin departamentos precargados. |
 
-`spring.jpa.hibernate.ddl-auto=validate` comprueba los mapeos, no crea ni migra tablas. Se generan UUIDv7 desde Hibernate en las entidades apropiadas. La V1 se completó antes de aplicarse en una base compartida; no debe reescribirse después de su aplicación. Se ha comprobado JDBC y el bucket privados en Neon `development` en una **prueba histórica de conectividad**, distinta de las pruebas V1/V2 con PostgreSQL efímero. No ejecutar tests de escritura ni migraciones experimentales contra Neon `production`.
+`spring.jpa.hibernate.ddl-auto=validate` comprueba los mapeos, no crea ni migra tablas. Se generan UUIDv7 desde Hibernate en las entidades apropiadas. La consolidación se autoriza únicamente bajo la premisa de destino vacío y ninguna migración previa aplicada en bases que deban conservarse; después de aplicar V1 no debe reescribirse. Se ha comprobado JDBC y el bucket privados en Neon `development` en una **prueba histórica de conectividad**, distinta de las pruebas V1 consolidada con PostgreSQL efímero. No ejecutar tests de escritura ni migraciones experimentales contra Neon `production`.
 
 Invitaciones utiliza bloqueos pesimistas de PostgreSQL en el orden **usuario → invitación → departamento**. El canje conserva de forma atómica permiso (`UserRole` o `DepartmentMembership`), estado de invitación y `AuditEvent`. Revalida sesión, versión JWT, cuenta, email verificado, permiso, ámbito y caducidad; la FK y unicidad SQL son garantías adicionales. Las invitaciones conservan su historial y calculan el estado al consultar, en lugar de tener una columna `status`. La emisión persiste la invitación antes de enviar el correo **fuera de la transacción**, con `AFTER_COMMIT`: fallo SMTP no revierte el dato.
+
+PATCH de Departamentos adquiere un bloqueo pesimista sobre la misma fila que Invitaciones. Su repositorio mantiene las consultas de ambos casos de uso. Los índices únicos de nombre/código resuelven carreras de alta, y solo sus infracciones 23505 se traducen a duplicado. Fechas JPA y UUIDv7 conservados; [contrato detallado](departments-finalization.md).
 
 ## 5. Autenticación, permisos y APIs activas
 
@@ -114,7 +118,9 @@ Invitaciones utiliza bloqueos pesimistas de PostgreSQL en el orden **usuario →
 
 `StaffInvitationController` expone bajo `/api/v1` cinco operaciones de invitaciones (emisión, listado, GET individual, revocación, canje) descritas en [ADR-0007](adr/0007-invitaciones-personal.md) y [OpenAPI](api/README.md). Emitir/consultar/listar/revocar requiere `ADMIN` y correo verificado; canjear requiere `CITIZEN` y correo verificado coincidente. `OPERATOR`/`ADMIN` son globales; `TECHNICIAN`/`DEPARTMENT_COORDINATOR` requieren pertenencia departamental activa. La autorización contextual de futuras incidencias y equipos **no** está implementada.
 
-Ambos módulos reutilizan `ProblemDetail`, protección HTTP de cuerpos de 16 KiB, buckets de tasa locales y transporte SMTP configurable. Los buckets de canje por usuario (10/900 s) y por IP (30/900 s) no son distribuidos. Una futura extracción de protección general de cuerpos desde `auth/security/AuthRateLimitFilter` a `shared/security` sería solo una mejora organizativa; el código actual funciona con la separación mostrada.
+Los módulos de auth e Invitaciones reutilizan `ProblemDetail`, protección HTTP de cuerpos de 16 KiB, buckets de tasa locales y transporte SMTP configurable. Los buckets de canje por usuario (10/900 s) y por IP (30/900 s) no son distribuidos. Una futura extracción de protección general de cuerpos desde `auth/security/AuthRateLimitFilter` a `shared/security` sería solo una mejora organizativa; el código actual funciona con la separación mostrada.
+
+`organization.api.DepartmentController` expone GET de colección y detalle, POST y PATCH. Consultas con correo verificado, escrituras con ADMIN global; CORS expone Location. Desactivar conserva pertenencias e historial y bloquea nuevas invitaciones/canjes. La auditoría específica de estas escrituras sigue pendiente de especificación (RF18).
 
 ## 6. Frontend, almacenamiento y resiliencia
 
@@ -132,4 +138,4 @@ Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, pol
 - **30/10/2026 (fecha del informe de pruebas):** **90 pruebas de backend superadas** (48 unitarias/MVC + 42 PostgreSQL IT), recorrido HTTP correcto contra PostgreSQL/Mailpit aislados y validación de Redocly `0.5.0`. La evidencia corresponde a la funcionalidad implementada, sin implicar un despliegue en Neon.
 - **31/10/2026 (documentación):** fuentes `.drawio` y exportaciones SVG de C4, ER y clases sincronizadas con Autenticación e Invitaciones.
 
-Los comandos disponibles y las evidencias históricas están en [Desarrollo](development.md); las reglas de Invitaciones, en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md). Siguen fuera de alcance bootstrap productivo de ADMIN, retirada de permisos, catálogos/equipos, APIs de incidencias, flujos S3 reales, SMTP externo, despliegue y CI/CD.
+Los comandos disponibles y las evidencias históricas están en [Desarrollo](development.md); las reglas de Invitaciones, en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md). Siguen fuera de alcance bootstrap productivo de ADMIN, retirada de permisos, categorías/equipos, APIs de incidencias, flujos S3 reales, SMTP externo, despliegue y CI/CD.

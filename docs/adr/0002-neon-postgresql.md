@@ -36,4 +36,4 @@ Utilizar un proyecto PostgreSQL administrado en Neon. Los clientes web y móvil 
 
 ## Consideraciones pendientes
 
-Las migraciones V1/V2 actuales se prueban en PostgreSQL efímero; queda aplicarlas controladamente en `development` antes de `production`; separar permisos de migración/ejecución cuando convenga; automatizar pruebas aisladas sin dependencias de la base compartida; preparar backups y recuperación. La protección automática de `production` no está disponible en el plan gratuito actual, por lo que la disciplina de despliegue es especialmente importante. Las cuotas y condiciones del plan se revisarán periódicamente.
+La V1 consolidada se prueba en PostgreSQL efímero (revisión 02/11/2026, ADR-0006); queda aplicarla controladamente en `development` antes de `production`; separar permisos de migración/ejecución cuando convenga; automatizar pruebas aisladas sin dependencias de la base compartida; preparar backups y recuperación. La protección automática de `production` no está disponible en el plan gratuito actual, por lo que la disciplina de despliegue es especialmente importante. Las cuotas y condiciones del plan se revisarán periódicamente.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-02 — Integración de Departamentos e Invitaciones
+
+- Administración de departamentos incorporada en `organization`, con entidad/repositorio compartidos y bloqueos compatibles con canjes y pertenencias.
+- Contrato completo de Department aprobado; única `V1__initial_schema.sql` para bases vacías, sin departamentos precargados.
+- Se conservan las suites de ambas ramas y se cubre la interacción entre PATCH, canje e historial.
+- Documentación modular y fuentes `.drawio` integradas; SVG originales conservados para exportación manual posterior. Resultados de ejecución en [Desarrollo](docs/development.md).
+
 Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
 
 ## [Unreleased]
@@ -77,3 +84,14 @@ Commit `56fc44d` y corrección documental posterior preparada para `git commit -
 ### Pendientes generales
 
 Aplicación controlada de V1/V2 a `development`, desplegar sin utilizar `production` para experimentar, primer administrador, retirada de permisos, CRUD de departamentos/equipos, flujos de incidencias/fotografías, frontend conectado, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. La rama solo implementa los tags identificados expresamente como activos.
+
+## 2026-10-30 — Cierre técnico de departamentos (histórico de main)
+
+
+- Completado el subconjunto Department del tag Catálogos: listado/detalle con correo verificado y creación/PATCH con ADMIN global; desactivación sin DELETE.
+- UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
+- ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
+- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [informe de cierre](docs/departments-finalization.md) para comandos y resultados exactos.
+- Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
+
+Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.

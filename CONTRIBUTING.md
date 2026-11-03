@@ -1,6 +1,6 @@
 # Guía de contribución
 
-UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación e Invitaciones con migraciones V1/V2). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
+UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación, Invitaciones y Departamentos con migración V1 consolidada). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
 
 ## Flujo de trabajo
 
@@ -40,7 +40,7 @@ La documentación del [modelo de dominio](docs/domain-model.md) es una referenci
 6. Implementar solo las entidades necesarias en cada tag; no añadir todas las tablas previstas anticipadamente ni usar `ddl-auto=update`.
 7. Describir con precisión qué se implementó, qué se probó y qué permanece como diseño o tarea futura.
 
-**Estado actual de los gráficos:** la modificación de ER02, ER03, clases simplificadas y C4 para Autenticación e Invitaciones **ya se completó**, incluidos los SVG. No subsiste una excepción de actualización manual para este módulo. La regla general de sincronización de dibujos y exportaciones seguirá aplicándose a futuros cambios; los diagramas de despliegue y flujos de incidencias aún no creados pertenecen a trabajos posteriores.
+**Excepción de esta integración (02/11/2026):** las fuentes `.drawio` se actualizan, pero los SVG deben conservar exactamente el contenido previo de `feature/invitaciones-backend`. Su revisión y exportación manual las realizará el responsable después. La regla general de sincronización se mantiene para cambios futuros.
 
 ## Verificaciones por ámbito
 

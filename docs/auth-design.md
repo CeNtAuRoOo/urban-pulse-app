@@ -1,6 +1,6 @@
 # UrbanPulse — Autenticación, verificación de correo y seguridad
 
-> **Estado a 31/10/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (V2), que se incorporó después de reorganizar el backend por módulos. Existen pruebas previas con PostgreSQL 18 efímero; no consta aplicación de V1/V2 sobre Neon `development` ni entrega SMTP pública. Los diagramas existentes están actualizados.
+> **Estado a 02/11/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (incluida ahora en la misma V1), que se incorporó después de reorganizar el backend por módulos. Existen pruebas previas con PostgreSQL 18 efímero; no consta aplicación de V1 consolidada sobre Neon `development` ni entrega SMTP pública. Las fuentes gráficas se integran; los SVG se exportarán manualmente.
 
 ## 1. Referencias, alcance y responsabilidades
 
@@ -48,7 +48,7 @@ La verificación utiliza códigos de **ocho dígitos decimales ASCII**, generado
 
 `EmailVerificationService` confirma o reemite, y `VerificationEmailListener` entrega por `EmailSender` mediante `@TransactionalEventListener(AFTER_COMMIT)`. `EmailVerificationCleanup` limpia códigos vencidos y cuentas que siguen sin verificar tras **24 horas**, con barrido ordinario horario, lotes acotados y `SKIP LOCKED`. `EMAIL_VERIFICATION_CLEANUP_CRON` permite configurar su calendario; `-` lo desactiva en tests. No aplicar esta limpieza en un entorno compartido sin revisar las nuevas FK y política de retención.
 
-La ampliación de V1 para crear `email_verifications` se realizó **antes de su primera aplicación prevista en Neon**. Si una base ya registró otra versión de V1, es incorrecto reescribirla silenciosamente: conservar el historial Flyway y crear una migración nueva. V2 respeta la limpieza: los actores históricos son usuarios ya verificados, y el destinatario de una invitación se almacena como email **sin FK**, por lo que la limpieza de un registro pendiente no consume la invitación.
+La ampliación de V1 para crear `email_verifications` se realizó **antes de su primera aplicación prevista en Neon**. Si una base ya registró otra versión de V1, es incorrecto reescribirla silenciosamente: conservar el historial Flyway y crear una migración nueva. El esquema de Invitaciones respeta la limpieza: los actores históricos son usuarios ya verificados, y el destinatario de una invitación se almacena como email **sin FK**, por lo que la limpieza de un registro pendiente no consume la invitación.
 
 ## 5. SMTP en desarrollo y fallos de entrega
 
@@ -70,7 +70,7 @@ Para repetir desde `backend/` (Java 25, Maven y Docker):
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Las suites de persistencia se ejecutan contra PostgreSQL 18 Testcontainers, no Neon; el perfil excluye `NeonConnectivityIT`. El flujo HTTP histórico se describe en [Desarrollo, pruebas aisladas](development.md), con la advertencia sobre los archivos de runner ausentes del estado local adjunto. La prueba de conectividad `NeonConnectivityIT` es **otra comprobación**, ejecutada históricamente en `development`, que no valida Flyway V1/V2 sobre Neon ni operaciones completas de S3.
+Las suites de persistencia se ejecutan contra PostgreSQL 18 Testcontainers, no Neon; el perfil excluye `NeonConnectivityIT`. El flujo HTTP histórico se describe en [Desarrollo, pruebas aisladas](development.md), con la advertencia sobre los archivos de runner ausentes del estado local adjunto. La prueba de conectividad `NeonConnectivityIT` es **otra comprobación**, ejecutada históricamente en `development`, que no valida Flyway V1 consolidada sobre Neon ni operaciones completas de S3.
 
 ## 8. Integración con el canje municipal
 

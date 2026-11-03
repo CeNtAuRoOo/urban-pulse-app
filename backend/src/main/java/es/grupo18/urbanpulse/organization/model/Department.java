@@ -1,26 +1,22 @@
 package es.grupo18.urbanpulse.organization.model;
 
+import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import org.hibernate.annotations.UuidGenerator;
 
-/**
- * Unidad municipal mínima. Su administración pertenece al futuro tag Catálogos.
- */
+/** Unidad municipal compartida por administración, invitaciones y pertenencias históricas. */
 @Entity
 @Table(name = "departments")
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Department {
 
     @Id
@@ -31,26 +27,162 @@ public class Department {
     @Column(nullable = false, length = 120)
     private String name;
 
+    @Column(nullable = false, length = 20)
+    private String code;
+
     @Column(length = 500)
     private String description;
 
     @Column(nullable = false)
-    private boolean active = true;
+    private boolean active;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     /**
-     * Crea una unidad activa sin introducir un catálogo inicial.
-     *
-     * @param name        nombre entre 2 y 120 caracteres
-     * @param description descripción opcional de hasta 500 caracteres
-     * @throws IllegalArgumentException si las longitudes no son válidas
+     * Constructor reservado a JPA.
      */
-    public Department(String name, String description) {
-        if (name == null || name.trim().length() < 2 || name.length() > 120
+    protected Department() {
+    }
+
+    /**
+     * Inicializa una unidad normalizando nombre y código, sin precargar catálogos.
+     *
+     * @param name nombre de 2–120 caracteres tras trim
+     * @param code código ASCII de 2–20 caracteres, convertido a mayúsculas
+     * @param description descripción opcional de hasta 500 caracteres
+     * @param active estado inicial; false impide emisión y canje
+     * @throws IllegalArgumentException si las longitudes o el formato no son válidos
+     */
+    public Department(String name, String code, String description, boolean active) {
+        if (name == null || name.trim().length() < 2 || name.trim().length() > 120
+                || code == null || !code.trim().matches("[A-Za-z0-9_-]{2,20}")
                 || (description != null && description.length() > 500)) {
             throw new IllegalArgumentException("Datos de departamento no válidos.");
         }
-
         this.name = name.trim();
+        this.code = code.trim().toUpperCase(Locale.ROOT);
         this.description = description;
+        this.active = active;
+    }
+
+    /**
+     * Fija ambas fechas al mismo instante UTC antes de la inserción JPA.
+     */
+    @PrePersist
+    void prePersist() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    /**
+     * Actualiza la fecha cuando Hibernate realiza un UPDATE; no controla escrituras SQL externas.
+     */
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return UUIDv7 generado por Hibernate, o null antes de persistir
+     */
+    public UUID getId() {
+        return id;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return nombre normalizado, único por índice SQL
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Aplica el dato bajo la transacción y validaciones del servicio.
+     *
+     * @param name nombre previamente normalizado y validado
+     */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return código normalizado, único por índice SQL
+     */
+    public String getCode() {
+        return code;
+    }
+
+    /**
+     * Aplica el dato bajo la transacción y validaciones del servicio.
+     *
+     * @param code código previamente normalizado y validado
+     */
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return descripción opcional; cadena vacía cuando PATCH borra contenido
+     */
+    public String getDescription() {
+        return description;
+    }
+
+    /**
+     * Aplica el dato bajo la transacción y validaciones del servicio.
+     *
+     * @param description descripción opcional de hasta 500 caracteres
+     */
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return true si admite nuevas invitaciones y canjes
+     */
+    public boolean isActive() {
+        return active;
+    }
+
+    /**
+     * Aplica el dato bajo la transacción y validaciones del servicio.
+     *
+     * @param active estado; desactivar conserva pertenencias e historial
+     */
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return instante UTC de inserción JPA, inmutable después del alta
+     */
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    /**
+     * Expone el estado persistente compartido por los casos de uso.
+     *
+     * @return instante del último cambio persistido por JPA
+     */
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

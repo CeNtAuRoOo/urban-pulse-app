@@ -1,5 +1,6 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
+> **Lectura histórica:** el alcance previo y las menciones a V2 corresponden a la entrega original. La revisión del 02/11/2026 al final recoge el estado integrado vigente.
 - **Estado:** Aceptado; UUIDv7 implementado para User y las cuatro entidades de Invitaciones; restantes tipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-27.
@@ -37,3 +38,9 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 - Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
 
 **Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los restantes tipos de negocio siguen pendientes. Department, DepartmentMembership, StaffInvitation y AuditEvent usan el mismo generador Hibernate en V2.
+
+## Revisión integrada — 02/11/2026
+
+La revisión histórica de Departamentos (30/10, main) conservaba tabla y semillas en su segunda migración, con UUIDv7 Hibernate, consultas con EMAIL_VERIFIED y escrituras con ADMIN global ([informe](../departments-finalization.md)).
+
+La integración aprobada conserva la seguridad, adopta nombre/código únicos y fechas internas, y comparte `Department` con Invitaciones y pertenencias. La V1 consolidada no precarga departamentos; `uuidv7()` queda como default SQL y Hibernate VERSION_7 como generador JPA. Equipos siguen pendientes. Esta revisión sustituye la política de semillas anterior; no altera las evidencias históricas. [Migración vigente](0006-flyway.md#integración-aprobada--02112026).

@@ -1,5 +1,6 @@
 # ADR-0007: Invitaciones para incorporar permisos municipales
 
+> **Lectura histórica:** el alcance previo y las menciones a V2 corresponden a la entrega original. La revisión del 02/11/2026 al final recoge el estado integrado vigente.
 - **Estado:** Aceptado; módulo backend implementado. El [contrato](../api/README.md), las [pruebas](../development.md) y el [modelo](../domain-model.md) se mantienen en sus documentos respectivos.
 - **Fecha original:** 2026-10-11.
 - **Decisión definitiva:** 2026-10-30; sustituye el borrador de registro especial de personal.
@@ -43,3 +44,7 @@ Antes de producción deberá acordarse una política de retención para invitaci
 V1 permanece intacta; V2 incorpora `departments`, `department_memberships`, `staff_invitations` y `audit_events`. Hibernate valida el esquema. El perfil Maven `postgres-it` incluye las tres suites IT de auth e Invitaciones y excluye Neon; el informe histórico fechado el 30/10/2026 declara **90 pruebas superadas y un flujo HTTP aislado con PostgreSQL/Mailpit**. El historial Git sitúa el refactor de directorios antes de los commits de Invitaciones y pruebas. Los resultados, límites y comandos se recogen en [Desarrollo](../development.md), sin presentarlos como una ejecución nueva.
 
 Los diagramas **ER02, ER03, clases simplificadas y C4 ya fueron actualizados**, junto con sus SVG, en el último commit de documentación de la rama; véase [inventario de diagramas](../diagrams/README.md). No existe excepción de gráficos pendiente para este módulo. Se mantienen pendientes únicamente diagramas **nuevos** de otras áreas y el despliegue futuro.
+
+## Integración con Departamentos — 02/11/2026
+
+El alcance y resultados anteriores describen la entrega de Invitaciones. Ahora `organization` administra los departamentos compartidos mediante API; el contrato completo y la ausencia de semillas han sido aprobados. Las tablas de ambas funcionalidades forman parte de una sola V1 ([ADR-0006](0006-flyway.md)). PATCH utiliza el mismo bloqueo de fila que emisión/canje; se mantiene el orden usuario → invitación → departamento y se rechazan unidades inactivas. Desactivar no revoca pertenencias ni borra historia. El perfil aislado incorpora también `DepartmentPostgresIT`; no se amplía la auditoría de Departamentos sin especificación.

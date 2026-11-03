@@ -1,13 +1,13 @@
 # UrbanPulse — contrato de dominio y API unificados (dominio v1 / API 0.5.0)
 
-> **Estado actual:** Autenticación e Invitaciones están implementadas en Java/JPA/Flyway; los demás tags son modelos de diseño revisables. V1/V2 se han validado anteriormente en PostgreSQL efímero, **no** consta su aplicación sobre Neon `development`. La versión OpenAPI **vigente es 0.5.0**. Los diagramas C4, ER y clases existentes han sido actualizados junto al commit de documentación; **no** quedan pendientes las modificaciones gráficas de V1/V2.
+> **Estado actual:** Autenticación, Invitaciones y Departamentos están implementados en Java/JPA/Flyway; los demás tags son modelos de diseño revisables. Las migraciones previas se validaron en PostgreSQL efímero, **no** consta su aplicación sobre Neon `development`. La versión OpenAPI **vigente es 0.5.0**. Las fuentes gráficas se integran; los SVG originales se exportarán manualmente.
 
 ## 1. Referencia coherente y varias vistas
 
 El proyecto aplica un flujo *design-first* con fuentes complementarias:
 
 - **Requisitos del caso de estudio y ADR**: determinan el alcance, prioridades, roles, invariantes y decisiones arquitectónicas; las funcionalidades opcionales siguen aplazadas.
-- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1/V2 ya implementado** y diseño aún no persistido.
+- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1 consolidada ya implementado** y diseño aún no persistido.
 - **Clases simplificadas**: [`../diagrams/clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (una página), con atributos Java/DTO/enums/embebidos; **sin líneas UML intencionadamente**, ya que las relaciones están en el ER.
 - **Contrato OpenAPI fuente**: [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml), rutas en `openapi/paths/` y esquemas en `openapi/components/`.
 - **Salidas derivadas**: [`openapi.yaml`](openapi.yaml) y [`openapi.html`](openapi.html), regeneradas con Redocly y **nunca editadas a mano**.
@@ -23,6 +23,7 @@ DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-rol
 | Roles globales | `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y se consultan vigentes en PostgreSQL | JWT Bearer, `UserDTO.roles`; no hay permisos permanentes confiados a claims |
 | Roles departamentales | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial | Proyección de pertenencias de `UserDTO` futura; el canje devuelve DTO propio |
 | Operador | Puede actuar transversalmente al revisar/derivar, sin pertenecer a departamento | Operaciones de incidencias futuras con `x-roles: OPERATOR` como metadato |
+| Catálogo de departamentos | Nombre/código únicos, estado y fechas; entidad compartida con pertenencias/invitaciones | GET colección/detalle, POST y PATCH implementados; [contrato](../departments-finalization.md#3-funcionalidad-final) |
 | Departamento responsable | `Incident.assignedDepartment` opcional, diferente de asignar trabajo | `IncidentDTO.assignedDepartment`, futuro `PUT /incidents/{incidentId}/department` |
 | Trabajo | `Assignment` temporal a **equipo XOR técnico**, con como máximo una activa | Futura petición `AssignmentRequest` con `teamId` o `technicianId`, no ambos |
 | Aceptación | `acceptedBy`/`acceptedAt` no inicia automáticamente el trabajo | Respuesta futura `AssignmentDTO` |
@@ -79,7 +80,7 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 1. Revisar casos de uso, requisitos, prioridades y ADR acordados.
 2. Contrastar juntos paths/DTO de OpenAPI, ER y catálogo de clases (tipos, cardinalidad, PK/FK, nulabilidad, estados, errores y permisos).
 3. Acordar qué parte queda implementada y qué parte sigue como propuesta; evitar crear tablas/endpoints solo por estar dibujados.
-4. Aplicar cambios en el mismo PR a fuentes OpenAPI, modelos `.drawio`, exportaciones SVG, texto/ADR y tests. Los diagramas de V1/V2 ya están actualizados: actualizar solo cuando **cambie** de nuevo el dominio.
+4. Aplicar cambios en el mismo PR a fuentes OpenAPI, modelos `.drawio`, exportaciones SVG, texto/ADR y tests. Los diagramas de V1 consolidada ya están actualizados: actualizar solo cuando **cambie** de nuevo el dominio.
 5. Implementar JPA/Flyway/servicios/HTTP de forma incremental, con tests de seguridad e integración aislados.
 6. Regenerar bundle y HTML **desde el YAML modular**, revisar diff y registrar resultados efectivamente ejecutados.
 

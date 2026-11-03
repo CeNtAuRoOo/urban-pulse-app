@@ -19,7 +19,7 @@ Se estudiaron esquemas generados automáticamente por Hibernate, SQL aplicado ma
 - Ejecutar integración SQL y JPA con PostgreSQL 18 efímero a través de Testcontainers, sin utilizar una base compartida ni material sensible.
 - Si una migración **ya** se aplicó en algún entorno, **no modificar su contenido ni editar directamente `flyway_schema_history`**. Diseñar una siguiente versión compatible para cambios posteriores.
 
-## Estado real de las migraciones
+## Historial anterior a la consolidación (migraciones ya retiradas)
 
 | Fichero | Alcance | Observación |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Las FK históricas a usuarios/departamentos emplean `ON DELETE RESTRICT` para pr
 
 ## Validación aislada y reproducibilidad
 
-`backend/pom.xml` define el perfil `postgres-it` para ejecutar explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT` y `StaffInvitationPostgresIT`, cada una con PostgreSQL 18 efímero. `NeonConnectivityIT` en `shared/storage/integration/` **no** se incluye; se invoca bajo demanda con credenciales controladas contra `development`.
+`backend/pom.xml` define el perfil `postgres-it` para ejecutar explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT` y `DepartmentPostgresIT`, cada una con PostgreSQL 18 efímero. `NeonConnectivityIT` en `shared/storage/integration/` **no** se incluye; se invoca bajo demanda con credenciales controladas contra `development`.
 
 Desde `backend/`:
 
@@ -55,3 +55,13 @@ mvn -B -ntp clean verify -Ppostgres-it
 Flyway reduce la deriva del esquema y permite construir entornos reproducibles, pero exige disciplina para gestionar checksums, compatibilidad de migraciones, cambios de restricciones e índices y posibilidad de reversión. Todavía quedan por decidir el rol exclusivo de migración, ejecución en CI/CD, plan de backup/restauración, índice/métricas de bases reales, política para datos históricos restringidos y migraciones por tags futuros.
 
 No se crearán por adelantado las tablas del resto de dominios de incidencias, equipos, contexto o analítica solo porque figuren en las vistas ER. Véase [modelo de dominio](../domain-model.md), [arquitectura](../architecture.md), [ADR-0007](0007-invitaciones-personal.md) y [desarrollo](../development.md).
+
+## Integración aprobada — 02/11/2026
+
+La rama de Departamentos documentó el 30/10 una segunda migración con catálogo precargado y pruebas propias ([informe histórico](../departments-finalization.md)). Esa decisión coexistía con la segunda migración independiente de Invitaciones descrita arriba.
+
+Por autorización expresa, se asume que ninguna de las migraciones anteriores se aplicó a una base que deba conservarse y que el destino estará vacío. Se consolidan en **una única `V1__initial_schema.sql`**, sin V2 activas. Esta excepción no modifica la regla de inmutabilidad para bases ya migradas ni permite repair o edición de `flyway_schema_history`.
+
+V1 crea, por dependencias, `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations` y `audit_events`. Conserva roles, checks, PK/FK, índices funcionales/parciales y referencias históricas. Department adopta código obligatorio, unicidad de nombre/código y fechas de main, con default SQL `uuidv7()`; la generación JPA continúa en Hibernate. **No se precargan departamentos** ni cuentas ADMIN; sí los cinco roles. No se requiere SQL manual para inicializar el esquema.
+
+El catálogo se administra mediante API. Pruebas de las cuatro suites con PostgreSQL 18 vacío y Hibernate `validate`: resultados actuales en [Desarrollo](../development.md#verificación-de-la-integración-del-02112026). Las cifras y V2 citadas en el historial anterior no describen el esquema activo.
