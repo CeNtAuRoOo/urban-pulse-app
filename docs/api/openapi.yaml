@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.4.0
-  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. El catálogo de departamentos también está implementado (consulta, alta y PATCH). Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Los catálogos de departamentos y categorías también están implementados (consulta, alta y PATCH). Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -549,11 +549,12 @@ paths:
     get:
       tags:
         - Catálogos
-      summary: Listar categories
-      description: Catálogo disponible para los clientes autenticados.
+      summary: Listar categorías
+      description: Incluye categorías activas e inactivas, ordenadas por nombre ascendente según collation PostgreSQL y UUID como desempate. Requiere correo verificado.
       operationId: getCategories
       x-roles:
         - AUTHENTICATED
+      x-email-verified: true
       responses:
         '200':
           description: Operación correcta.
@@ -569,20 +570,19 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
       tags:
         - Catálogos
       summary: Crear categoría
-      description: Alta administrativa del catálogo.
+      description: Alta con rol global ADMIN y correo verificado. Active omitido o null equivale a true. Nombre único sin distinguir mayúsculas, también para categorías inactivas.
       operationId: postCategories
       x-roles:
         - ADMIN
+      x-email-verified: true
       requestBody:
         required: true
         content:
@@ -598,7 +598,7 @@ paths:
                 $ref: '#/components/schemas/CategoryDTO'
           headers:
             Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
+              description: URI absoluta de la categoría creada. Siempre presente en la respuesta 201.
               schema:
                 type: string
         '400':
@@ -607,23 +607,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Nombre duplicado (CATEGORY_DUPLICATE), también si está inactiva o hay escrituras concurrentes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /categories/{categoryId}:
     get:
       tags:
         - Catálogos
       summary: Consultar categoría
-      description: Detalle del elemento de catálogo.
+      description: Consulta por UUID, incluida si está inactiva. Requiere correo verificado.
       operationId: getCategoriesCategoryId
       x-roles:
         - AUTHENTICATED
+      x-email-verified: true
       parameters:
         - $ref: '#/components/parameters/CategoryId'
       responses:
@@ -640,19 +645,24 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+          description: Categoría inexistente (CATEGORY_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       tags:
         - Catálogos
       summary: Actualizar categoría
-      description: Actualización administrativa, sin borrar referencias históricas.
+      description: PATCH con rol global ADMIN y correo verificado; omitir conserva, null devuelve 400 INVALID_JSON, objeto vacío devuelve 422 VALIDATION_ERROR. Descripción vacía limpia el contenido; active false desactiva y true reactiva, preservando referencias históricas.
       operationId: patchCategoriesCategoryId
       x-roles:
         - ADMIN
+      x-email-verified: true
       parameters:
         - $ref: '#/components/parameters/CategoryId'
       requestBody:
@@ -675,13 +685,23 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: Categoría inexistente (CATEGORY_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Nombre duplicado (CATEGORY_DUPLICATE), también si está inactiva o hay escrituras concurrentes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /departments:
     get:
       tags:
@@ -3379,22 +3399,30 @@ components:
       description: Invitación para rol departamental; requiere departmentId. La cuenta conserva también CITIZEN.
     CategoryDTO:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
           format: uuid
         name:
           type: string
+          minLength: 2
+          maxLength: 100
+          description: Nombre recortado, único sin distinguir mayúsculas, incluso si la categoría está inactiva.
           example: Tráfico y semáforos
         description:
           type: string
+          nullable: true
+          maxLength: 500
         active:
           type: boolean
       required:
         - id
         - name
+        - description
         - active
     CategoryWriteRequest:
+      description: Nombre obligatorio, no blanco y único sin distinguir mayúsculas, incluidas categorías inactivas. Se aplica trim() antes de validar los límites y persistir, conservando espacios interiores. Los límites cuentan puntos de código Unicode, como PostgreSQL y OpenAPI. Descripción omitida o null se guarda como null, sin recortar su texto. Active omitido o null equivale a true. No existe code. Propiedades desconocidas devuelven 422 UNKNOWN_PROPERTY; datos inválidos, 422 VALIDATION_ERROR; JSON o tipos no interpretables, 400 INVALID_JSON.
       type: object
       properties:
         name:
@@ -3403,9 +3431,12 @@ components:
           maxLength: 100
         description:
           type: string
+          nullable: true
           maxLength: 500
         active:
           type: boolean
+          nullable: true
+          default: true
       required:
         - name
       additionalProperties: false
@@ -3421,7 +3452,7 @@ components:
           maxLength: 500
         active:
           type: boolean
-      description: Cambia uno o varios atributos de la categoría.
+      description: Cambia uno o varios atributos. Omitir conserva el valor; null explícito en cualquier campo devuelve 400 INVALID_JSON. Descripción vacía limpia su contenido sin convertirlo en null. Trim() del nombre antes de validar sus límites; conserva espacios interiores. Un objeto vacío devuelve 422 VALIDATION_ERROR. Active false desactiva y true reactiva, conservando UUID y nombre reservado. Los PATCH sobre la misma fila se serializan para preservar cambios en campos omitidos.
       additionalProperties: false
       minProperties: 1
     DepartmentDTO:
@@ -4462,7 +4493,7 @@ components:
       name: categoryId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): categoryId.'
+      description: Identificador UUID de categoría; altas con UUIDv7 de Hibernate. Un UUID inválido devuelve 400 INVALID_PARAMETER; uno válido inexistente, 404 CATEGORY_NOT_FOUND.
       schema:
         type: string
         format: uuid

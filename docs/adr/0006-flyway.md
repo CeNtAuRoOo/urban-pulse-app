@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-10-11
-- **Actualización documental:** 2026-10-27
+- **Actualización documental:** 2026-11-03
 - **Ámbito:** UrbanPulse
 
 ## Contexto
@@ -32,11 +32,21 @@ Hibernate deberá conservar `spring.jpa.hibernate.ddl-auto=validate`: **Flyway c
 
 `spring.flyway.enabled=true` y `spring.flyway.locations=classpath:db/migration` están configurados. El backend conecta con Neon `development` a través de JDBC directo; el rol `backend` puede crear objetos en el esquema `public`.
 
-Flyway ya creó su tabla técnica `flyway_schema_history` en `development` (evidencia histórica). Ahora existe `V1__create_authentication.sql` para `users`, `roles`, `user_roles` y `email_verifications` y precarga cinco roles sin `scope`. **La V1 se ha comprobado con PostgreSQL 18 efímero y Hibernate `ddl-auto=validate`; no consta aplicada a Neon `development`.** La prueba de conectividad desactiva Flyway y Hibernate **solo en su contexto de test**; la aplicación ordinaria conserva su configuración.
+Flyway creó su tabla técnica `flyway_schema_history` en `development` (evidencia histórica anterior a las migraciones funcionales). La prueba de conectividad desactiva Flyway y Hibernate **solo en su contexto de test**; la aplicación ordinaria conserva su configuración. Esta comprobación no acredita la aplicación de V1–V3.
+
+## Estado de las migraciones (revisión documental 03/11/2026)
+
+| Versión | Alcance implementado | Verificación documentada |
+| ------- | -------------------- | ------------------------ |
+| V1 | `users`, `roles`, `user_roles`, `email_verifications`; cinco roles sin `scope`. | PostgreSQL efímero y Hibernate `ddl-auto=validate`. |
+| V2 | `departments`, restricciones y semillas. | Junto con V1 y V3 en la ejecución del 02/11/2026. |
+| V3 | Solo `categories`, restricciones e índice único del nombre; sin semillas ni FK a módulos pendientes. | Misma ejecución aislada del 02/11/2026. |
+
+Las tres se verificaron conjuntamente con PostgreSQL 18.6; V1/V2/V3 no se modificaron en aquella última revisión. [Resultados y comando reproducible](../development.md#73-verificación-documentada-del-backend). **No consta su aplicación en Neon `development` ni `production`**. La fecha de revisión documental no representa otra ejecución ni un despliegue.
 
 ## Consideraciones pendientes
 
-V1 y V2 se han probado juntas en PostgreSQL aislado el 30/10/2026. Queda **aplicarlas de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. No modificar la V1 después de aplicarla en algún entorno: añadir una nueva versión libre para cambios posteriores (V2 ya corresponde a departamentos). Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
+Queda **aplicar V1–V3 de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. Revisar el entorno y el historial/checksums reales de Flyway; no ejecutar `repair` ni sobrescribir migraciones para ocultar discrepancias. Para nuevos cambios, coordinar una versión libre posterior a V3 con las demás ramas. Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
 
 ### Ampliación previa a la primera aplicación de V1 — 28/10/2026
 
