@@ -3,7 +3,9 @@
     tags:
       - Usuarios
     summary: Consultar mi perfil
-    description: Devuelve los datos personales del usuario autenticado.
+    description: >-
+      Devuelve el perfil del titular, sus roles globales y todas sus pertenencias
+      departamentales activas e históricas.
     operationId: getUsersMe
     x-roles:
       - AUTHENTICATED
@@ -31,7 +33,9 @@
     tags:
       - Usuarios
     summary: Modificar mi perfil
-    description: Actualiza únicamente atributos permitidos del perfil; no modifica roles.
+    description: >-
+      Actualiza únicamente el nombre público del titular. La respuesta incluye
+      sus roles globales y pertenencias departamentales activas e históricas.
     operationId: patchUsersMe
     x-roles:
       - AUTHENTICATED
@@ -40,7 +44,7 @@
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/usuarios.yaml#/UpdateProfileRequest"
+            $ref: "../components/schemas/usuarios.yaml#/UpdateMyProfileRequest"
     responses:
       "200":
         description: Operación correcta.
@@ -68,7 +72,10 @@
     tags:
       - Usuarios
     summary: Listar usuarios
-    description: Listado restringido al administrador; filtros y paginación.
+    description: >-
+      Listado restringido al administrador. Incluye roles globales y pertenencias
+      departamentales activas e históricas; el filtro por rol departamental solo
+      considera pertenencias activas.
     operationId: getUsers
     x-roles:
       - ADMIN
@@ -80,7 +87,7 @@
         required: false
         schema:
           $ref: ../components/schemas/usuarios.yaml#/RoleCode
-        description: Filtrar por rol.
+        description: Filtrar por rol global asignado o pertenencia departamental activa.
       - name: active
         in: query
         required: false
@@ -112,7 +119,9 @@
     tags:
       - Usuarios
     summary: Consultar usuario
-    description: Información del usuario para administración; no pública.
+    description: >-
+      Información del usuario para administración; incluye roles globales y
+      pertenencias departamentales activas e históricas.
     operationId: getUsersUserId
     x-roles:
       - ADMIN
@@ -142,7 +151,7 @@
     tags:
       - Usuarios
     summary: Administrar usuario
-    description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las 
+    description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las
       adscripciones departamentales tienen reglas propias.
     operationId: patchUsersUserId
     x-roles:

@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Revisión documental: 03/11/2026.** El arranque conjunto por Compose y la conectividad con Neon corresponden al 15/10. Autenticación, Department y Category están implementados; la última ejecución documentada del 02/11 verificó V1–V3 y 109 pruebas en PostgreSQL aislado, sin acreditar su despliegue en Neon. Se distinguen evidencias históricas de procedimientos reproducibles; esta revisión documental no vuelve a ejecutar Maven ni Redocly.
+> **Revisión documental: 03/11/2026.** El arranque conjunto por Compose y la conectividad con Neon corresponden al 15/10. Autenticación, Department, Category y la primera implementación de pertenencias departamentales están incorporados al backend. La última ejecución documentada del 02/11 verificó V1–V3 y 109 pruebas en PostgreSQL aislado; es anterior a V4 y no valida los cambios de pertenencias del 03/11. La nueva suite está añadida, pero queda pendiente ejecutarla. No consta el despliegue de las migraciones en Neon.
 
 ## 1. Requisitos
 
@@ -31,7 +31,7 @@ urban-pulse-app/
 │   │   └── config/, controller/, dto/, entity/, repository/, service/
 │   ├── src/main/resources/
 │   │   ├── application.properties
-│   │   └── db/migration/         # Flyway V1 auth/email, V2 Department y V3 Category
+│   │   └── db/migration/         # Flyway V1 auth/email, V2 Department, V3 Category y V4 DepartmentMembership
 │   ├── src/test/java/es/grupo18/urbanpulse/NeonConnectivityIT.java
 │   ├── .env.development          # Privado e ignorado por Git (crear localmente)
 │   ├── .env.example
@@ -186,7 +186,7 @@ Evitar `npm audit fix --force` sin comprobar compatibilidad con Expo SDK 57.
 - `StorageProperties` vincula y valida `storage.s3.endpoint`, `storage.s3.region` y `storage.s3.bucket`.
 - `StorageConfig` registra `S3Client` contra el endpoint Neon, usa direccionamiento **path-style** y obtiene credenciales desde las variables estándar `AWS_*`.
 - `application.properties` fija el puerto 8888, JDBC, HikariCP (máximo 5 conexiones), JWT 7200 s, políticas de rate limiting, `spring.jpa.hibernate.ddl-auto=validate`, Flyway y `spring.sql.init.mode=never`. No existe perfil Spring de desarrollo adicional.
-- V1 crea `users`, `roles`, `user_roles` y `email_verifications`; V2 añade departamentos y V3 categorías. Las tres se probaron en PostgreSQL efímero. `flyway_schema_history` ya existía en Neon `development`, pero **no consta la aplicación de V1–V3 allí**. Un arranque normal del backend con Flyway activo puede aplicar las migraciones a la base a la que apunten las variables; comprobar primero entorno, historial y checksums según el [ADR-0006](adr/0006-flyway.md).
+- V1 crea `users`, `roles`, `user_roles` y `email_verifications`; V2 añade departamentos, V3 categorías y V4 `department_memberships`. V1–V3 se probaron en PostgreSQL efímero antes de esta revisión; V4 y su nueva suite están añadidas, pero aún requieren ejecución. `flyway_schema_history` ya existía en Neon `development`, pero **no consta la aplicación de V1–V3 allí**. Un arranque normal del backend con Flyway activo puede aplicar las migraciones a la base a la que apunten las variables; comprobar primero entorno, historial y checksums según el [ADR-0006](adr/0006-flyway.md).
 
 Desde la raíz, con `backend/.env.development` configurado:
 
@@ -224,16 +224,26 @@ mvn -B -ntp verify -Ppostgres-it
 **Puesta en marcha:** `server.forward-headers-strategy=none` toma la IP de la conexión; revisar proxies antes de producción. El frontend debe renovar login al recibir `401` por JWT revocado, pero no debe cerrar sesión ante un `503` de base indisponible. `503` se emite con `ProblemDetail` y sin `WWW-Authenticate`. Antes de ejecutar `docker compose up` con el nuevo backend, revisar que el destino Flyway es **development** y respaldar/planificar la reversión.
 
 - **Unitarios (`*Test`, `*Tests`, `Test*`, `*TestCase`):** deben ser rápidos, deterministas y no necesitar Neon; utilizar mocks cuando proceda.
-- **Integración local de persistencia:** disponibles `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
+- **Integración local de persistencia:** disponibles `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT` y `DepartmentMembershipPostgresIT` en PostgreSQL 18 efímero (Testcontainers), nunca `development` compartido ni `production`. Activar expresamente `-Ppostgres-it`.
 - **Integración real con Neon (`*IT`):** `NeonConnectivityIT` se ejecuta únicamente bajo demanda en `development`, con credenciales autorizadas; no participa en `postgres-it`, que usa solo Testcontainers.
 
-Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` ya configura Failsafe para `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT`; `mvn clean verify -Ppostgres-it` añade esas suites con contenedores efímeros y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
+Maven Surefire **no incluye `*IT` por defecto** con la configuración actual, aunque `-Dtest=NeonConnectivityIT` permite seleccionarlo expresamente. `mvn test`, `mvn package` y `mvn verify` ejecutan los tests de Surefire que corresponden, **no** esa prueba `*IT` por defecto. El perfil Maven `postgres-it` configura Failsafe para `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT` y `DepartmentMembershipPostgresIT`; `mvn clean verify -Ppostgres-it` añade esas suites con contenedores efímeros y **no ejecuta `NeonConnectivityIT`**. `mvn spring-boot:run`, reiniciar el backend o `docker compose up --build` con `Dockerfile.dev` **no ejecutan los tests** automáticamente. La imagen de producción utiliza `mvn package` durante el build, por lo que sí ejecutará los tests unitarios normales. No introducir tests que escriban contra la base compartida en el ciclo rutinario o en CI sin aislamiento.
 
 Para ejecutar desde contenedor sin cargar la configuración de Neon, usar el procedimiento siguiente. Superar pruebas aisladas no acredita ni autoriza por sí mismo el despliegue: la aplicación de V1–V3 en `development` requiere revisar el destino y el historial de Flyway; no experimentar en `production`.
 
-### 7.3. Verificación documentada del backend
+### 7.3. Pertenencias departamentales
 
-**Última ejecución registrada: 02/11/2026, 11:36:57 Europe/Madrid (`10:36:57Z`), duración 1 min 15 s, BUILD SUCCESS.** Compilación, empaquetado y pruebas con Java 25, Maven 3.9.16 y PostgreSQL 18.6 efímero. No se ejecutaron contra Neon ni se cargó `.env.development`. La reorganización documental del 03/11 no repite esta ejecución.
+La implementación incorporada el 03/11/2026 añade `DepartmentMembership` y la migración Flyway V4. La entidad relaciona usuario, departamento y rol departamental; `joinedAt` registra el alta y `leftAt` la baja. La pertenencia está activa mientras `leftAt` sea null.
+
+La regla de negocio permite una sola pertenencia activa por `(user_id, department_id, role_code)`. Se pueden asignar roles distintos en un mismo departamento y reincorporar a una persona después de cerrar la pertenencia anterior, creando una nueva fila histórica. PostgreSQL aplica la unicidad mediante `uk_department_memberships_active` y restringe `role_code` a `DEPARTMENT_COORDINATOR`/`TECHNICIAN`.
+
+`DepartmentMembershipService` incorpora las operaciones internas `assign` y `end`; todavía no se exponen endpoints HTTP para gestionar adscripciones. `UserDTO` incluye `departmentMemberships` activas e históricas. `GET /users` permite filtrar por roles globales y por pertenencias departamentales activas. El servicio carga las adscripciones de la página en una consulta agrupada para evitar N+1.
+
+**Pruebas añadidas pendientes de ejecución:** `DepartmentMembershipTest`, `DepartmentMembershipServiceTest`, ampliación de `UserServiceTest`, `DepartmentMembershipPostgresIT`, ampliación de `UserRepositoryPostgresIT` y de `UserControllerTest`/`AuthServiceTest`. No considerar validada V4 hasta ejecutar `mvn -B -ntp verify -Ppostgres-it` con Java 25 y Docker/Testcontainers. No se debe probar contra Neon.
+
+### 7.4. Verificación documentada del backend
+
+**Última ejecución registrada antes de incorporar V4: 02/11/2026, 11:36:57 Europe/Madrid (`10:36:57Z`), duración 1 min 15 s, BUILD SUCCESS.** Esta evidencia histórica no valida la implementación de pertenencias añadida el 03/11/2026. Compilación, empaquetado y pruebas con Java 25, Maven 3.9.16 y PostgreSQL 18.6 efímero. No se ejecutaron contra Neon ni se cargó `.env.development`. La reorganización documental del 03/11 no repite esta ejecución.
 
 Comando reproducible en PowerShell desde la raíz, con Docker disponible y la imagen de desarrollo `urban-pulse-app-backend:latest` ya construida:
 

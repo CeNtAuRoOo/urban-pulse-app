@@ -32,281 +32,343 @@ import es.grupo18.urbanpulse.repository.UserRepository;
 @Testcontainers
 class UserRepositoryPostgresIT {
 
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+        @Container
+        static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
 
-    @DynamicPropertySource
-    static void database(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
+        @DynamicPropertySource
+        static void database(DynamicPropertyRegistry registry) {
+                registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+                registry.add("spring.datasource.username", POSTGRES::getUsername);
+                registry.add("spring.datasource.password", POSTGRES::getPassword);
+        }
 
-    @Autowired
-    UserRepository users;
+        @Autowired
+        UserRepository users;
 
-    @Autowired
-    JdbcTemplate jdbc;
+        @Autowired
+        JdbcTemplate jdbc;
 
-    @Autowired
-    PlatformTransactionManager manager;
+        @Autowired
+        PlatformTransactionManager manager;
 
-    @BeforeEach
-    void cleanDatabase() {
-        jdbc.update("delete from email_verifications");
-        jdbc.update("delete from user_roles");
-        jdbc.update("delete from users");
-    }
+        @BeforeEach
+        void cleanDatabase() {
+                jdbc.update("delete from department_memberships");
+                jdbc.update("delete from email_verifications");
+                jdbc.update("delete from user_roles");
+                jdbc.update("delete from users");
+        }
 
-    private UUID insertUser(
-            String displayName,
-            String email,
-            boolean active,
-            boolean emailVerified,
-            long tokenVersion,
-            Instant createdAt) {
+        private UUID insertUser(
+                        String displayName,
+                        String email,
+                        boolean active,
+                        boolean emailVerified,
+                        long tokenVersion,
+                        Instant createdAt) {
 
-        UUID id = UUID.randomUUID();
+                UUID id = UUID.randomUUID();
 
-        jdbc.update("""
-                insert into users (
-                    id, display_name, email, password_hash,
-                    active, email_verified, token_version,
-                    created_at, updated_at
-                )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                id,
-                displayName,
-                email,
-                "x".repeat(60),
-                active,
-                emailVerified,
-                tokenVersion,
-                Timestamp.from(createdAt),
-                Timestamp.from(createdAt));
+                jdbc.update("""
+                                insert into users (
+                                    id, display_name, email, password_hash,
+                                    active, email_verified, token_version,
+                                    created_at, updated_at
+                                )
+                                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                id,
+                                displayName,
+                                email,
+                                "x".repeat(60),
+                                active,
+                                emailVerified,
+                                tokenVersion,
+                                Timestamp.from(createdAt),
+                                Timestamp.from(createdAt));
 
-        return id;
-    }
+                return id;
+        }
 
-    private void assignRole(UUID userId, RoleCode role) {
-        jdbc.update(
-                "insert into user_roles (user_id, role_code) values (?, ?)",
-                userId,
-                role.name());
-    }
+        private void assignRole(UUID userId, RoleCode role) {
+                jdbc.update(
+                                "insert into user_roles (user_id, role_code) values (?, ?)",
+                                userId,
+                                role.name());
+        }
 
-    @Test
-    void findByEmailReturnsUserAndLoadsRoles() {
-        UUID id = insertUser(
-                "Ciudadano",
-                "citizen@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+        /**
+         * Inserta una pertenencia departamental para el usuario mediante SQL.
+         *
+         * @param userId identificador del usuario
+         * @param role   código del rol departamental
+         * @param leftAt fecha de baja, o null si la pertenencia continúa activa
+         */
+        private void assignDepartmentRole(UUID userId, RoleCode role, boolean active) {
+                jdbc.update("""
+                                insert into department_memberships (
+                                    id, user_id, department_id, role_code, joined_at, left_at
+                                )
+                                values (
+                                    uuidv7(), ?, '0199f6de-0001-7000-8000-000000000001',
+                                    ?, CURRENT_TIMESTAMP - interval '2 hours',
+                                    case when ? then null else CURRENT_TIMESTAMP - interval '1 hour' end
+                                )
+                                """,
+                                userId,
+                                role.name(),
+                                active);
+        }
 
-        assignRole(id, RoleCode.CITIZEN);
+        @Test
+        void findByEmailReturnsUserAndLoadsRoles() {
+                UUID id = insertUser(
+                                "Ciudadano",
+                                "citizen@example.org",
+                                true,
+                                true,
+                                0,
+                                Instant.now());
 
-        User user = users.findByEmail("citizen@example.org").orElseThrow();
+                assignRole(id, RoleCode.CITIZEN);
 
-        assertThat(user.getId()).isEqualTo(id);
-        assertThat(user.getDisplayName()).isEqualTo("Ciudadano");
-        assertThat(user.globalRoles()).containsExactly(RoleCode.CITIZEN);
+                User user = users.findByEmail("citizen@example.org").orElseThrow();
 
-        assertThat(users.findByEmail("missing@example.org")).isEmpty();
-    }
+                assertThat(user.getId()).isEqualTo(id);
+                assertThat(user.getDisplayName()).isEqualTo("Ciudadano");
+                assertThat(user.globalRoles()).containsExactly(RoleCode.CITIZEN);
 
-    @Test
-    void findForPasswordChangeReturnsUserInsideTransaction() {
-        UUID id = insertUser(
-                "Password",
-                "password@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+                assertThat(users.findByEmail("missing@example.org")).isEmpty();
+        }
 
-        User result = new TransactionTemplate(manager).execute(
-                status -> users.findForPasswordChange(id).orElseThrow());
+        @Test
+        void findForPasswordChangeReturnsUserInsideTransaction() {
+                UUID id = insertUser(
+                                "Password",
+                                "password@example.org",
+                                true,
+                                true,
+                                0,
+                                Instant.now());
 
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(id);
-    }
+                User result = new TransactionTemplate(manager).execute(
+                                status -> users.findForPasswordChange(id).orElseThrow());
 
-    @Test
-    void findForEmailVerificationReturnsUserInsideTransaction() {
-        UUID id = insertUser(
-                "Verification",
-                "verification@example.org",
-                true,
-                false,
-                0,
-                Instant.now());
+                assertThat(result).isNotNull();
+                assertThat(result.getId()).isEqualTo(id);
+        }
 
-        User result = new TransactionTemplate(manager).execute(
-                status -> users.findForEmailVerification(id).orElseThrow());
+        @Test
+        void findForEmailVerificationReturnsUserInsideTransaction() {
+                UUID id = insertUser(
+                                "Verification",
+                                "verification@example.org",
+                                true,
+                                false,
+                                0,
+                                Instant.now());
 
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(id);
-        assertThat(result.isEmailVerified()).isFalse();
-    }
+                User result = new TransactionTemplate(manager).execute(
+                                status -> users.findForEmailVerification(id).orElseThrow());
 
-    @Test
-    void findSecurityStateReturnsAccountStateAndRoles() {
-        UUID id = insertUser(
-                "Admin",
-                "admin@example.org",
-                true,
-                true,
-                3,
-                Instant.now());
+                assertThat(result).isNotNull();
+                assertThat(result.getId()).isEqualTo(id);
+                assertThat(result.isEmailVerified()).isFalse();
+        }
 
-        assignRole(id, RoleCode.CITIZEN);
-        assignRole(id, RoleCode.ADMIN);
+        @Test
+        void findSecurityStateReturnsAccountStateAndRoles() {
+                UUID id = insertUser(
+                                "Admin",
+                                "admin@example.org",
+                                true,
+                                true,
+                                3,
+                                Instant.now());
 
-        var states = users.findSecurityState(id);
+                assignRole(id, RoleCode.CITIZEN);
+                assignRole(id, RoleCode.ADMIN);
 
-        assertThat(states).hasSize(2);
-        assertThat(states)
-                .allSatisfy(state -> {
-                    assertThat(state.getActive()).isTrue();
-                    assertThat(state.getEmailVerified()).isTrue();
-                    assertThat(state.getTokenVersion()).isEqualTo(3);
-                });
+                var states = users.findSecurityState(id);
 
-        assertThat(states)
-                .extracting(UserRepository.SecurityState::getRoleCode)
-                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.ADMIN);
-    }
+                assertThat(states).hasSize(2);
+                assertThat(states)
+                                .allSatisfy(state -> {
+                                        assertThat(state.getActive()).isTrue();
+                                        assertThat(state.getEmailVerified()).isTrue();
+                                        assertThat(state.getTokenVersion()).isEqualTo(3);
+                                });
 
-    @Test
-    void findSecurityStateReturnsNullRoleWhenUserHasNoRoles() {
-        UUID id = insertUser(
-                "No roles",
-                "noroles@example.org",
-                false,
-                false,
-                0,
-                Instant.now());
+                assertThat(states)
+                                .extracting(UserRepository.SecurityState::getRoleCode)
+                                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.ADMIN);
+        }
 
-        var states = users.findSecurityState(id);
+        @Test
+        void findSecurityStateReturnsNullRoleWhenUserHasNoRoles() {
+                UUID id = insertUser(
+                                "No roles",
+                                "noroles@example.org",
+                                false,
+                                false,
+                                0,
+                                Instant.now());
 
-        assertThat(states).hasSize(1);
-        assertThat(states.getFirst().getActive()).isFalse();
-        assertThat(states.getFirst().getEmailVerified()).isFalse();
-        assertThat(states.getFirst().getRoleCode()).isNull();
-    }
+                var states = users.findSecurityState(id);
 
-    @Test
-    void findUserWithRolesByIdReturnsUserAndRoles() {
-        UUID id = insertUser(
-                "Operator",
-                "operator@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+                assertThat(states).hasSize(1);
+                assertThat(states.getFirst().getActive()).isFalse();
+                assertThat(states.getFirst().getEmailVerified()).isFalse();
+                assertThat(states.getFirst().getRoleCode()).isNull();
+        }
 
-        assignRole(id, RoleCode.CITIZEN);
-        assignRole(id, RoleCode.OPERATOR);
+        @Test
+        void findUserWithRolesByIdReturnsUserAndRoles() {
+                UUID id = insertUser(
+                                "Operator",
+                                "operator@example.org",
+                                true,
+                                true,
+                                0,
+                                Instant.now());
 
-        User user = users.findUserWithRolesById(id).orElseThrow();
+                assignRole(id, RoleCode.CITIZEN);
+                assignRole(id, RoleCode.OPERATOR);
 
-        assertThat(user.getId()).isEqualTo(id);
-        assertThat(user.globalRoles())
-                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.OPERATOR);
+                User user = users.findUserWithRolesById(id).orElseThrow();
 
-        assertThat(users.findUserWithRolesById(UUID.randomUUID())).isEmpty();
-    }
+                assertThat(user.getId()).isEqualTo(id);
+                assertThat(user.globalRoles())
+                                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.OPERATOR);
 
-    @Test
-    void searchUsersFiltersOrdersAndPaginates() {
-        Instant base = Instant.parse("2026-01-01T10:00:00Z");
+                assertThat(users.findUserWithRolesById(UUID.randomUUID())).isEmpty();
+        }
 
-        UUID first = insertUser(
-                "First",
-                "first@example.org",
-                true,
-                true,
-                0,
-                base);
+        @Test
+        void searchUsersFiltersOrdersAndPaginates() {
+                Instant base = Instant.parse("2026-01-01T10:00:00Z");
 
-        UUID second = insertUser(
-                "Second",
-                "second@example.org",
-                true,
-                true,
-                0,
-                base.plusSeconds(60));
+                UUID first = insertUser(
+                                "First",
+                                "first@example.org",
+                                true,
+                                true,
+                                0,
+                                base);
 
-        UUID inactive = insertUser(
-                "Inactive",
-                "inactive@example.org",
-                false,
-                true,
-                0,
-                base.plusSeconds(120));
+                UUID second = insertUser(
+                                "Second",
+                                "second@example.org",
+                                true,
+                                true,
+                                0,
+                                base.plusSeconds(60));
 
-        assignRole(first, RoleCode.CITIZEN);
-        assignRole(second, RoleCode.CITIZEN);
-        assignRole(inactive, RoleCode.CITIZEN);
+                UUID inactive = insertUser(
+                                "Inactive",
+                                "inactive@example.org",
+                                false,
+                                true,
+                                0,
+                                base.plusSeconds(120));
 
-        Page<User> page = users.searchUsers(
-                RoleCode.CITIZEN,
-                true,
-                PageRequest.of(
-                        0,
-                        1,
-                        Sort.by(
-                                Sort.Order.desc("createdAt"),
-                                Sort.Order.asc("id"))));
+                assignRole(first, RoleCode.CITIZEN);
+                assignRole(second, RoleCode.CITIZEN);
+                assignRole(inactive, RoleCode.CITIZEN);
 
-        assertThat(page.getTotalElements()).isEqualTo(2);
-        assertThat(page.getTotalPages()).isEqualTo(2);
-        assertThat(page.getContent()).hasSize(1);
-        assertThat(page.getContent().getFirst().getId()).isEqualTo(second);
+                Page<User> page = users.searchUsers(
+                                RoleCode.CITIZEN,
+                                true,
+                                PageRequest.of(
+                                                0,
+                                                1,
+                                                Sort.by(
+                                                                Sort.Order.desc("createdAt"),
+                                                                Sort.Order.asc("id"))));
 
-        Page<User> secondPage = users.searchUsers(
-                RoleCode.CITIZEN,
-                true,
-                PageRequest.of(
-                        1,
-                        1,
-                        Sort.by(
-                                Sort.Order.desc("createdAt"),
-                                Sort.Order.asc("id"))));
+                assertThat(page.getTotalElements()).isEqualTo(2);
+                assertThat(page.getTotalPages()).isEqualTo(2);
+                assertThat(page.getContent()).hasSize(1);
+                assertThat(page.getContent().getFirst().getId()).isEqualTo(second);
 
-        assertThat(secondPage.getContent()).hasSize(1);
-        assertThat(secondPage.getContent().getFirst().getId()).isEqualTo(first);
-    }
+                Page<User> secondPage = users.searchUsers(
+                                RoleCode.CITIZEN,
+                                true,
+                                PageRequest.of(
+                                                1,
+                                                1,
+                                                Sort.by(
+                                                                Sort.Order.desc("createdAt"),
+                                                                Sort.Order.asc("id"))));
 
-    @Test
-    void searchUsersWithoutFiltersReturnsAllUsers() {
-        Instant base = Instant.parse("2026-02-01T10:00:00Z");
+                assertThat(secondPage.getContent()).hasSize(1);
+                assertThat(secondPage.getContent().getFirst().getId()).isEqualTo(first);
+        }
 
-        insertUser(
-                "Citizen",
-                "citizen2@example.org",
-                true,
-                true,
-                0,
-                base);
+        @Test
+        void searchUsersWithoutFiltersReturnsAllUsers() {
+                Instant base = Instant.parse("2026-02-01T10:00:00Z");
 
-        insertUser(
-                "Inactive",
-                "inactive2@example.org",
-                false,
-                false,
-                0,
-                base.plusSeconds(60));
+                insertUser(
+                                "Citizen",
+                                "citizen2@example.org",
+                                true,
+                                true,
+                                0,
+                                base);
 
-        Page<User> page = users.searchUsers(
-                null,
-                null,
-                PageRequest.of(0, 20));
+                insertUser(
+                                "Inactive",
+                                "inactive2@example.org",
+                                false,
+                                false,
+                                0,
+                                base.plusSeconds(60));
 
-        assertThat(page.getTotalElements()).isEqualTo(2);
-        assertThat(page.getContent()).hasSize(2);
-    }
+                Page<User> page = users.searchUsers(
+                                null,
+                                null,
+                                PageRequest.of(0, 20));
+
+                assertThat(page.getTotalElements()).isEqualTo(2);
+                assertThat(page.getContent()).hasSize(2);
+        }
+
+        /**
+         * Comprueba que el filtro por rol departamental devuelve únicamente
+         * usuarios con una pertenencia activa de ese rol.
+         */
+        @Test
+        void searchUsersFiltersByActiveDepartmentalRole() {
+                Instant now = Instant.now();
+
+                UUID technician = insertUser(
+                                "Technician",
+                                "technician@example.org",
+                                true,
+                                true,
+                                0,
+                                now);
+
+                UUID citizen = insertUser(
+                                "Citizen",
+                                "citizen-only@example.org",
+                                true,
+                                true,
+                                0,
+                                now.plusSeconds(1));
+
+                assignDepartmentRole(technician, RoleCode.TECHNICIAN, true);
+                assignDepartmentRole(citizen, RoleCode.TECHNICIAN, false);
+
+                Page<User> page = users.searchUsers(
+                                RoleCode.TECHNICIAN,
+                                true,
+                                PageRequest.of(0, 20));
+
+                assertThat(page.getTotalElements()).isEqualTo(1);
+                assertThat(page.getContent()).extracting(User::getId).containsExactly(technician);
+                assertThat(citizen).isNotEqualTo(technician);
+        }
+
 }

@@ -1,14 +1,28 @@
 # Documentación de la API de UrbanPulse
 
-## Estado: Autenticación, Departamentos y Categorías implementados
+## Estado: Autenticación, Usuarios, Departamentos y Categorías implementados
 
-UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.4.0`** tras implementar verificación de correo. El resto del sistema permanece como diseño base de dominio v1: **los cinco endpoints del tag Autenticación están implementados en Java**; también existen cuatro operaciones de Departamentos y cuatro de Categorías; los demás endpoints de negocio continúan pendientes.
+UrbanPulse sigue el enfoque **design-first**: revisar casos de uso, modelo de dominio y contrato antes de desarrollar controladores, persistencia y frontend. El contrato OpenAPI 3.0.3 usa como versión de especificación de diseño **`0.5.0`**. Los cinco endpoints de Autenticación, las cinco operaciones del tag Usuarios, cuatro operaciones de Departamentos y cuatro de Categorías están implementados en Java. El resto de endpoints de negocio continúa pendiente.
 
 El 18/10/2026 se alinearon los diagramas y OpenAPI `0.2.0`. El 25/10/2026 se acordó la siguiente revisión del tag de autenticación, recogida en [docs/auth-design.md](../auth-design.md), y sus ADR. **La implementación de autenticación ya existe en el backend**. Las vistas del dominio deben seguir sincronizadas con la migración SQL efectiva; el despliegue sobre Neon `development` aún no consta.
 
 Los cambios incluyen registro ciudadano que devuelve JWT, nuevo cambio autenticado de contraseña, invalidación de todos los JWT previos con `tokenVersion`, consulta de cuenta y permisos actuales por acceso protegido, campo `User.emailVerified`, roles de ciudadanía como base de todas las cuentas, UUIDv7 generado por Hibernate y limitación de peticiones local. Además, se excluye `CITIZEN` de invitaciones para personal global. La recuperación de contraseña olvidada, refresh tokens y `GET fields` siguen aplazados.
 
 **Ajustes generales anteriores:** los códigos de rol se restringen por ámbito (`GlobalRoleCode`/`DepartmentRoleCode`), los identificadores urbanos distinguen entidades UUID de IDs externos, y `StatusChangeDTO` admite que falten `fromStatus` y `changedBy`. Se desactivaron las dos operaciones de evaluación IA que presuponían un motor no acordado; sus archivos YAML permanecen como exploración no activa.
+
+## Contrato de usuarios y pertenencias departamentales
+
+**Gestión de usuarios implementada:** `GET /users/me`, `PATCH /users/me`, `GET /users`, `GET /users/{userId}` y `PATCH /users/{userId}`. Las operaciones administrativas requieren el rol global `ADMIN`; el perfil propio requiere autenticación y correo verificado según la configuración de seguridad del backend.
+
+`UserDTO` incluye `id`, `displayName`, `email`, `emailVerified`, `active`, `createdAt`, `roles` y `departmentMemberships`. `roles` contiene exclusivamente roles globales (`CITIZEN`, `OPERATOR`, `ADMIN`). `departmentMemberships` contiene las pertenencias departamentales activas e históricas, con el departamento, el rol, `joinedAt` y `leftAt`. Una pertenencia está activa cuando `leftAt` es `null`. La respuesta de registro devuelve la colección vacía; el login y las consultas de usuario recuperan las adscripciones persistidas.
+
+**Regla de unicidad:** solo puede existir una pertenencia activa por combinación de usuario, departamento y rol. Una persona puede tener roles distintos en el mismo departamento. Al finalizar una adscripción se conserva el registro y se establece `leftAt`; una reincorporación crea una nueva fila. PostgreSQL impone esta regla mediante el índice único parcial `uk_department_memberships_active`.
+
+El parámetro `role` de `GET /users` admite roles globales y departamentales. Los roles globales se filtran mediante `UserRole`; los departamentales solo coinciden con pertenencias activas. La consulta de listados carga las pertenencias de todos los usuarios de la página en una consulta adicional, evitando N+1 y sin aplicar fetch de colecciones sobre la consulta paginada.
+
+El ciclo de vida de las adscripciones está disponible en el servicio de dominio `DepartmentMembershipService`; todavía no se publica un endpoint HTTP específico para asignar o finalizar pertenencias. Los equipos y sus integrantes siguen pendientes.
+
+La persistencia se añade mediante Flyway V4 (`department_memberships`); V1, V2 y V3 no se modifican. La nueva suite `DepartmentMembershipTest` y `DepartmentMembershipServiceTest` cubren las invariantes de dominio y el ciclo de vida; `DepartmentMembershipPostgresIT` verifica el mapeo, la conservación del historial, la unicidad activa y la separación de roles globales/departamentales. Las pruebas nuevas deben ejecutarse con `mvn verify -Ppostgres-it` antes de considerar validada esta revisión.
 
 ## Contrato de categorías
 
@@ -31,7 +45,7 @@ Los errores usan `application/problem+json` y el contrato común `ProblemDetail`
 | 500 | `INTERNAL_ERROR`. |
 | 503 | `SERVICE_UNAVAILABLE`: indisponibilidad tipada de PostgreSQL. |
 
-Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#6-dominio-operativo-previsto) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#73-verificación-documentada-del-backend), sus pruebas.
+Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#6-dominio-operativo-previsto) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#74-verificación-documentada-del-backend), sus pruebas.
 
 ## Fuente editable y organización del contrato
 
@@ -125,7 +139,7 @@ npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml --output docs/api
 
 El primer comando valida; los otros regeneran artefactos derivados tras editar el YAML modular. **La actualización del backend no sustituye esta generación.** La evidencia del 02/11/2026 registra Redocly 2.16.0 con **0 errores y 2 advertencias previas**: `info-license` y uso de servidor localhost. El bundle y el HTML se regeneraron al incorporar Category; la última revisión de ese día repitió solo lint, pues el contrato no había cambiado. La revisión documental del 03/11 no ejecuta Redocly ni regenera artefactos.
 
-Tras futuros cambios de contrato, regenerar y revisar ambos diffs, comprobando `info.version=0.4.0`, el prefijo HTTP `/api/v1` y la ausencia de referencias rotas. Swagger Editor puede abrir el bundle único generado. Las advertencias existentes no se consideran resueltas por un lint sin errores.
+Tras futuros cambios de contrato, regenerar y revisar ambos diffs, comprobando `info.version=0.5.0`, el prefijo HTTP `/api/v1` y la ausencia de referencias rotas. Swagger Editor puede abrir el bundle único generado. Las advertencias existentes no se consideran resueltas por un lint sin errores.
 
 ## Cuestiones aún abiertas
 
@@ -151,7 +165,7 @@ El tag **Autenticación** incluye cinco operaciones ejecutables: registro `201`,
 
 Las cuentas `emailVerified=false` obtienen JWT pero solo pueden acceder a las operaciones de autenticación permitidas; las rutas protegidas de negocio responden `403 EMAIL_NOT_VERIFIED`. Las cuotas de confirmación y reenvío (`429`) son buckets por usuario/IP en memoria. El envío SMTP se solicita después del commit, pero `201` y `202` **no garantizan recepción** del correo; Mailpit es solo una infraestructura local de pruebas. El resto de los tags permanecen diseños revisables.
 
-Los archivos editables son `openapi/base-openapi.yaml`, `openapi/paths/autenticacion.yaml`, `openapi/components/schemas/autenticacion.yaml` y `openapi/components/responses.yaml`. Tras editarlos, ejecutar lint y regenerar `openapi.yaml` y `openapi.html` con Redocly; **no mantener estos dos derivados a mano**. La revisión del contrato pasa a `info.version: 0.4.0` (no cambia el prefijo HTTP `/api/v1`).
+Los archivos editables son `openapi/base-openapi.yaml`, `openapi/paths/autenticacion.yaml`, `openapi/components/schemas/autenticacion.yaml` y `openapi/components/responses.yaml`. Tras editarlos, ejecutar lint y regenerar `openapi.yaml` y `openapi.html` con Redocly; **no mantener estos dos derivados a mano**. La revisión del contrato pasa a `info.version: 0.5.0` (no cambia el prefijo HTTP `/api/v1`).
 
 ## Departamentos municipales — revisión 30/10/2026
 

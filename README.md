@@ -7,7 +7,7 @@ La aplicación permitirá registrar incidencias (por ejemplo, semáforos averiad
 ## Estado del proyecto
 
 - **Frontend:** base universal Expo/React Native creada; pantalla inicial ejecutable en web. Se han validado TypeScript, ESLint, Expo Doctor, exportación web y desarrollo web con Docker Compose. La ejecución nativa en dispositivos y la imagen web de producción están pendientes de validación.
-- **Backend:** Java/Spring Boot con autenticación y gestión de departamentos y categorías implementadas localmente. La autenticación incluye registro, login, cambio de contraseña y verificación de correo, con migración Flyway V1. La gestión de departamentos incluye listado, consulta, creación y actualización parcial, con autorización por correo verificado y rol ADMIN para las operaciones de escritura, y migración Flyway V2. Categorías añade las mismas cuatro operaciones con migración V3, nombre único y sin código corto. Las pruebas de estas funcionalidades se han superado en PostgreSQL efímero mediante Testcontainers. Se ha comprobado anteriormente la conectividad JDBC con Neon y el acceso a Object Storage, pero no se ha validado el despliegue de estas migraciones en Neon `development` ni en `production`. Siguen pendientes los endpoints de incidencias y los demás módulos de negocio.
+- **Backend:** Java/Spring Boot con autenticación, gestión de usuarios, departamentos y categorías implementadas localmente. La gestión de usuarios expone roles globales y pertenencias departamentales activas e históricas; **la migración V4 y sus pruebas están verificadas en PostgreSQL efímero (174 pruebas en verde, BUILD SUCCESS)**. La autenticación incluye registro, login, cambio de contraseña y verificación de correo, con migración Flyway V1. La gestión de departamentos incluye listado, consulta, creación y actualización parcial, con autorización por correo verificado y rol ADMIN para las operaciones de escritura, y migración Flyway V2. Categorías añade las mismas cuatro operaciones con migración V3, nombre único y sin código corto. Las pruebas de estas funcionalidades se han superado en PostgreSQL efímero mediante Testcontainers. Se ha comprobado anteriormente la conectividad JDBC con Neon y el acceso a Object Storage, pero no se ha validado el despliegue de estas migraciones en Neon `development` ni en `production`. Siguen pendientes los endpoints de incidencias y los demás módulos de negocio.
 - **Infraestructura:** Docker Compose exclusivo para desarrollo, con frontend y backend históricamente comprobados y servicio SMTP local Mailpit ahora añadido (sin prueba conjunta backend+Mailpit). Neon PostgreSQL 18 y Neon Object Storage están aprovisionados en Frankfurt, con ramas `development` y `production`. El despliegue real de producción sigue pendiente.
 
 ## Tecnologías
@@ -75,15 +75,15 @@ Abrir <http://localhost:7777>. Para detenerlo, `Ctrl+C` o `docker compose down` 
 docker compose up --build
 ```
 
-El backend escucha en el puerto `8888` y utiliza las variables de entorno para configurar su conexión a PostgreSQL. En el código están implementados los cinco endpoints de autenticación y cuatro endpoints por catálogo, departamentos y categorías (`GET` listado y detalle, `POST` y `PATCH`). Todavía no existen los endpoints de incidencias.
+El backend escucha en el puerto `8888` y utiliza las variables de entorno para configurar su conexión a PostgreSQL. En el código están implementados los cinco endpoints de autenticación, cinco operaciones de usuarios (perfil propio, listado y administración), y cuatro operaciones por catálogo, departamentos y categorías (`GET` listado y detalle, `POST` y `PATCH`). `UserDTO` incluye pertenencias departamentales; su asignación/finalización se gestiona internamente mediante un servicio, todavía sin endpoints HTTP específicos. Todavía no existen los endpoints de incidencias.
 
-Al arrancar, Flyway puede aplicar las migraciones V1 (autenticación), V2 (departamentos) y V3 (categorías) sobre la base configurada. Antes de ejecutar el backend contra Neon, verificar que se utiliza la rama `development`, nunca `production`, y comprobar el historial y los checksums de las migraciones existentes. Las tres migraciones se han validado conjuntamente en PostgreSQL efímero, pero no se ha comprobado su aplicación en Neon `development`. Consulta [la guía de desarrollo](docs/development.md).
+Al arrancar, Flyway puede aplicar las migraciones V1 (autenticación), V2 (departamentos), V3 (categorías) y V4 (pertenencias departamentales) sobre la base configurada. **V1–V4 se han validado conjuntamente en PostgreSQL efímero el 03/11/2026 (174 pruebas en verde), incluida `DepartmentMembershipPostgresIT`.** Antes de ejecutar el backend contra Neon, verificar que se utiliza la rama `development`, nunca `production`, y comprobar el historial y los checksums de las migraciones existentes. No se ha comprobado su aplicación en Neon `development`. Consulta [la guía de desarrollo](docs/development.md).
 
 La aplicación móvil se probará posteriormente con Expo Go o una compilación de desarrollo, utilizando un dispositivo/emulador y una URL de API accesible desde él.
 
 ## Pruebas y validación
 
-**Última verificación backend documentada (02/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **109 pruebas superadas** (78 unitarias/MVC y 31 PostgreSQL), incluidas categorías, departamentos, autenticación y correo. [Comando reproducible, resultados y límites](docs/development.md#73-verificación-documentada-del-backend). Redocly registró 0 errores y 2 advertencias previas; véase [validación de OpenAPI](docs/api/README.md#validación-y-visualización). Esta revisión documental del 03/11 no vuelve a ejecutar esas pruebas.
+**Última verificación backend documentada (03/11/2026):** `mvn -B -ntp verify -Ppostgres-it` en Docker, sin cargar credenciales de Neon: **174 pruebas superadas** (127 unitarias/MVC y 47 PostgreSQL), incluidas autenticación, correo, usuarios, pertenencias departamentales, departamentos y categorías. **BUILD SUCCESS.** [Comando reproducible, resultados y límites](docs/development.md#74-verificación-documentada-del-backend). Redocly registró 0 errores y 2 advertencias previas; véase [validación de OpenAPI](docs/api/README.md#validación-y-visualización). Esta revisión documental del 03/11 no vuelve a ejecutar esas pruebas.
 
 Desde `frontend/`:
 
@@ -97,7 +97,7 @@ npx expo export --platform web
 
 Estas comprobaciones **se ejecutaron satisfactoriamente el 13/10/2026**; Expo Doctor informó de 21/21 comprobaciones superadas. Se validaron también el arranque de Expo Web y la imagen de **desarrollo** de Compose. La exportación web genera `frontend/dist/` (ignorado por Git).
 
-Para los módulos de autenticación, verificación de correo y departamentos se dispone de pruebas unitarias/MVC y de integración sobre PostgreSQL 18 efímero mediante Testcontainers. La verificación histórica de Departamentos (31/10/2026) se ejecutó desde la raíz del proyecto mediante Docker Compose:
+Para los módulos de autenticación, verificación de correo, usuarios, pertenencias departamentales y catálogos se dispone de pruebas unitarias/MVC y de integración sobre PostgreSQL 18 efímero mediante Testcontainers. **Las pruebas de pertenencias departamentales están verificadas el 03/11/2026, incluida `DepartmentMembershipPostgresIT` (7 tests) y la ampliación de `UserRepositoryPostgresIT` (9 tests).** La verificación histórica de Departamentos (31/10/2026) se ejecutó desde la raíz del proyecto mediante Docker Compose:
 
 ```bash
 docker compose run --rm --no-deps -v /tmp/urbanpulse-departments-build:/app/target -v /var/run/docker.sock:/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal backend mvn -B -ntp verify -Ppostgres-it
@@ -118,10 +118,11 @@ No se ejecuta con el arranque ordinario de Compose ni forma parte de los tests d
 **API disponible en el código:**
 
 - **Autenticación:** `POST /api/v1/auth/register` (`201`), `POST /api/v1/auth/login` (`200`), `POST /api/v1/users/me/password-changes` (`204`), `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202`/`204`).
+- **Usuarios:** `GET /api/v1/users/me`, `PATCH /api/v1/users/me`, `GET /api/v1/users` (ADMIN), `GET /api/v1/users/{userId}` (ADMIN) y `PATCH /api/v1/users/{userId}` (ADMIN). Las respuestas incluyen roles globales y pertenencias departamentales activas e históricas.
 - **Departamentos:** `GET /api/v1/departments` (`200`), `GET /api/v1/departments/{departmentId}` (`200`), `POST /api/v1/departments` (`201`) y `PATCH /api/v1/departments/{departmentId}` (`200`).
 - **Categorías:** `GET /api/v1/categories` (`200`), `GET /api/v1/categories/{categoryId}` (`200`), `POST /api/v1/categories` (`201`, Location) y `PATCH /api/v1/categories/{categoryId}` (`200`). Nombre único, descripción opcional, active y UUIDv7; sin código corto. [Reglas del catálogo](docs/domain-model.md#catálogo-category) y [contrato HTTP](docs/api/README.md#contrato-de-categorías).
 
-La autenticación utiliza JWT HS256 con una duración de 7200 segundos. Las operaciones de departamentos y categorías requieren autenticación y correo verificado; la creación y actualización exigen además el rol global `ADMIN`. La desactivación se realiza mediante PATCH, sin eliminar físicamente el registro.
+La autenticación utiliza JWT HS256 con una duración de 7200 segundos. Las operaciones de perfil requieren autenticación y correo verificado; el listado y la administración de otros usuarios requieren además `ADMIN`. Las operaciones de departamentos y categorías requieren autenticación y correo verificado; la creación y actualización exigen además el rol global `ADMIN`. La desactivación se realiza mediante PATCH, sin eliminar físicamente el registro.
 
 La confirmación del correo habilita el acceso con el JWT existente. El cambio de contraseña revoca los JWT anteriores. Los fallos tipados de disponibilidad de PostgreSQL responden `503`.
 
@@ -136,13 +137,13 @@ Consulta el [diseño de autenticación](docs/auth-design.md) y el [informe de ci
 
 ## Despliegue
 
-**No hay un despliegue de producción validado.** Los módulos de autenticación, departamentos y categorías están implementados y sus migraciones Flyway V1, V2 y V3 se han verificado conjuntamente en PostgreSQL efímero mediante Testcontainers. Sin embargo, no consta validada su aplicación en Neon `development` ni su despliegue en `production`. Antes de aplicar las migraciones en Neon, es necesario comprobar el entorno de destino y el historial y los checksums de Flyway, especialmente los correspondientes a V1.
+**No hay un despliegue de producción validado.** Los módulos de autenticación, usuarios, departamentos y categorías, y la implementación de pertenencias departamentales, están incorporados. V1–V4 se verificaron conjuntamente en PostgreSQL efímero el 03/11/2026 (174 pruebas en verde, incluida `DepartmentMembershipPostgresIT`). No consta su aplicación en Neon `development` ni el despliegue en `production`. Antes de aplicar las migraciones en Neon, es necesario comprobar el entorno de destino y el historial y los checksums de Flyway, especialmente los correspondientes a V1.
 
 La estrategia acordada es desplegar la web SPA y la API REST en contenedores **independientes**, mientras Android/iOS se distribuyen como aplicaciones nativas. `compose.yaml` es exclusivamente de desarrollo.
 
 El `frontend/Dockerfile` prepara una compilación web con Expo y Nginx; todavía debe probarse como imagen de producción y recibir `EXPO_PUBLIC_API_URL` al construir.
 
-El backend dispone de un Dockerfile multietapa. Su arranque previo en desarrollo y la conectividad con Neon están comprobados. Los módulos de autenticación, departamentos y categorías, incluidas las migraciones Flyway V1, V2 y V3, se han verificado en PostgreSQL efímero mediante Testcontainers. Sin embargo, sigue pendiente comprobar su aplicación en Neon `development` y validar la imagen y el despliegue de producción.
+El backend dispone de un Dockerfile multietapa. Su arranque previo en desarrollo y la conectividad con Neon están comprobados. Los módulos de autenticación, usuarios, departamentos y categorías, incluidas las migraciones Flyway V1–V4, se verificaron en PostgreSQL efímero mediante Testcontainers el 03/11/2026. Sin embargo, sigue pendiente comprobar su aplicación en Neon `development` y validar la imagen y el despliegue de producción.
 
 El proveedor de hosting de ambos contenedores sigue sin decidirse. Más detalles: [docs/deployment.md](docs/deployment.md).
 

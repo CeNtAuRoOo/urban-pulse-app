@@ -37,219 +37,267 @@ import es.grupo18.urbanpulse.dto.user.AdminUpdateUserRequest;
 import es.grupo18.urbanpulse.dto.user.UpdateMyProfileRequest;
 import es.grupo18.urbanpulse.dto.user.UserDTO;
 import es.grupo18.urbanpulse.dto.user.UsersPageDTO;
+import es.grupo18.urbanpulse.entity.Department;
 import es.grupo18.urbanpulse.entity.enums.RoleCode;
+import es.grupo18.urbanpulse.entity.model.DepartmentMembership;
+import es.grupo18.urbanpulse.entity.model.Role;
 import es.grupo18.urbanpulse.entity.model.User;
+import es.grupo18.urbanpulse.repository.DepartmentMembershipRepository;
 import es.grupo18.urbanpulse.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock
-    private UserRepository users;
+        @Mock
+        private UserRepository users;
 
-    @InjectMocks
-    private UserService userService;
+        @Mock
+        private DepartmentMembershipRepository memberships;
 
-    private UUID userId;
-    private User user;
+        @InjectMocks
+        private UserService userService;
 
-    @BeforeEach
-    void setUp() {
-        userId = UUID.randomUUID();
-        user = mock(User.class);
-    }
+        private UUID userId;
+        private User user;
 
-    private void configureUser() {
-        when(user.getId()).thenReturn(userId);
-        when(user.getDisplayName()).thenReturn("Usuario Prueba");
-        when(user.getEmail()).thenReturn("prueba@urbanpulse.com");
-        when(user.isEmailVerified()).thenReturn(true);
-        when(user.isActive()).thenReturn(true);
-        when(user.getCreatedAt()).thenReturn(Instant.now());
-        when(user.globalRoles()).thenReturn(Set.of(RoleCode.CITIZEN));
-    }
+        @BeforeEach
+        void setUp() {
+                userId = UUID.randomUUID();
+                user = mock(User.class);
+        }
 
-    @Test
-    void getMeReturnsUserProfile() {
-        configureUser();
+        private void configureUser() {
+                when(user.getId()).thenReturn(userId);
+                when(user.getDisplayName()).thenReturn("Usuario Prueba");
+                when(user.getEmail()).thenReturn("prueba@urbanpulse.com");
+                when(user.isEmailVerified()).thenReturn(true);
+                when(user.isActive()).thenReturn(true);
+                when(user.getCreatedAt()).thenReturn(Instant.now());
+                when(user.globalRoles()).thenReturn(Set.of(RoleCode.CITIZEN));
+        }
 
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        @Test
+        void getMeReturnsUserProfile() {
+                configureUser();
 
-        UserDTO result = userService.getMe(userId);
+                when(users.findById(userId)).thenReturn(Optional.of(user));
 
-        assertNotNull(result);
-        assertEquals(userId, result.id());
-        assertEquals("Usuario Prueba", result.displayName());
-        assertEquals("prueba@urbanpulse.com", result.email());
-        assertTrue(result.emailVerified());
-        assertTrue(result.active());
-        assertEquals(Set.of(RoleCode.CITIZEN), result.roles());
+                UserDTO result = userService.getMe(userId);
 
-        verify(users).findById(userId);
-    }
+                assertNotNull(result);
+                assertEquals(userId, result.id());
+                assertEquals("Usuario Prueba", result.displayName());
+                assertEquals("prueba@urbanpulse.com", result.email());
+                assertTrue(result.emailVerified());
+                assertTrue(result.active());
+                assertEquals(Set.of(RoleCode.CITIZEN), result.roles());
 
-    @Test
-    void getMeThrowsWhenUserDoesNotExist() {
-        when(users.findById(userId)).thenReturn(Optional.empty());
+                verify(users).findById(userId);
+        }
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.getMe(userId));
+        @Test
+        void getMeThrowsWhenUserDoesNotExist() {
+                when(users.findById(userId)).thenReturn(Optional.empty());
 
-        verify(users).findById(userId);
-    }
+                assertThrows(
+                                EntityNotFoundException.class,
+                                () -> userService.getMe(userId));
 
-    @Test
-    void updateMeChangesDisplayName() {
-        configureUser();
+                verify(users).findById(userId);
+        }
 
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        @Test
+        void updateMeChangesDisplayName() {
+                configureUser();
 
-        UpdateMyProfileRequest request = new UpdateMyProfileRequest("Nuevo Nombre");
+                when(users.findById(userId)).thenReturn(Optional.of(user));
 
-        UserDTO result = userService.updateMe(userId, request);
+                UpdateMyProfileRequest request = new UpdateMyProfileRequest("Nuevo Nombre");
 
-        verify(user).updateDisplayName("Nuevo Nombre");
+                UserDTO result = userService.updateMe(userId, request);
 
-        assertNotNull(result);
-        assertEquals("Usuario Prueba", result.displayName());
-    }
+                verify(user).updateDisplayName("Nuevo Nombre");
 
-    @Test
-    void updateMeThrowsWhenUserDoesNotExist() {
-        when(users.findById(userId)).thenReturn(Optional.empty());
+                assertNotNull(result);
+                assertEquals("Usuario Prueba", result.displayName());
+        }
 
-        UpdateMyProfileRequest request = new UpdateMyProfileRequest("Nuevo Nombre");
+        @Test
+        void updateMeThrowsWhenUserDoesNotExist() {
+                when(users.findById(userId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.updateMe(userId, request));
+                UpdateMyProfileRequest request = new UpdateMyProfileRequest("Nuevo Nombre");
 
-        verify(user, never()).updateDisplayName(anyString());
-    }
+                assertThrows(
+                                EntityNotFoundException.class,
+                                () -> userService.updateMe(userId, request));
 
-    @Test
-    void getUserByIdReturnsUser() {
-        configureUser();
+                verify(user, never()).updateDisplayName(anyString());
+        }
 
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.of(user));
+        @Test
+        void getUserByIdReturnsUser() {
+                configureUser();
 
-        UserDTO result = userService.getUserById(userId);
+                when(users.findUserWithRolesById(userId))
+                                .thenReturn(Optional.of(user));
 
-        assertNotNull(result);
-        assertEquals(userId, result.id());
-        assertEquals("Usuario Prueba", result.displayName());
+                UserDTO result = userService.getUserById(userId);
 
-        verify(users).findUserWithRolesById(userId);
-    }
+                assertNotNull(result);
+                assertEquals(userId, result.id());
+                assertEquals("Usuario Prueba", result.displayName());
 
-    @Test
-    void getUserByIdThrowsWhenUserDoesNotExist() {
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.empty());
+                verify(users).findUserWithRolesById(userId);
+        }
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.getUserById(userId));
-    }
+        @Test
+        void getUserByIdThrowsWhenUserDoesNotExist() {
+                when(users.findUserWithRolesById(userId))
+                                .thenReturn(Optional.empty());
 
-    @Test
-    void updateUserChangesActiveStatus() {
-        configureUser();
+                assertThrows(
+                                EntityNotFoundException.class,
+                                () -> userService.getUserById(userId));
+        }
 
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.of(user));
+        @Test
+        void updateUserChangesActiveStatus() {
+                configureUser();
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
+                when(users.findUserWithRolesById(userId))
+                                .thenReturn(Optional.of(user));
 
-        UserDTO result = userService.updateUser(userId, request);
+                AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
 
-        verify(user).setActive(false);
+                UserDTO result = userService.updateUser(userId, request);
 
-        assertNotNull(result);
-        assertTrue(result.active());
-    }
+                verify(user).setActive(false);
 
-    @Test
-    void updateUserThrowsWhenUserDoesNotExist() {
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.empty());
+                assertNotNull(result);
+                assertTrue(result.active());
+        }
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
+        @Test
+        void updateUserThrowsWhenUserDoesNotExist() {
+                when(users.findUserWithRolesById(userId))
+                                .thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.updateUser(userId, request));
+                AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
 
-        verify(user, never()).setActive(anyBoolean());
-    }
+                assertThrows(
+                                EntityNotFoundException.class,
+                                () -> userService.updateUser(userId, request));
 
-    @Test
-    void getUsersReturnsPaginatedResults() {
-        configureUser();
+                verify(user, never()).setActive(anyBoolean());
+        }
 
-        Page<User> page = new PageImpl<>(
-                List.of(user),
-                PageRequest.of(0, 20),
-                1);
+        @Test
+        void getUsersReturnsPaginatedResults() {
+                configureUser();
 
-        when(users.searchUsers(
-                isNull(),
-                isNull(),
-                any(Pageable.class)))
-                .thenReturn(page);
+                Page<User> page = new PageImpl<>(
+                                List.of(user),
+                                PageRequest.of(0, 20),
+                                1);
 
-        UsersPageDTO result = userService.getUsers(
-                1, 20, null, null);
+                when(users.searchUsers(
+                                isNull(),
+                                isNull(),
+                                any(Pageable.class)))
+                                .thenReturn(page);
 
-        assertNotNull(result);
-        assertEquals(1, result.data().size());
-        assertEquals(userId, result.data().get(0).id());
+                UsersPageDTO result = userService.getUsers(
+                                1, 20, null, null);
 
-        assertEquals(1, result.pagination().page());
-        assertEquals(20, result.pagination().pageSize());
-        assertEquals(1, result.pagination().totalItems());
-        assertEquals(1, result.pagination().totalPages());
+                assertNotNull(result);
+                assertEquals(1, result.data().size());
+                assertEquals(userId, result.data().get(0).id());
 
-        verify(users).searchUsers(
-                isNull(),
-                isNull(),
-                any(Pageable.class));
-    }
+                assertEquals(1, result.pagination().page());
+                assertEquals(20, result.pagination().pageSize());
+                assertEquals(1, result.pagination().totalItems());
+                assertEquals(1, result.pagination().totalPages());
 
-    @Test
-    void getUsersPassesFiltersAndPagination() {
-        configureUser();
+                verify(users).searchUsers(
+                                isNull(),
+                                isNull(),
+                                any(Pageable.class));
+        }
 
-        Page<User> page = new PageImpl<>(
-                List.of(user),
-                PageRequest.of(1, 10),
-                11);
+        @Test
+        void getUsersPassesFiltersAndPagination() {
+                configureUser();
 
-        when(users.searchUsers(
-                eq(RoleCode.CITIZEN),
-                eq(true),
-                any(Pageable.class)))
-                .thenReturn(page);
+                Page<User> page = new PageImpl<>(
+                                List.of(user),
+                                PageRequest.of(1, 10),
+                                11);
 
-        UsersPageDTO result = userService.getUsers(
-                2, 10, RoleCode.CITIZEN, true);
+                when(users.searchUsers(
+                                eq(RoleCode.CITIZEN),
+                                eq(true),
+                                any(Pageable.class)))
+                                .thenReturn(page);
 
-        assertEquals(2, result.pagination().page());
-        assertEquals(10, result.pagination().pageSize());
-        assertEquals(11, result.pagination().totalItems());
-        assertEquals(2, result.pagination().totalPages());
+                UsersPageDTO result = userService.getUsers(
+                                2, 10, RoleCode.CITIZEN, true);
 
-        verify(users).searchUsers(
-                eq(RoleCode.CITIZEN),
-                eq(true),
-                argThat(pageable -> pageable.getPageNumber() == 1
-                        && pageable.getPageSize() == 10
-                        && pageable.getSort()
-                                .getOrderFor("createdAt").getDirection() == Sort.Direction.DESC
-                        && pageable.getSort()
-                                .getOrderFor("id").getDirection() == Sort.Direction.ASC));
-    }
+                assertEquals(2, result.pagination().page());
+                assertEquals(10, result.pagination().pageSize());
+                assertEquals(11, result.pagination().totalItems());
+                assertEquals(2, result.pagination().totalPages());
+
+                verify(users).searchUsers(
+                                eq(RoleCode.CITIZEN),
+                                eq(true),
+                                argThat(pageable -> pageable.getPageNumber() == 1
+                                                && pageable.getPageSize() == 10
+                                                && pageable.getSort()
+                                                                .getOrderFor("createdAt")
+                                                                .getDirection() == Sort.Direction.DESC
+                                                && pageable.getSort()
+                                                                .getOrderFor("id")
+                                                                .getDirection() == Sort.Direction.ASC));
+        }
+
+        /**
+         * Comprueba que el perfil del usuario incluye sus pertenencias departamentales
+         * y los datos de departamento y rol asociados.
+         */
+        @Test
+        void getMeIncludesDepartmentMemberships() {
+                configureUser();
+
+                UUID departmentId = UUID.randomUUID();
+                Instant joinedAt = Instant.parse("2026-01-10T09:00:00Z");
+                Department department = mock(Department.class);
+                Role role = mock(Role.class);
+                DepartmentMembership membership = mock(DepartmentMembership.class);
+
+                when(department.getId()).thenReturn(departmentId);
+                when(department.getName()).thenReturn("Mantenimiento Urbano");
+                when(department.getCode()).thenReturn("MANT");
+                when(department.getDescription()).thenReturn("Conservación urbana.");
+                when(department.isActive()).thenReturn(true);
+                when(role.getCode()).thenReturn(RoleCode.TECHNICIAN);
+                when(membership.getUser()).thenReturn(user);
+                when(membership.getDepartment()).thenReturn(department);
+                when(membership.getRole()).thenReturn(role);
+                when(membership.getJoinedAt()).thenReturn(joinedAt);
+                when(membership.getLeftAt()).thenReturn(null);
+
+                when(users.findById(userId)).thenReturn(Optional.of(user));
+                when(memberships.findAllForUsers(List.of(userId))).thenReturn(List.of(membership));
+
+                UserDTO result = userService.getMe(userId);
+
+                assertEquals(1, result.departmentMemberships().size());
+                assertEquals(RoleCode.TECHNICIAN, result.departmentMemberships().getFirst().role());
+                assertEquals("MANT", result.departmentMemberships().getFirst().department().code());
+                assertEquals(joinedAt, result.departmentMemberships().getFirst().joinedAt());
+                assertEquals(null, result.departmentMemberships().getFirst().leftAt());
+                verify(memberships).findAllForUsers(List.of(userId));
+        }
 }

@@ -1,6 +1,6 @@
-# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.4.0, auth implementado)
+# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.5.0, usuarios y pertenencias implementados)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Departamentos y Categorías también están implementados; las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. La versión `0.2.0` sirvió como base de diseño y la `0.4.0` incorpora el núcleo de autenticación, incluida la verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Usuarios, pertenencias departamentales, Departamentos y Categorías están implementados en backend; V4 verificada en PostgreSQL efímero (174 tests en verde el 03/11/2026) y las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. La versión `0.2.0` sirvió como base de diseño y la `0.5.0` incorpora gestión de usuarios y pertenencias departamentales, además de autenticación y verificación de correo. Consultar [auth-design.md](../auth-design.md).
 
 ## 1. Una referencia coherente, varias vistas
 
@@ -31,11 +31,17 @@ Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, un
 | Duplicados               | Sugerencias calculadas, vínculos humanos persistidos                                 | `DuplicateSuggestionDTO` y `DuplicateLinkDTO`.                                                                  |
 | Ubicación                | Coordenadas `Location`/`Coordinates` embebidas                                       | DTO de localización, proveedores no elegidos.                                                                   |
 
+### Revisión de usuarios y pertenencias departamentales — 03/11/2026
+
+El tag Usuarios ofrece cinco operaciones implementadas: perfil propio (`GET/PATCH /users/me`), listado administrativo (`GET /users`) y consulta/actualización administrativa por UUID (`GET/PATCH /users/{userId}`). `UserDTO` contiene los roles globales y una colección independiente de pertenencias departamentales activas e históricas. `leftAt = null` identifica una adscripción activa.
+
+Una pertenencia enlaza `User`, `Department` y `Role`; solo acepta roles departamentales. Se permite una adscripción activa por combinación usuario/departamento/rol y varios roles distintos en el mismo departamento. La baja conserva el registro; una reincorporación crea otro. El listado filtra por rol global o por rol departamental activo. El servicio de dominio administra altas/bajas, pero no se ha publicado un endpoint HTTP específico para esas operaciones. Flyway V4 y sus pruebas están añadidas; V4 verificada en PostgreSQL efímero, incluidos DepartmentMembershipPostgresIT y CategoryPostgresIT.
+
 ### Revisión de identidad/autenticación (25/10/2026)
 
 **Estado posterior (28/10/2026):** cinco operaciones implementadas; registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los cinco POST limitado a 16 KiB; `429` para registro, login, confirmación y reenvío, no cambio de contraseña. Las otras rutas de este contrato permanecen como diseño.
 
-| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.4.0`                                                                                     |
+| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.5.0`                                                                                     |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO` con JWT limitado y código enviado tras commit por SMTP local. |
 | Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.              |
@@ -64,7 +70,7 @@ Recorrido representativo, no matriz completa:
 - **Reasignación:** finaliza la asignación anterior y crea otra, sin forzar `StatusChange` si el estado se mantiene.
 - **Aceptación:** registra `acceptedBy`/`acceptedAt` sin forzar IN_PROGRESS.
 
-La autorización en estos casos no se decide únicamente por `x-roles`: depende de `DepartmentMembership`, `TeamMembership`, asignación vigente, titularidad y estado del recurso. El núcleo auth prepara la resolución de autoridades actuales, no implementa las tablas departamentales.
+La autorización en estos casos no se decide únicamente por `x-roles`: depende de `DepartmentMembership`, `TeamMembership`, asignación vigente, titularidad y estado del recurso. V4 ya persiste `DepartmentMembership` y el backend la consulta en los DTO de usuario; `TeamMembership` y la aplicación de permisos contextuales a operaciones de incidencias siguen pendientes.
 
 ## 4. Qué no está cerrado o queda fuera del primer tag
 
@@ -102,7 +108,7 @@ npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml --output docs/api/ope
 npx @redocly/cli build-docs docs/api/openapi.yaml --output docs/api/openapi.html
 ```
 
-Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, verificar que `info.version` es `0.4.0` y que no hay `$ref` rotos.
+Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, verificar que `info.version` es `0.5.0` y que no hay `$ref` rotos.
 
 ## 7. Referencias
 

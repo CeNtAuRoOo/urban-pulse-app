@@ -124,13 +124,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findUserWithRolesById(@Param("id") UUID id);
 
     /**
-     * Busca usuarios aplicando filtros opcionales por rol global
-     * y estado de actividad.
+     * Busca usuarios aplicando filtros opcionales por rol global o por rol
+     * departamental activo y estado de actividad.
      * Los resultados se devuelven de forma paginada y ordenada
      * según el objeto Pageable recibido.
      *
-     * @param role     rol global que deben tener los usuarios, o null para no
-     *                 filtrar
+     * @param role     rol global o departamental activo que deben tener los
+     *                 usuarios, o null para no filtrar
      * @param active   estado de actividad requerido, o null para no filtrar
      * @param pageable configuración de paginación y ordenación
      * @return página con los usuarios que cumplen los filtros
@@ -146,6 +146,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                       from UserRole ur
                       where ur.user = u
                         and ur.id.roleCode = :role
+                  )
+                  or exists (
+                      select membership
+                      from DepartmentMembership membership
+                      where membership.user = u
+                        and membership.role.code = :role
+                        and membership.leftAt is null
                   )
               )
             """)

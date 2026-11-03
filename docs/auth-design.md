@@ -1,6 +1,6 @@
 # UrbanPulse — Autenticación y seguridad (diseño implementado)
 
-> **Estado a 28/10/2026:** módulo de autenticación implementado en el backend de la rama `feature/modulo-autenticacion`. Se dispone de entidades, Flyway V1 ampliada, servicios JWT/SMTP y verificación por código, y pruebas. **No significa desplegado:** la V1 no consta aplicada a Neon `development` y la verificación conjunta del backend real con Mailpit aún está pendiente. Los demás tags siguen siendo diseño revisable.
+ > **Estado revisado el 03/11/2026:** el módulo de autenticación conserva su implementación y pruebas; el tag Usuarios incorpora además la gestión de perfiles y la exposición de pertenencias departamentales mediante Flyway V4. **La verificación completa posterior a V4 se ha ejecutado con éxito: 174 pruebas en verde (127 unitarias/MVC y 47 de integración), incluyendo `DepartmentMembershipPostgresIT`, `UserRepositoryPostgresIT` y `CategoryPostgresIT`.** **No significa desplegado:** no consta la aplicación de V1–V4 en Neon `development`; la verificación conjunta del backend real con Mailpit sigue pendiente.
 
 ## 1. Referencias y alcance
 
@@ -16,12 +16,13 @@ Consultar [arquitectura](architecture.md), [dominio](domain-model.md), [contrato
 | Verificación del email por código y acceso restringido a pendientes                     | **Implementada**                      |
 | Recuperación olvidada de contraseña; refresh                                            | **Mejoras futuras**                   |
 | Primer `ADMIN` mediante procedimiento manual controlado                                    | **Tarea posterior**                   |
-| Invitaciones, membresías departamentales, equipos                                          | **Otros tags**                        |
+| Invitaciones y equipos                                                                     | **Otros tags**                        |
+| `DepartmentMembership` (persistencia, ciclo de vida y exposición en `UserDTO`)              | **Implementada (V4 verificada)**      |
 | `GET ?fields=` y anotaciones de visibilidad por propiedad                                  | **Investigación futura, sin aprobar** |
 
 ## 2. Modelo de identidad realmente persistido
 
-La migración `backend/src/main/resources/db/migration/V1__create_authentication.sql`, ampliada **antes de aplicarse por primera vez**, crea `users`, `roles`, `user_roles` y `email_verifications`, y carga los cinco roles. `Role` solo tiene `code` y `description`; **no existen `RoleScope` ni `Role.scope`**. `RoleCode.isGlobal()` y `isDepartmental()` derivan el ámbito. `UserRole` solo admite `CITIZEN`, `OPERATOR`, `ADMIN`; departamentales quedarán ligados a `DepartmentMembership` en otro tag.
+La migración `backend/src/main/resources/db/migration/V1__create_authentication.sql`, ampliada **antes de aplicarse por primera vez**, crea `users`, `roles`, `user_roles` y `email_verifications`, y carga los cinco roles. `Role` solo tiene `code` y `description`; **no existen `RoleScope` ni `Role.scope`**. `RoleCode.isGlobal()` y `isDepartmental()` derivan el ámbito. `UserRole` solo admite `CITIZEN`, `OPERATOR`, `ADMIN`; los roles departamentales se persisten por separado mediante `DepartmentMembership` en V4 (**verificada en PostgreSQL efímero el 03/11/2026**), sin ampliar `user_roles`.
 
 `User`: UUIDv7 generado por Hibernate, `displayName` (2–120), email normalizado (`trim` y `toLowerCase(Locale.ROOT)`, máximo 254), BCrypt, `active=true`, `emailVerified=false`, `tokenVersion=0`, fechas `Instant` y preferencias `inApp/email/push=true` (`@Embeddable`, columnas de `users`). PostgreSQL conserva comprobaciones de longitudes, email normalizado, `tokenVersion≥0`, catálogo, roles globales, PK/FK e índice único `users_email_unique`. No se crea una tabla de sesiones. `email_verifications` almacena una sola solicitud por usuario (`user_id` como PK y FK), `code_hash` de 32 bytes y tiempos de creación/caducidad; tiene índices para limpieza.
 
@@ -31,13 +32,13 @@ Todos los usuarios han de conservar `CITIZEN`, incluidos operadores y administra
 
 - **Registro público:** `POST /auth/register`, `RegisterRequest(displayName,email,password)`. JSON estricto, no acepta roles/flags inyectados. BCrypt coste **12**, mínimo 8 caracteres y máximo **72 bytes UTF-8** (sin truncamiento). Hash generado antes de la transacción; se guardan usuario y `UserRole(CITIZEN)` atómicamente. La unicidad SQL resuelve carreras y devuelve `409` por correo duplicado. Devuelve `201 TokenDTO` con JWT y `UserDTO`; **no envía `Location`** hasta disponer de `GET /users/me`.
 - **Login público:** `POST /auth/login`, `LoginRequest(email,password)`, normalización de correo; hash BCrypt ficticio para reducir diferencias temporales cuando no exista la cuenta. Correo desconocido, contraseña incorrecta y cuenta inactiva generan el mismo `401` sin enumerar cuentas. Éxito `200 TokenDTO`. Contraseña excesiva también genera `401`. `emailVerified=false` **permite iniciar sesión y obtener JWT**, pero impide acceder a los recursos de negocio hasta completar la confirmación.
-- Los DTO y tokens no exponen `passwordHash` ni `tokenVersion`. `UserDTO` incluye `emailVerified` y roles globales actuales; no inventar pertenencias departamentales.
+- Los DTO y tokens no exponen `passwordHash` ni `tokenVersion`. `UserDTO` incluye `emailVerified`, roles globales actuales y `departmentMemberships` activas e históricas. La colección se consulta desde V4 y no se incorpora a los claims JWT.
 
 ## 4. JWT y seguridad por petición
 
 JWT Bearer **HS256** firmado por Nimbus/Spring Security, secreto externo `JWT_SECRET` en Base64 que decodifica a **≥32 bytes aleatorios** y `JWT_ISSUER` externo; duración fija de **7200 s**. Claims `sub` (UUID canónico), `iat`, `exp`, `iss`, `ver`. No se confía en un claim de roles ni se emite email en el token. Sin refresh ni cookies/sesiones de servidor; CORS con lista explícita de orígenes, `allowCredentials=false`, CSRF desactivado al usar exclusivamente `Authorization: Bearer`.
 
-Spring valida firma, emisor, fechas y claims. `DatabaseJwtAuthenticationConverter` ejecuta en cada petición protegida una proyección de PostgreSQL con actividad, `emailVerified`, `tokenVersion` y roles globales vigentes; exige `CITIZEN`, rechaza usuarios desactivados o JWT con versión distinta y genera las autoridades `ROLE_*`; añade `EMAIL_VERIFIED` si la cuenta ya está confirmada. Por diseño es **fail closed** y sin caché entre peticiones. Por defecto, cualquier ruta protegida de negocio requiere la autoridad `EMAIL_VERIFIED`, salvo las excepciones explícitas para confirmar/reenviar/cambiar contraseña. Las cuentas no verificadas reciben `403 EMAIL_NOT_VERIFIED`. Los permisos por propiedad, pertenencia departamental, titularidad y estado del recurso siguen fuera del módulo; `x-roles` en OpenAPI es documental.
+Spring valida firma, emisor, fechas y claims. `DatabaseJwtAuthenticationConverter` ejecuta en cada petición protegida una proyección de PostgreSQL con actividad, `emailVerified`, `tokenVersion` y roles globales vigentes; exige `CITIZEN`, rechaza usuarios desactivados o JWT con versión distinta y genera las autoridades `ROLE_*`; añade `EMAIL_VERIFIED` si la cuenta ya está confirmada. Por diseño es **fail closed** y sin caché entre peticiones. Por defecto, cualquier ruta protegida de negocio requiere la autoridad `EMAIL_VERIFIED`, salvo las excepciones explícitas para confirmar/reenviar/cambiar contraseña. Las cuentas no verificadas reciben `403 EMAIL_NOT_VERIFIED`. La consulta de pertenencias y el filtro por rol departamental activo están implementados. La autorización contextual de operaciones de negocio por pertenencia, titularidad y estado del recurso sigue pendiente en sus respectivos módulos; `x-roles` en OpenAPI es documental.
 
 ## 5. Cambio de contraseña
 
@@ -76,20 +77,26 @@ Spring valida firma, emisor, fechas y claims. `DatabaseJwtAuthenticationConverte
 
 ## 9. Pruebas y despliegue
 
-Existe una suite de tests unitarios/MVC, `AuthenticationPostgresIT` y `EmailVerificationPostgresIT` sobre **PostgreSQL 18 efímero** con Testcontainers: migración Flyway, validación Hibernate, UUIDv7, restricciones/rollback, conflictos bajo concurrencia, bloqueo de cambios de contraseña y revocación de JWT. MVC cubre `401`/`403`/`500`/`503`, ausencia de `CITIZEN`, tamaños de cuerpo, logs sin secretos, CORS y rate limiting. **Evidencia comunicada por Codex el 28/10/2026:** `BUILD SUCCESS`, 55 pruebas (35 unitarias/MVC y 20 de integración PostgreSQL efímero), sin errores ni omisiones; no equivale a ejecución sobre Neon ni al arranque integrado con Mailpit. Comando desde `backend/`:
+Existe una suite de tests unitarios/MVC y de integración sobre **PostgreSQL 18 efímero** con Testcontainers: migración Flyway, validación Hibernate, UUIDv7, restricciones/rollback, conflictos bajo concurrencia, bloqueo de cambios de contraseña y revocación de JWT. MVC cubre `401`/`403`/`500`/`503`, ausencia de `CITIZEN`, tamaños de cuerpo, logs sin secretos, CORS y rate limiting. Las suites de integración incluyen `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentMembershipPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT` y `EmailVerificationPostgresIT`, todas sobre PostgreSQL 18 efímero.
+
+**Evidencia del 28/10/2026 (histórica, anterior a los catálogos y a V4):** `BUILD SUCCESS`, 55 pruebas (35 unitarias/MVC y 20 de integración PostgreSQL efímero).
+
+**Evidencia del 02/11/2026 (histórica, V1–V3):** `BUILD SUCCESS`, 109 pruebas (78 unitarias/MVC y 31 de integración PostgreSQL efímero).
+
+**Evidencia del 03/11/2026 (V4):** `BUILD SUCCESS`, **174 pruebas** (127 unitarias/MVC y 47 de integración PostgreSQL efímero), incluyendo `DepartmentMembershipPostgresIT` (7 tests), `UserRepositoryPostgresIT` (9 tests) y `CategoryPostgresIT` (6 tests) en verde. Ninguna de estas ejecuciones equivale a despliegue sobre Neon ni al arranque integrado con Mailpit. Comando desde `backend/`:
 
 ```bash
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-`NeonConnectivityIT` permanece manual; no se ha aplicado la nueva V1 sobre Neon `development`. Antes del primer arranque de la versión nueva con Compose, comprobar destino de las variables y realizar respaldo/procedimiento de recuperación. **Jamás usar Neon `production` para experimentos.** `ddl-auto=validate` permanece activo.
+`NeonConnectivityIT` permanece manual; no consta la aplicación de V1–V4 sobre Neon `development`. Antes del primer arranque de la versión nueva con Compose, comprobar destino de las variables y realizar respaldo/procedimiento de recuperación. **Jamás usar Neon `production` para experimentos.** `ddl-auto=validate` permanece activo.
 
 ## 10. Tareas futuras y reglas por tag
 
 - **Correo:** verificación real del control del email **implementada con SMTP local Mailpit y códigos de uso único**; quedan pendientes proveedor real/dominio, recuperación de contraseña olvidada y posible outbox para entrega fiable.
 - **Refresh:** tokens renovables y cierre de sesión individual, aplazados.
 - **Primer administrador:** procedimiento manual posterior con hash BCrypt local temporal e inserciones administradas, asignando `CITIZEN` y `ADMIN`, sin secretos versionados.
-- **Invitaciones:** solo `OPERATOR`/`ADMIN` como roles globales invitados; `CITIZEN` es siempre base; roles departamentales y verificaciones de email en su tag.
+- **Invitaciones:** solo `OPERATOR`/`ADMIN` como roles globales invitados; `CITIZEN` es siempre base. La persistencia, el ciclo de vida interno y la exposición en `UserDTO` de pertenencias departamentales existen en V4 y están **verificados en PostgreSQL efímero**; su integración con invitaciones y la autorización contextual de operaciones siguen pendientes.
 - **Autorización futura:** permisos por departamento, titularidad, estado y equipo; revisar `SecurityConfig` en cada tag. Investigar `GET fields` y anotaciones `OWNER`/`ADMIN`/`NONE` sin anticipar implementación.
 - **Infraestructura:** rotación de secretos, HTTPS, CORS por despliegue, resolución de IP de proxies, validación en Neon development y pruebas de imágenes Docker.
 

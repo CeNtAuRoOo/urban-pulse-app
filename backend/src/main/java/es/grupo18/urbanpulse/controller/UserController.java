@@ -108,16 +108,18 @@ public class UserController {
 
     /**
      * Obtiene un listado paginado de usuarios.
-     * Permite aplicar filtros opcionales por rol global y estado de actividad.
+     * Permite aplicar filtros opcionales por rol global, rol departamental activo
+     * y estado de actividad.
      * Este endpoint requiere permisos de administrador.
      *
      * @param page     número de página solicitado, comenzando por 1
      * @param pageSize cantidad de usuarios por página
-     * @param role     rol global utilizado como filtro, si se especifica
+     * @param role     rol global o departamental utilizado como filtro, si se
+     *                 especifica
      * @param active   estado de actividad utilizado como filtro, si se especifica
-     * @return DTO con los usuarios encontrados y los datos de paginación
-     * @throws ResponseStatusException si los parámetros de paginación
-     *                                 no son válidos o el rol no es global
+     * @return DTO con los usuarios, sus roles, pertenencias y datos de paginación
+     * @throws ResponseStatusException si los parámetros de paginación no son
+     *                                 válidos
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -131,12 +133,6 @@ public class UserController {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "La página debe ser mayor que 0 y pageSize debe estar entre 1 y 100.");
-        }
-
-        if (role != null && !role.isGlobal()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "El filtro por rol departamental todavía no está implementado.");
         }
 
         return userService.getUsers(page, pageSize, role, active);
