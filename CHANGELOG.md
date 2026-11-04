@@ -1,5 +1,16 @@
 # Changelog
 
+### Implementación del tag Evidencias (revisión de documentación, 04/11/2026)
+
+- Implementadas las cinco operaciones del tag **Evidencias** sobre adjuntos de incidencia: `POST /api/v1/incidents/{incidentId}/attachments` (`201` + `Location`), `GET /api/v1/incidents/{incidentId}/attachments` (`200`), `GET /api/v1/incidents/{incidentId}/attachments/{attachmentId}` (`200`), `GET /api/v1/incidents/{incidentId}/attachments/{attachmentId}/content` (`200` con `image/jpeg|png|webp`) y `DELETE /api/v1/incidents/{incidentId}/attachments/{attachmentId}` (`204`).
+- `AttachmentService` valida el fichero (no vacío → `400 EMPTY_ATTACHMENT`), detecta el formato por **firma binaria** (JPEG `FF D8 FF`, PNG `89 50 4E 47 0D 0A 1A 0A`, WebP `RIFF….WEBP`) según ADR-0004, aplica `ImageSanitizer` antes de almacenar (`422 INVALID_ATTACHMENT`/`INVALID_ATTACHMENT_FORMAT`) y limita `description` a 300 caracteres (`422 INVALID_ATTACHMENT_DESCRIPTION`).
+- Almacenamiento del binario en bucket privado de Neon Object Storage con `storageKey` UUID aleatoria; metadatos en PostgreSQL dentro de `TransactionTemplate`. **Compensación**: si falla la persistencia se borra el objeto del bucket (fallo de limpieza añadido como `suppressed`). Errores `500 ATTACHMENT_STORAGE_ERROR` / `ATTACHMENT_DOWNLOAD_ERROR`.
+- Listado y metadatos devuelven solo evidencias activas (`deletedAt IS NULL`); `404 ATTACHMENT_NOT_FOUND` en caso contrario. La descarga se sirve **por backend** (`storage.download`), sin exponer claves internas ni URLs públicas permanentes del bucket.
+- Borrado con **soft delete** (`markAsDeleted`): se conservan metadatos en PostgreSQL y binario en Neon Object Storage, conforme al contrato.
+- `AttachmentDTO` incorporado al esquema compartido; parámetros `IncidentId`/`AttachmentId` reutilizados desde `components/parameters.yaml`; respuestas `400/401/403/404/409/422/500` coherentes con autenticación. `x-roles` sigue siendo **documental**: `DELETE` restringido a `OPERATOR`/`TECHNICIAN`/`ADMIN` debe aplicarse en la capa web/seguridad.
+- **Fuera del alcance / pendientes de cierre:** tamaño máximo de subida (el contrato lo deja *pendiente de acordar*); verificación de pertenencia `incidentId` ↔ `attachmentId` y de acceso del usuario a la incidencia (hoy `AttachmentService` resuelve solo por `attachmentId`); aplicación efectiva de `x-roles`; suite de pruebas de evidencias (unitarias/MVC + PostgreSQL efímero) análoga a la de autenticación; `docs/attachments-design.md`; actualización de `relacional.drawio` y `clases-simplificado.drawio` con `Attachment` (`storageKey`, `contentType`, `size`, `originalFilename`, `description`, `deletedAt`) y su relación con `Incident`/`User`; *sweeper* de objetos huérfanos ante caída entre `storage.upload` y persistencia; política EXIF/privacidad y consistencia SQL/Object Storage.
+- Sin cambios en `info.version` (`0.4.0`) ni en el prefijo HTTP `/api/v1` por esta implementación, salvo acuerdo posterior. Los artefactos derivados (`openapi.yaml`, `openapi.html`) deben regenerarse con Redocly desde el modular; **no se mantienen a mano**.
+
 ## 2026-10-28 — Verificación de correo y transporte SMTP (implementación local)
 
 - Implementados `POST /api/v1/auth/email-verifications/confirm` (`204`) y `POST /api/v1/auth/email-verifications/resend` (`202` si se solicita envío, `204` si ya está verificado, `410` si ha caducado la cuenta). El registro inicial sigue devolviendo `201 TokenDTO` con acceso limitado.
@@ -87,3 +98,5 @@ Registro de cambios relevantes de UrbanPulse. Se sigue [Keep a Changelog](https:
 - Pendientes: repetir la suite auth tras los últimos cambios, arranque controlado con Flyway V1 en Neon `development`, Android/iOS en dispositivo, imagen Nginx producción, tablas de los demás tags, sus endpoints y subida/descarga de evidencias.
 
 > La sección Unreleased registra tanto el diseño histórico como el código actual. **Implementado en el repositorio no significa desplegado**: falta comprobar el arranque sobre Neon `development` y la versión final de pruebas, además de completar el resto de tags.
+
+

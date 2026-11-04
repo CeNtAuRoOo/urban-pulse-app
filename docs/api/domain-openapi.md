@@ -108,3 +108,23 @@ Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, 
 ### Implementación de verificación de correo (28/10/2026)
 
 Se incorpora `EmailVerification` (PK/FK compartida con `User`) con HMAC-SHA256 de ocho dígitos, caducidad de hasta diez minutos y límite de cuenta no verificada de 24 horas. Confirmación: `POST /auth/email-verifications/confirm`, JWT y DTO estricto, `204` o `422 INVALID_VERIFICATION_CODE`. Reenvío: `POST /auth/email-verifications/resend`, JWT y cuerpo vacío, `202`/`204`/`410 VERIFICATION_ACCOUNT_EXPIRED`. Las cinco operaciones mantienen 16 KiB máximo de cuerpo; confirmación y reenvío tienen `429` con quotas locales. `EMAIL_VERIFIED` se lee de PostgreSQL en cada petición y se exige para las rutas de negocio, con `403 EMAIL_NOT_VERIFIED`; el mismo JWT sirve tras confirmar sin invalidar la versión del token. El SMTP local es Mailpit, no entrega real garantizada. Recuperación de contraseña, invitaciones y notificaciones siguen fuera del código de este tag.
+
+### Revisión del módulo de evidencias (04/11/2026)
+
+El módulo de Evidencias incorpora un flujo de gestión de fotografías asociadas a incidencias. Su diseño separa los metadatos del contenido binario: los primeros se persisten en PostgreSQL y los archivos se almacenan en un bucket privado de Neon Object Storage, utilizando una interfaz compatible con S3.
+
+## Almacenamiento y tratamiento de imágenes
+
+Se admiten los formatos JPEG, PNG y WebP.
+
+El formato no se determina únicamente por el nombre o el Content-Type declarado por el cliente: se comprueba mediante la firma binaria del archivo.
+
+Las imágenes se decodifican y vuelven a codificar antes de almacenarse mediante el componente de saneamiento. Este proceso evita conservar los metadatos originales de la imagen, incluidos los metadatos EXIF que no se copian durante la recodificación.
+
+El saneamiento contempla un límite de 40.000.000 píxeles para evitar procesar imágenes con dimensiones excesivas.
+
+El tamaño registrado en sizeBytes corresponde al contenido procesado y almacenado, no necesariamente al tamaño del archivo original enviado por el cliente.
+
+La clave interna de almacenamiento no se expone al cliente ni se proporcionan URLs públicas permanentes. La descarga se realiza a través del backend.
+
+Si falla la persistencia de los metadatos después de subir el archivo, se intenta eliminar el objeto como mecanismo de compensación ante el fallo parcial.

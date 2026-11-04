@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.4.0
-  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  description: Contrato del tag Autenticación implementado en el backend (registro, login, cambio de contraseña y verificación de correo por código) y contrato del módulo de Evidencias para la gestión de fotografías asociadas a incidencias. Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -1087,7 +1087,7 @@ paths:
       tags:
         - Evidencias
       summary: Adjuntar fotografía
-      description: Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar compensación ante fallos parciales y EXIF sensible.
+      description: Valida la firma binaria del archivo y admite únicamente JPEG, PNG o WebP. La imagen se decodifica y recodifica para eliminar metadatos originales, incluidos los EXIF, y se limita a 40 millones de píxeles. El binario procesado se almacena en el bucket privado de Neon Object Storage y sus metadatos en PostgreSQL. Si falla la persistencia de los metadatos después de subir el objeto, se intenta eliminar el objeto como compensación. El tamaño máximo de subida está pendiente de acordar.
       operationId: postIncidentsIncidentIdAttachments
       x-roles:
         - CITIZEN
@@ -1098,7 +1098,7 @@ paths:
         - $ref: '#/components/parameters/IncidentId'
       requestBody:
         required: true
-        description: Subida autenticada; solo fotografías según ADR-0004. Tamaño máximo aún por acordar.
+        description: Subida autenticada. Solo se admiten imágenes JPEG, PNG y WebP; el tipo se comprueba mediante la firma binaria y no únicamente mediante la extensión o el MIME declarado. Tamaño máximo aún por acordar.
         content:
           multipart/form-data:
             schema:
@@ -1107,17 +1107,17 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: JPEG, PNG o WebP.
+                  description: Imagen JPEG, PNG o WebP.
                 description:
                   type: string
-                  description: Texto alternativo opcional.
                   maxLength: 300
+                  description: Descripción opcional de la fotografía.
               required:
                 - file
               additionalProperties: false
       responses:
         '201':
-          description: Recurso creado.
+          description: Fotografía almacenada y metadatos creados.
           content:
             application/json:
               schema:
@@ -1144,8 +1144,8 @@ paths:
     get:
       tags:
         - Evidencias
-      summary: Listar fotografías
-      description: Lista metadatos sin revelar URLs S3 públicas permanentes.
+      summary: Listar fotografías de una incidencia
+      description: Devuelve los metadatos de las evidencias activas asociadas a la incidencia. No expone claves internas de almacenamiento ni URLs públicas permanentes.
       operationId: getIncidentsIncidentIdAttachments
       x-roles:
         - AUTHENTICATED
@@ -1153,7 +1153,7 @@ paths:
         - $ref: '#/components/parameters/IncidentId'
       responses:
         '200':
-          description: Operación correcta.
+          description: Lista de metadatos de las fotografías activas.
           content:
             application/json:
               schema:
@@ -1177,7 +1177,7 @@ paths:
       tags:
         - Evidencias
       summary: Consultar metadatos de fotografía
-      description: Metadatos de evidencia bajo autorización por incidencia.
+      description: Devuelve los metadatos de una evidencia activa perteneciente a la incidencia indicada. No expone la clave interna de almacenamiento.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentId
       x-roles:
         - AUTHENTICATED
@@ -1186,7 +1186,7 @@ paths:
         - $ref: '#/components/parameters/AttachmentId'
       responses:
         '200':
-          description: Operación correcta.
+          description: Metadatos de la fotografía.
           content:
             application/json:
               schema:
@@ -1203,12 +1203,36 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Evidencias
+      summary: Eliminar fotografía
+      description: Realiza una eliminación lógica de la evidencia. Se conserva el registro de metadatos en PostgreSQL y el objeto binario en Neon Object Storage; la evidencia deja de estar disponible en las consultas de elementos activos.
+      operationId: deleteIncidentsIncidentIdAttachmentsAttachmentId
+      x-roles:
+        - OPERATOR
+        - TECHNICIAN
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/AttachmentId'
+      responses:
+        '204':
+          description: Evidencia marcada como eliminada. Sin cuerpo.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /incidents/{incidentId}/attachments/{attachmentId}/content:
     get:
       tags:
         - Evidencias
       summary: Descargar fotografía privada
-      description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
+      description: Entrega el binario de la imagen mediante el backend tras comprobar la autorización. El objeto permanece en un bucket privado y no se proporciona una URL pública permanente.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
       x-roles:
         - AUTHENTICATED
@@ -3742,36 +3766,39 @@ components:
       additionalProperties: false
     AttachmentDTO:
       type: object
+      description: Metadatos públicos de una evidencia fotográfica. No incluye la clave interna de almacenamiento ni una URL pública del objeto.
       properties:
         id:
           type: string
           format: uuid
-        incidentId:
+          description: Identificador de la evidencia (UUIDv7).
+        originalFilename:
           type: string
-          format: uuid
-        fileName:
-          type: string
+          maxLength: 128
+          description: Nombre original del archivo, normalizado y limitado a 128 caracteres.
         contentType:
           type: string
           enum:
-            - image/jpeg
-            - image/png
-            - image/webp
+            - IMAGE_JPEG
+            - IMAGE_PNG
+            - IMAGE_WEBP
+          description: Formato de imagen detectado y validado.
         sizeBytes:
           type: integer
+          format: int64
           minimum: 0
-        uploadedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          description: Tamaño en bytes de la imagen procesada y almacenada.
+        description:
+          type: string
+          maxLength: 300
+          nullable: true
+          description: Descripción opcional de la fotografía.
         createdAt:
           type: string
           format: date-time
-        description:
-          type: string
-          description: Descripción accesible de la fotografía.
       required:
         - id
-        - incidentId
-        - fileName
+        - originalFilename
         - contentType
         - sizeBytes
         - createdAt

@@ -3,9 +3,11 @@
     tags:
       - Evidencias
     summary: Adjuntar fotografía
-    description:
-      Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar
-      compensación ante fallos parciales y EXIF sensible.
+    description: >
+      Almacena el binario en el bucket privado de Neon Object Storage
+      y los metadatos en PostgreSQL. El formato se verifica mediante
+      la firma binaria y la imagen se procesa antes de almacenarse.
+      Se aplica una estrategia de compensación ante fallos parciales.
     operationId: postIncidentsIncidentIdAttachments
     x-roles:
       - CITIZEN
@@ -16,7 +18,9 @@
       - $ref: "../components/parameters.yaml#/IncidentId"
     requestBody:
       required: true
-      description: Subida autenticada; solo fotografías según ADR-0004. Tamaño máximo aún por acordar.
+      description: >
+        Subida autenticada. Solo se admiten fotografías JPEG, PNG y WebP,
+        según ADR-0004. El tamaño máximo está pendiente de acordar.
       content:
         multipart/form-data:
           schema:
@@ -25,24 +29,26 @@
               file:
                 type: string
                 format: binary
-                description: JPEG, PNG o WebP.
+                description: >
+                  Fotografía JPEG, PNG o WebP. El formato se comprueba
+                  mediante su firma binaria.
               description:
                 type: string
-                description: Texto alternativo opcional.
+                description: Descripción opcional de la evidencia.
                 maxLength: 300
             required:
               - file
             additionalProperties: false
     responses:
       "201":
-        description: Recurso creado.
+        description: Evidencia creada correctamente.
         content:
           application/json:
             schema:
               $ref: "../components/schemas/evidencias.yaml#/AttachmentDTO"
         headers:
           Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
+            description: Ruta al recurso creado.
             schema:
               type: string
       "400":
@@ -64,7 +70,9 @@
     tags:
       - Evidencias
     summary: Listar fotografías
-    description: Lista metadatos sin revelar URLs S3 públicas permanentes.
+    description: >
+      Lista los metadatos de las evidencias activas asociadas a una incidencia,
+      sin revelar claves internas ni URLs públicas permanentes de almacenamiento.
     operationId: getIncidentsIncidentIdAttachments
     x-roles:
       - AUTHENTICATED
@@ -72,7 +80,7 @@
       - $ref: "../components/parameters.yaml#/IncidentId"
     responses:
       "200":
-        description: Operación correcta.
+        description: Listado de evidencias obtenido correctamente.
         content:
           application/json:
             schema:
@@ -97,7 +105,9 @@
     tags:
       - Evidencias
     summary: Consultar metadatos de fotografía
-    description: Metadatos de evidencia bajo autorización por incidencia.
+    description: >
+      Recupera los metadatos de una evidencia activa asociada a la incidencia
+      indicada, previa autorización de acceso.
     operationId: getIncidentsIncidentIdAttachmentsAttachmentId
     x-roles:
       - AUTHENTICATED
@@ -106,7 +116,7 @@
       - $ref: "../components/parameters.yaml#/AttachmentId"
     responses:
       "200":
-        description: Operación correcta.
+        description: Metadatos de la evidencia obtenidos correctamente.
         content:
           application/json:
             schema:
@@ -124,12 +134,43 @@
       "500":
         $ref: "../components/responses.yaml#/InternalError"
 
+  delete:
+    tags:
+      - Evidencias
+    summary: Eliminar fotografía
+    description: >
+      Marca la evidencia como eliminada lógicamente. Los metadatos
+      permanecen en PostgreSQL y el contenido binario no se elimina
+      de Neon Object Storage.
+    operationId: deleteIncidentsIncidentIdAttachmentsAttachmentId
+    x-roles:
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
+    parameters:
+      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/AttachmentId"
+    responses:
+      "204":
+        description: Evidencia eliminada correctamente.
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+
 /incidents/{incidentId}/attachments/{attachmentId}/content:
   get:
     tags:
       - Evidencias
     summary: Descargar fotografía privada
-    description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
+    description: >
+      Recupera el contenido binario de una evidencia activa mediante
+      el backend, previa autorización de acceso a la incidencia.
+      El enlace no otorga acceso anónimo al objeto privado.
     operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
     x-roles:
       - AUTHENTICATED
