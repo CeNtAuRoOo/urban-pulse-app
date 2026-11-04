@@ -1,31 +1,47 @@
 package es.grupo18.urbanpulse;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import es.grupo18.urbanpulse.dto.*;
-import es.grupo18.urbanpulse.dto.auth.RegisterRequest;
-import es.grupo18.urbanpulse.service.*;
-import es.grupo18.urbanpulse.service.mail.EmailSender;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import es.grupo18.urbanpulse.dto.CategoryResponse;
+import es.grupo18.urbanpulse.dto.CreateCategoryRequest;
+import es.grupo18.urbanpulse.dto.PatchCategoryRequest;
+import es.grupo18.urbanpulse.dto.auth.RegisterRequest;
+import es.grupo18.urbanpulse.service.AuthService;
+import es.grupo18.urbanpulse.service.CategoryService;
+import es.grupo18.urbanpulse.service.DuplicateCategoryException;
+import es.grupo18.urbanpulse.service.mail.EmailSender;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -42,17 +58,24 @@ class CategoryPostgresIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    @Autowired CategoryService service;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired MockMvc mvc;
-    @Autowired AuthService auth;
-    @Autowired PlatformTransactionManager transactions;
-    @MockitoBean EmailSender emailSender;
+    @Autowired
+    CategoryService service;
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    MockMvc mvc;
+    @Autowired
+    AuthService auth;
+    @Autowired
+    PlatformTransactionManager transactions;
+    @MockitoBean
+    EmailSender emailSender;
 
     @Test
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-                .containsExactly("1", "2", "3");
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+                String.class))
+                .contains("1", "2", "3");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);
@@ -68,7 +91,8 @@ class CategoryPostgresIT {
         assertThat(reactivated.active()).isTrue();
         assertThat(reactivated.description()).isEmpty();
         assertThat(service.findAll()).extracting(CategoryResponse::id)
-                .containsExactlyElementsOf(jdbc.queryForList("select id from categories order by name, id", UUID.class));
+                .containsExactlyElementsOf(
+                        jdbc.queryForList("select id from categories order by name, id", UUID.class));
     }
 
     @Test
@@ -92,7 +116,8 @@ class CategoryPostgresIT {
                 "insert into categories(name,description) values ('SQL invalid',repeat('x',501))")) {
             assertThatThrownBy(() -> jdbc.update(sql)).isInstanceOf(DataIntegrityViolationException.class);
         }
-        jdbc.update("insert into categories(name,description,active) values (?, ?, false)", "x".repeat(100), "x".repeat(500));
+        jdbc.update("insert into categories(name,description,active) values (?, ?, false)", "x".repeat(100),
+                "x".repeat(500));
         var unicode = service.create(new CreateCategoryRequest("🚦".repeat(100), "🚦".repeat(500), true));
         assertThat(service.findById(unicode.id())).isEqualTo(unicode);
         jdbc.update("update categories set active=false where id=?", id);
@@ -117,18 +142,21 @@ class CategoryPostgresIT {
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.active").value(true)).andReturn();
         String location = result.getResponse().getHeader("Location");
         assertThat(location).isNotNull();
-        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON).content("{\"active\":false}"))
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"active\":false}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.active").value(false));
         mvc.perform(get(location).header("Authorization", bearer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
         mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CATEGORY_DUPLICATE"));
         jdbc.update("delete from user_roles where user_id=? and role_code='ADMIN'", token.user().id());
-        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON).content("{\"active\":true}"))
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"active\":true}"))
                 .andExpect(status().isForbidden());
         jdbc.update("update users set token_version=token_version+1 where id=?", token.user().id());
         mvc.perform(get(url).header("Authorization", bearer)).andExpect(status().isUnauthorized());
-        mvc.perform(get(url).header("Authorization", "Bearer invalid.jwt.signature")).andExpect(status().isUnauthorized());
+        mvc.perform(get(url).header("Authorization", "Bearer invalid.jwt.signature"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -188,7 +216,8 @@ class CategoryPostgresIT {
                 service.patch(created.id(), new PatchCategoryRequest("Renamed category", null, null));
                 firstPid.complete(jdbc.queryForObject("select pg_backend_pid()", Integer.class));
                 try {
-                    if (!release.await(30, TimeUnit.SECONDS)) throw new IllegalStateException("Lock test timed out");
+                    if (!release.await(30, TimeUnit.SECONDS))
+                        throw new IllegalStateException("Lock test timed out");
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException(ex);
@@ -211,7 +240,8 @@ class CategoryPostgresIT {
                 do {
                     blocked = Boolean.TRUE.equals(jdbc.queryForObject(
                             "select ? = any(pg_blocking_pids(?))", Boolean.class, blocker, waiter));
-                    if (blocked || second.isDone()) break;
+                    if (blocked || second.isDone())
+                        break;
                     Thread.sleep(20);
                 } while (System.nanoTime() < deadline);
                 assertThat(blocked).as("Second transaction must wait for the first transaction in PostgreSQL").isTrue();

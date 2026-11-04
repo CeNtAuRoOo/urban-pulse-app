@@ -1,16 +1,24 @@
 package es.grupo18.urbanpulse.exception;
 
 import java.util.List;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.http.*;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.ErrorResponse;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
@@ -149,5 +157,45 @@ public class GlobalExceptionHandler {
         }
 
         return response.body(problems.create(status, code, detail, request.getRequestURI()));
+    }
+
+    /**
+     * Gestiona los intentos de acceder a recursos que no existen.
+     *
+     * @param ex      excepción de recurso no encontrado
+     * @param request petición HTTP que ha provocado el error
+     * @return respuesta HTTP 404
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ProblemDetail> notFound(
+            EntityNotFoundException ex,
+            HttpServletRequest request) {
+        return response(
+                HttpStatus.NOT_FOUND,
+                "NOT_FOUND",
+                "El recurso solicitado no existe.",
+                request);
+    }
+
+    /**
+     * Gestiona los errores producidos cuando un parámetro de la petición
+     * no tiene el formato esperado, por ejemplo, cuando se proporciona
+     * un identificador UUID con un formato incorrecto.
+     * Devuelve un estado HTTP 400 (Bad Request).
+     *
+     * @param ex      excepción producida por el formato incorrecto del parámetro
+     * @param request petición HTTP que ha provocado el error
+     * @return respuesta HTTP 400 con los detalles del error
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+
+        return response(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_PARAMETER",
+                "Uno de los parámetros de la petición tiene un formato inválido.",
+                request);
     }
 }

@@ -66,7 +66,7 @@ El 02/11 se parsearon los XML y se renderizaron los dos SVG con Sharp, inspeccio
 
 ## Revisión Department (30/10/2026)
 
-Se actualizan únicamente las celdas Department de las dos fuentes: UUIDv7, nombre y código únicos normalizados, descripción opcional, activo y fechas. Las relaciones con equipos, pertenencias e incidencias siguen representando el diseño futuro; no son nuevas FK ni módulos implementados.
+Se actualizan las celdas Department de las dos fuentes: UUIDv7, nombre y código únicos normalizados, descripción opcional, activo y fechas. `DepartmentMembership` ya se implementa mediante Flyway V4 y entidad JPA; la clase del diagrama refleja `user`, `department`, `role`, `joinedAt` y `leftAt`. La regla de una pertenencia activa por usuario/departamento/rol se aplica con el índice parcial `uk_department_memberships_active`. Las relaciones con equipos e incidencias siguen representando el diseño futuro y no se han implementado en esta entrega.
 
 `export-department.ps1` regenera el fragmento Department de los dos SVG a partir del texto de las fuentes, conservando las coordenadas y los demás elementos. Se usa texto vectorial para evitar conservar la imagen alternativa antigua de esa celda. Para regenerar: `powershell -File docs/diagrams/export-department.ps1`. Una exportación completa posterior desde diagrams.net puede sustituir estos fragmentos.
 

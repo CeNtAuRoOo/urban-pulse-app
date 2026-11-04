@@ -15,9 +15,9 @@ UserSummaryDTO:
 UserDTO:
   type: object
   description: >-
-    Vista autorizada del usuario. En registro y login se devuelve el perfil del propio titular;
-    jamás incluye passwordHash ni tokenVersion. email y departmentMemberships se exponen
-    solo cuando el solicitante tenga permiso. No constituye un mecanismo de fields dinámico.
+    Vista del usuario devuelta en su propio perfil, autenticación y consultas administrativas.
+    Nunca incluye passwordHash ni tokenVersion. Incluye siempre la colección de pertenencias
+    departamentales activas e históricas; las fechas permiten distinguir ambos estados.
   properties:
     id:
       type: string
@@ -27,7 +27,7 @@ UserDTO:
     email:
       type: string
       format: email
-      description: Visible únicamente para el titular o personal autorizado.
+      description: Correo electrónico del usuario autenticado o consultado por un administrador.
     emailVerified:
       type: boolean
       description: >-
@@ -48,25 +48,33 @@ UserDTO:
       uniqueItems: true
     departmentMemberships:
       type: array
-      description: Adscripciones departamentales, visibles según autorización.
+      description: >-
+        Adscripciones departamentales activas e históricas. Una pertenencia está activa
+        cuando leftAt es null. Se ordenan por fecha de alta descendente.
       items:
         $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:
     - id
     - displayName
+    - email
     - emailVerified
     - active
     - createdAt
     - roles
+    - departmentMemberships
 
-UpdateProfileRequest:
+UpdateMyProfileRequest:
   type: object
   properties:
     displayName:
       type: string
       minLength: 2
       maxLength: 120
-  description: Solo admite el nombre público; no permite modificar roles.
+      pattern: '.*\S.*'
+      description: No puede estar vacío ni contener únicamente espacios.
+  required:
+    - displayName
+  description: Solo admite el nombre público; no permite modificar roles, correo ni pertenencias departamentales.
   additionalProperties: false
 
 AdminUpdateUserRequest:
@@ -77,8 +85,9 @@ AdminUpdateUserRequest:
   description: >-
     Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza
     invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
+  required:
+    - active
   additionalProperties: false
-  minProperties: 1
 
 UsersPageDTO:
   type: object
@@ -116,6 +125,7 @@ DepartmentMembershipDTO:
     leftAt:
       type: string
       format: date-time
+      nullable: true
   required:
     - department
     - role
