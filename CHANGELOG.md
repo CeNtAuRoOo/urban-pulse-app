@@ -1,11 +1,19 @@
 # Changelog
 
+## 2026-11-03 — Pertenencias departamentales en usuarios
+
+- Añadidos `DepartmentMembership`, `DepartmentMembershipRepository` y `DepartmentMembershipService`, con alta y baja histórica de adscripciones y validación de roles departamentales.
+- Flyway V4 crea `department_memberships`, FKs, CHECK de ámbito/fechas e índice único parcial para una pertenencia activa por usuario/departamento/rol. Se permiten roles distintos en el mismo departamento y reincorporaciones históricas.
+- `UserDTO` incluye pertenencias activas e históricas; login y consultas de usuario las recuperan. El listado admite filtros por roles globales y pertenencias departamentales activas, con consulta agrupada para evitar N+1.
+- Añadidas `DepartmentMembershipTest`, `DepartmentMembershipServiceTest`, ampliaciones de pruebas de usuarios y una suite de integración PostgreSQL; **pendiente ejecutar** `mvn -B -ntp verify -Ppostgres-it` con Java 25 y Docker. No se afirma que V4 esté validada ni aplicada en Neon.
+- OpenAPI modular actualizado a `0.5.0`; el bundle `openapi.yaml` y el HTML generado deben regenerarse con Redocly. No se han editado manualmente los artefactos derivados.
+
 ## 2026-11-02 — Gestión de categorías
 
 - Implementadas las cuatro operaciones de Category: consulta con correo verificado y creación/PATCH con ADMIN global. Desactivación/reactivación sin borrado y conservación del nombre reservado.
 - V3 crea únicamente `categories`, UUIDv7 Hibernate, nombre recortado único sin distinguir mayúsculas, descripción nullable y active. Sin código, fechas internas ni semillas; V1/V2 intactas.
 - DTO estrictos, omisión diferenciada de null en PATCH, límites Unicode coherentes con PostgreSQL y OpenAPI, bloqueo de fila y traducción selectiva de conflictos a ProblemDetail.
-- Pruebas unitarias/MVC y CategoryPostgresIT incluidas en `postgres-it`; última ejecución del 02/11: 109 superadas (78 unitarias/MVC y 31 PostgreSQL). [Resultados y comandos](docs/development.md#73-verificación-documentada-del-backend). Contrato modular, bundle/HTML y ambas fuentes/exportaciones de Category actualizados; [revisión visual completa pendiente](docs/diagrams/README.md#revisión-category-02112026).
+- Pruebas unitarias/MVC y CategoryPostgresIT incluidas en `postgres-it`; última ejecución del 02/11: 109 superadas (78 unitarias/MVC y 31 PostgreSQL). [Resultados y comandos](docs/development.md#74-verificación-documentada-del-backend). Contrato modular, bundle/HTML y ambas fuentes/exportaciones de Category actualizados; [revisión visual completa pendiente](docs/diagrams/README.md#revisión-category-02112026).
 - RF18 (auditoría administrativa) continúa pendiente. Sin frontend, Incident ni despliegue en Neon en esta entrega.
 
 ## 2026-10-30 — Cierre técnico de departamentos

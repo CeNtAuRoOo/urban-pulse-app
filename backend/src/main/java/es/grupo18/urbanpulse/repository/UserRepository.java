@@ -1,11 +1,20 @@
 package es.grupo18.urbanpulse.repository;
 
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import es.grupo18.urbanpulse.entity.enums.RoleCode;
 import es.grupo18.urbanpulse.entity.model.User;
 import jakarta.persistence.LockModeType;
-import org.springframework.data.jpa.repository.*;
-import org.springframework.data.repository.query.Param;
 
 /**
  * Repositorio JPA encargado del acceso y persistencia de usuarios.
@@ -68,11 +77,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
      * Proyección de los datos de seguridad necesarios para autenticar
-     * un usuario, incluyendo actividad, verificación de correo, versión y rol
-     * global.
+     * un usuario, incluyendo actividad, verificación del correo,
+     * versión del token y rol global.
      * El código del rol puede ser null si no existen asignaciones.
      */
     interface SecurityState {
+
         /**
          * Obtiene el estado de actividad de la cuenta.
          *
@@ -101,4 +111,53 @@ public interface UserRepository extends JpaRepository<User, UUID> {
          */
         RoleCode getRoleCode();
     }
+
+    /**
+     * Busca un usuario por su identificador y carga sus asignaciones de roles.
+     * Evita consultas adicionales al acceder posteriormente a los roles.
+     *
+     * @param id identificador del usuario
+     * @return usuario encontrado con sus roles, o un Optional vacío si no existe
+     */
+    @EntityGraph(attributePaths = "userRoles")
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findUserWithRolesById(@Param("id") UUID id);
+
+    /**
+     * Busca usuarios aplicando filtros opcionales por rol global o por rol
+     * departamental activo y estado de actividad.
+     * Los resultados se devuelven de forma paginada y ordenada
+     * según el objeto Pageable recibido.
+     *
+     * @param role     rol global o departamental activo que deben tener los
+     *                 usuarios, o null para no filtrar
+     * @param active   estado de actividad requerido, o null para no filtrar
+     * @param pageable configuración de paginación y ordenación
+     * @return página con los usuarios que cumplen los filtros
+     */
+    @Query("""
+            select u
+            from User u
+            where (:active is null or u.active = :active)
+              and (
+                  :role is null
+                  or exists (
+                      select ur
+                      from UserRole ur
+                      where ur.user = u
+                        and ur.id.roleCode = :role
+                  )
+                  or exists (
+                      select membership
+                      from DepartmentMembership membership
+                      where membership.user = u
+                        and membership.role.code = :role
+                        and membership.leftAt is null
+                  )
+              )
+            """)
+    Page<User> searchUsers(
+            @Param("role") RoleCode role,
+            @Param("active") Boolean active,
+            Pageable pageable);
 }

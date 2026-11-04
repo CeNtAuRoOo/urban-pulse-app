@@ -8,24 +8,24 @@ Este directorio contiene documentación **viva**, separando las decisiones de di
 | [Modelo de dominio v1](domain-model.md)       | Entidades, roles, ciclo de vida, asignaciones, limitaciones y revisión obligatoria por tag antes de implementar.                                                                       |
 | [Diagramas](diagrams/README.md)               | C4 con fuente `c4.drawio`; modelo relacional de cuatro páginas y catálogo de clases Java simplificado, con fuentes y exportaciones.                                                    |
 | [Arquitectura](architecture.md)               | Arquitectura objetivo y estado real de frontend, backend, Neon y almacenamiento.                                                                                                       |
-| [Contrato dominio–API](api/domain-openapi.md) | Decisiones y operaciones armonizadas; implementados Autenticación, Department y Category dentro de Catálogos. Los demás recursos siguen en diseño y se revisan por tag. |
-| [Diseño de API](api/README.md)                | OpenAPI `0.4.0`: implementados Autenticación y los catálogos Department y Category; el resto del contrato permanece en diseño. |
+| [Contrato dominio–API](api/domain-openapi.md) | Decisiones y operaciones armonizadas; implementados Autenticación, Usuarios, Department y Category. Los demás recursos siguen en diseño y se revisan por tag. |
+| [Diseño de API](api/README.md)                | OpenAPI `0.5.0`: implementados Autenticación, Usuarios y los catálogos Department y Category; el resto del contrato permanece en diseño. |
 | [Cierre de departamentos](departments-finalization.md) | Evidencia histórica de Department (30–31/10/2026), alcance y pendientes. |
 | [ADR](adr/README.md)                          | Decisiones aceptadas, propuestas y asuntos pendientes. En autenticación se revisan los ADR-0005, 0007, 0009 y 0011.                                                                    |
 | [Desarrollo](development.md)                  | Entorno y comandos de instalación, ejecución y verificaciones comprobadas.                                                                                                             |
 | [Despliegue](deployment.md)                   | Objetivo de contenedores independientes y despliegue futuro.                                                                                                                           |
 
-## Estado actual del proyecto (02/11/2026)
+## Estado actual del proyecto (03/11/2026)
 
-El backend cuenta con tres funcionalidades implementadas y verificadas localmente:
+El backend cuenta con autenticación, gestión de usuarios y catálogos implementados. La incorporación de pertenencias departamentales y Flyway V4 está preparada en código y pruebas, pero todavía requiere una ejecución de verificación posterior a estos cambios.
 
 - **Autenticación:** registro, inicio de sesión, cambio de contraseña, verificación de correo, JWT y gestión de permisos.
 - **Departamentos (tag Catálogos):** listado, consulta, creación y actualización parcial de departamentos, incluida la desactivación lógica. Las operaciones de escritura requieren el rol global `ADMIN`.
 - **Categorías (tag Catálogos):** listado, consulta, creación y PATCH con desactivación/reactivación, nombre único y descripción opcional; sin código corto. Ambos catálogos exigen correo verificado y ADMIN global para escribir.
 
-El contrato OpenAPI se encuentra en la versión `0.4.0`. Las dos vistas de dominio y la documentación reflejan Department y Category. UUIDv7 está implementado mediante Hibernate y probado para User, Department y Category. Incidencias, equipos, pertenencias departamentales y otros módulos continúan pendientes; RF18 (auditoría administrativa) no está resuelto.
+El contrato OpenAPI modular se actualiza a `0.5.0` para incluir la gestión de usuarios y las pertenencias departamentales. `DepartmentMembership` y Flyway V4 están incorporados al código y las pruebas, pendientes de una ejecución completa posterior al cambio. Equipos, incidencias y otros módulos continúan pendientes; RF18 (auditoría administrativa) no está resuelto.
 
-La última ejecución documentada (02/11/2026, 11:36:57 Europe/Madrid) superó **109 pruebas: 78 unitarias/MVC y 31 PostgreSQL**, sin fallos, errores ni omisiones. Las migraciones Flyway V1, V2 y V3 se verificaron conjuntamente en PostgreSQL efímero mediante Testcontainers; no consta su aplicación en Neon `development` ni un despliegue de producción. La [guía de desarrollo](development.md#73-verificación-documentada-del-backend) registra comandos, resultados y limitaciones. Las 80 pruebas de Department del 31/10 y las 108 de la primera implementación de Category son evidencias anteriores, sustituidas por esa última ejecución; la revisión documental del 03/11 no ejecuta de nuevo las suites.
+La última ejecución documentada (02/11/2026, 11:36:57 Europe/Madrid) superó **109 pruebas: 78 unitarias/MVC y 31 PostgreSQL**, sin fallos, errores ni omisiones. Las migraciones Flyway V1, V2 y V3 se verificaron conjuntamente en PostgreSQL efímero mediante Testcontainers; no consta su aplicación en Neon `development` ni un despliegue de producción. La [guía de desarrollo](development.md#74-verificación-documentada-del-backend) registra comandos, resultados y limitaciones. Las 80 pruebas de Department del 31/10 y las 108 de la primera implementación de Category son evidencias anteriores, sustituidas por esa última ejecución; la revisión documental del 03/11 no ejecuta de nuevo las suites.
 
 La información permanente de cada funcionalidad se mantiene por temas: [dominio](domain-model.md), [arquitectura](architecture.md), [API](api/README.md), [desarrollo](development.md), [ADR](adr/README.md) y [diagramas](diagrams/README.md).
 
