@@ -139,7 +139,8 @@ class DepartmentPostgresIT {
             String name = invalid[0].equals("name") ? invalid[1] : "Valid Unicode";
             String description = invalid[0].equals("description") ? invalid[1] : "";
             mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                    .content("{\"name\":\"" + name + "\",\"code\":\"INVALID\",\"description\":\"" + description + "\"}"))
+                    .content(
+                            "{\"name\":\"" + name + "\",\"code\":\"INVALID\",\"description\":\"" + description + "\"}"))
                     .andExpect(status().is(422));
         }
         mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)

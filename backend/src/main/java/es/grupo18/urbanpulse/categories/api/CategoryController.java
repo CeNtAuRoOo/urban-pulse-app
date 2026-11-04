@@ -57,7 +57,11 @@ public class CategoryController {
      * @param categoryId UUID de ruta
      * @return proyección pública
      * @throws es.grupo18.urbanpulse.categories.service.CategoryNotFoundException
-     *         si no existe la categoría
+     *                                                                            si
+     *                                                                            no
+     *                                                                            existe
+     *                                                                            la
+     *                                                                            categoría
      */
     @GetMapping("/{categoryId}")
     public CategoryResponse findById(@PathVariable UUID categoryId) {

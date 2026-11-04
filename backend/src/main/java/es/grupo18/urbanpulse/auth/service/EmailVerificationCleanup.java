@@ -18,12 +18,10 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 /**
  * Limpieza limitada por lotes y número de transacciones por barrido.
  *
- * Invitaciones conserva el destinatario como email sin FK. Sus actores y
- * pertenencias solo refieren cuentas verificadas, fuera de este barrido, y sus
- * FK RESTRICT preservan historia.
- *
- * Si se incorporan nuevas relaciones con usuarios no verificados, debe
- * revisarse su compatibilidad con esta limpieza y sus claves foráneas.
+ * Las cuentas con referencias históricas desde pertenencias, invitaciones o
+ * auditoría se conservan íntegramente y se excluyen antes de limitar el lote.
+ * Se revalida la ausencia de referencias bajo bloqueo de usuario; no se borra
+ * historia ni se añade CASCADE. Los códigos caducados se limpian por separado.
  *
  * Retención: 24 h sin verificar; barrido horario, sin garantía exacta antes de
  * 25 h si hay bloqueos, fallos o más filas que el presupuesto de un barrido.
@@ -31,6 +29,13 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 @Component
 @Slf4j
 public class EmailVerificationCleanup {
+    /** Predicado compartido por selección y revisión bajo bloqueo; incluye todas las FK históricas. */
+    private static final String WITHOUT_HISTORY = """
+            not exists (select 1 from department_memberships m where m.user_id = u.id)
+            and not exists (select 1 from staff_invitations i where i.created_by_user_id = u.id
+                or i.redeemed_by_user_id = u.id or i.revoked_by_user_id = u.id)
+            and not exists (select 1 from audit_events a where a.actor_user_id = u.id)
+            """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final EmailVerificationProperties properties;
@@ -127,17 +132,16 @@ public class EmailVerificationCleanup {
      */
     private int deleteUserBatch(Timestamp cutoff) {
         var ids = jdbc.query("""
-                select id from users where email_verified = false and created_at <= ?
-                order by created_at, id limit ? for update skip locked
-                """, (rs, row) -> rs.getObject(1, UUID.class), cutoff, properties.cleanupBatchSize());
+                select u.id from users u where u.email_verified = false and u.created_at <= ? and
+                """ + WITHOUT_HISTORY + " order by u.created_at, u.id limit ? for update of u skip locked", (rs, row) -> rs.getObject(1, UUID.class), cutoff, properties.cleanupBatchSize());
 
         int deleted = 0;
 
         for (UUID id : ids) {
             // Revisión explícita bajo el mismo bloqueo que usa la confirmación.
             boolean expired = Boolean.TRUE.equals(jdbc.queryForObject("""
-                    select not email_verified and created_at <= ? from users where id = ?
-                    """, Boolean.class, cutoff, id));
+                    select not u.email_verified and u.created_at <= ? and
+                    """ + WITHOUT_HISTORY + " from users u where u.id = ?", Boolean.class, cutoff, id));
 
             if (!expired) {
                 continue;

@@ -24,6 +24,9 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | [0010](0010-ciclo-vida-y-asignaciones.md)  | Estados de incidencias, derivación y asignaciones de trabajo          | Aceptado como diseño; transiciones finas pendientes        |
 | [0011](0011-identificadores-uuidv7.md)     | UUIDv7 como identificador base                                        | UUIDv7 para identidad, invitaciones y ambos catálogos      |
 
+| [0012](0012-gestion-usuarios-perfiles-y-administracion.md) | Perfiles y administración de usuarios; protección del último ADMIN | Aceptado e implementado |
+| [0013](0013-pertenencias-usuarios-departamentos.md) | Pertenencias activas/históricas, altas y bajas internas | Aceptado e implementado |
+
 **Al implementar cada tag**, verificar que el [modelo de dominio base](../domain-model.md), su contrato OpenAPI y los ADR afectados continúan siendo coherentes. Si una decisión cambia materialmente, actualizarla con trazabilidad o crear un ADR sucesor; no modificar decisiones en silencio.
 
 La adopción de Object Storage y su conectividad están comprobadas; la gestión real de fotografías no lo está. Las entidades `User`, `Role`, `UserRole` y `EmailVerification` del núcleo de autenticación están implementadas; **Department, DepartmentMembership, StaffInvitation, AuditEvent y Category se incluyen en la V1 consolidada; las demás entidades siguen pendientes**. JWT, BCrypt, validación de CITIZEN y protección de rutas de auth están implementados en el backend, sin despliegue de la V1 consolidada en Neon confirmado.

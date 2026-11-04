@@ -31,9 +31,9 @@ public class PatchCategoryRequest {
      * Construye un parche desde Java; null representa un campo omitido.
      * Este constructor no se utiliza para deserializar el JSON.
      *
-     * @param name nombre que se recorta antes de validar, o null si se omite
+     * @param name        nombre que se recorta antes de validar, o null si se omite
      * @param description descripción sin recortar, o null si se omite
-     * @param active estado solicitado, o null si se omite
+     * @param active      estado solicitado, o null si se omite
      */
     @JsonCreator(mode = JsonCreator.Mode.DISABLED)
     public PatchCategoryRequest(String name, String description, Boolean active) {

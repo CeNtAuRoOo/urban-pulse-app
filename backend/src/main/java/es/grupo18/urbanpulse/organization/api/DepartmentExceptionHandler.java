@@ -13,7 +13,10 @@ import es.grupo18.urbanpulse.organization.service.DuplicateDepartmentException;
 import es.grupo18.urbanpulse.organization.service.InvalidDepartmentException;
 import es.grupo18.urbanpulse.shared.error.ProblemDetailFactory;
 
-/** Traduce los errores específicos de Departamentos al formato común ProblemDetail. */
+/**
+ * Traduce los errores específicos de Departamentos al formato común
+ * ProblemDetail.
+ */
 @RestControllerAdvice
 public class DepartmentExceptionHandler {
 
@@ -32,7 +35,7 @@ public class DepartmentExceptionHandler {
      * Traduce la ausencia de una unidad.
      *
      * @param exception error de dominio
-     * @param request petición que proporciona la URI de instancia
+     * @param request   petición que proporciona la URI de instancia
      * @return HTTP 404 con DEPARTMENT_NOT_FOUND
      */
     @ExceptionHandler(DepartmentNotFoundException.class)
@@ -44,7 +47,7 @@ public class DepartmentExceptionHandler {
      * Traduce duplicados detectados anticipadamente o por el índice SQL.
      *
      * @param exception error de dominio
-     * @param request petición que proporciona la URI de instancia
+     * @param request   petición que proporciona la URI de instancia
      * @return HTTP 409 con DEPARTMENT_DUPLICATE
      */
     @ExceptionHandler(DuplicateDepartmentException.class)
@@ -56,24 +59,26 @@ public class DepartmentExceptionHandler {
      * Traduce una validación de negocio del catálogo.
      *
      * @param exception error de dominio
-     * @param request petición que proporciona la URI de instancia
+     * @param request   petición que proporciona la URI de instancia
      * @return HTTP 422 con VALIDATION_ERROR
      */
     @ExceptionHandler(InvalidDepartmentException.class)
-    ResponseEntity<ProblemDetail> handleInvalidDepartment(InvalidDepartmentException exception, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> handleInvalidDepartment(InvalidDepartmentException exception,
+            HttpServletRequest request) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", exception.getMessage(), request);
     }
 
     /**
      * Asocia el error de dominio con la URI que lo originó.
      *
-     * @param status estado HTTP
-     * @param code código estable
-     * @param detail explicación pública
+     * @param status  estado HTTP
+     * @param code    código estable
+     * @param detail  explicación pública
      * @param request petición de origen
      * @return respuesta de error uniforme
      */
-    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail, HttpServletRequest request) {
+    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail,
+            HttpServletRequest request) {
         return ResponseEntity.status(status)
                 .body(problems.create(status, code, detail, request.getRequestURI()));
     }

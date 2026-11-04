@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -76,11 +78,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
      * Proyección de los datos de seguridad necesarios para autenticar
-     * un usuario, incluyendo actividad, verificación de correo, versión y rol
-     * global.
+     * un usuario, incluyendo actividad, verificación del correo,
+     * versión del token y rol global.
      * El código del rol puede ser null si no existen asignaciones.
      */
     interface SecurityState {
+
         /**
          * Obtiene el estado de actividad de la cuenta.
          *
@@ -109,4 +112,85 @@ public interface UserRepository extends JpaRepository<User, UUID> {
          */
         RoleCode getRoleCode();
     }
+
+    /**
+     * Busca un usuario por su identificador y carga sus asignaciones de roles.
+     * Evita consultas adicionales al acceder posteriormente a los roles.
+     *
+     * @param id identificador del usuario
+     * @return usuario encontrado con sus roles, o un Optional vacío si no existe
+     */
+    @EntityGraph(attributePaths = "userRoles")
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findUserWithRolesById(@Param("id") UUID id);
+
+    /**
+     * Busca usuarios aplicando filtros opcionales por rol global o por rol
+     * departamental activo y estado de actividad.
+     * Los resultados se devuelven de forma paginada y ordenada
+     * según el objeto Pageable recibido.
+     *
+     * @param role     rol global o departamental activo que deben tener los
+     *                 usuarios, o null para no filtrar
+     * @param active   estado de actividad requerido, o null para no filtrar
+     * @param pageable configuración de paginación y ordenación
+     * @return página con los usuarios que cumplen los filtros
+     */
+    @Query("""
+            select u
+            from User u
+            where (:active is null or u.active = :active)
+              and (
+                  :role is null
+                  or exists (
+                      select ur
+                      from UserRole ur
+                      where ur.user = u
+                        and ur.id.roleCode = :role
+                  )
+                  or exists (
+                      select membership
+                      from DepartmentMembership membership
+                      where membership.user = u
+                        and membership.role.code = :role
+                        and membership.leftAt is null
+                  )
+              )
+            """)
+    Page<User> searchUsers(
+            @Param("role") RoleCode role,
+            @Param("active") Boolean active,
+            Pageable pageable);
+
+    /**
+     * Carga los roles de los usuarios ya seleccionados por la página SQL.
+     * No pagina un fetch de colección: mantiene el límite y los totales originales.
+     *
+     * @param ids identificadores de una página no vacía
+     * @return usuarios con sus roles inicializados en el contexto de persistencia
+     */
+    @EntityGraph(attributePaths = "userRoles")
+    @Query("select u from User u where u.id in :ids")
+    List<User> findAllWithRolesByIdIn(@Param("ids") List<UUID> ids);
+
+    /**
+     * Serializa cambios administrativos de actividad antes de bloquear usuarios.
+     * El bloqueo transaccional PostgreSQL se libera tanto al confirmar como al
+     * abortar.
+     *
+     * @return true al adquirir el bloqueo compartido por la administración de
+     *         cuentas
+     */
+    @Query(value = "select true from pg_advisory_xact_lock(182011, 1)", nativeQuery = true)
+    boolean lockAccountAdministration();
+
+    /**
+     * Cuenta administradores globales que todavía pueden acceder a la API.
+     * Se consulta bajo el bloqueo de administración para evitar bajas simultáneas.
+     *
+     * @return cuentas activas, verificadas y con asignación global ADMIN
+     */
+    @Query("select count(u) from User u where u.active = true and u.emailVerified = true "
+            + "and exists (select r from UserRole r where r.user = u and r.id.roleCode = es.grupo18.urbanpulse.identity.model.RoleCode.ADMIN)")
+    long countAvailableAdministrators();
 }

@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado a 03/11/2026:** la estructura Java del backend es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`). Se han implementado Autenticación, Invitaciones, Departamentos y Categorías, con una única migración V1 verificada en PostgreSQL 18 aislado. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
+> **Estado a 04/11/2026:** la estructura Java del backend es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`). Se han implementado Autenticación, Usuarios, Invitaciones, Departamentos y Categorías, con una única migración V1 verificada en PostgreSQL 18 aislado. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
 
 ## 1. Requisitos y clonación
 
@@ -26,7 +26,7 @@ urban-pulse-app/
 │   ├── src/main/java/es/grupo18/urbanpulse/
 │   │   ├── BackendApplication.java
 │   │   ├── auth/{api,config,dto,mail,model,repository,security,service}/
-│   │   ├── identity/{dto,model,repository}/
+│   │   ├── identity/{api,dto,model,repository,service}/
 │   │   ├── invitations/{api,config,dto,mail,model,repository,security,service}/
 │   │   ├── organization/{api,dto,model,repository,service}/
 │   │   ├── categories/{api,dto,model,repository,service}/
@@ -38,6 +38,7 @@ urban-pulse-app/
 │   │       └── V1__initial_schema.sql
 │   ├── src/test/java/es/grupo18/urbanpulse/
 │   │   ├── auth/{api,integration,service}/
+│   │   ├── identity/{api,dto,integration,service}/
 │   │   ├── invitations/{api,integration,service}/
 │   │   ├── organization/{api,integration,model,service}/
 │   │   ├── categories/{api,integration,service}/
@@ -218,21 +219,23 @@ Para cada tag, revisar como una unidad el OpenAPI modular, ambas vistas de domin
 - Si `NeonConnectivityIT` no aparece con `mvn test`, es normal: invocarlo expresamente, **solo** con Neon `development` autorizado.
 - `HeadBucket` correcto no garantiza subida/descarga/borrado; esas pruebas corresponden al futuro módulo de evidencias.
 
-Pendientes funcionales: incidencias, fotografías reales, equipos, retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
+Pendientes funcionales: incidencias, fotografías reales, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
 
 ## Verificación del backend
 
-Ejecución del **03/11/2026**, Java 25.0.4 y PostgreSQL 18.6 efímero: `mvn -B -ntp clean verify -Ppostgres-it`, **BUILD SUCCESS**, 148 pruebas sin fallos, errores ni omisiones. La ejecución anterior del mismo día superó 146; las dos pruebas añadidas cubren la corrección de longitudes Unicode de Departamentos.
+Ejecución del **04/11/2026**, Java 25.0.4 y PostgreSQL 18.6 efímero: `mvn -B -ntp clean verify -Ppostgres-it`, **BUILD SUCCESS**, **228 pruebas**, sin fallos, errores ni omisiones. Los informes XML registran 21 suites Surefire y siete suites Failsafe. El resultado histórico previo a Usuarios fue de 148 pruebas el 03/11/2026; no se suma a la ejecución actual.
 
-| Suite                       | Pruebas |
-| --------------------------- | ------: |
-| Unitarias/MVC (Surefire)    |      92 |
-| AuthenticationPostgresIT    |       8 |
-| EmailVerificationPostgresIT |      12 |
-| StaffInvitationPostgresIT   |      24 |
-| DepartmentPostgresIT        |       6 |
-| CategoryPostgresIT          |       6 |
-| **Total**                   | **148** |
+| Suite                          | Pruebas |
+| ------------------------------ | ------: |
+| Unitarias/MVC (Surefire)       |     148 |
+| AuthenticationPostgresIT       |       8 |
+| EmailVerificationPostgresIT    |      12 |
+| StaffInvitationPostgresIT      |      24 |
+| DepartmentPostgresIT           |       6 |
+| CategoryPostgresIT             |       6 |
+| UserRepositoryPostgresIT       |      15 |
+| DepartmentMembershipPostgresIT |       9 |
+| **Total**                      | **228** |
 
 Desde la raíz en PowerShell, con Docker Desktop, el comando reproducible sin credenciales de Neon es:
 
@@ -241,5 +244,7 @@ docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=
 ```
 
 Flyway aplica solo V1 sobre cada base vacía y Hibernate valida los mapeos. Se comprueban las nueve tablas funcionales, cinco roles y ausencia de semillas de ambos catálogos. Category cubre UUIDv7, límites Unicode Java/SQL, valores por defecto, reserva del nombre inactivo, altas y renombrados concurrentes, rollback y espera real de bloqueo entre PATCH. Las suites anteriores conservan los escenarios de Departamentos e Invitaciones, incluido el canje frente a desactivación concurrente. `NeonConnectivityIT` está excluido; no se utilizan bases compartidas.
+
+Usuarios añade regresiones de normalización previa a validación, límites Unicode Java/SQL, JSON estricto, permisos y paginación. La medición PostgreSQL del listado registra **12 consultas con acceso lazy frente a 4 con carga en lote** para diez usuarios; otra página mantiene cuatro y se comprueba la página vacía. Se verifica la conservación de cuentas vinculadas a todas las FK históricas incluso con lotes de tamaño uno, las bajas concurrentes de administradores, el bloqueo compartido con contraseña, altas/bajas departamentales concurrentes y reingresos con historial. Una comparación de fechas de prueba se ajustó a la precisión de microsegundos de PostgreSQL antes de la ejecución completa satisfactoria.
 
 En frontend, `npm run lint` y `npx tsc --noEmit` finalizaron correctamente el mismo día, sin cambiar dependencias ni el lockfile. OpenAPI se validó y regeneró según la [guía de API](api/README.md#7-validación-y-visualización). Las advertencias de instrumentación Mockito/Byte Buddy y APIs Java de dependencias no impidieron el build. Estas comprobaciones no incluyen un nuevo recorrido SMTP externo, validación móvil ni despliegue en Neon.

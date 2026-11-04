@@ -1,6 +1,6 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 03/11/2026:** Autenticación, Invitaciones, Departamentos y Categorías comparten el esquema inicial V1. El dominio de incidencias sigue revisable por tag. Las fuentes `.drawio` y los SVG regenerados manualmente incluyen los cambios de ambos catálogos.
+> **Estado a 04/11/2026:** Autenticación, Usuarios, Invitaciones, Departamentos y Categorías comparten el esquema inicial V1. El dominio de incidencias sigue revisable por tag. Las fuentes `.drawio` y los SVG regenerados con draw.io Desktop incluyen los cambios de ambos catálogos.
 
 ## 1. Fuentes y criterio de interpretación
 
@@ -14,7 +14,7 @@ Una **entidad de dominio** expresa identidad y reglas de negocio; una **entidad 
 - [Catálogo de clases simplificadas](diagrams/clases-simplificado.drawio): una página de clases, enums, embebidos y DTO, **sin líneas de relación UML por decisión de diseño**. Relaciones y claves se estudian en el ER; [SVG exportado](diagrams/clases-simplificado.svg).
 - [C4 contexto y contenedores](diagrams/README.md): arquitectura exterior y almacenamiento. Reflejan correo SMTP/Mailpit y solo fotografías en el alcance inicial.
 
-**Estado de sincronización:** se conservan las correcciones de Invitaciones/identidad/auditoría y se incorporan el código único y fechas de Department y el contrato de Category en las fuentes. Los SVG regenerados manualmente corresponden estructuralmente a sus fuentes; véase el [alcance de la comprobación](diagrams/README.md#criterios-de-sincronización). Siguen pendientes nuevos diagramas de despliegue y flujos de incidencias.
+**Estado de sincronización:** se conservan las correcciones de Invitaciones/identidad/auditoría y se incorporan el código único y fechas de Department y el contrato de Category en las fuentes. Los SVG regenerados con draw.io Desktop corresponden estructuralmente a sus fuentes; véase el [alcance de la comprobación](diagrams/README.md#criterios-de-sincronización). Siguen pendientes nuevos diagramas de despliegue y flujos de incidencias.
 
 ## 3. Conceptos principales y estado
 
@@ -36,16 +36,16 @@ La relación futura sigue siendo **Category 0..N Incident; cada Incident tiene 0
 
 ### 3.2. Identidad, roles y organización — parcialmente implementado
 
-| Concepto                       | Regla o responsabilidad                                                                                                                   | Estado                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `User`                         | Una cuenta por email normalizado; rol base `CITIZEN`, `emailVerified=false` al registrarse, `tokenVersion` y preferencias de notificación | JPA y V1 implementados                             |
-| `Role`, `RoleCode`, `UserRole` | `CITIZEN`, `OPERATOR` y `ADMIN` globales; código de rol persistido y asociación compuesta, sin `Role.scope`                               | JPA y V1 implementados                             |
-| `EmailVerification`            | Código de ocho dígitos protegido por HMAC, caducidad, intentos y limpieza de cuentas pendientes                                           | JPA y V1 implementados                             |
-| `StaffInvitation`              | Autorización temporal ligada a email para obtener un rol; no concede permisos antes del canje                                             | JPA y V1 implementados                             |
-| `Department`                   | Nombre y código únicos, descripción, estado y fechas                                                                                      | JPA, V1 y administración implementados; sin DELETE |
-| `DepartmentMembership`         | Permiso departamental `TECHNICIAN` o `DEPARTMENT_COORDINATOR`, con inicio, fin opcional e historial                                       | JPA y V1, sin endpoint de retirada                 |
-| `Team`/`TeamMembership`        | Equipos estables e historial de pertenencias/adscripciones                                                                                | Solo diseño, sin tabla                             |
-| `AuditEvent`                   | Evento administrativo con actor, recurso, instante, detalles y correlación opcional                                                       | JPA y V1, sin endpoint público                     |
+| Concepto                       | Regla o responsabilidad                                                                                                                   | Estado                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `User`                         | Una cuenta por email normalizado; rol base `CITIZEN`, `emailVerified=false` al registrarse, `tokenVersion` y preferencias de notificación | JPA y V1 implementados                                         |
+| `Role`, `RoleCode`, `UserRole` | `CITIZEN`, `OPERATOR` y `ADMIN` globales; código de rol persistido y asociación compuesta, sin `Role.scope`                               | JPA y V1 implementados                                         |
+| `EmailVerification`            | Código de ocho dígitos protegido por HMAC, caducidad, intentos y limpieza de cuentas pendientes                                           | JPA y V1 implementados                                         |
+| `StaffInvitation`              | Autorización temporal ligada a email para obtener un rol; no concede permisos antes del canje                                             | JPA y V1 implementados                                         |
+| `Department`                   | Nombre y código únicos, descripción, estado y fechas                                                                                      | JPA, V1 y administración implementados; sin DELETE             |
+| `DepartmentMembership`         | Permiso departamental `TECHNICIAN` o `DEPARTMENT_COORDINATOR`, con inicio, fin opcional e historial                                       | JPA, V1 y ciclo interno de alta/baja; sin endpoint de retirada |
+| `Team`/`TeamMembership`        | Equipos estables e historial de pertenencias/adscripciones                                                                                | Solo diseño, sin tabla                                         |
+| `AuditEvent`                   | Evento administrativo con actor, recurso, instante, detalles y correlación opcional                                                       | JPA y V1, sin endpoint público                                 |
 
 **Ámbitos y autorización:** `OPERATOR` actúa transversalmente en operaciones futuras de tramitación; `ADMIN` es global. Técnicos y coordinadores solo dispondrán de permisos en departamentos con pertenencia activa. Un usuario puede conservar `CITIZEN` y sumar permisos. Los roles globales vigentes se leen desde PostgreSQL en cada petición con JWT, que por sí solo **no** incorpora los permisos como fuente de verdad.
 
@@ -63,11 +63,11 @@ Una `Assignment` representa **trabajo** concedido temporalmente a un equipo **o*
 
 `StaffInvitation` tiene UUIDv7, `codeHash` como `byte[]` de **32 bytes** con unicidad SQL, `email` normalizado obligatorio (máximo 254; **no** FK a destinatario), rol obligatorio, departamento obligatorio para roles departamentales y ausente para globales, emisor `createdBy`, actores opcionales de canje/revocación y sus instantes emparejados, `createdAt`/`expiresAt` obligatorios. No hay columna persistida `status`: `ACTIVE`, `REDEEMED`, `REVOKED` y `EXPIRED` se derivan de las fechas (`statusAt`). Las restricciones comprueban ámbito, exclusión entre revocación/canje, pares fecha/actor, fechas válidas y `expiresAt` exclusivo.
 
-`Department` posee UUIDv7, nombre de 2–120, código ASCII de 2–20 normalizado a mayúsculas, descripción opcional hasta 500, estado y fechas internas `createdAt`/`updatedAt`. Nombre y código son únicos sin distinguir mayúsculas. PostgreSQL 18 proporciona `uuidv7()` como default para inserciones SQL; JPA genera su UUID y mantiene las fechas. Se revalida que esté activo al emitir o canjear una invitación departamental. No hay departamentos precargados; se administran mediante GET/POST/PATCH, sin DELETE. [contrato de Departamentos](api/README.md#51-departamentos-implementados-catálogos). `DepartmentMembership` contiene UUIDv7, usuario, departamento, rol departamental, `joinedAt`, `leftAt` opcional, `CHECK` temporal y un índice único parcial sobre `(user_id, department_id, role_code) WHERE left_at IS NULL`; conserva la historia sin implementar retirada.
+`Department` posee UUIDv7, nombre de 2–120, código ASCII de 2–20 normalizado a mayúsculas, descripción opcional hasta 500, estado y fechas internas `createdAt`/`updatedAt`. Nombre y código son únicos sin distinguir mayúsculas. PostgreSQL 18 proporciona `uuidv7()` como default para inserciones SQL; JPA genera su UUID y mantiene las fechas. Se revalida que esté activo al emitir o canjear una invitación departamental. No hay departamentos precargados; se administran mediante GET/POST/PATCH, sin DELETE. [contrato de Departamentos](api/README.md#51-departamentos-implementados-catálogos). `DepartmentMembership` contiene UUIDv7, usuario, departamento, rol departamental, `joinedAt`, `leftAt` opcional, `CHECK` temporal y un índice único parcial sobre `(user_id, department_id, role_code) WHERE left_at IS NULL`; conserva la historia con baja y reingreso internos; sin API de retirada.
 
 `AuditEvent` contiene UUIDv7, `actor` opcional, `action`/`resourceType` hasta 80, `resourceId` hasta 128, `summary` opcional hasta 500, `details` JSONB obligatorio, `requestId` opcional hasta 128 y `occurredAt`. Los eventos de Invitaciones guardan solo rol, ámbito y `departmentId` si corresponde, nunca código, HMAC, correo del invitado ni JWT. El recurso histórico es una referencia lógica, no una FK polimórfica.
 
-Las FK históricas usan `ON DELETE RESTRICT`; los actores de emisión/canje/revocación están verificados y la limpieza de cuentas **no verificadas** no les afecta. `StaffInvitation.email` sin FK permite que una cuenta pendiente se elimine tras 24 horas y que su futuro titular vuelva a registrarse y canjear, si el código sigue vigente. Emisión no crea `User`; canje, concesión y auditoría comparten una única transacción con bloqueos **usuario → invitación → departamento**, protección ante duplicados y conservación de `CITIZEN`. [ADR-0007: reglas de concesión](adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](development.md).
+Las FK históricas usan `ON DELETE RESTRICT`; la limpieza de cuentas **no verificadas** conserva cualquier usuario con referencias históricas, sin bloquear el barrido de cuentas eliminables. `StaffInvitation.email` sin FK permite que una cuenta pendiente se elimine tras 24 horas y que su futuro titular vuelva a registrarse y canjear, si el código sigue vigente. Emisión no crea `User`; canje, concesión y auditoría comparten una única transacción con bloqueos **usuario → invitación → departamento**, protección ante duplicados y conservación de `CITIZEN`. [ADR-0007: reglas de concesión](adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](development.md).
 
 ## 5. Identificadores, tipos y invariantes
 
@@ -87,8 +87,14 @@ Los cinco códigos de rol son `CITIZEN`, `OPERATOR`, `ADMIN`, `TECHNICIAN` y `DE
 
 ## 7. Estado de los tags y próximas decisiones
 
-**Autenticación**, **Invitaciones**, **Departamentos** y **Categorías** (OpenAPI `0.5.0`) cuentan con endpoints backend. El dominio de incidencias, tramitación, equipos, estadísticas, mapas, fotografías operativas e IA continúa en fases de diseño. Faltan el primer administrador de producción, retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
+**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos** y **Categorías** (OpenAPI `0.5.0`) cuentan con endpoints backend. El dominio de incidencias, tramitación, equipos, estadísticas, mapas, fotografías operativas e IA continúa en fases de diseño. Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
 
 - [Contrato dominio–API](api/domain-openapi.md) y [guía de la API](api/README.md).
 - [Arquitectura modular real](architecture.md), [diagramas actualizados](diagrams/README.md) y [ADR](adr/README.md).
 - [Autenticación](auth-design.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md) y [contrato API](api/README.md).
+
+## Identidad y ciclo de pertenencias
+
+El módulo `identity` implementa perfil propio y administración de usuarios. `UserDTO` incluye roles globales y todas las pertenencias, ordenadas por alta descendente e ID ascendente. La presencia de historia no otorga permisos: el filtro por rol departamental solo utiliza pertenencias con `leftAt=null`. Las altas requieren cuenta activa/verificada y departamento activo; las bajas conservan la fila y el reingreso crea otra. El índice parcial `department_memberships_active_unique` protege las altas concurrentes.
+
+`displayName` utiliza 2–120 puntos Unicode después de recortar espacios de borde y rechaza controles interiores. Actividad y perfil se modifican bajo bloqueo del usuario; la administración protege al último ADMIN activo y verificado, incluida la autodesactivación. La limpieza de cuentas caducadas excluye referencias históricas antes de paginar el lote. Detalles en [ADR-0012](adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](adr/0013-pertenencias-usuarios-departamentos.md).

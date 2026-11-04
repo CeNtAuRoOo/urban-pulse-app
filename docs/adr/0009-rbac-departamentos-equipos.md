@@ -54,7 +54,7 @@ description, active y fechas internas, con administración REST y sin catálogo 
 UUIDv7, usuario, departamento, rol departamental, joinedAt/leftAt. El índice parcial
 solo permite un permiso activo idéntico; pueden existir varios históricos finalizados.
 CHECK impide roles globales y bajas anteriores al alta. Las FK restringen borrados.
-La baja de pertenencias y retirada de UserRole quedan fuera; no hay endpoints para ello.
+La baja interna de pertenencias y el reingreso están implementados según ADR-0013; no hay endpoints para ello. La retirada de UserRole sigue fuera de alcance.
 La lectura de JWT sigue resolviendo roles globales; no convierte TECHNICIAN en autoridad
 global ni implementa por anticipado la autorización contextual de otros tags.
 

@@ -34,3 +34,7 @@ Se conservan las PK/FK y restricciones históricas de Invitaciones: email normal
 El perfil `postgres-it` ejecuta las cinco suites de Autenticación, correo, Invitaciones, Departamentos y Categorías sobre PostgreSQL 18 efímero con Hibernate `validate`. Comprueba una sola versión en Flyway, nueve tablas funcionales, cinco roles y ausencia de semillas de catálogo. [Comandos y resultados](../development.md#verificación-del-backend).
 
 La conectividad histórica JDBC/S3 con Neon no acredita la aplicación de la V1 consolidada. El primer despliegue requiere comprobar destino, historial, permisos, backup y plan de migración. Después de aplicar V1, cualquier evolución necesita una versión nueva coordinada. Siguen pendientes automatización CI/CD, rol migrador dedicado y políticas operativas de conservación; no se anticipan tablas por aparecer en los diagramas.
+
+## Identidad y pertenencias (04/11/2026)
+
+La integración de Usuarios mantiene las nueve tablas y los cinco roles de V1, sin semillas de catálogos ni migraciones adicionales. La restricción de `users.display_name` valida 2–120 puntos Unicode, texto normalizado y ausencia de controles. El índice parcial de pertenencias conserva el nombre `department_memberships_active_unique`; `left_at` conserva el historial y permite reingresos en filas nuevas. Las FK hacia usuarios se mantienen sin CASCADE. La limpieza excluye cuentas con referencias históricas según [ADR-0013](0013-pertenencias-usuarios-departamentos.md), sin borrar su evidencia ni bloquear cuentas eliminables.

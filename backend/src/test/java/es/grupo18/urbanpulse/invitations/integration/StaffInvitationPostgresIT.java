@@ -1,32 +1,49 @@
 package es.grupo18.urbanpulse.invitations.integration;
 
 import java.sql.Timestamp;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.*;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
-import org.springframework.test.context.*;
-import org.springframework.test.context.bean.override.mockito.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.*;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.testcontainers.junit.jupiter.*;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
@@ -47,19 +64,25 @@ import es.grupo18.urbanpulse.invitations.service.InvitationCodeService;
 import es.grupo18.urbanpulse.invitations.service.StaffInvitationService;
 import es.grupo18.urbanpulse.organization.dto.CreateDepartmentRequest;
 import es.grupo18.urbanpulse.organization.dto.PatchDepartmentRequest;
-import es.grupo18.urbanpulse.organization.service.DepartmentService;
 import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
+import es.grupo18.urbanpulse.organization.service.DepartmentService;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailMessage;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 import es.grupo18.urbanpulse.shared.ratelimit.InMemoryRateLimiter;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -129,7 +152,8 @@ class StaffInvitationPostgresIT {
         when(limiter.acquire(anyString(), any())).thenReturn(new InMemoryRateLimiter.Decision(true, 0));
         admin = fixture("admin@example.org", true, true);
         citizen = fixture("person@example.org", true, false);
-        department = departmentService.create(new CreateDepartmentRequest("Movilidad <urbana>", "MOV", "Fixture aislado", true)).id();
+        department = departmentService
+                .create(new CreateDepartmentRequest("Movilidad <urbana>", "MOV", "Fixture aislado", true)).id();
         messages.clear();
         doAnswer(invocation -> {
             EmailMessage message = invocation.getArgument(0);
@@ -286,7 +310,8 @@ class StaffInvitationPostgresIT {
                             where datname=current_database() and wait_event_type='Lock'
                             and query like '%departments%' and pid <> pg_backend_pid())
                             """, Boolean.class);
-                    if (!waiting) Thread.sleep(20);
+                    if (!waiting)
+                        Thread.sleep(20);
                 } while (!waiting && System.nanoTime() < deadline);
                 assertThat(waiting).as("El canje espera el PATCH de departamento").isTrue();
                 release.countDown();

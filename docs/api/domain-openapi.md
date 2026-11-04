@@ -1,6 +1,6 @@
 # UrbanPulse — contrato de dominio y API unificados (dominio v1 / API 0.5.0)
 
-> **Estado actual:** Autenticación, Invitaciones, Departamentos y Categorías están implementados en Java/JPA/Flyway; los demás tags son modelos de diseño revisables. Las migraciones previas se validaron en PostgreSQL efímero, **no** consta su aplicación sobre Neon `development`. La versión OpenAPI **vigente es 0.5.0**. Las fuentes gráficas y sus SVG regenerados manualmente incluyen los módulos implementados; véase la [comprobación estructural](../diagrams/README.md#criterios-de-sincronización).
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, Departamentos y Categorías están implementados en Java/JPA/Flyway; los demás tags son modelos de diseño revisables. Las migraciones previas se validaron en PostgreSQL efímero, **no** consta su aplicación sobre Neon `development`. La versión OpenAPI **vigente es 0.5.0**. Las fuentes gráficas y sus SVG regenerados con draw.io Desktop incluyen los módulos implementados; véase la [comprobación estructural](../diagrams/README.md#criterios-de-sincronización).
 
 ## 1. Referencia coherente y varias vistas
 
@@ -21,7 +21,7 @@ DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-rol
 | Identificadores           | UUIDv7 desde Hibernate donde corresponda; algunas claves compuestas/naturales y externas         | `string` + `format: uuid` para IDs internos, sin imponer versión UUID en OpenAPI                                                   |
 | Identidad                 | `User` único por email normalizado, `CITIZEN` siempre presente, preferencias y correo verificado | Registro público sin selección de roles; `UserDTO` no expone hash ni `tokenVersion`                                                |
 | Roles globales            | `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y se consultan vigentes en PostgreSQL        | JWT Bearer, `UserDTO.roles`; no hay permisos permanentes confiados a claims                                                        |
-| Roles departamentales     | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial             | Proyección de pertenencias de `UserDTO` futura; el canje devuelve DTO propio                                                       |
+| Roles departamentales     | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial             | Pertenencias activas e históricas en `UserDTO`; el canje devuelve DTO propio                                                       |
 | Operador                  | Puede actuar transversalmente al revisar/derivar, sin pertenecer a departamento                  | Operaciones de incidencias futuras con `x-roles: OPERATOR` como metadato                                                           |
 | Catálogo de departamentos | Nombre/código únicos, estado y fechas; entidad compartida con pertenencias/invitaciones          | GET colección/detalle, POST y PATCH implementados; [contrato de Departamentos](README.md#51-departamentos-implementados-catálogos) |
 | Catálogo de categorías    | UUIDv7, nombre único de 2–100 puntos Unicode, descripción opcional y active; V1 sin semillas     | GET colección/detalle, POST y PATCH implementados; [contrato](README.md#contrato-de-categorías)                                    |
@@ -40,7 +40,7 @@ El contrato de autenticación evolucionó desde diseño de registro JWT (`0.3.0`
 - `User` inicia activo, `emailVerified=false`, `tokenVersion=0`, con preferencias `true` y rol global `CITIZEN`. Solo un flujo autenticado y controlado puede conceder privilegios adicionales.
 - JWT HS256 por **7200 s** con `sub/iat/exp/iss/ver`, comprobación de cuenta, versión, roles globales vigentes y `EMAIL_VERIFIED` desde PostgreSQL por petición. El mismo JWT funciona tras verificar correo y puede reconocer un rol global recién adquirido por invitación.
 - Cambio de contraseña: bloqueo y aumento de `tokenVersion` dentro de la transacción para invalidar tokens anteriores. BCrypt coste 12 para contraseñas.
-- Verificación: HMAC propio del código de ocho dígitos, diez minutos como máximo, cuenta pendiente hasta 24 h y correo `AFTER_COMMIT`; confirmación/reenvío y limpieza ya implementados. SMTP Mailpit local **no** garantiza entrega externa.
+- Verificación: HMAC propio del código de ocho dígitos, diez minutos como máximo, cuenta pendiente eliminable tras 24 h solo si carece de referencias históricas y correo `AFTER_COMMIT`; confirmación/reenvío y limpieza ya implementados. SMTP Mailpit local **no** garantiza entrega externa.
 - Errores: `400` JSON ilegible/tipos/cuerpo excesivo, `401` credenciales/JWT/cuenta inválidos, `403 EMAIL_NOT_VERIFIED`, `409` duplicidad de correo, `422` validación, `429 Retry-After`, `503` fallo tipado PostgreSQL y `500` genérico. Límite de 16 KiB en los cinco POST de auth; cuotas en memoria por instancia.
 - Recuperación de contraseña olvidada, refresh, primer ADMIN productivo y `GET fields` no están implementados.
 
@@ -74,7 +74,7 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 `UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. Algunos campos `StatusChangeDTO` pueden omitirse en cambios automáticos o iniciales, pero ello no elimina el deber de auditar. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales de usuarios se decidirán en el tag correspondiente.
 
-**Pendiente de implementar:** equipos, retirada de permisos, operaciones de incidencias, fotografías, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Invitaciones y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
+**Pendiente de implementar:** equipos, API de retirada de permisos, operaciones de incidencias, fotografías, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 
 ## 5. Proceso dominio–API por tag
 
@@ -90,9 +90,9 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 Desde la raíz:
 
 ```bash
-npx --yes @redocly/cli lint docs/api/openapi/base-openapi.yaml
-npx --yes @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
 **Validaciones completadas (30/10/2026):** contrato OpenAPI `0.5.0` sin errores de lint (dos avisos conocidos: licencia por decidir y servidor localhost), **90 pruebas de backend superadas** y un recorrido HTTP aislado con PostgreSQL/Mailpit satisfactorio. El historial Git sitúa la reorganización de paquetes antes de los commits de Invitaciones y pruebas. Resultados, alcance y comandos: [Guía de desarrollo](../development.md).
@@ -102,3 +102,7 @@ npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 - [Guía de API](README.md), [autenticación](../auth-design.md), [modelo de dominio](../domain-model.md) y [diagramas actualizados](../diagrams/README.md).
 - [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0010](../adr/0010-ciclo-vida-y-asignaciones.md) y [ADR-0011](../adr/0011-identificadores-uuidv7.md).
 - [Desarrollo: pruebas](../development.md) y [CONTRIBUTING](../../CONTRIBUTING.md).
+
+## Usuarios: contrato implementado
+
+Las cinco operaciones cubren perfil propio y administración global con correo verificado. Los DTO admiten solo `displayName` o `active` según la ruta; la normalización de nombre se valida en puntos Unicode. `LAST_ACTIVE_ADMIN` protege la disponibilidad administrativa con estado 409. El listado pagina en SQL y carga roles y pertenencias en lote; el filtro departamental excluye historia, aunque el DTO la incluye. La baja y reentrada departamental son servicios internos sin nuevas rutas. Véanse [Usuarios](README.md#usuarios-implementados), [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).

@@ -3,7 +3,10 @@
     tags:
       - Usuarios
     summary: Consultar mi perfil
-    description: Devuelve los datos personales del usuario autenticado.
+    description: >-
+      Devuelve el perfil del titular, sus roles globales y todas sus pertenencias
+      departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+    x-email-verified: true
     operationId: getUsersMe
     x-roles:
       - AUTHENTICATED
@@ -26,12 +29,17 @@
         $ref: "../components/responses.yaml#/Conflict"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
   patch:
     tags:
       - Usuarios
     summary: Modificar mi perfil
-    description: Actualiza únicamente atributos permitidos del perfil; no modifica roles.
+    description: >-
+      Actualiza únicamente el nombre público del titular. La respuesta incluye
+      sus roles globales y pertenencias departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+    x-email-verified: true
     operationId: patchUsersMe
     x-roles:
       - AUTHENTICATED
@@ -40,7 +48,7 @@
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/usuarios.yaml#/UpdateProfileRequest"
+            $ref: "../components/schemas/usuarios.yaml#/UpdateMyProfileRequest"
     responses:
       "200":
         description: Operación correcta.
@@ -62,13 +70,20 @@
         $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /users:
   get:
     tags:
       - Usuarios
     summary: Listar usuarios
-    description: Listado restringido al administrador; filtros y paginación.
+    description: >-
+      Listado restringido al administrador. Incluye roles globales y pertenencias
+      departamentales activas e históricas; el filtro por rol departamental solo
+      considera pertenencias activas. Orden createdAt descendente e id ascendente.
+      Primera página 1; tamaño 20 por defecto (1–100); offset máximo 2147483647.
+    x-email-verified: true
     operationId: getUsers
     x-roles:
       - ADMIN
@@ -80,7 +95,7 @@
         required: false
         schema:
           $ref: ../components/schemas/usuarios.yaml#/RoleCode
-        description: Filtrar por rol.
+        description: Filtrar por rol global asignado o pertenencia departamental activa.
       - name: active
         in: query
         required: false
@@ -106,13 +121,18 @@
         $ref: "../components/responses.yaml#/Conflict"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /users/{userId}:
   get:
     tags:
       - Usuarios
     summary: Consultar usuario
-    description: Información del usuario para administración; no pública.
+    description: >-
+      Información del usuario para administración; incluye roles globales y
+      pertenencias departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+    x-email-verified: true
     operationId: getUsersUserId
     x-roles:
       - ADMIN
@@ -137,13 +157,17 @@
         $ref: "../components/responses.yaml#/Conflict"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
   patch:
     tags:
       - Usuarios
     summary: Administrar usuario
-    description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las 
+    description:
+      Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las
       adscripciones departamentales tienen reglas propias.
+    x-email-verified: true
     operationId: patchUsersUserId
     x-roles:
       - ADMIN
@@ -171,8 +195,14 @@
       "404":
         $ref: "../components/responses.yaml#/NotFound"
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        description: LAST_ACTIVE_ADMIN; la baja dejaría sin ADMIN activo y verificado. La autodesactivación se permite si queda otro.
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas/comunes.yaml#/ProblemDetail"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"

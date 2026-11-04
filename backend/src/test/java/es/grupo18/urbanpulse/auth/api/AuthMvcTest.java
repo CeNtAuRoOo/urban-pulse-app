@@ -102,7 +102,7 @@ class AuthMvcTest {
         when(limiter.acquire(anyString(), any())).thenReturn(new InMemoryRateLimiter.Decision(true, 0));
         var dto = new TokenDTO("test-token", "Bearer", 7200,
                 new UserDTO(id, "Ciudadana", "person@example.org", false, true, Instant.now(),
-                        Set.of(RoleCode.CITIZEN)));
+                        Set.of(RoleCode.CITIZEN), List.of()));
         when(auth.register(any())).thenReturn(dto);
         when(auth.login(any())).thenReturn(dto);
         state(RoleCode.CITIZEN, true, 0);
@@ -132,7 +132,8 @@ class AuthMvcTest {
         Instant now = Instant.now();
         return "Bearer " + encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
                 JwtClaimsSet.builder().issuer("urbanpulse-tests").subject(id.toString()).issuedAt(now)
-                        .expiresAt(now.plusSeconds(7200)).claim("ver", 0).claim("roles", List.of("ADMIN")).build()))
+                        .expiresAt(now.plusSeconds(7200)).claim("ver", 0)
+                        .claim("roles", List.of("ADMIN")).build()))
                 .getTokenValue();
     }
 
@@ -140,11 +141,13 @@ class AuthMvcTest {
     void successResponsesAndNoSessionOrLocation() throws Exception {
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(register))
                 .andExpect(status().isCreated()).andExpect(header().doesNotExist("Location"))
-                .andExpect(header().doesNotExist("Set-Cookie")).andExpect(jsonPath("$.expiresIn").value(7200))
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andExpect(jsonPath("$.expiresIn").value(7200))
                 .andExpect(jsonPath("$.user.roles[0]").value("CITIZEN"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.user.tokenVersion").doesNotExist())
-                .andExpect(jsonPath("$.user.departmentMemberships").doesNotExist());
+                .andExpect(jsonPath("$.user.departmentMemberships").isArray())
+                .andExpect(jsonPath("$.user.departmentMemberships").isEmpty());
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.tokenType").value("Bearer"));
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", bearer())
@@ -158,24 +161,29 @@ class AuthMvcTest {
                 register.replace("\"password-123\"", "true"))) {
             mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isBadRequest())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(content()
+                            .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.code").value("INVALID_JSON"));
         }
         for (String field : List.of("roles", "active", "emailVerified", "tokenVersion", "extra")) {
             mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
-                    .content(register.substring(0, register.length() - 1) + ",\"" + field + "\":true}"))
-                    .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.errors").isArray());
+                    .content(register.substring(0, register.length() - 1) + ",\"" + field
+                            + "\":true}"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.errors").isArray());
         }
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"displayName\":\"a\",\"email\":\"invalid\",\"password\":\"short\"}"))
-                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("{"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_JSON"));
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", bearer())
                 .contentType(MediaType.APPLICATION_JSON).content(change.replace("password-456", "x")))
                 .andExpect(status().isUnprocessableContent());
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", bearer())
-                .contentType(MediaType.APPLICATION_JSON).content(change.replace("}", ",\"active\":true}")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(change.replace("}", ",\"active\":true}")))
                 .andExpect(status().isUnprocessableContent());
         verifyNoInteractions(auth);
     }
@@ -183,23 +191,28 @@ class AuthMvcTest {
     @Test
     void uniformBusinessAndUnexpectedErrors() throws Exception {
         when(auth.register(any()))
-                .thenThrow(new ApiException(HttpStatus.CONFLICT, "EMAIL_CONFLICT", "El correo ya está registrado."));
+                .thenThrow(new ApiException(HttpStatus.CONFLICT, "EMAIL_CONFLICT",
+                        "El correo ya está registrado."));
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(register))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("EMAIL_CONFLICT"));
         when(auth.login(any())).thenThrow(ApiException.unauthorized());
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
         doThrow(new IllegalStateException("SECRET SQL passwordHash")).when(auth).login(any());
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
-                .andExpect(status().isInternalServerError()).andExpect(jsonPath("$.detail").value("Error interno."));
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.detail").value("Error interno."));
     }
 
     @Test
     void protectsEveryOtherRouteAndReadsCurrentDatabaseRoles() throws Exception {
-        for (String path : List.of("/api/v1/users/me/password-changes", "/api/v1/unknown", "/api/v1/auth/refresh")) {
+        for (String path : List.of("/api/v1/users/me/password-changes", "/api/v1/unknown",
+                "/api/v1/auth/refresh")) {
             mvc.perform(post(path)).andExpect(status().isUnauthorized())
                     .andExpect(header().string("WWW-Authenticate", "Bearer"))
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+                    .andExpect(content()
+                            .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
         }
         mvc.perform(get("/api/v1/auth/login")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", "Bearer invalid"))
@@ -243,7 +256,8 @@ class AuthMvcTest {
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:7777"));
         mvc.perform(options("/api/v1/auth/login").header("Origin", "https://evil.example")
                 .header("Access-Control-Request-Method", "POST"))
-                .andExpect(status().isForbidden()).andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
@@ -263,24 +277,28 @@ class AuthMvcTest {
                 .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
                 .andExpect(jsonPath("$.detail").value("Servicio temporalmente no disponible."))
                 .andExpect(jsonPath("$.instance").value("/api/v1/users/me/password-changes"))
-                .andExpect(result -> assertThat(result.getResponse().getContentAsString()).doesNotContain(sensitive));
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain(sensitive));
         verifyNoInteractions(auth, limiter);
         verify(users).findSecurityState(id);
         assertThat(output.getAll()).containsOnlyOnce("event=AUTH_BACKEND_UNAVAILABLE")
-                .contains("DataAccessResourceFailureException").doesNotContain(sensitive, token, "password-123");
+                .contains("DataAccessResourceFailureException")
+                .doesNotContain(sensitive, token, "password-123");
     }
 
     @Test
     void programmingFailureDuringBearerAuthenticationIs500(CapturedOutput output) throws Exception {
         for (RuntimeException failure : List.of(
-                new BadSqlGrammarException("PRIVATE_TASK", "PRIVATE_SQL", new SQLException("PRIVATE_CAUSE", "42601")),
+                new BadSqlGrammarException("PRIVATE_TASK", "PRIVATE_SQL",
+                        new SQLException("PRIVATE_CAUSE", "42601")),
                 new IllegalStateException("PRIVATE_CAUSE"))) {
             doThrow(failure).when(users).findSecurityState(id);
             mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", bearer())
                     .contentType(MediaType.APPLICATION_JSON).content(change))
                     .andExpect(status().isInternalServerError())
                     .andExpect(header().doesNotExist("WWW-Authenticate"))
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(content()
+                            .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                     .andExpect(jsonPath("$.detail").value("Error interno."));
         }
@@ -302,12 +320,15 @@ class AuthMvcTest {
                         .content(endpoint.equals("register") ? register : login))
                         .andExpect(status().isServiceUnavailable())
                         .andExpect(header().doesNotExist("WWW-Authenticate"))
-                        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                        .andExpect(content().contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON))
                         .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
-                        .andExpect(jsonPath("$.detail").value("Servicio temporalmente no disponible."));
+                        .andExpect(jsonPath("$.detail")
+                                .value("Servicio temporalmente no disponible."));
             }
         }
-        var bug = new BadSqlGrammarException("PRIVATE_TASK", "PRIVATE_SQL", new SQLException("PRIVATE_CAUSE", "42601"));
+        var bug = new BadSqlGrammarException("PRIVATE_TASK", "PRIVATE_SQL",
+                new SQLException("PRIVATE_CAUSE", "42601"));
         doThrow(bug).when(auth).register(any());
         doThrow(bug).when(auth).login(any());
         for (String endpoint : List.of("register", "login")) {
@@ -319,7 +340,8 @@ class AuthMvcTest {
                     .andExpect(jsonPath("$.detail").value("Error interno."));
         }
         assertThat(output.getAll()).contains("event=API_DATABASE_UNAVAILABLE", "event=API_INTERNAL_ERROR")
-                .doesNotContain("PRIVATE_CONNECTION", "PRIVATE_TRANSACTION", "PRIVATE_TASK", "PRIVATE_SQL",
+                .doesNotContain("PRIVATE_CONNECTION", "PRIVATE_TRANSACTION", "PRIVATE_TASK",
+                        "PRIVATE_SQL",
                         "PRIVATE_CAUSE");
     }
 
@@ -343,9 +365,11 @@ class AuthMvcTest {
         for (boolean knownLength : List.of(true, false)) {
             for (String path : List.of("/api/v1/auth/register", "/api/v1/auth/login",
                     "/api/v1/users/me/password-changes")) {
-                String json = path.endsWith("register") ? register : path.endsWith("login") ? login : change;
+                String json = path.endsWith("register") ? register
+                        : path.endsWith("login") ? login : change;
                 for (int size : List.of(16_384, 16_385)) {
-                    String body = json + " ".repeat(size - json.getBytes(StandardCharsets.UTF_8).length);
+                    String body = json + " "
+                            .repeat(size - json.getBytes(StandardCharsets.UTF_8).length);
                     var request = post(path).contentType(MediaType.APPLICATION_JSON).content(body);
                     if (path.endsWith("password-changes")) {
                         request.header("Authorization", bearer());
@@ -364,11 +388,13 @@ class AuthMvcTest {
                     var result = mvc.perform(request);
                     if (size > 16_384) {
                         result.andExpect(status().isBadRequest())
-                                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                                .andExpect(content().contentTypeCompatibleWith(
+                                        MediaType.APPLICATION_PROBLEM_JSON))
                                 .andExpect(jsonPath("$.code").value("INVALID_JSON"));
                     } else {
                         result.andExpect(
-                                status().is(path.endsWith("register") ? 201 : path.endsWith("login") ? 200 : 204));
+                                status().is(path.endsWith("register") ? 201
+                                        : path.endsWith("login") ? 200 : 204));
                     }
                 }
             }
@@ -387,17 +413,20 @@ class AuthMvcTest {
     void unverifiedIdentityIsRestrictedByDefaultEvenWithAdminAndSameJwtGainsAccess() throws Exception {
         state(true, 0, false, RoleCode.CITIZEN, RoleCode.ADMIN);
         String token = bearer();
-        for (String path : List.of("/_test/admin", "/_test/business", "/api/v1/future-tag", "/api/v1/auth/other")) {
+        for (String path : List.of("/_test/admin", "/_test/business", "/api/v1/future-tag",
+                "/api/v1/auth/other")) {
             mvc.perform(get(path).header("Authorization", token).header("EMAIL_VERIFIED", "true"))
                     .andExpect(status().isForbidden())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(content()
+                            .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(header().doesNotExist("WWW-Authenticate"))
                     .andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
         }
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.user.emailVerified").value(false));
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON).content(change)).andExpect(status().isNoContent());
+                .contentType(MediaType.APPLICATION_JSON).content(change))
+                .andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"01234567\"}"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
@@ -420,7 +449,8 @@ class AuthMvcTest {
         for (String path : List.of("/api/v1/auth/email-verifications/confirm",
                 "/api/v1/auth/email-verifications/resend")) {
             mvc.perform(post(path)).andExpect(status().isUnauthorized());
-            mvc.perform(post(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+            mvc.perform(post(path).header("Authorization", "Bearer invalid"))
+                    .andExpect(status().isUnauthorized());
         }
         verifyNoInteractions(limiter);
         String token = bearer();
@@ -435,19 +465,23 @@ class AuthMvcTest {
         for (String body : List.of("{", "{\"code\":12345678}")) {
             mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
                     .contentType(MediaType.APPLICATION_JSON).content(body))
-                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_JSON"));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_JSON"));
         }
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(verification);
     }
 
     @Test
     void verificationBucketsUseUserAndConnectionIpAndDenyBeforeService() throws Exception {
         var policies = Map.of("confirm-ip:127.0.0.1", "confirm", "confirm-user:" + id, "confirm",
-                "resend-ip:127.0.0.1", "resend", "resend-cooldown:" + id, "resend", "resend-user:" + id, "resend");
+                "resend-ip:127.0.0.1", "resend", "resend-cooldown:" + id, "resend", "resend-user:" + id,
+                "resend");
         for (var entry : policies.entrySet()) {
-            doReturn(new InMemoryRateLimiter.Decision(false, 60)).when(limiter).acquire(eq(entry.getKey()), any());
+            doReturn(new InMemoryRateLimiter.Decision(false, 60)).when(limiter).acquire(eq(entry.getKey()),
+                    any());
             var request = post("/api/v1/auth/email-verifications/" + entry.getValue())
                     .header("Authorization", bearer()).header("X-Forwarded-For", "198.51.100.99");
             if (entry.getValue().equals("confirm")) {
@@ -456,9 +490,11 @@ class AuthMvcTest {
             mvc.perform(request).andExpect(status().isTooManyRequests())
                     .andExpect(header().string("Retry-After", "60"))
                     .andExpect(header().doesNotExist("WWW-Authenticate"))
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(content()
+                            .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.code").value("RATE_LIMIT"));
-            doReturn(new InMemoryRateLimiter.Decision(true, 0)).when(limiter).acquire(eq(entry.getKey()), any());
+            doReturn(new InMemoryRateLimiter.Decision(true, 0)).when(limiter).acquire(eq(entry.getKey()),
+                    any());
         }
         verifyNoInteractions(verification);
     }
@@ -470,8 +506,10 @@ class AuthMvcTest {
         for (boolean known : List.of(true, false)) {
             for (String action : List.of("confirm", "resend")) {
                 for (int size : List.of(action.equals("confirm") ? 16_384 : 0, 16_385)) {
-                    String body = action.equals("confirm") ? json + " ".repeat(size - json.length()) : " ".repeat(size);
-                    var request = post("/api/v1/auth/email-verifications/" + action).header("Authorization", bearer())
+                    String body = action.equals("confirm") ? json + " ".repeat(size - json.length())
+                            : " ".repeat(size);
+                    var request = post("/api/v1/auth/email-verifications/" + action)
+                            .header("Authorization", bearer())
                             .contentType(MediaType.APPLICATION_JSON).content(body);
                     if (known)
                         request.header("Content-Length", size);
@@ -487,7 +525,8 @@ class AuthMvcTest {
                     if (size > 16_384)
                         response.andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.code").value("INVALID_JSON"))
-                                .andExpect(jsonPath("$.detail").value("Cuerpo JSON demasiado grande."));
+                                .andExpect(jsonPath("$.detail").value(
+                                        "Cuerpo JSON demasiado grande."));
                     else
                         response.andExpect(status().is(action.equals("confirm") ? 204 : 202));
                 }
@@ -504,7 +543,8 @@ class AuthMvcTest {
         var real = new InMemoryRateLimiter(rateLimits, time::get);
         when(limiter.acquire(anyString(), any()))
                 .thenAnswer(call -> real.acquire(call.getArgument(0), call.getArgument(1)));
-        doThrow(new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_VERIFICATION_CODE", "Código no válido."))
+        doThrow(new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_VERIFICATION_CODE",
+                "Código no válido."))
                 .when(verification).confirm(any(), anyLong(), anyString());
         when(verification.resend(id, 0)).thenReturn(true);
         String token = bearer();
@@ -516,14 +556,16 @@ class AuthMvcTest {
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
                 .andExpect(status().isAccepted());
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization", token))
-                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "60"));
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"));
         mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
                 .with(request -> {
                     request.setRemoteAddr("198.51.100.2");
                     return request;
                 })
                 .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"00000000\"}"))
-                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "720"));
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "720"));
         time.set(720_000_000_000L);
         mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"00000000\"}"))

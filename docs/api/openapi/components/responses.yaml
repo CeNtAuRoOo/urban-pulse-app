@@ -59,7 +59,7 @@ InternalError:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
 ServiceUnavailable:
-  description: Servicio temporalmente no disponible. En auth e invitaciones se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
+  description: Servicio temporalmente no disponible. En Autenticación, Usuarios, Invitaciones y catálogos se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
   content:
     application/problem+json:
       schema:

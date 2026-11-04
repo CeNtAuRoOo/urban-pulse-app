@@ -1,8 +1,8 @@
 # UrbanPulse
 
-**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; el resto de funcionalidades sigue en diseño.
+**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; el resto de funcionalidades sigue en diseño.
 
-## Estado del proyecto (03/11/2026)
+## Estado del proyecto (04/11/2026)
 
 | Área                                         | Estado                                                                                                                                                                                        |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -10,6 +10,7 @@
 | Frontend Android/iOS                         | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                        |
 | Backend                                      | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `audit` y `shared`.                                                      |
 | Autenticación                                | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                        |
+| Usuarios                                     | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                |
 | Invitaciones                                 | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                              |
 | Departamentos                                | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                |
 | Categorías                                   | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                  |
@@ -18,7 +19,7 @@
 | Incidencias, tramitación, equipos, analítica | Contrato y modelo revisables, **sin endpoints funcionales implementados**.                                                                                                                    |
 | Despliegue real/CI/CD                        | Pendientes. Compose de desarrollo y runner HTTP de pruebas no acreditan producción.                                                                                                           |
 
-Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. Sus SVG se han regenerado manualmente desde las fuentes `.drawio`; el inventario detalla la comprobación estructural de correspondencia.
+Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. Sus SVG se han regenerado con draw.io Desktop desde las fuentes `.drawio`; el inventario detalla la validación XML y la inspección visual de las siete páginas.
 
 ## Tecnologías
 
@@ -78,6 +79,8 @@ Autenticación implementa cinco POST:
 - `/users/me/password-changes`.
 - `/auth/email-verifications/confirm` y `/auth/email-verifications/resend`.
 
+Usuarios implementa cinco operaciones con correo verificado: `GET/PATCH /users/me`, `GET /users` y `GET/PATCH /users/{userId}`. Las tres administrativas requieren ADMIN global. El perfil solo modifica `displayName`; la administración solo `active`, protegiendo al último ADMIN activo y verificado. Los DTO incluyen roles globales y pertenencias activas e históricas. [Reglas y límites](docs/adr/0012-gestion-usuarios-perfiles-y-administracion.md).
+
 Invitaciones implementa otras cinco operaciones:
 
 - `POST /staff-invitations`, `GET /staff-invitations` y `GET /staff-invitations/{invitationId}`.
@@ -116,7 +119,7 @@ Las suites cubren Autenticación, correo, Invitaciones, Departamentos y Categor�
 
 La API usa JWT de acceso de 7200 s y roles vigentes consultados en PostgreSQL por petición; el cambio de contraseña revoca tokens previos mediante `tokenVersion`. La verificación de correo bloquea rutas de negocio hasta confirmar el código. Los limitadores de tasa son locales por instancia; su distribución entre réplicas queda pendiente. Las respuestas de errores utilizan `ProblemDetail`.
 
-El SMTP local con Mailpit no acredita entrega en Internet; faltan bootstrap del primer ADMIN, retirada de permisos, equipos, outbox/reintentos, rotación coordinada de secretos, política de retención de invitaciones/auditoría, HTTPS/CI/CD y despliegue productivo. El C4 Deployment definitivo también está pendiente. Ver [Despliegue](docs/deployment.md) y [Seguridad](SECURITY.md).
+El SMTP local con Mailpit no acredita entrega en Internet; faltan bootstrap del primer ADMIN, API de retirada de permisos, equipos, outbox/reintentos, rotación coordinada de secretos, política de retención de invitaciones/auditoría, HTTPS/CI/CD y despliegue productivo. El C4 Deployment definitivo también está pendiente. Ver [Despliegue](docs/deployment.md) y [Seguridad](SECURITY.md).
 
 ## Documentación y contribución
 

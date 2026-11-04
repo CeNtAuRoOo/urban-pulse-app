@@ -1,6 +1,6 @@
 # Diagramas de UrbanPulse
 
-Las fuentes editables describen Autenticación, Invitaciones, Departamentos y Categorías en la V1 consolidada. Los siete SVG se han regenerado manualmente desde diagrams.net e incluyen los cambios de ambos catálogos.
+Las fuentes editables describen Autenticación, Usuarios, Invitaciones, Departamentos, pertenencias y Categorías en la V1 consolidada. Los siete SVG se han regenerado desde las tres fuentes con draw.io Desktop 32.6.1 el 04/11/2026.
 
 Los diagramas representan **el dominio lógico global**, cuya evolución se valida por tag. El esquema realmente migrado se limita a Flyway V1 consolidada; las demás entidades, asociaciones y servicios que aparecen en el modelo siguen siendo **diseño** hasta que tengan migraciones, código y pruebas.
 
@@ -47,11 +47,9 @@ El conjunto de exportaciones es **SVG, no PNG**. Los diez archivos enumerados (t
 
 ## Criterios de sincronización
 
-La comprobación estructural del 03/11/2026 confirma que el modelo XML embebido en
-cada SVG coincide con la página correspondiente de su `.drawio`: celdas, atributos,
-geometrías y conexiones. Se contrastan también las etiquetas del contenido SVG.
-Esta comprobación no es una inspección visual del renderizado ni acredita por sí
-sola ausencia de recortes o solapamientos.
+La validación del **04/11/2026** comprueba XML válido en las tres fuentes y los siete SVG, identificadores únicos y referencias de conexiones válidas en cada página. Se inspeccionaron visualmente las siete páginas mediante renders PNG del mismo exportador: dos C4, cuatro ER y el catálogo de clases. Se corrigieron el recorte del texto de la base de datos en C4 y la proximidad de la nota de verificación a su entidad en ER03; las exportaciones finales muestran las etiquetas completas y separadas.
+
+La leyenda de C4 y las cabeceras ER distinguen implementación y diseño futuro. Esta revisión no acredita despliegue en Neon, entrega SMTP externa ni implementación de las entidades futuras.
 
 - **ER03:** las invitaciones tienen correo obligatorio (sin FK al destinatario), `codeHash` de 32 bytes, ámbito/rol/departamento, emisor, fechas, titular de canje y revocador; `DepartmentMembership` tiene unicidad activa parcial y conserva historial. La verificación de correo pertenece a V1.
 - **ER02:** `AuditEvent` figura en la página de tramitación, **no se duplica** en ER03; el detalle es JSONB, con actor/recurso/fecha.
@@ -74,4 +72,10 @@ Estos puntos están recogidos en el estado gráfico actual; se citan como **crit
 
 Department incluye nombre/código únicos, estado y fechas internas. Category incluye UUIDv7, nombre recortado único de 2–100 puntos Unicode, descripción nullable de hasta 500 y active; no añade código ni fechas. Ambos pertenecen a V1 y no tienen semillas. Las relaciones de Department con pertenencias/invitaciones son persistentes; la asociación Category–Incident es futura, sin FK en SQL.
 
-C4 mantiene un solo backend con siete módulos. Las exportaciones se realizan manualmente desde diagrams.net a partir de las fuentes editables, revisando todas las páginas afectadas.
+C4 mantiene un solo backend con siete módulos. Para reproducir una exportación con draw.io Desktop (páginas numeradas desde 1):
+
+```bash
+drawio --disable-update -x --timeout 45 --theme light --embed-svg-fonts false -b 15 -p 1 -f svg -o docs/diagrams/c4-context.svg docs/diagrams/c4.drawio
+```
+
+Aplicar el mismo procedimiento a la página 2 de C4, las páginas 1–4 del relacional y la página 1 de clases, usando los nombres del inventario. Las imágenes PNG de revisión son auxiliares; los artefactos versionados siguen siendo SVG.

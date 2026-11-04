@@ -15,9 +15,9 @@ UserSummaryDTO:
 UserDTO:
   type: object
   description: >-
-    Vista autorizada del usuario. En registro y login se devuelve el perfil del propio titular;
-    jamás incluye passwordHash ni tokenVersion. email y departmentMemberships se exponen
-    solo cuando el solicitante tenga permiso. No constituye un mecanismo de fields dinámico.
+    Vista del usuario devuelta en su propio perfil, autenticación y consultas administrativas.
+    Nunca incluye passwordHash ni tokenVersion. Incluye siempre la colección de pertenencias
+    departamentales activas e históricas; las fechas permiten distinguir ambos estados.
   properties:
     id:
       type: string
@@ -27,7 +27,7 @@ UserDTO:
     email:
       type: string
       format: email
-      description: Visible únicamente para el titular o personal autorizado.
+      description: Correo electrónico del usuario autenticado o consultado por un administrador.
     emailVerified:
       type: boolean
       description: >-
@@ -48,25 +48,38 @@ UserDTO:
       uniqueItems: true
     departmentMemberships:
       type: array
-      description: Proyección futura del tag Usuarios; auth y el canje no incluyen este campo. Las pertenencias se persisten desde Invitaciones.
+      description: >-
+        Adscripciones departamentales activas e históricas. Una pertenencia está activa
+        cuando leftAt es null. Se ordenan por joinedAt descendente e id ascendente.
+        Una pertenencia histórica no concede permisos; roles globales y departamentales son ámbitos distintos.
       items:
         $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:
     - id
     - displayName
+    - email
     - emailVerified
     - active
     - createdAt
     - roles
+    - departmentMemberships
 
-UpdateProfileRequest:
+UpdateMyProfileRequest:
   type: object
   properties:
     displayName:
       type: string
       minLength: 2
-      maxLength: 120
-  description: Solo admite el nombre público; no permite modificar roles.
+      x-normalized-minLength: 2
+      x-normalized-maxLength: 120
+      description: >-
+        Se recortan espacios Unicode y controles ASCII de borde antes de validar.
+        El resultado debe contener 2–120 puntos de código Unicode y no incluir controles
+        interiores ni sustitutos aislados. Los límites se aplican al texto normalizado;
+        el texto recibido puede incluir espacios de borde adicionales. Error 422 VALIDATION_ERROR.
+  required:
+    - displayName
+  description: Solo admite el nombre público; no permite modificar roles, correo ni pertenencias departamentales.
   additionalProperties: false
 
 AdminUpdateUserRequest:
@@ -76,9 +89,12 @@ AdminUpdateUserRequest:
       type: boolean
   description: >-
     Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza
-    invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
+    invitaciones (ADR-0007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio.
+    No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN).
+    La autodesactivación se permite si permanece otro administrador disponible.
+  required:
+    - active
   additionalProperties: false
-  minProperties: 1
 
 UsersPageDTO:
   type: object
@@ -116,10 +132,12 @@ DepartmentMembershipDTO:
     leftAt:
       type: string
       format: date-time
+      nullable: true
   required:
     - department
     - role
     - joinedAt
+    - leftAt
 GlobalRoleCode:
   type: string
   enum:

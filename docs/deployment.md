@@ -1,6 +1,6 @@
 # Guía de despliegue de UrbanPulse
 
-> **Estado a 03/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases describen los módulos implementados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
+> **Estado a 04/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases describen los módulos implementados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
 
 ## 1. Objetivo y separación de entornos
 
@@ -12,14 +12,14 @@ UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS E
 
 ## 2. Componentes y responsabilidades
 
-| Componente        | Implementado/configurado                                                                                             | Pendiente de validar o entregar                                                    |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas                                                        | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI             |
-| Android/iOS       | Base de código compartida Expo/React Native                                                                          | Ejecución funcional completa y distribución en dispositivos                        |
+| Componente        | Implementado/configurado                                                                                                           | Pendiente de validar o entregar                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas                                                                      | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI             |
+| Android/iOS       | Base de código compartida Expo/React Native                                                                                        | Ejecución funcional completa y distribución en dispositivos                        |
 | API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`; puerto 8888 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen           |
-| PostgreSQL        | V1 consolidada para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente                                         | Aplicación planificada de V1 consolidada a Neon `development` y gestión de backups |
-| Object Storage    | Cliente S3, bucket privado `incident-evidence` y `HeadBucket`                                                        | Subida, descarga, borrado y autorización por objeto                                |
-| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                | Proveedor SMTP real, entregabilidad y recuperación/reintentos                      |
+| PostgreSQL        | V1 consolidada para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente                                                       | Aplicación planificada de V1 consolidada a Neon `development` y gestión de backups |
+| Object Storage    | Cliente S3, bucket privado `incident-evidence` y `HeadBucket`                                                                      | Subida, descarga, borrado y autorización por objeto                                |
+| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                              | Proveedor SMTP real, entregabilidad y recuperación/reintentos                      |
 
 ## 3. Diagramas arquitectónicos
 
@@ -90,7 +90,7 @@ Desde `backend/`, con Java 25, Maven y Docker:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El perfil incorpora cinco suites aisladas de autenticación, correo, invitaciones, departamentos y categorías con PostgreSQL 18 de Testcontainers y **no** ejecuta `NeonConnectivityIT`. En el informe histórico fechado el **30/10/2026** constan **90 pruebas superadas** y un flujo HTTP adicional del JAR con PostgreSQL `tmpfs` (sin puerto publicado), Mailpit, y fixtures sintéticos: rutas, autorización, permisos, auditoría, cuotas, limpieza y entrega local. El servicio de pruebas utilizaba `127.0.0.1:18888` y Mailpit `127.0.0.1:18025`; el cron y las cuotas de fixtures estaban ajustados exclusivamente para tests.
+El perfil incorpora siete suites aisladas de autenticación, correo, invitaciones, departamentos, categorías, usuarios y pertenencias con PostgreSQL 18 de Testcontainers y **no** ejecuta `NeonConnectivityIT`. En el informe histórico fechado el **30/10/2026** constan **90 pruebas superadas** y un flujo HTTP adicional del JAR con PostgreSQL `tmpfs` (sin puerto publicado), Mailpit, y fixtures sintéticos: rutas, autorización, permisos, auditoría, cuotas, limpieza y entrega local. El servicio de pruebas utilizaba `127.0.0.1:18888` y Mailpit `127.0.0.1:18025`; el cron y las cuotas de fixtures estaban ajustados exclusivamente para tests.
 
 **Pruebas superadas y reproducibilidad:** la entrega de Invitaciones registró **90 pruebas exitosas** mediante Maven/Testcontainers y un recorrido HTTP aislado con resultado satisfactorio. El perfil `-Ppostgres-it` sigue configurado en `pom.xml`. El repositorio no contiene `compose.test.yaml`, `backend/Dockerfile.test` ni `backend/scripts/invitations_http_test.py`; por ello, el recorrido HTTP ejecutado no es reproducible **con este árbol de archivos**, aunque su resultado ya quedó documentado. [Guía de desarrollo](development.md).
 

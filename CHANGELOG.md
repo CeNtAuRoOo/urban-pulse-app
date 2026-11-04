@@ -4,13 +4,28 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Añadido
+
+- Cinco operaciones de Usuarios en `identity`: perfil propio, consulta administrativa, listado paginado y activación/desactivación. Roles globales y pertenencias activas/históricas en registro, login y consultas; DTO estrictos y sin credenciales.
+- Ciclo interno de altas y bajas departamentales en `organization`, con historial, reingresos y cuenta activa/verificada. Una sola entidad, repositorio e índice parcial compartidos con Invitaciones; sin nuevas rutas de pertenencias.
+- Protección transaccional del último ADMIN activo y verificado; autodesactivación permitida cuando queda otro. ADR-0012/0013 y contrato OpenAPI 0.5.0 actualizados.
+
 ### Corregido
 
+- Nombre público normalizado antes de validar, contado en puntos Unicode y alineado con PostgreSQL; evita errores SQL tras recortar el nombre.
+- Limpieza de cuentas caducadas compatible con todas las FK históricas, sin borrado de evidencia ni bloqueo del resto del lote.
+- Roles de usuarios recuperados en lote sin N+1; bloqueos de perfil, actividad y pertenencias evitan actualizaciones perdidas y bajas simultáneas incoherentes.
+- Esquema de Usuarios y pertenencias mantenido en la V1 única para destino vacío, sin duplicar migraciones ni precargar catálogos.
 - Longitudes Unicode de nombre y descripción de Departamentos alineadas con PostgreSQL y OpenAPI, tanto en alta como en PATCH; los caracteres suplementarios cuentan como un punto de código.
+
+### Verificado el 04/11/2026
+
+- `clean verify -Ppostgres-it`: **228 pruebas correctas** (148 Surefire y 80 Failsafe en siete suites PostgreSQL), sin fallos, errores ni omisiones. V1 única y Hibernate validados en PostgreSQL 18.6 efímero con Java 25.0.4.
+- Frontend: ESLint y TypeScript correctos. Redocly 2.16.0: contrato 0.5.0 válido, YAML/HTML regenerados, dos avisos conocidos. Tres fuentes draw.io y siete SVG validados como XML e inspeccionados visualmente.
 
 ### Pendientes actuales
 
-Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, retirada de permisos, equipos, incidencias/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
+Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, API de retirada de permisos, equipos, incidencias/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
 
 ## 2026-11-03 — Categorías en el backend modular
 

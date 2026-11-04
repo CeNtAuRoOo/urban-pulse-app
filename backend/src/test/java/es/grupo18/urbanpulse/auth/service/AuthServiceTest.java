@@ -1,15 +1,21 @@
 package es.grupo18.urbanpulse.auth.service;
 
-import java.time.*;
-import java.util.*;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.*;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import es.grupo18.urbanpulse.auth.dto.ChangePasswordRequest;
@@ -23,19 +29,30 @@ import es.grupo18.urbanpulse.identity.model.UserRole;
 import es.grupo18.urbanpulse.identity.repository.RoleRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRoleRepository;
+import es.grupo18.urbanpulse.organization.model.DepartmentMembership;
+import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.security.JwtProperties;
 import es.grupo18.urbanpulse.shared.security.SecurityConfig;
 
 import tools.jackson.databind.json.JsonMapper;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AuthServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final RoleRepository roles = mock(RoleRepository.class);
     private final UserRoleRepository assignments = mock(UserRoleRepository.class);
+    private final DepartmentMembershipRepository departmentMemberships = mock(DepartmentMembershipRepository.class);
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(4);
     private final PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
     private final JwtProperties props = new JwtProperties("unit", Base64.getEncoder().encodeToString(new byte[32]),
@@ -47,8 +64,8 @@ class AuthServiceTest {
     @BeforeEach
     void setup() {
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        auth = new AuthService(users, roles, assignments, passwords, tokens, manager,
-                mock(EmailVerificationService.class));
+        auth = new AuthService(users, roles, assignments, departmentMemberships,
+                passwords, tokens, manager, mock(EmailVerificationService.class));
     }
 
     private User account() {
@@ -87,15 +104,54 @@ class AuthServiceTest {
         assertThat(dto.expiresIn()).isEqualTo(7200);
         assertThat(dto.user().roles()).containsExactly(RoleCode.CITIZEN);
         String json = JsonMapper.builder().findAndAddModules().build().writeValueAsString(dto);
-        assertThat(json).doesNotContain("passwordHash", "tokenVersion", "departmentMemberships", "password-123");
+        assertThat(json).contains("\"departmentMemberships\":[]");
+        assertThat(json).doesNotContain("passwordHash", "tokenVersion", "password-123");
         assertThat(dto.toString()).doesNotContain(dto.accessToken());
+    }
+
+    /**
+     * Comprueba que el inicio de sesión incluye las pertenencias departamentales
+     * activas e históricas en el DTO devuelto junto con el JWT.
+     */
+    @Test
+    void loginIncludesDepartmentMembershipsInUserDTO() {
+        User user = account();
+        UUID departmentId = UUID.randomUUID();
+        Instant joinedAt = Instant.parse("2026-01-10T09:00:00Z");
+        es.grupo18.urbanpulse.organization.model.Department department = mock(
+                es.grupo18.urbanpulse.organization.model.Department.class);
+        Role role = mock(Role.class);
+        DepartmentMembership membership = mock(DepartmentMembership.class);
+
+        when(users.findByEmail("test@example.org")).thenReturn(Optional.of(user));
+        when(department.getId()).thenReturn(departmentId);
+        when(department.getName()).thenReturn("Mantenimiento Urbano");
+        when(department.getCode()).thenReturn("MANT");
+        when(department.getDescription()).thenReturn("Conservación urbana.");
+        when(department.isActive()).thenReturn(true);
+        when(role.getCode()).thenReturn(RoleCode.TECHNICIAN);
+        when(membership.getDepartment()).thenReturn(department);
+        when(membership.getRole()).thenReturn(role);
+        when(membership.getJoinedAt()).thenReturn(joinedAt);
+        when(membership.getLeftAt()).thenReturn(null);
+        when(departmentMemberships.findAllForUsers(List.of(user.getId())))
+                .thenReturn(List.of(membership));
+
+        TokenDTO response = auth.login(new LoginRequest("test@example.org", "password-123"));
+
+        assertThat(response.user().departmentMemberships()).hasSize(1);
+        assertThat(response.user().departmentMemberships().getFirst().role())
+                .isEqualTo(RoleCode.TECHNICIAN);
+        assertThat(response.user().departmentMemberships().getFirst().department().code())
+                .isEqualTo("MANT");
     }
 
     @Test
     void loginFailuresAreIndistinguishableAndUnverifiedUserCanLogin() {
         User user = account();
         when(users.findByEmail("test@example.org")).thenReturn(Optional.of(user));
-        assertThat(auth.login(new LoginRequest(" TEST@EXAMPLE.ORG ", "password-123")).tokenType()).isEqualTo("Bearer");
+        assertThat(auth.login(new LoginRequest(" TEST@EXAMPLE.ORG ", "password-123")).tokenType())
+                .isEqualTo("Bearer");
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "bad")))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("Autenticación no válida.");
@@ -113,13 +169,15 @@ class AuthServiceTest {
     void passwordChangeChecksCurrentPasswordAndLockedVersionThenIncrements() {
         User user = account();
         when(users.findForPasswordChange(user.getId())).thenReturn(Optional.of(user));
-        assertThatThrownBy(() -> auth.changePassword(user.getId(), 0, new ChangePasswordRequest("bad", "password-456")))
+        assertThatThrownBy(() -> auth.changePassword(user.getId(), 0,
+                new ChangePasswordRequest("bad", "password-456")))
                 .isInstanceOf(ApiException.class);
         auth.changePassword(user.getId(), 0, new ChangePasswordRequest("password-123", "password-456"));
         assertThat(user.getTokenVersion()).isEqualTo(1);
         assertThat(passwords.matches("password-456", user.getPasswordHash())).isTrue();
         assertThatThrownBy(
-                () -> auth.changePassword(user.getId(), 0, new ChangePasswordRequest("password-456", "password-789")))
+                () -> auth.changePassword(user.getId(), 0,
+                        new ChangePasswordRequest("password-456", "password-789")))
                 .isInstanceOf(ApiException.class);
         verify(users, times(1)).flush();
     }
@@ -131,12 +189,14 @@ class AuthServiceTest {
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "password-123")))
                 .isSameAs(unavailable);
         when(users.saveAndFlush(any())).thenThrow(unavailable);
-        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
+        assertThatThrownBy(() -> auth
+                .register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
                 .isSameAs(unavailable);
         verify(manager).rollback(any());
         var transactionFailure = new CannotCreateTransactionException("private transaction", unavailable);
         doThrow(transactionFailure).when(manager).getTransaction(any());
-        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
+        assertThatThrownBy(() -> auth
+                .register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
                 .isSameAs(transactionFailure);
         verifyNoInteractions(assignments);
     }
@@ -148,9 +208,11 @@ class AuthServiceTest {
             Role role = mock(Role.class);
             when(role.getCode()).thenReturn(code);
             if (code.isDepartmental())
-                assertThatThrownBy(() -> new UserRole(account(), role)).isInstanceOf(IllegalArgumentException.class);
+                assertThatThrownBy(() -> new UserRole(account(), role))
+                        .isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "é".repeat(37))))
+        assertThatThrownBy(() -> auth
+                .register(new RegisterRequest("Ciudadana", "test@example.org", "é".repeat(37))))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(users);
     }

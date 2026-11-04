@@ -2,6 +2,7 @@ package es.grupo18.urbanpulse.shared.error;
 
 import java.util.List;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.RequiredArgsConstructor;
@@ -170,4 +171,23 @@ public class GlobalExceptionHandler {
 
         return response.body(problems.create(status, code, detail, request.getRequestURI()));
     }
+
+    /**
+     * Gestiona los intentos de acceder a recursos que no existen.
+     *
+     * @param ex      excepción de recurso no encontrado
+     * @param request petición HTTP que ha provocado el error
+     * @return respuesta HTTP 404
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ProblemDetail> notFound(
+            EntityNotFoundException ex,
+            HttpServletRequest request) {
+        return response(
+                HttpStatus.NOT_FOUND,
+                "NOT_FOUND",
+                "El recurso solicitado no existe.",
+                request);
+    }
+
 }

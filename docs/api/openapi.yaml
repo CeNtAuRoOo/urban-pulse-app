@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.5.0
-  description: Contrato de los tags Autenticación e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo y concesión de permisos por invitación). Dominio v1 y ADR de identidad actualizados. Departamentos y Categorías también implementan consulta, alta y PATCH. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Dominio v1 y ADR de identidad actualizados. Departamentos y Categorías también implementan consulta, alta y PATCH. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -205,7 +205,8 @@ paths:
       tags:
         - Usuarios
       summary: Consultar mi perfil
-      description: Devuelve los datos personales del usuario autenticado.
+      description: Devuelve el perfil del titular, sus roles globales y todas sus pertenencias departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+      x-email-verified: true
       operationId: getUsersMe
       x-roles:
         - AUTHENTICATED
@@ -228,11 +229,14 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       tags:
         - Usuarios
       summary: Modificar mi perfil
-      description: Actualiza únicamente atributos permitidos del perfil; no modifica roles.
+      description: Actualiza únicamente el nombre público del titular. La respuesta incluye sus roles globales y pertenencias departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+      x-email-verified: true
       operationId: patchUsersMe
       x-roles:
         - AUTHENTICATED
@@ -241,7 +245,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateProfileRequest'
+              $ref: '#/components/schemas/UpdateMyProfileRequest'
       responses:
         '200':
           description: Operación correcta.
@@ -263,12 +267,15 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users:
     get:
       tags:
         - Usuarios
       summary: Listar usuarios
-      description: Listado restringido al administrador; filtros y paginación.
+      description: Listado restringido al administrador. Incluye roles globales y pertenencias departamentales activas e históricas; el filtro por rol departamental solo considera pertenencias activas. Orden createdAt descendente e id ascendente. Primera página 1; tamaño 20 por defecto (1–100); offset máximo 2147483647.
+      x-email-verified: true
       operationId: getUsers
       x-roles:
         - ADMIN
@@ -280,7 +287,7 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/RoleCode'
-          description: Filtrar por rol.
+          description: Filtrar por rol global asignado o pertenencia departamental activa.
         - name: active
           in: query
           required: false
@@ -306,12 +313,15 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /users/{userId}:
     get:
       tags:
         - Usuarios
       summary: Consultar usuario
-      description: Información del usuario para administración; no pública.
+      description: Información del usuario para administración; incluye roles globales y pertenencias departamentales activas e históricas. Requiere cuenta activa y correo verificado.
+      x-email-verified: true
       operationId: getUsersUserId
       x-roles:
         - ADMIN
@@ -336,11 +346,14 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       tags:
         - Usuarios
       summary: Administrar usuario
       description: Permite activar/desactivar la cuenta. Los roles se conceden mediante invitaciones; las adscripciones departamentales tienen reglas propias.
+      x-email-verified: true
       operationId: patchUsersUserId
       x-roles:
         - ADMIN
@@ -368,11 +381,17 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: LAST_ACTIVE_ADMIN; la baja dejaría sin ADMIN activo y verificado. La autodesactivación se permite si queda otro.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /staff-invitations:
     post:
       tags:
@@ -3119,7 +3138,7 @@ components:
       description: Vista mínima de usuario. No revela roles ni pertenencias departamentales en respuestas de incidencias.
     UserDTO:
       type: object
-      description: Vista autorizada del usuario. En registro y login se devuelve el perfil del propio titular; jamás incluye passwordHash ni tokenVersion. email y departmentMemberships se exponen solo cuando el solicitante tenga permiso. No constituye un mecanismo de fields dinámico.
+      description: Vista del usuario devuelta en su propio perfil, autenticación y consultas administrativas. Nunca incluye passwordHash ni tokenVersion. Incluye siempre la colección de pertenencias departamentales activas e históricas; las fechas permiten distinguir ambos estados.
       properties:
         id:
           type: string
@@ -3129,7 +3148,7 @@ components:
         email:
           type: string
           format: email
-          description: Visible únicamente para el titular o personal autorizado.
+          description: Correo electrónico del usuario autenticado o consultado por un administrador.
         emailVerified:
           type: boolean
           description: Indica si se ha verificado el control del correo. Se inicializa a false en registro; la confirmación por código HMAC ya se implementa en el backend y habilita el acceso de negocio en la siguiente petición.
@@ -3146,33 +3165,40 @@ components:
           uniqueItems: true
         departmentMemberships:
           type: array
-          description: Proyección futura del tag Usuarios; auth y el canje no incluyen este campo. Las pertenencias se persisten desde Invitaciones.
+          description: Adscripciones departamentales activas e históricas. Una pertenencia está activa cuando leftAt es null. Se ordenan por joinedAt descendente e id ascendente. Una pertenencia histórica no concede permisos; roles globales y departamentales son ámbitos distintos.
           items:
             $ref: '#/components/schemas/DepartmentMembershipDTO'
       required:
         - id
         - displayName
+        - email
         - emailVerified
         - active
         - createdAt
         - roles
-    UpdateProfileRequest:
+        - departmentMemberships
+    UpdateMyProfileRequest:
       type: object
       properties:
         displayName:
           type: string
           minLength: 2
-          maxLength: 120
-      description: Solo admite el nombre público; no permite modificar roles.
+          x-normalized-minLength: 2
+          x-normalized-maxLength: 120
+          description: Se recortan espacios Unicode y controles ASCII de borde antes de validar. El resultado debe contener 2–120 puntos de código Unicode y no incluir controles interiores ni sustitutos aislados. Los límites se aplican al texto normalizado; el texto recibido puede incluir espacios de borde adicionales. Error 422 VALIDATION_ERROR.
+      required:
+        - displayName
+      description: Solo admite el nombre público; no permite modificar roles, correo ni pertenencias departamentales.
       additionalProperties: false
     AdminUpdateUserRequest:
       type: object
       properties:
         active:
           type: boolean
-      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
+      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio. No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN). La autodesactivación se permite si permanece otro administrador disponible.
+      required:
+        - active
       additionalProperties: false
-      minProperties: 1
     UsersPageDTO:
       type: object
       properties:
@@ -3208,10 +3234,12 @@ components:
         leftAt:
           type: string
           format: date-time
+          nullable: true
       required:
         - department
         - role
         - joinedAt
+        - leftAt
     GlobalRoleCode:
       type: string
       enum:
@@ -3232,7 +3260,9 @@ components:
         displayName:
           type: string
           minLength: 2
-          maxLength: 120
+          x-normalized-minLength: 2
+          x-normalized-maxLength: 120
+          description: Se recortan espacios Unicode y controles ASCII de borde antes de validar. El nombre normalizado admite 2–120 puntos Unicode, sin controles interiores ni sustitutos aislados; idéntica regla a PATCH de perfil.
         email:
           type: string
           format: email
@@ -4745,7 +4775,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     ServiceUnavailable:
-      description: Servicio temporalmente no disponible. En auth e invitaciones se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
+      description: Servicio temporalmente no disponible. En Autenticación, Usuarios, Invitaciones y catálogos se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
       content:
         application/problem+json:
           schema:

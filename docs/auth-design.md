@@ -1,10 +1,10 @@
 # UrbanPulse — Autenticación, verificación de correo y seguridad
 
-> **Estado a 03/11/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (incluida ahora en la misma V1), que se incorporó después de reorganizar el backend por módulos. Existen pruebas previas con PostgreSQL 18 efímero; no consta aplicación de V1 consolidada sobre Neon `development` ni entrega SMTP pública. Las fuentes gráficas y sus SVG regenerados manualmente están contrastados estructuralmente en el [inventario](diagrams/README.md).
+> **Estado a 04/11/2026:** el tag **Autenticación** está implementado en Java/JPA/Flyway V1 y es reutilizado por **Invitaciones** (incluida ahora en la misma V1), que se incorporó después de reorganizar el backend por módulos. Las pruebas actuales con PostgreSQL 18 efímero constan en [Desarrollo](development.md#verificación-del-backend); no consta aplicación de V1 consolidada sobre Neon `development` ni entrega SMTP pública. Las fuentes gráficas y sus SVG regenerados con draw.io Desktop se han validado como XML e inspeccionado visualmente en el [inventario](diagrams/README.md).
 
 ## 1. Referencias, alcance y responsabilidades
 
-El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.5.0` incluye cinco operaciones de auth, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Ambos catálogos reutilizan la identidad y seguridad compartidas; los restantes recursos siguen en diseño.
+El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.5.0` incluye cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Ambos catálogos reutilizan la identidad y seguridad compartidas; los restantes recursos siguen en diseño.
 
 La organización de paquetes es **por funcionalidad**:
 
@@ -21,13 +21,13 @@ La clase principal sigue en `es.grupo18.urbanpulse.BackendApplication`. El cambi
 
 `User` posee UUIDv7, correo normalizado (trim/minúsculas), contraseña BCrypt, estado activo, `emailVerified`, `tokenVersion` y preferencias de notificación. Al registrarse, el usuario inicia con `CITIZEN`, `emailVerified=false`, `tokenVersion=0` y preferencias activadas por defecto. `Role` contiene los cinco códigos y `UserRole` relaciona globalmente roles con usuarios; el ámbito se determina en `RoleCode` (`isGlobal`/`isDepartmental`), **sin** `Role.scope` ni `RoleScope`. `EmailVerification` guarda el HMAC y vigencia del código asociado al usuario.
 
-| Método | Ruta bajo `/api/v1`                 | Respuesta normal                                                                                     |
-| ------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `POST` | `/auth/register`                    | `201 TokenDTO`, crea usuario `CITIZEN`, genera verificación; no `Location` de perfil aún inexistente |
-| `POST` | `/auth/login`                       | `200 TokenDTO` o `401` genérico                                                                      |
-| `POST` | `/users/me/password-changes`        | `204`, requiere cuenta autenticada                                                                   |
-| `POST` | `/auth/email-verifications/confirm` | `204`, confirma código asociado al titular                                                           |
-| `POST` | `/auth/email-verifications/resend`  | `202` al solicitar envío, `204` si ya verificado, `410` si venció la cuenta                          |
+| Método | Ruta bajo `/api/v1`                 | Respuesta normal                                                                                                       |
+| ------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/auth/register`                    | `201 TokenDTO`, crea usuario `CITIZEN`, genera verificación; sin cabecera `Location`, conforme al contrato de registro |
+| `POST` | `/auth/login`                       | `200 TokenDTO` o `401` genérico                                                                                        |
+| `POST` | `/users/me/password-changes`        | `204`, requiere cuenta autenticada                                                                                     |
+| `POST` | `/auth/email-verifications/confirm` | `204`, confirma código asociado al titular                                                                             |
+| `POST` | `/auth/email-verifications/resend`  | `202` al solicitar envío, `204` si ya verificado, `410` si venció la cuenta                                            |
 
 La emisión de registro crea cuenta/rol/verificación en una operación SQL. El correo se solicita **tras confirmar** la transacción; `201` acredita persistencia, **no recepción** del correo. El JWT inicial permite operaciones de autenticación expresamente exceptuadas mientras la cuenta sigue sin verificar, pero no las rutas protegidas de negocio.
 
@@ -48,7 +48,7 @@ La verificación utiliza códigos de **ocho dígitos decimales ASCII**, generado
 
 `EmailVerificationService` confirma o reemite, y `VerificationEmailListener` entrega por `EmailSender` mediante `@TransactionalEventListener(AFTER_COMMIT)`. `EmailVerificationCleanup` limpia códigos vencidos y cuentas que siguen sin verificar tras **24 horas**, con barrido ordinario horario, lotes acotados y `SKIP LOCKED`. `EMAIL_VERIFICATION_CLEANUP_CRON` permite configurar su calendario; `-` lo desactiva en tests. No aplicar esta limpieza en un entorno compartido sin revisar las nuevas FK y política de retención.
 
-La ampliación de V1 para crear `email_verifications` se realizó **antes de su primera aplicación prevista en Neon**. Si una base ya registró otra versión de V1, es incorrecto reescribirla silenciosamente: conservar el historial Flyway y crear una migración nueva. El esquema de Invitaciones respeta la limpieza: los actores históricos son usuarios ya verificados, y el destinatario de una invitación se almacena como email **sin FK**, por lo que la limpieza de un registro pendiente no consume la invitación.
+La ampliación de V1 para crear `email_verifications` se realizó **antes de su primera aplicación prevista en Neon**. Si una base ya registró otra versión de V1, es incorrecto reescribirla silenciosamente: conservar el historial Flyway y crear una migración nueva. La limpieza conserva cuentas con referencias históricas en pertenencias, actores de invitaciones o auditoría, las excluye antes de limitar el lote y revalida bajo bloqueo. El destinatario de la invitación sigue como email **sin FK**: eliminar una cuenta pendiente sin referencias no consume su invitación.
 
 ## 5. SMTP en desarrollo y fallos de entrega
 
@@ -87,3 +87,9 @@ Procedimiento controlado del primer `ADMIN` productivo; recuperación de contras
 - [Arquitectura modular](architecture.md), [modelo de dominio](domain-model.md) y [guía de desarrollo](development.md).
 - [Contrato OpenAPI](api/README.md), [guía dominio–API](api/domain-openapi.md) y [pruebas de Invitaciones](development.md).
 - [ADR-0005 — JWT](adr/0005-jwt-spring-security.md), [ADR-0006 — Flyway](adr/0006-flyway.md), [ADR-0007 — Invitaciones](adr/0007-invitaciones-personal.md) y [SECURITY.md](../SECURITY.md).
+
+## Usuarios y pertenencias
+
+Registro y PATCH de perfil comparten normalización previa del nombre: recorte de espacios Unicode y controles de borde, 2–120 puntos de código y rechazo de controles interiores. Registro devuelve `departmentMemberships: []`; login, perfil y administración incluyen la historia ordenada de pertenencias. Los permisos efectivos siguen consultándose en PostgreSQL.
+
+Las nuevas pertenencias exigen usuario activo/verificado y departamento activo. El servicio interno permite finalizar y reingresar conservando filas históricas, sin exponer nuevas rutas. La desactivación administrativa protege al último ADMIN activo y verificado; la autodesactivación es posible si queda otro. [ADR-0012](adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](adr/0013-pertenencias-usuarios-departamentos.md).

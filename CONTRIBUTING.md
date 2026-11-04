@@ -69,9 +69,9 @@ No lanzar tests de escritura en Neon compartido ni migraciones experimentales so
 **API (design-first):**
 
 ```bash
-npx --yes @redocly/cli lint docs/api/openapi/base-openapi.yaml
-npx --yes @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
 Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y no se editan manualmente. Comprobar versión `0.5.0`, enlaces `$ref` y cambios esperados antes de incluirlos en el commit.

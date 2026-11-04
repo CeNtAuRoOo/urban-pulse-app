@@ -14,7 +14,10 @@ import jakarta.persistence.Table;
 
 import org.hibernate.annotations.UuidGenerator;
 
-/** Unidad municipal compartida por administración, invitaciones y pertenencias históricas. */
+/**
+ * Unidad municipal compartida por administración, invitaciones y pertenencias
+ * históricas.
+ */
 @Entity
 @Table(name = "departments")
 public class Department {
@@ -51,11 +54,12 @@ public class Department {
     /**
      * Inicializa una unidad normalizando nombre y código, sin precargar catálogos.
      *
-     * @param name nombre de 2–120 puntos de código Unicode tras trim
-     * @param code código ASCII de 2–20 caracteres, convertido a mayúsculas
+     * @param name        nombre de 2–120 puntos de código Unicode tras trim
+     * @param code        código ASCII de 2–20 caracteres, convertido a mayúsculas
      * @param description descripción opcional de hasta 500 puntos de código Unicode
-     * @param active estado inicial; false impide emisión y canje
-     * @throws IllegalArgumentException si las longitudes o el formato no son válidos
+     * @param active      estado inicial; false impide emisión y canje
+     * @throws IllegalArgumentException si las longitudes o el formato no son
+     *                                  válidos
      */
     public Department(String name, String code, String description, boolean active) {
         String normalizedName = name == null ? null : name.trim();
@@ -82,7 +86,8 @@ public class Department {
     }
 
     /**
-     * Actualiza la fecha cuando Hibernate realiza un UPDATE; no controla escrituras SQL externas.
+     * Actualiza la fecha cuando Hibernate realiza un UPDATE; no controla escrituras
+     * SQL externas.
      */
     @PreUpdate
     void preUpdate() {

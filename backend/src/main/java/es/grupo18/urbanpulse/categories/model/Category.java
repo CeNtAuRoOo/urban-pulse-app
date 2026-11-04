@@ -39,9 +39,9 @@ public class Category {
     /**
      * Inicializa los atributos recibidos; el servicio aplica las reglas de dominio.
      *
-     * @param name nombre previamente normalizado y validado
+     * @param name        nombre previamente normalizado y validado
      * @param description descripción opcional, sin recortar
-     * @param active estado inicial de disponibilidad
+     * @param active      estado inicial de disponibilidad
      */
     public Category(String name, String description, boolean active) {
         this.name = name;

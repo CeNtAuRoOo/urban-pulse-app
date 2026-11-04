@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -20,7 +20,7 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.2.0`**: base documental de dominio compartido por tags (roles, organización, incidencias, asignaciones, identificadores, contexto).
 - **`0.3.0`**: definición del núcleo de autenticación, registro con JWT, cambio de contraseña, invalidación por `tokenVersion` y permisos actuales desde PostgreSQL.
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
-- **`0.5.0` (vigente)**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Departamentos y Categorías, sin cambiar `/api/v1`.
+- **`0.5.0` (vigente)**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
 
 La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
 
@@ -59,7 +59,7 @@ En el registro el JWT inicial es de acceso limitado hasta confirmar el correo. `
 
 Las respuestas administrativas `201/200` incluyen `Cache-Control: no-store`; sus DTO omiten los campos opcionales no presentes. Los filtros del listado se evalúan en SQL por estado, correo normalizado, rol y departamento; la paginación empieza en `page=1`, tiene `pageSize=20` por defecto (máximo 100), orden `createdAt DESC, id DESC` y metadatos `PageMetadata`. El código aleatorio Base64URL de **256 bits/43 caracteres** se entrega solo por correo, nunca en un DTO administrativo o SQL en claro; se guarda HMAC-SHA256 independiente de los otros secretos y vence a los siete días por defecto. El canje exige JWT y correo verificado coincidente, conserva `CITIZEN` y roles previos, concede `UserRole` o `DepartmentMembership` atómicamente junto al consumo y auditoría. Si el mismo permiso está activo, devuelve `409` y no consume la invitación; si el código es inválido/usado/revocado/caducado/ajeno, responde `422 INVALID_INVITATION_CODE` genérico. Departamento no válido: `422 INVALID_DEPARTMENT`; revocación de invitación no activa: `409 INVITATION_NOT_ACTIVE`.
 
-Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por IP**. Los tres POST de Invitaciones protegen el tamaño de cuerpo (16 KiB), con revocación sin cuerpo. `201` de emisión confirma persistencia, **no recepción SMTP**: el listener entrega `AFTER_COMMIT` y no hay reintentos/outbox. Se eliminaron del contrato `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`. `UserDTO` no añade pertenencias de departamento hasta que se diseñe el tag Usuarios. [ADR-0007: reglas y limitaciones](../adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](../development.md).
+Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por IP**. Los tres POST de Invitaciones protegen el tamaño de cuerpo (16 KiB), con revocación sin cuerpo. `201` de emisión confirma persistencia, **no recepción SMTP**: el listener entrega `AFTER_COMMIT` y no hay reintentos/outbox. Se eliminaron del contrato `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`. `UserDTO` incluye siempre pertenencias activas e históricas en registro, login, perfil y administración; el canje mantiene su DTO mínimo propio. [ADR-0007: reglas y limitaciones](../adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](../development.md).
 
 ### 5.1. Departamentos implementados (Catálogos)
 
@@ -103,6 +103,20 @@ Los errores usan `application/problem+json` y el contrato común `ProblemDetail`
 
 Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#4-persistencia-y-transacciones) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#verificación-del-backend), sus pruebas.
 
+## Usuarios implementados
+
+| Método      | Ruta              | Permiso                          |
+| ----------- | ----------------- | -------------------------------- |
+| GET / PATCH | `/users/me`       | Titular activo y verificado      |
+| GET         | `/users`          | ADMIN global activo y verificado |
+| GET / PATCH | `/users/{userId}` | ADMIN global activo y verificado |
+
+Son cinco operaciones. PATCH propio solo admite `displayName`, con 2–120 puntos Unicode después de recortar espacios y controles de borde; rechaza controles interiores, null, PATCH vacío y propiedades adicionales. OpenAPI documenta los límites normalizados con extensiones `x-normalized-*`, sin imponer un máximo sobre el texto bruto que impediría recortar sus espacios. PATCH administrativo solo admite `active`: `409 LAST_ACTIVE_ADMIN` protege al último administrador activo y verificado, incluida la propia cuenta; autodesactivarse es posible si queda otro.
+
+El listado usa `page=1`, `pageSize=20` (1–100), offset máximo `2147483647` y orden `createdAt DESC, id ASC`. Filtra `role` global o departamental activo y `active`, con totales en `shared.pagination.PageMetadata`. UUID/enums/parámetros incorrectos producen 400, datos inválidos 422, usuario ausente 404 NOT_FOUND; faltas de identidad/permisos 401/403 y fallos internos/disponibilidad 500/503 saneados. Las respuestas protegidas incluyen `Cache-Control` con `no-store`.
+
+`UserDTO` siempre contiene roles globales y `departmentMemberships` activas e históricas, ordenadas por `joinedAt DESC, id ASC`; registro devuelve `[]`. Login, perfil y administración usan la misma proyección segura. El canje conserva `InvitationRedemptionDTO`. La gestión interna de altas/bajas pertenece a `organization`; no existen endpoints nuevos de pertenencias ni auditoría administrativa completa RF18. [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).
+
 ## 6. Revisión del contrato y del dominio por tag
 
 1. Elegir los casos de uso y contrastar el enunciado, roles y [ADR](../adr/README.md).
@@ -116,16 +130,16 @@ Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secret
 Desde la **raíz** del repositorio:
 
 ```bash
-npx --yes @redocly/cli lint docs/api/openapi/base-openapi.yaml
-npx --yes @redocly/cli bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-**Validación del 03/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las cuatro operaciones de cada catálogo conviven con Autenticación e Invitaciones; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
+**Validación del 04/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las 23 operaciones implementadas comprenden cinco de Usuarios, cinco de Autenticación, cinco de Invitaciones y cuatro de cada catálogo; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: perfil/consulta de usuarios, equipos, retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: equipos, API de retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).

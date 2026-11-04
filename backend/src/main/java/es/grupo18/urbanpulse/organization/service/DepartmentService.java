@@ -17,7 +17,10 @@ import es.grupo18.urbanpulse.organization.dto.PatchDepartmentRequest;
 import es.grupo18.urbanpulse.organization.model.Department;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 
-/** Administración transaccional del catálogo municipal con normalización y control de concurrencia. */
+/**
+ * Administración transaccional del catálogo municipal con normalización y
+ * control de concurrencia.
+ */
 @Service
 public class DepartmentService {
 
@@ -62,7 +65,8 @@ public class DepartmentService {
      * @param request alta validada; active omitido o null equivale a true
      * @return unidad persistida con UUIDv7
      * @throws DuplicateDepartmentException si nombre o código ya están ocupados
-     * @throws InvalidDepartmentException si la longitud del nombre normalizado no es válida
+     * @throws InvalidDepartmentException   si la longitud del nombre normalizado no
+     *                                      es válida
      */
     @Transactional
     public DepartmentResponse create(CreateDepartmentRequest request) {
@@ -76,14 +80,17 @@ public class DepartmentService {
     }
 
     /**
-     * Bloquea la unidad hasta finalizar la transacción para conservar cambios concurrentes y coordinarse con
+     * Bloquea la unidad hasta finalizar la transacción para conservar cambios
+     * concurrentes y coordinarse con
      * Invitaciones.
      *
-     * @param id UUID de departamento
-     * @param request parche validado; null en la representación Java significa campo omitido
+     * @param id      UUID de departamento
+     * @param request parche validado; null en la representación Java significa
+     *                campo omitido
      * @return proyección actualizada; desactivar conserva historial y pertenencias
-     * @throws DepartmentNotFoundException si no existe
-     * @throws DuplicateDepartmentException si el nombre o código está ocupado por otra unidad
+     * @throws DepartmentNotFoundException  si no existe
+     * @throws DuplicateDepartmentException si el nombre o código está ocupado por
+     *                                      otra unidad
      */
     @Transactional
     public DepartmentResponse patch(UUID id, PatchDepartmentRequest request) {
@@ -105,13 +112,16 @@ public class DepartmentService {
     }
 
     /**
-     * Fuerza el flush para detectar carreras SQL; solo traduce 23505 de los dos índices conocidos a
+     * Fuerza el flush para detectar carreras SQL; solo traduce 23505 de los dos
+     * índices conocidos a
      * DuplicateDepartmentException.
      *
      * @param department entidad que se guarda
      * @return proyección persistida
-     * @throws DuplicateDepartmentException si un índice único conocido detecta una carrera
-     * @throws DataIntegrityViolationException para las demás infracciones de integridad
+     * @throws DuplicateDepartmentException    si un índice único conocido detecta
+     *                                         una carrera
+     * @throws DataIntegrityViolationException para las demás infracciones de
+     *                                         integridad
      */
     private DepartmentResponse persist(Department department) {
         try {
@@ -130,7 +140,8 @@ public class DepartmentService {
     }
 
     /**
-     * Resuelve una entidad sin solicitar bloqueo de escritura; lanza DepartmentNotFoundException si no existe.
+     * Resuelve una entidad sin solicitar bloqueo de escritura; lanza
+     * DepartmentNotFoundException si no existe.
      *
      * @param id UUID solicitado
      * @return entidad existente
@@ -142,11 +153,12 @@ public class DepartmentService {
     }
 
     /**
-     * Detecta duplicados anticipadamente; los índices SQL siguen protegiendo las carreras concurrentes.
+     * Detecta duplicados anticipadamente; los índices SQL siguen protegiendo las
+     * carreras concurrentes.
      *
      * @param name nombre normalizado
      * @param code código normalizado
-     * @param id unidad excluida, o null durante el alta
+     * @param id   unidad excluida, o null durante el alta
      * @throws DuplicateDepartmentException si otra unidad ocupa el nombre o código
      */
     private void assertUnique(String name, String code, UUID id) {
@@ -166,7 +178,8 @@ public class DepartmentService {
     }
 
     /**
-     * Recorta los extremos sin alterar espacios interiores; admite de 2 a 120 puntos de código Unicode.
+     * Recorta los extremos sin alterar espacios interiores; admite de 2 a 120
+     * puntos de código Unicode.
      *
      * @param name nombre no nulo validado en la entrada
      * @return nombre normalizado

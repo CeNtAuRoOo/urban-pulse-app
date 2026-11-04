@@ -282,6 +282,15 @@ public class SecurityConfig {
                                         DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
+                        // Perfil propio antes de las rutas administrativas con UUID.
+                        .requestMatchers("/api/v1/users/me")
+                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
+                        .requestMatchers("/api/v1/users", "/api/v1/users/*")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAuthority(
+                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasRole("ADMIN")))
+
                         // Resto de rutas: requieren correo verificado
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(

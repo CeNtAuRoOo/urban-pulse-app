@@ -1,9 +1,11 @@
 package es.grupo18.urbanpulse.auth.service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,7 +14,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import org.hibernate.exception.ConstraintViolationException;
 
 import es.grupo18.urbanpulse.auth.dto.ChangePasswordRequest;
 import es.grupo18.urbanpulse.auth.dto.LoginRequest;
@@ -27,6 +28,8 @@ import es.grupo18.urbanpulse.identity.repository.RoleRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRoleRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
+import es.grupo18.urbanpulse.identity.dto.DepartmentMembershipDTO;
+import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
 
 /**
  * Servicio encargado de gestionar la autenticación de usuarios.
@@ -41,6 +44,7 @@ public class AuthService {
     private final UserRepository users;
     private final RoleRepository roles;
     private final UserRoleRepository userRoles;
+    private final DepartmentMembershipRepository departmentMemberships;
     private final PasswordEncoder passwords;
     private final JwtTokenService tokens;
     private final TransactionTemplate transactions;
@@ -54,21 +58,24 @@ public class AuthService {
      * Configura las transacciones de registro y genera un hash ficticio
      * para reducir diferencias temporales durante el inicio de sesión.
      *
-     * @param users        repositorio de usuarios
-     * @param roles        repositorio del catálogo de roles
-     * @param userRoles    repositorio de asignaciones de roles globales
-     * @param passwords    codificador y verificador de contraseñas BCrypt
-     * @param tokens       servicio de generación de tokens JWT
-     * @param manager      gestor de transacciones de la aplicación
-     * @param verification servicio de verificación del correo electrónico
+     * @param users                 repositorio de usuarios
+     * @param roles                 repositorio del catálogo de roles
+     * @param userRoles             repositorio de asignaciones de roles globales
+     * @param departmentMemberships repositorio de pertenencias departamentales
+     * @param passwords             codificador y verificador de contraseñas BCrypt
+     * @param tokens                servicio de generación de tokens JWT
+     * @param manager               gestor de transacciones de la aplicación
+     * @param verification          servicio de verificación del correo electrónico
      */
     public AuthService(UserRepository users, RoleRepository roles, UserRoleRepository userRoles,
-            PasswordEncoder passwords, JwtTokenService tokens, PlatformTransactionManager manager,
+            DepartmentMembershipRepository departmentMemberships, PasswordEncoder passwords,
+            JwtTokenService tokens, PlatformTransactionManager manager,
             EmailVerificationService verification) {
 
         this.users = users;
         this.roles = roles;
         this.userRoles = userRoles;
+        this.departmentMemberships = departmentMemberships;
         this.passwords = passwords;
         this.tokens = tokens;
         this.transactions = new TransactionTemplate(manager);
@@ -99,7 +106,7 @@ public class AuthService {
                 return created;
             });
 
-            return tokens.issue(user, UserDTO.from(user, Set.of(RoleCode.CITIZEN)));
+            return tokens.issue(user, UserDTO.from(user, Set.of(RoleCode.CITIZEN), List.of()));
         }
 
         catch (DataIntegrityViolationException ex) {
@@ -133,7 +140,12 @@ public class AuthService {
             throw ApiException.unauthorized();
         }
 
-        return tokens.issue(user, UserDTO.from(user, user.globalRoles()));
+        var memberships = departmentMemberships.findAllForUsers(List.of(user.getId()))
+                .stream()
+                .map(DepartmentMembershipDTO::from)
+                .toList();
+
+        return tokens.issue(user, UserDTO.from(user, user.globalRoles(), memberships));
     }
 
     /**

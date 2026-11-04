@@ -39,7 +39,8 @@ public class DepartmentController {
     }
 
     /**
-     * Lista unidades activas e inactivas ordenadas por nombre; requiere correo verificado.
+     * Lista unidades activas e inactivas ordenadas por nombre; requiere correo
+     * verificado.
      *
      * @return catálogo sin paginación ni fechas internas
      */
@@ -53,7 +54,11 @@ public class DepartmentController {
      *
      * @param departmentId UUID de la unidad
      * @return proyección pública del departamento
-     * @throws es.grupo18.urbanpulse.organization.service.DepartmentNotFoundException si no existe la unidad
+     * @throws es.grupo18.urbanpulse.organization.service.DepartmentNotFoundException si
+     *                                                                                no
+     *                                                                                existe
+     *                                                                                la
+     *                                                                                unidad
      */
     @GetMapping("/{departmentId}")
     public DepartmentResponse findById(@PathVariable UUID departmentId) {
@@ -61,7 +66,8 @@ public class DepartmentController {
     }
 
     /**
-     * Da de alta una unidad; la cadena de seguridad exige correo verificado y ADMIN.
+     * Da de alta una unidad; la cadena de seguridad exige correo verificado y
+     * ADMIN.
      *
      * @param request datos validados de alta
      * @return HTTP 201 con la proyección creada y cabecera Location
@@ -83,7 +89,8 @@ public class DepartmentController {
      * Modifica los campos presentes sin eliminar la unidad; exige ADMIN verificado.
      *
      * @param departmentId UUID de la unidad
-     * @param request campos validados; omitir conserva, null explícito no se admite
+     * @param request      campos validados; omitir conserva, null explícito no se
+     *                     admite
      * @return proyección resultante de la actualización
      */
     @PatchMapping("/{departmentId}")

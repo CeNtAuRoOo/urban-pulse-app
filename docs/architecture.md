@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 03/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `audit` y `shared`. Autenticación, Invitaciones, Departamentos y Categorías están implementados; los demás tags de negocio siguen siendo diseño. Existe una V1 consolidada y hay pruebas previas en PostgreSQL 18 aislado; **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases y sus SVG regenerados manualmente incorporan los módulos actuales; la correspondencia estructural está descrita en el [inventario](diagrams/README.md).
+> **Estado a 04/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos y Categorías están implementados; los demás tags de negocio siguen siendo diseño. Existe una V1 consolidada y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases y sus SVG regenerados con draw.io Desktop incorporan los módulos actuales; la validación XML y la inspección visual están descritas en el [inventario](diagrams/README.md).
 
 ## 1. Propósito y decisiones arquitectónicas
 
@@ -12,15 +12,15 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 ## 2. Contenedores C4 y tecnologías
 
-| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                       |
-| ----------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                           |
-| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                         |
-| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | Cinco operaciones de auth, cinco de Invitaciones y cuatro por catálogo (Departamentos y Categorías) disponibles; módulos de negocio pendientes. |
-| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                          |
-| Objetos privados                    | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                 |
-| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                 |
-| Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                              |
+| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                              |
+| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                            |
+| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | Cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo (Departamentos y Categorías) disponibles; módulos de negocio pendientes. |
+| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                             |
+| Objetos privados                    | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                    |
+| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                    |
+| Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                                                 |
 
 ### Contexto y contenedores
 
@@ -55,9 +55,11 @@ urbanpulse/
 │   ├── security/         # Cuotas de auth/verificación y límite de cuerpo
 │   └── service/          # AuthService, JWT, verificación y limpieza
 ├── identity/
-│   ├── dto/              # UserDTO
+│   ├── api/              # UserController
+│   ├── dto/              # Perfil, administración y UserDTO
 │   ├── model/            # User, Role, RoleCode, UserRole y embebidos
-│   └── repository/
+│   ├── repository/
+│   └── service/          # UserService
 ├── invitations/
 │   ├── api/              # StaffInvitationController
 │   ├── config/           # StaffInvitationProperties
@@ -72,7 +74,7 @@ urbanpulse/
 │   ├── dto/              # Alta, PATCH y respuesta
 │   ├── model/            # Department, DepartmentMembership
 │   ├── repository/       # Catálogo y pertenencias
-│   └── service/          # DepartmentService y excepciones
+│   └── service/          # DepartmentService, DepartmentMembershipService y excepciones
 ├── categories/
 │   ├── api/              # CategoryController; errores compartidos
 │   ├── dto/              # Alta, PATCH y respuesta
@@ -96,9 +98,9 @@ La misma división se reproduce en `backend/src/test/java/es/grupo18/urbanpulse/
 ### Responsabilidades y dependencias
 
 - **`auth`**: registro ciudadano, login, cambio de contraseña, verificación/reenvío del correo y limpieza de cuentas pendientes; usa identidad, seguridad y correo compartidos.
-- **`identity`**: modelo canónico de usuarios y roles globales. No genera invitaciones ni conoce dependencias HTTP.
+- **`identity`**: modelo canónico de usuarios y roles globales. Incluye API de perfil y administración, DTO, servicios y repositorios; no genera invitaciones.
 - **`invitations`**: ciclo de emisión/listado/consulta/revocación/canje, códigos HMAC, cuotas y notificación SMTP; utiliza `identity`, `organization`, `audit` y utilidades `shared`, pero **no** depende de `AuthService` para registrar al invitado.
-- **`organization`**: administración de departamentos y persistencia de pertenencias. Comparte entidad y bloqueos con Invitaciones; equipos siguen pendientes.
+- **`organization`**: administración de departamentos y ciclo interno de alta/baja de pertenencias. Comparte entidad y bloqueos con Invitaciones; equipos siguen pendientes.
 - **`categories`**: catálogo independiente con API, DTO, modelo, repositorio y servicio; reutiliza seguridad y errores de `shared`.
 - **`audit`**: persistencia de eventos de invitaciones; no existe un endpoint de consulta pública.
 - **`shared`**: adaptadores y preocupaciones transversales: `SecurityConfig` centralizado, autorización JWT contra datos vigentes, errores, paginación, limitación en memoria, SMTP y almacenamiento S3.
@@ -121,9 +123,15 @@ PATCH de Departamentos adquiere un bloqueo pesimista sobre la misma fila que Inv
 
 Category tiene su entidad y repositorio exclusivos en `categories`, sin dependencia de `organization`. PATCH bloquea la fila con `PESSIMISTIC_WRITE` antes de modificar; el índice único y `saveAndFlush` resuelven altas y renombrados concurrentes. Solo SQLSTATE 23505 del índice `uk_categories_name_normalized` se traduce a `CATEGORY_DUPLICATE`; otras infracciones conservan el tratamiento común. La transacción revierte todos los cambios del perdedor. No hay FK a Incident ni implementación anticipada de incidencias.
 
+Usuarios bloquea la fila antes de cambiar perfil o actividad, coordinándose con contraseña, verificación y canje. Las bajas administrativas adquieren primero un bloqueo transaccional común en PostgreSQL y comprueban que quede un ADMIN activo y verificado. El listado pagina usuarios en SQL y carga roles y pertenencias en lote (sin fetch paginado de colecciones). La baja interna de pertenencias bloquea usuario y después pertenencia, sin cargar previamente estado mutable.
+
+La limpieza excluye las cuentas no verificadas con referencias históricas antes del límite del lote, vuelve a comprobarlas bajo bloqueo y conserva todas sus relaciones. Solo borra las cuentas caducadas sin referencias; `SKIP LOCKED` permite continuar con otras. Véanse [ADR-0012](adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](adr/0013-pertenencias-usuarios-departamentos.md).
+
 ## 5. Autenticación, permisos y APIs activas
 
 `AuthController` expone bajo `/api/v1` los cinco POST: `/auth/register`, `/auth/login`, `/users/me/password-changes`, `/auth/email-verifications/confirm` y `/auth/email-verifications/resend`. El registro crea un usuario con `CITIZEN`, `emailVerified=false` y `tokenVersion=0`. El JWT de acceso HS256 dura dos horas e incorpora `sub`, `iat`, `exp`, `iss` y `ver`; no hay refresh. Cambiar la contraseña incrementa la versión e invalida tokens anteriores. `DatabaseJwtAuthenticationConverter` consulta en PostgreSQL estado, versión, roles y correo verificado **en cada petición protegida**; los roles del JWT no son la fuente de verdad.
+
+`identity.api.UserController` expone las cinco operaciones de perfil y administración. Todas requieren cuenta activa y verificada; las administrativas exigen ADMIN tanto en rutas como en métodos. `displayName` normalizado se valida en puntos de código Unicode antes de persistir; PATCH administrativo solo cambia `active`. Los DTO incorporan pertenencias activas e históricas sin otorgar autoridad global por ellas.
 
 `StaffInvitationController` expone bajo `/api/v1` cinco operaciones de invitaciones (emisión, listado, GET individual, revocación, canje) descritas en [ADR-0007](adr/0007-invitaciones-personal.md) y [OpenAPI](api/README.md). Emitir/consultar/listar/revocar requiere `ADMIN` y correo verificado; canjear requiere `CITIZEN` y correo verificado coincidente. `OPERATOR`/`ADMIN` son globales; `TECHNICIAN`/`DEPARTMENT_COORDINATOR` requieren pertenencia departamental activa. La autorización contextual de futuras incidencias y equipos **no** está implementada.
 
@@ -145,4 +153,4 @@ Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, pol
 
 Las suites reproducibles de backend, las comprobaciones del frontend y sus límites se mantienen en [Desarrollo](development.md#verificación-del-backend). Las pruebas aisladas no acreditan despliegue en Neon ni entrega SMTP en Internet.
 
-Siguen pendientes bootstrap productivo de ADMIN, retirada de permisos, equipos, APIs de incidencias, flujos S3 reales, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
+Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, APIs de incidencias, flujos S3 reales, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).

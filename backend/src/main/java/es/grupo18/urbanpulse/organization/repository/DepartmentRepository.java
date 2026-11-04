@@ -17,7 +17,8 @@ import es.grupo18.urbanpulse.organization.model.Department;
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
     /**
-     * Bloquea la fila hasta el fin de la transacción para serializar PATCH y canjes.
+     * Bloquea la fila hasta el fin de la transacción para serializar PATCH y
+     * canjes.
      *
      * @param id UUID de la unidad
      * @return unidad bloqueada, o vacío
@@ -53,7 +54,7 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
      * Comprueba nombres ajenos a la unidad modificada.
      *
      * @param name nombre normalizado
-     * @param id unidad excluida
+     * @param id   unidad excluida
      * @return true si otra unidad usa el nombre
      */
     boolean existsByNameIgnoreCaseAndIdNot(String name, UUID id);
@@ -62,7 +63,7 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
      * Comprueba códigos ajenos a la unidad modificada.
      *
      * @param code código normalizado
-     * @param id unidad excluida
+     * @param id   unidad excluida
      * @return true si otra unidad usa el código
      */
     boolean existsByCodeIgnoreCaseAndIdNot(String code, UUID id);
