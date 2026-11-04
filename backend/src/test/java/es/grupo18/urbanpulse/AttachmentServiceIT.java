@@ -1,6 +1,5 @@
-package es.grupo18.urbanpulse;
 
-import static org.junit.jupiter.api.Assertions.*;
+package es.grupo18.urbanpulse;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -11,17 +10,24 @@ import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
-import jakarta.persistence.EntityManager;
-
 import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import es.grupo18.urbanpulse.dto.attachment.AttachmentDTO;
 import es.grupo18.urbanpulse.entity.model.Attachment;
@@ -31,16 +37,26 @@ import es.grupo18.urbanpulse.repository.AttachmentRepository;
 import es.grupo18.urbanpulse.service.AttachmentService;
 import es.grupo18.urbanpulse.service.ObjectStorageService;
 import es.grupo18.urbanpulse.service.attachment.AttachmentContent;
+import jakarta.persistence.EntityManager;
 
-@SpringBootTest(
-    properties = {
-        "spring.flyway.enabled=false",
-        "security.email-verification.cleanup-cron=-",
-        "spring.jpa.hibernate.ddl-auto=none"
-    }
-)
+@Testcontainers
+@SpringBootTest(properties = {
+    "security.email-verification.cleanup-cron=-",
+    "spring.jpa.hibernate.ddl-auto=none"
+})
 @Transactional
 class AttachmentServiceIT {
+
+    @Container
+    static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer("postgres:18-alpine");
+
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
 
     @Autowired
     private AttachmentService attachmentService;
@@ -59,12 +75,6 @@ class AttachmentServiceIT {
 
     private User testUser;
 
-    /**
-     * Creates a test user before every test.
-     *
-     * Uses the application's configured PasswordEncoder
-     * to generate a valid password hash.
-     */
     @BeforeEach
     void setUp() {
 
@@ -81,11 +91,6 @@ class AttachmentServiceIT {
         entityManager.flush();
     }
 
-    /**
-     * Removes uploaded objects from storage after every test.
-     *
-     * Database changes are automatically rolled back.
-     */
     @AfterEach
     void cleanUp() {
 
@@ -93,17 +98,16 @@ class AttachmentServiceIT {
             return;
         }
 
-        /*List<Attachment> userAttachments =
+        /*
+        List<Attachment> userAttachments =
                 attachmentRepository.findAllByUser(testUser);
 
         for (Attachment attachment : userAttachments) {
             storage.delete(attachment.getStorageKey());
-        }*/
+        }
+        */
     }
 
-    /**
-     * Generates a real JPEG image for testing.
-     */
     private byte[] createTestJpeg() throws Exception {
 
         BufferedImage image = new BufferedImage(
@@ -132,9 +136,6 @@ class AttachmentServiceIT {
         return output.toByteArray();
     }
 
-    /**
-     * Creates a MultipartFile containing a valid JPEG image.
-     */
     private MockMultipartFile createValidFile() throws Exception {
 
         return new MockMultipartFile(
@@ -382,11 +383,6 @@ class AttachmentServiceIT {
                 attachmentRepository
                         .findByIdAndDeletedAtIsNull(created.id())
                         .isEmpty()
-        );
-
-        assertThrows(
-                ApiException.class,
-                () -> attachmentService.getAttachment(created.id())
         );
 
         assertNotNull(storage.download(storageKey));

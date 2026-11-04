@@ -1,15 +1,24 @@
 package es.grupo18.urbanpulse;
 
 import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
-import es.grupo18.urbanpulse.dto.auth.*;
-import es.grupo18.urbanpulse.entity.enums.RoleCode;
-import es.grupo18.urbanpulse.exception.ApiException;
-import es.grupo18.urbanpulse.repository.*;
-import es.grupo18.urbanpulse.security.*;
-import es.grupo18.urbanpulse.service.AuthService;
-import org.junit.jupiter.api.*;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -17,24 +26,38 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.test.context.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.*;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import es.grupo18.urbanpulse.dto.auth.ChangePasswordRequest;
+import es.grupo18.urbanpulse.dto.auth.LoginRequest;
+import es.grupo18.urbanpulse.dto.auth.RegisterRequest;
+import es.grupo18.urbanpulse.dto.auth.TokenDTO;
+import es.grupo18.urbanpulse.entity.enums.RoleCode;
+import es.grupo18.urbanpulse.exception.ApiException;
+import es.grupo18.urbanpulse.repository.RoleRepository;
+import es.grupo18.urbanpulse.repository.UserRepository;
+import es.grupo18.urbanpulse.security.DatabaseJwtAuthenticationConverter;
+import es.grupo18.urbanpulse.security.InMemoryRateLimiter;
+import es.grupo18.urbanpulse.service.AuthService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -93,7 +116,7 @@ class AuthenticationPostgresIT {
     @Test
     void flywaySchemaValidatesAndPersistsV7DefaultsAndCompositeRoles() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
         assertThat(roles.findAll()).hasSize(5);
         assertThat(jdbc.queryForObject(
                 "select count(*) from information_schema.columns where table_name='roles' and column_name='scope'",
