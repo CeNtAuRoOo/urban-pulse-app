@@ -2,6 +2,7 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-11-03
+- **Ampliación aprobada:** 2026-11-04; normalización Unicode, concurrencia y protección del último administrador.
 - **Decisores:** Equipo de desarrollo de Urban Pulse
 
 ## 1. Contexto
@@ -29,7 +30,7 @@ El usuario autenticado puede consultar su información mediante:
 
 `GET /api/v1/users/me`
 
-La respuesta incluye los datos públicos de su cuenta y sus roles globales.
+La respuesta incluye los datos públicos de su cuenta y sus roles globales y todas sus pertenencias departamentales activas e históricas.
 
 ### 3.2. Actualización del perfil
 
@@ -73,7 +74,7 @@ Se utiliza Spring Security con autorización basada en roles.
 
 Las operaciones administrativas se protegen mediante la anotación:
 
-`@PreAuthorize("hasRole('ADMIN')")`
+`@PreAuthorize("hasRole('ADMIN') and hasAuthority('EMAIL_VERIFIED')")`
 
 Los roles se obtienen de la información persistida en la base de datos, evitando depender exclusivamente de los roles incluidos en el JWT.
 
@@ -119,7 +120,19 @@ Se utilizan DTO para controlar explícitamente la información que se devuelve a
 - Los cambios futuros en los datos de usuario deben mantener las restricciones de validación.
 - Las nuevas funcionalidades relacionadas con departamentos y pertenencias deben documentarse de forma independiente.
 
-## 9. Referencias
+## 9. Reglas de integración y concurrencia
+
+Las cinco rutas requieren cuenta activa y correo verificado. `identity/api`, `identity/dto`, `identity/service` e `identity/repository` implementan el contrato; `shared/pagination/PageMetadata` evita convenciones duplicadas. Perfil propio obtiene el titular del JWT validado. La administración exige ADMIN global en la cadena de rutas y en el método; una pertenencia departamental no concede ese rol.
+
+`displayName` se normaliza antes de validar tanto en registro como en PATCH: se recortan controles ASCII y espacios/separadores Unicode de borde, se conservan los espacios interiores y se admiten 2–120 puntos de código Unicode. Se rechazan controles interiores y sustitutos UTF-16 aislados. Jakarta y la entidad comparten estas reglas; PostgreSQL comprueba longitud, ausencia de controles y normalización. Una entrada inválida produce `422 VALIDATION_ERROR`, sin usar SQL como validación habitual. JSON nulo, vacío o con propiedades adicionales no permite eludir los DTO estrictos.
+
+PATCH administrativo solo admite `active`. No se permite desactivar al último ADMIN activo y verificado (`409 LAST_ACTIVE_ADMIN`). Se permite la autodesactivación si permanece otro. Un bloqueo transaccional PostgreSQL de administración se toma antes del bloqueo de usuario; el recuento se realiza después de adquirirlo. Esto evita que dos bajas concurrentes eliminen todos los administradores. Los cambios de perfil usan el mismo bloqueo de fila que contraseña, verificación e Invitaciones. La comprobación de `active` en cada petición hace efectiva la baja; activar de nuevo no modifica `tokenVersion` ni los roles.
+
+El listado usa `page=1`, `pageSize=20` (1–100), orden `createdAt DESC, id ASC` y filtros opcionales por `active` y `role`. El filtro departamental solo considera `leftAt IS NULL`, aunque el DTO muestra también la historia. Primero se pagina en SQL y luego se recuperan roles y pertenencias en lote para los IDs seleccionados, sin fetch de colecciones sobre la consulta paginada. Las pertenencias se ordenan por `joinedAt DESC, id ASC`.
+
+La auditoría de Invitaciones se conserva. La auditoría administrativa de Usuarios y catálogos continúa dentro del alcance parcial pendiente de RF18; no se introduce una política de datos o retención implícita. OpenAPI mantiene la versión 0.5.0.
+
+## 10. Referencias
 
 - Spring Security.
 - `UserController`.

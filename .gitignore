@@ -48,3 +48,6 @@ pnpm-debug.log*
 **/.env
 **/.env.*
 !**/.env.example
+
+# Herramientas
+repomix-output.xml

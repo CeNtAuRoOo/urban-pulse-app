@@ -1,8 +1,8 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, `Department` y `Category`; futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado para User, Department, DepartmentMembership, StaffInvitation, AuditEvent y Category; restantes tipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión documental:** 2026-11-03.
+- **Revisión:** 2026-11-03.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
@@ -22,7 +22,7 @@ Utilizar **UUIDv7** como PK de entidades con identidad propia: `UUID` en Java, `
 
 **La generación se hará en Java mediante el generador de Hibernate** `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` y `@GeneratedValue`, para las entidades JPA pertinentes. No se utilizará indiscriminadamente `GenerationType.UUID` sin fijar la versión. Las migraciones Flyway crearán columnas PostgreSQL `uuid` y PK/FK y Hibernate generará los identificadores de nuevas entidades del backend. No añadir un generador alternativo sin necesidad.
 
-PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta como generador ordinario de entidades JPA en esta fase. Las fechas `createdAt` siguen existiendo y el UUIDv7 nunca constituye control de seguridad ni de autorización.
+PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta como generador ordinario de entidades JPA en esta fase. Las fechas `createdAt` se conservan donde forman parte del modelo; Category no incorpora fechas internas y el UUIDv7 nunca constituye control de seguridad ni de autorización.
 
 ## Consecuencias
 
@@ -30,16 +30,8 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 **Costes:** 16 bytes por identificador, índices mayores que `BIGINT`, inferencia temporal aproximada y necesidad de probar la estrategia de generación del Hibernate real. `VERSION_7` puede marcarse como API incubadora en algunas versiones de Hibernate; verificar su compatibilidad y versionado al implementar.
 
-## Evidencias de implementación y pendientes
+## Evidencias y alcance
 
-- **Probado con PostgreSQL 18 efímero:** inserción/recuperación mediante JPA y UUID con `id.version() == 7` para `User`, `Department` y `Category` en `AuthenticationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT`, junto con Flyway y validación Hibernate. La [última ejecución documentada](../development.md#73-verificación-documentada-del-backend) es del 02/11/2026; la revisión documental del 03/11 no repite las suites.
-- Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
-- Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
+Las suites PostgreSQL verifican persistencia y UUIDv7 de las entidades implementadas. Department y Category conservan también `uuidv7()` como default SQL para inserciones externas en la única V1. Category no añade código ni fechas; el UUID no sustituye la auditoría RF18 pendiente. Se conservan identidades, referencias e historial al desactivar o reactivar un catálogo.
 
-**Estado real:** generado mediante Hibernate para `User`, `Department` y `Category`, comprobado en las suites PostgreSQL aisladas; V1–V3 no constan aplicadas en Neon `development` ni `production`, y los demás tipos del modelo siguen por implementar.
-
-Category aplica el mismo generador Hibernate; V3 mantiene `uuidv7()` como default para inserciones SQL externas. No introduce fechas internas: el UUID no sustituye auditoría, y las operaciones de este catálogo no requieren marcas temporales. [Reglas de Category](../domain-model.md#catálogo-category) y [auditoría RF18 pendiente](../architecture.md#6-dominio-operativo-previsto).
-
-### Revisión Department — 30/10/2026
-
-Department aplica esta decisión: V2 conserva la tabla y semillas, Hibernate VERSION_7 genera los UUID; consultas con EMAIL_VERIFIED y escrituras con ADMIN global. Se mantienen las relaciones con pertenencias/equipos como diseño. Detalles y evidencias en [informe de cierre](../departments-finalization.md).
+[Resultados reproducibles](../development.md#verificación-del-backend), [migración vigente](0006-flyway.md#esquema-inicial-vigente) y [modelo de dominio](../domain-model.md). Los futuros tipos requieren revisar sus claves, restricciones y pruebas al implementarse; las verificaciones aisladas no acreditan despliegue en Neon.

@@ -1,132 +1,108 @@
-# UrbanPulse: contrato de dominio y API unificados (dominio v1 / API 0.5.0, usuarios y pertenencias implementados)
+# UrbanPulse — contrato de dominio y API unificados (dominio v1 / API 0.5.0)
 
-> **Estado:** el núcleo del tag Autenticación ya está implementado en Java/JPA/Flyway y cuenta con pruebas de PostgreSQL efímero; no significa despliegue sobre Neon `development`. Usuarios, pertenencias departamentales, Departamentos y Categorías están implementados en backend; V4 verificada en PostgreSQL efímero (174 tests en verde el 03/11/2026) y las demás áreas mantienen su carácter de diseño y revisión obligatoria por tag. La versión `0.2.0` sirvió como base de diseño y la `0.5.0` incorpora gestión de usuarios y pertenencias departamentales, además de autenticación y verificación de correo. Consultar [auth-design.md](../auth-design.md).
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, Departamentos y Categorías están implementados en Java/JPA/Flyway; los demás tags son modelos de diseño revisables. Las migraciones previas se validaron en PostgreSQL efímero, **no** consta su aplicación sobre Neon `development`. La versión OpenAPI **vigente es 0.5.0**. Las fuentes gráficas y sus SVG regenerados con draw.io Desktop incluyen los módulos implementados; véase la [comprobación estructural](../diagrams/README.md#criterios-de-sincronización).
 
-## 1. Una referencia coherente, varias vistas
+## 1. Referencia coherente y varias vistas
 
-El conjunto de diseño se compone de:
+El proyecto aplica un flujo _design-first_ con fuentes complementarias:
 
-- **Requisitos del proyecto y ADR aceptados:** reglas de negocio y decisiones arquitectónicas, con matices pendientes.
-- **Modelo relacional**: `docs/diagrams/relacional.drawio` (cuatro páginas: incidencias, tramitación, identidad/organización, territorio); relaciones, claves y cardinalidades candidatas.
-- **Catálogo de clases**: `docs/diagrams/clases-simplificado.drawio` (una página): entidades Java previstas, enums, objetos embebidos y DTO auxiliares; sin líneas de asociación por diseño.
-- **Contrato editable**: `docs/api/openapi/base-openapi.yaml` con referencias a `paths/` y `components/`. Define recursos y mensajes HTTP, **no** la forma exacta de las tablas.
-- **Salidas generadas**: `docs/api/openapi.yaml` y `docs/api/openapi.html`, reconstruidas desde el modular; **no editar manualmente**.
+- **Requisitos del caso de estudio y ADR**: determinan el alcance, prioridades, roles, invariantes y decisiones arquitectónicas; las funcionalidades opcionales siguen aplazadas.
+- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1 consolidada ya implementado** y diseño aún no persistido.
+- **Clases simplificadas**: [`../diagrams/clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (una página), con atributos Java/DTO/enums/embebidos; **sin líneas UML intencionadamente**, ya que las relaciones están en el ER.
+- **Contrato OpenAPI fuente**: [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml), rutas en `openapi/paths/` y esquemas en `openapi/components/`.
+- **Salidas derivadas**: [`openapi.yaml`](openapi.yaml) y [`openapi.html`](openapi.html), regeneradas con Redocly y **nunca editadas a mano**.
 
-Las vistas deben conservar la misma semántica: un DTO no es una entidad JPA, una propiedad de entidad puede no aparecer en ningún JSON y la existencia del YAML no implica una ruta disponible. La revisión de seguridad agrega un documento funcional específico, [auth-design.md](../auth-design.md), y revisa ADR-0005/0007/0009/0011.
+DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-roles` orienta al lector del contrato; el backend comprueba autorización efectiva, especialmente pertenencias por departamento, titularidad y estado cuando se implementen las operaciones. Un endpoint descrito en YAML tampoco es necesariamente un endpoint ejecutable.
 
-## 2. Acuerdos ya reflejados en el diseño base
+## 2. Acuerdos vigentes del dominio y su traducción a la API
 
-| Tema                     | Regla del dominio                                                                    | Representación en API                                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Identificadores          | UUIDv7 para entidades con PK, salvo claves naturales/candidatas compuestas           | `string` con `format: uuid` para identificadores; rol por código estable. Versión de UUID no la impone OpenAPI. |
-| Roles globales           | `CITIZEN`, `OPERATOR`, `ADMIN` a través de `UserRole`; toda cuenta incluye `CITIZEN` | `UserDTO.roles` con `GlobalRoleCode`. El cliente no selecciona permisos en el registro.                         |
-| Roles departamentales    | `DEPARTMENT_COORDINATOR`, `TECHNICIAN` vía `DepartmentMembership`                    | `UserDTO.departmentMemberships` visible según autorización.                                                     |
-| Operador neutral         | Valida y deriva incidencias sin pertenecer a departamento                            | Operaciones de revisión/derivación con `x-roles: OPERATOR`; seguridad real en servidor.                         |
-| Coordinador              | Distribuye trabajo dentro de departamentos autorizados                               | `POST /incidents/{incidentId}/assignments` con adscripción activa.                                              |
-| Departamento responsable | `Incident.assignedDepartment` opcional                                               | `IncidentDTO.assignedDepartment` y `PUT /incidents/{incidentId}/department`. No crea `Assignment`.              |
-| Trabajo                  | Asignación temporal a equipo **o** técnico (XOR)                                     | `AssignmentRequest` con exactamente uno de `teamId` o `technicianId`; historial de reasignaciones.              |
-| Aceptación               | `acceptedBy`/`acceptedAt` sin comienzo automático del trabajo                        | Operación de aceptación y campos en `AssignmentDTO`.                                                            |
-| Estados                  | `VALIDATED` puede existir sin departamento, dos etapas de asignación                 | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`.                                                                     |
-| Invitaciones             | Canje para cuenta existente o nueva; rol/departamento autorizado                     | `InvitationRequest` con `oneOf`; nuevo `StaffGlobalRoleCode` restringido a OPERATOR/ADMIN, nunca CITIZEN.       |
-| Duplicados               | Sugerencias calculadas, vínculos humanos persistidos                                 | `DuplicateSuggestionDTO` y `DuplicateLinkDTO`.                                                                  |
-| Ubicación                | Coordenadas `Location`/`Coordinates` embebidas                                       | DTO de localización, proveedores no elegidos.                                                                   |
+| Tema                      | Regla de negocio/almacenamiento                                                                  | Contrato HTTP y estado                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Identificadores           | UUIDv7 desde Hibernate donde corresponda; algunas claves compuestas/naturales y externas         | `string` + `format: uuid` para IDs internos, sin imponer versión UUID en OpenAPI                                                   |
+| Identidad                 | `User` único por email normalizado, `CITIZEN` siempre presente, preferencias y correo verificado | Registro público sin selección de roles; `UserDTO` no expone hash ni `tokenVersion`                                                |
+| Roles globales            | `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y se consultan vigentes en PostgreSQL        | JWT Bearer, `UserDTO.roles`; no hay permisos permanentes confiados a claims                                                        |
+| Roles departamentales     | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial             | Pertenencias activas e históricas en `UserDTO`; el canje devuelve DTO propio                                                       |
+| Operador                  | Puede actuar transversalmente al revisar/derivar, sin pertenecer a departamento                  | Operaciones de incidencias futuras con `x-roles: OPERATOR` como metadato                                                           |
+| Catálogo de departamentos | Nombre/código únicos, estado y fechas; entidad compartida con pertenencias/invitaciones          | GET colección/detalle, POST y PATCH implementados; [contrato de Departamentos](README.md#51-departamentos-implementados-catálogos) |
+| Catálogo de categorías    | UUIDv7, nombre único de 2–100 puntos Unicode, descripción opcional y active; V1 sin semillas     | GET colección/detalle, POST y PATCH implementados; [contrato](README.md#contrato-de-categorías)                                    |
+| Departamento responsable  | `Incident.assignedDepartment` opcional, diferente de asignar trabajo                             | `IncidentDTO.assignedDepartment`, futuro `PUT /incidents/{incidentId}/department`                                                  |
+| Trabajo                   | `Assignment` temporal a **equipo XOR técnico**, con como máximo una activa                       | Futura petición `AssignmentRequest` con `teamId` o `technicianId`, no ambos                                                        |
+| Aceptación                | `acceptedBy`/`acceptedAt` no inicia automáticamente el trabajo                                   | Respuesta futura `AssignmentDTO`                                                                                                   |
+| Ciclo de vida             | `VALIDATED` puede existir sin departamento; derivación y trabajo son fases distintas             | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`, no un único `ASSIGNED`                                                                 |
+| Invitaciones              | Temporal, correo obligatorio, rol/ámbito fijados y canje sobre cuenta verificada                 | `InvitationRequest` `oneOf`; cinco rutas **implementadas**; contrato `0.5.0`                                                       |
+| Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | DTO de sugerencias y enlaces **de diseño**                                                                                         |
+| Contexto urbano           | Localización y fuentes con IDs externos separados de los internos                                | DTO de coordenadas y contexto, sin proveedores elegidos                                                                            |
 
-### Revisión de usuarios y pertenencias departamentales — 03/11/2026
+### 2.1. Revisión histórica de Autenticación (0.3.0 y 0.4.0)
 
-El tag Usuarios ofrece cinco operaciones implementadas: perfil propio (`GET/PATCH /users/me`), listado administrativo (`GET /users`) y consulta/actualización administrativa por UUID (`GET/PATCH /users/{userId}`). `UserDTO` contiene los roles globales y una colección independiente de pertenencias departamentales activas e históricas. `leftAt = null` identifica una adscripción activa.
+El contrato de autenticación evolucionó desde diseño de registro JWT (`0.3.0`) hasta confirmación/reenvío SMTP (`0.4.0`), ya implementados. Actualmente los cinco métodos HTTP bajo `/api/v1` son `POST /auth/register` (`201 TokenDTO` sin `Location`), `POST /auth/login` (`200 TokenDTO`), `POST /users/me/password-changes` (`204`), `POST /auth/email-verifications/confirm` (`204`) y `POST /auth/email-verifications/resend` (`202`/`204`/`410`).
 
-Una pertenencia enlaza `User`, `Department` y `Role`; solo acepta roles departamentales. Se permite una adscripción activa por combinación usuario/departamento/rol y varios roles distintos en el mismo departamento. La baja conserva el registro; una reincorporación crea otro. El listado filtra por rol global o por rol departamental activo. El servicio de dominio administra altas/bajas, pero no se ha publicado un endpoint HTTP específico para esas operaciones. Flyway V4 y sus pruebas están añadidas; V4 verificada en PostgreSQL efímero, incluidos DepartmentMembershipPostgresIT y CategoryPostgresIT.
+- `User` inicia activo, `emailVerified=false`, `tokenVersion=0`, con preferencias `true` y rol global `CITIZEN`. Solo un flujo autenticado y controlado puede conceder privilegios adicionales.
+- JWT HS256 por **7200 s** con `sub/iat/exp/iss/ver`, comprobación de cuenta, versión, roles globales vigentes y `EMAIL_VERIFIED` desde PostgreSQL por petición. El mismo JWT funciona tras verificar correo y puede reconocer un rol global recién adquirido por invitación.
+- Cambio de contraseña: bloqueo y aumento de `tokenVersion` dentro de la transacción para invalidar tokens anteriores. BCrypt coste 12 para contraseñas.
+- Verificación: HMAC propio del código de ocho dígitos, diez minutos como máximo, cuenta pendiente eliminable tras 24 h solo si carece de referencias históricas y correo `AFTER_COMMIT`; confirmación/reenvío y limpieza ya implementados. SMTP Mailpit local **no** garantiza entrega externa.
+- Errores: `400` JSON ilegible/tipos/cuerpo excesivo, `401` credenciales/JWT/cuenta inválidos, `403 EMAIL_NOT_VERIFIED`, `409` duplicidad de correo, `422` validación, `429 Retry-After`, `503` fallo tipado PostgreSQL y `500` genérico. Límite de 16 KiB en los cinco POST de auth; cuotas en memoria por instancia.
+- Recuperación de contraseña olvidada, refresh, primer ADMIN productivo y `GET fields` no están implementados.
 
-### Revisión de identidad/autenticación (25/10/2026)
+### 2.2. Invitaciones implementadas (0.5.0)
 
-**Estado posterior (28/10/2026):** cinco operaciones implementadas; registro `201` sin `Location`, login `200`, cambio `204`, confirmación `204` y reenvío `202`/`204`/`410`. `CITIZEN` es obligatorio para autenticar, no solo para el alta. Los errores de PostgreSQL temporalmente indisponible son `503` (`SERVICE_UNAVAILABLE`) frente a `401` por JWT/credenciales y `500` por fallo interno; cuerpo de los cinco POST limitado a 16 KiB; `429` para registro, login, confirmación y reenvío, no cambio de contraseña. Las otras rutas de este contrato permanecen como diseño.
+El diseño descarta `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`; **emitir una invitación no registra un usuario**. Se implementan cinco operaciones bajo `/api/v1`:
 
-| Tema                               | Regla de diseño acordada                                                                                     | OpenAPI `0.5.0`                                                                                     |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Registro                           | User activo, `emailVerified=false`, `tokenVersion=0`, preferencias `true`, rol CITIZEN; se inicia sesión     | `POST /auth/register`, `201 TokenDTO` con JWT limitado y código enviado tras commit por SMTP local. |
-| Login                              | BCrypt, cuenta activa, JWT firmado de 7200 s                                                                 | `POST /auth/login`, `200 TokenDTO`, `401` genérico si falla; sin `404`/`409` normales.              |
-| Revocación tras cambiar contraseña | Incremento transaccional de `User.tokenVersion`                                                              | `POST /users/me/password-changes`, tag Autenticación, `204` sin cuerpo.                             |
-| Autenticación protegida            | Token `sub`, `iat`, `exp`, `iss`, `ver` y comprobación de usuario/roles actuales en PostgreSQL cada petición | Esquema Bearer JWT; `x-roles` no es garantía de autorización ejecutable.                            |
-| Protección frente a abuso          | Limitador local por instancia con reposición y memoria acotada                                               | Respuesta `429` y cabecera `Retry-After` cuando corresponda.                                        |
-| Validaciones                       | `400` JSON ilegible, `422` datos inválidos, `409` email duplicado                                            | `ProblemDetail` uniforme en MVC, filtros y seguridad.                                               |
-| Identificadores JPA                | UUIDv7 desde Hibernate `UuidGenerator.Style.VERSION_7`                                                       | `format: uuid`, persistencia de `User` probada en PostgreSQL efímero.                               |
-| Mejoras aplazadas                  | Recuperación por correo, refresh y `fields`                                                                  | No se implementan estas capacidades aún.                                                            |
+| Método y recurso                                     | Autorización              | Respuesta                       |
+| ---------------------------------------------------- | ------------------------- | ------------------------------- |
+| `POST /staff-invitations`                            | ADMIN activo/verificado   | `201 InvitationDTO`, `Location` |
+| `GET /staff-invitations`                             | ADMIN activo/verificado   | `200 InvitationPageDTO`         |
+| `GET /staff-invitations/{invitationId}`              | ADMIN activo/verificado   | `200 InvitationDTO`             |
+| `POST /staff-invitations/{invitationId}/revocations` | ADMIN activo/verificado   | `204`                           |
+| `POST /users/me/staff-invitation-redemptions`        | CITIZEN activo/verificado | `200 InvitationRedemptionDTO`   |
 
-## 3. Diferencia esencial: derivación frente a trabajo
+La variante `GlobalInvitationRequest` acepta `OPERATOR`/`ADMIN` y **no** acepta `departmentId` ni siquiera como `null`; `DepartmentInvitationRequest` acepta `TECHNICIAN`/`DEPARTMENT_COORDINATOR` con `departmentId` UUID activo. Email obligatorio normalizado, plazo siete días por defecto (1–30 configurable), código de **256 bits/43 caracteres Base64URL** protegido por HMAC-SHA256 de propósito propio. Ni administración ni auditoría reciben el código. La invitación puede preceder al registro del destinatario.
 
-### Category: contrato implementado el 02/11/2026
+El canje verifica JWT, cuenta `CITIZEN`, email verificado coincidente, invitación activa y ausencia de permiso duplicado. Añade `UserRole` o `DepartmentMembership` en una transacción junto a estado/auditoría, sin cambiar usuario ni emitir JWT nuevo; protege con bloqueos **usuario → invitación → departamento**. Los estados `ACTIVE/REDEEMED/REVOKED/EXPIRED` se derivan de instantes, no de columna `status`. Una invitación revocada o canjeada no se reactiva. El SMTP ocurre **después del commit**, sin outbox ni reintentos.
 
-El [modelo de Category](../domain-model.md#catálogo-category) se corresponde con V3 y con los cuatro atributos de respuesta de [Catálogos](openapi/components/schemas/catalogos.yaml). `description` es nullable en SQL y se incluye incluso cuando vale null en JSON; no se añaden código corto ni fechas al contrato. Las cuatro operaciones, permisos, semántica de PATCH y errores se mantienen en la [guía HTTP de categorías](README.md#contrato-de-categorías). Incident y su relación opcional con Category siguen en diseño, sin FK física; RF18 permanece pendiente según la [arquitectura](../architecture.md#6-dominio-operativo-previsto).
+Listado filtrado por estado/email/rol/departamento con paginación `page=1`, `pageSize=20` (máximo 100), `PageMetadata`, orden `createdAt DESC,id DESC`. Cuotas de canje 10/900 s por usuario y 30/900 s por IP; 16 KiB máximo de cuerpo en POST. `422 INVALID_INVITATION_CODE` genérico para códigos invalidables/ajenos, `422 INVALID_DEPARTMENT`, `409 PERMISSION_ALREADY_GRANTED` o `409 INVITATION_NOT_ACTIVE` según operación. [Decisiones](../adr/0007-invitaciones-personal.md) y [pruebas](../development.md).
 
-### Flujo previsto de incidencias
+## 3. Derivación frente a trabajo de incidencia
 
-Recorrido representativo, no matriz completa:
+Como **diseño no implementado**, una evolución representativa es:
 
-`REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`.
+`REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`
 
-- **Revisión:** operador valida y puede conservar la incidencia en VALIDATED sin departamento.
-- **Derivación/transferencia:** operador elige departamento, modifica `Incident.assignedDepartment` y audita, aunque no cambie el estado.
-- **Distribución:** coordinador asigna equipo estable o técnico individual mediante `Assignment` y puede transitar a WORK_ASSIGNED.
-- **Reasignación:** finaliza la asignación anterior y crea otra, sin forzar `StatusChange` si el estado se mantiene.
-- **Aceptación:** registra `acceptedBy`/`acceptedAt` sin forzar IN_PROGRESS.
+El operador puede validar sin departamento; derivar cambia `Incident.assignedDepartment` y audita sin generar `Assignment`. El coordinador con adscripción departamental activa puede asignar trabajo a equipo **o** técnico. Una reasignación termina la anterior y crea otra, sin forzar un `StatusChange` si el estado no cambia. Aceptar registra `acceptedBy/acceptedAt` y no inicia automáticamente `IN_PROGRESS`. Los permisos futuros dependen de `DepartmentMembership`, `TeamMembership`, titularidad, asignación y recurso además de `x-roles`. La matriz exhaustiva de transiciones sigue pendiente.
 
-La autorización en estos casos no se decide únicamente por `x-roles`: depende de `DepartmentMembership`, `TeamMembership`, asignación vigente, titularidad y estado del recurso. V4 ya persiste `DepartmentMembership` y el backend la consulta en los DTO de usuario; `TeamMembership` y la aplicación de permisos contextuales a operaciones de incidencias siguen pendientes.
+## 4. Atributos y alcance que permanecen abiertos
 
-## 4. Qué no está cerrado o queda fuera del primer tag
+`UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. Algunos campos `StatusChangeDTO` pueden omitirse en cambios automáticos o iniciales, pero ello no elimina el deber de auditar. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales de usuarios se decidirán en el tag correspondiente.
 
-La revisión del contrato **no** implica aprobar todas las reglas de transiciones, transferencias, reasignaciones, alta/revocación de permisos departamentales, CRUD de equipos, política de invitaciones, proveedor de mapas, fotografías, almacenamiento analítico ni resultados de fuentes externas.
+**Pendiente de implementar:** equipos, API de retirada de permisos, operaciones de incidencias, fotografías, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 
-Quedan expresamente como mejoras de autenticación **futuras**: refresh tokens, recuperación de contraseña olvidada por email, proveedor SMTP real y primer administrador manual como tarea posterior. La confirmación del email y el bloqueo para acceder al negocio ya están implementados localmente. La propuesta `GET fields` con permisos por atributo (`OWNER`, `ADMIN`, `NONE`, etc.) no está aprobada; requiere investigar relación de titularidad, proyecciones SQL y exposición segura. No se implementan tablas de permisos dinámicos por anticipado.
+## 5. Proceso dominio–API por tag
 
-Los componentes opcionales marcados en rojo en el enunciado (entrenamiento de modelos, RAG, hotspots predictivos), así como evaluaciones IA con motor y ejecución asíncrona no decididos, no pertenecen a las rutas activas. La asistencia determinista no exige entrenar IA.
+1. Revisar casos de uso, requisitos, prioridades y ADR acordados.
+2. Contrastar juntos paths/DTO de OpenAPI, ER y catálogo de clases (tipos, cardinalidad, PK/FK, nulabilidad, estados, errores y permisos).
+3. Acordar qué parte queda implementada y qué parte sigue como propuesta; evitar crear tablas/endpoints solo por estar dibujados.
+4. Aplicar cambios en el mismo PR a fuentes OpenAPI, modelos `.drawio`, exportaciones SVG, texto/ADR y tests. Los diagramas de V1 consolidada ya están actualizados: actualizar solo cuando **cambie** de nuevo el dominio.
+5. Implementar JPA/Flyway/servicios/HTTP de forma incremental, con tests de seguridad e integración aislados.
+6. Regenerar bundle y HTML **desde el YAML modular**, revisar diff y registrar resultados efectivamente ejecutados.
 
-No inventar atributos, límites, endpoints ni permisos para cerrar huecos sin revisión del tag correspondiente.
+## 6. Validación del contrato
 
-### Precisión sobre DTO y auditoría
-
-- `UrbanAssetDTO.id` representa UUID interno; `externalId` identifica al proveedor; `sourceId` es opcional y referencia `ExternalSource`. Nunca equiparar IDs externos a UUID.
-- Los recursos persistentes del contrato usan `format: uuid` según corresponda; la política de generación se define en JPA y ADR-0011.
-- `AuditEvent.resourceId` y `requestId` son cadenas heterogéneas, no FKs UUID obligatorias.
-- `StatusChangeDTO.fromStatus` y `changedBy` pueden faltar al crear incidencia o actuar el sistema; esto no elimina el deber de auditar.
-- El `oneOf` de invitaciones y enums por ámbito permiten validar rol/departamento; las invitaciones para personal global no deben aceptar CITIZEN.
-- `UserDTO.emailVerified` identifica el estado de correo y se actualiza mediante el flujo de verificación por HMAC implementado. No mostrar `passwordHash` ni `tokenVersion` en las respuestas API. `departmentMemberships` queda sujeto a visibilidad autorizada.
-
-## 5. Flujo de tareas: una unidad dominio–API
-
-1. Escoger tag/caso de uso y consultar requisitos y ADR.
-2. Estudiar **juntos** paths/DTO y ambas vistas del dominio; la versión base anterior no era una validación exhaustiva.
-3. Revisar campos, nulabilidad, invariantes, ámbitos de autorización, errores y alcance real del caso de uso.
-4. Documentar cambios de contrato, diagramas editables, exportaciones, ADR y dominio en el mismo PR y coordinar impacto sobre otros tags.
-5. Implementar solo entidades/repositorios, Flyway, servicios y endpoints necesarios, con tests de contrato, seguridad y persistencia aislada. No crear todas las tablas dibujadas.
-6. Validar el YAML modular, regenerar `openapi.yaml` y `openapi.html`, revisar diff, y detallar qué queda pendiente y qué se ejecutó realmente.
-
-## 6. Comandos de validación/generación
+Desde la raíz:
 
 ```bash
-npx @redocly/cli lint docs/api/openapi/base-openapi.yaml
-npx @redocly/cli bundle docs/api/openapi/base-openapi.yaml --output docs/api/openapi.yaml
-npx @redocly/cli build-docs docs/api/openapi.yaml --output docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Los ficheros derivados no se mantienen manualmente: tras regenerar con Redocly, verificar que `info.version` es `0.5.0` y que no hay `$ref` rotos.
+**Validaciones completadas (30/10/2026):** contrato OpenAPI `0.5.0` sin errores de lint (dos avisos conocidos: licencia por decidir y servidor localhost), **90 pruebas de backend superadas** y un recorrido HTTP aislado con PostgreSQL/Mailpit satisfactorio. El historial Git sitúa la reorganización de paquetes antes de los commits de Invitaciones y pruebas. Resultados, alcance y comandos: [Guía de desarrollo](../development.md).
 
 ## 7. Referencias
 
-- [Diseño de autenticación](../auth-design.md).
-- [Modelo de dominio](../domain-model.md) y [diagramas](../diagrams/README.md).
-- [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0010](../adr/0010-ciclo-vida-y-asignaciones.md), [ADR-0011](../adr/0011-identificadores-uuidv7.md).
-- [Guía de API](README.md) y [Contribución](../../CONTRIBUTING.md).
+- [Guía de API](README.md), [autenticación](../auth-design.md), [modelo de dominio](../domain-model.md) y [diagramas actualizados](../diagrams/README.md).
+- [ADR-0005](../adr/0005-jwt-spring-security.md), [ADR-0007](../adr/0007-invitaciones-personal.md), [ADR-0009](../adr/0009-rbac-departamentos-equipos.md), [ADR-0010](../adr/0010-ciclo-vida-y-asignaciones.md) y [ADR-0011](../adr/0011-identificadores-uuidv7.md).
+- [Desarrollo: pruebas](../development.md) y [CONTRIBUTING](../../CONTRIBUTING.md).
 
-### Implementación de verificación de correo (28/10/2026)
+## Usuarios: contrato implementado
 
-Se incorpora `EmailVerification` (PK/FK compartida con `User`) con HMAC-SHA256 de ocho dígitos, caducidad de hasta diez minutos y límite de cuenta no verificada de 24 horas. Confirmación: `POST /auth/email-verifications/confirm`, JWT y DTO estricto, `204` o `422 INVALID_VERIFICATION_CODE`. Reenvío: `POST /auth/email-verifications/resend`, JWT y cuerpo vacío, `202`/`204`/`410 VERIFICATION_ACCOUNT_EXPIRED`. Las cinco operaciones mantienen 16 KiB máximo de cuerpo; confirmación y reenvío tienen `429` con quotas locales. `EMAIL_VERIFIED` se lee de PostgreSQL en cada petición y se exige para las rutas de negocio, con `403 EMAIL_NOT_VERIFIED`; el mismo JWT sirve tras confirmar sin invalidar la versión del token. El SMTP local es Mailpit, no entrega real garantizada. Recuperación de contraseña, invitaciones y notificaciones siguen fuera del código de este tag.
-
-## Departamentos municipales — revisión 30/10/2026
-
-La revisión de 30/10/2026 implementó `Department`: GET listado/detalle en `/api/v1/departments`, POST y PATCH. GET exige identidad y correo verificado; escritura añade rol global ADMIN, consultado en PostgreSQL por la seguridad existente. Desactivar mediante `active=false` conserva el registro y su UUID; no existe DELETE.
-
-Nombre (2–120) y código ASCII (2–20) se recortan con `trim()` antes de validar; se conservan espacios interiores del nombre y se convierte el código a mayúsculas. Unicidad sin distinguir mayúsculas. Descripción opcional hasta 500; alta activa por defecto. PATCH omite para conservar, rechaza null explícito (400), permite descripción vacía y exige algún campo (422). El listado incluye activos/inactivos ordenados por nombre según la collation de PostgreSQL. Los parches concurrentes bloquean la fila durante la transacción.
-
-`Department` usa UUIDv7 Hibernate según ADR-0011. V2 crea `departments`, índices únicos y semillas fijas; se conserva V2 sin modificar su checksum. El default SQL uuidv7() cubre inserciones externas. Las fechas son internas, `createdAt` inmutable y `updatedAt` cambia al modificar datos. No se crean FK hacia módulos todavía no implementados.
-
-Errores comunes ProblemDetail con `code`, `title`, `status`, `detail`, `instance`: 400 entrada no interpretable/UUID inválido, 401 JWT, 403 permisos/verificación, 404 DEPARTMENT_NOT_FOUND, 409 DEPARTMENT_DUPLICATE, 422 validación, 500 fallo interno y 503 indisponibilidad tipada. Solo SQLSTATE 23505 de los dos índices conocidos se traduce a duplicado. Consulte [informe de cierre](../departments-finalization.md) para resultados y limitaciones.
+Las cinco operaciones cubren perfil propio y administración global con correo verificado. Los DTO admiten solo `displayName` o `active` según la ruta; la normalización de nombre se valida en puntos Unicode. `LAST_ACTIVE_ADMIN` protege la disponibilidad administrativa con estado 409. El listado pagina en SQL y carga roles y pertenencias en lote; el filtro departamental excluye historia, aunque el DTO la incluye. La baja y reentrada departamental son servicios internos sin nuevas rutas. Véanse [Usuarios](README.md#usuarios-implementados), [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).
