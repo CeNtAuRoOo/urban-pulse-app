@@ -50,7 +50,8 @@ UserDTO:
       type: array
       description: >-
         Adscripciones departamentales activas e históricas. Una pertenencia está activa
-        cuando leftAt es null. Se ordenan por fecha de alta descendente.
+        cuando leftAt es null. Se ordenan por joinedAt descendente e id ascendente.
+        Una pertenencia histórica no concede permisos; roles globales y departamentales son ámbitos distintos.
       items:
         $ref: ./usuarios.yaml#/DepartmentMembershipDTO
   required:
@@ -69,9 +70,13 @@ UpdateMyProfileRequest:
     displayName:
       type: string
       minLength: 2
-      maxLength: 120
-      pattern: '.*\S.*'
-      description: No puede estar vacío ni contener únicamente espacios.
+      x-normalized-minLength: 2
+      x-normalized-maxLength: 120
+      description: >-
+        Se recortan espacios Unicode y controles ASCII de borde antes de validar.
+        El resultado debe contener 2–120 puntos de código Unicode y no incluir controles
+        interiores ni sustitutos aislados. Los límites se aplican al texto normalizado;
+        el texto recibido puede incluir espacios de borde adicionales. Error 422 VALIDATION_ERROR.
   required:
     - displayName
   description: Solo admite el nombre público; no permite modificar roles, correo ni pertenencias departamentales.
@@ -84,7 +89,9 @@ AdminUpdateUserRequest:
       type: boolean
   description: >-
     Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza
-    invitaciones (ADR-0007). Revocación y gestión de pertenencias requieren contrato propio.
+    invitaciones (ADR-0007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio.
+    No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN).
+    La autodesactivación se permite si permanece otro administrador disponible.
   required:
     - active
   additionalProperties: false
@@ -130,6 +137,7 @@ DepartmentMembershipDTO:
     - department
     - role
     - joinedAt
+    - leftAt
 GlobalRoleCode:
   type: string
   enum:

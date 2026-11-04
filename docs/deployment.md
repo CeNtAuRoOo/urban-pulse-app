@@ -1,159 +1,105 @@
-# Guía de despliegue
+# Guía de despliegue de UrbanPulse
 
-> **Estado (15/10/2026):** Docker Compose inicia frontend y backend en desarrollo; el backend ha superado una prueba manual de conectividad con Neon PostgreSQL y Object Storage. **No existe todavía un despliegue de producción validado**, ni imagen final de frontend Nginx verificada. Hosting y dominios públicos pendientes.
+> **Estado a 04/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases describen los módulos implementados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
 
 ## 1. Objetivo y separación de entornos
 
-- **Desarrollo:** `compose.yaml` orquesta los servicios `frontend` (7777) y `backend` (8888) con volúmenes de código. PostgreSQL queda fuera de Compose, en Neon.
-- **Producción web:** un contenedor Docker independiente sirve los archivos SPA exportados por Expo mediante Nginx.
-- **Producción backend:** otro contenedor ejecutará el JAR de Spring Boot, una vez configurado y probado.
-- **Android/iOS:** se generarán compilaciones nativas a partir del mismo frontend; **no se desplegarán en contenedores Docker** en los dispositivos.
+UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS Expo/React Native, un **único backend Spring Boot modular** y servicios externos PostgreSQL y almacenamiento de objetos. Los entornos de desarrollo y producción deben disponer de conexiones y secretos independientes. Las pruebas de mutación de Invitaciones deben emplear una base efímera y no Neon compartido. El informe histórico utilizó `compose.test.yaml`, pero **ese archivo no aparece en el repositorio**; no debe presentarse como infraestructura actualmente disponible. Ni aquella prueba ni un `HeadBucket` equivalen a un despliegue real.
 
-Todo despliegue real deberá utilizar HTTPS hacia la API, secretos gestionados en el entorno y permisos mínimos.
+- **Desarrollo**: `compose.yaml` arranca frontend Expo Web (`7777`), backend (`8888`) y Mailpit; el backend utiliza variables privadas de `backend/.env.development` para Neon si se decide apuntarlo a dicha rama.
+- **Pruebas aisladas**: el perfil Maven `postgres-it` usa Testcontainers PostgreSQL 18. El informe histórico de HTTP usó JAR + PostgreSQL `tmpfs` + Mailpit; su configuración Compose no está versionada en el repositorio.
+- **Producción futura**: imagen frontend exportada/servida por Nginx, imagen backend independiente, PostgreSQL/Object Storage gestionados, SMTP confiable, HTTPS, gestión segura de secretos y controles CI/CD. No se describe como una infraestructura ya operativa.
 
-## 2. Componentes y estado
+## 2. Componentes y responsabilidades
 
-| Componente                    | Artefacto / proveedor                               | Estado                                                            |
-| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
-| Frontend desarrollo web       | `frontend/Dockerfile.dev`, Expo/Metro, puerto 7777  | **Validado localmente y con Compose**                             |
-| Exportación web               | `npx expo export --platform web` → `frontend/dist/` | **Validada**                                                      |
-| Frontend producción web       | `frontend/Dockerfile` (Node 24 → Nginx)             | Creado; **imagen final no probada**                               |
-| Backend desarrollo            | `backend/Dockerfile.dev`, Spring Boot, puerto 8888  | Creado; arranque en Compose comprobado                            |
-| Backend producción            | `backend/Dockerfile` (Maven → JRE)                  | Creado; imagen de producción no verificada                        |
-| PostgreSQL                    | Neon (administrado)                                 | PostgreSQL 18; JDBC de desarrollo verificado                      |
-| Almacenamiento de fotografías | Neon Object Storage, bucket privado                 | Bucket privado y HeadBucket de desarrollo verificados             |
-| Aplicaciones Android/iOS      | Expo / React Native                                 | Compilación/distribución por definir; sin prueba funcional nativa |
-| Hosting web y backend         | Proveedores cloud distintos o separables            | Pendientes                                                        |
+| Componente        | Implementado/configurado                                                                                                           | Pendiente de validar o entregar                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas                                                                      | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI             |
+| Android/iOS       | Base de código compartida Expo/React Native                                                                                        | Ejecución funcional completa y distribución en dispositivos                        |
+| API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`; puerto 8888 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen           |
+| PostgreSQL        | V1 consolidada para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente                                                       | Aplicación planificada de V1 consolidada a Neon `development` y gestión de backups |
+| Object Storage    | Cliente S3, bucket privado `incident-evidence` y `HeadBucket`                                                                      | Subida, descarga, borrado y autorización por objeto                                |
+| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                              | Proveedor SMTP real, entregabilidad y recuperación/reintentos                      |
 
-## 3. Diagrama de despliegue
+## 3. Diagramas arquitectónicos
 
-**[PENDIENTE: incorporar C4 Deployment]** al seleccionar hosting, dominios, red, TLS y mecanismos de entrega. Archivo propuesto `docs/diagrams/deployment.drawio`; exportación SVG junto a él.
+Las vistas [C4 de contexto y contenedores](diagrams/README.md) están actualizadas, con fuente editable [`c4.drawio`](diagrams/c4.drawio) y SVG asociados; incluyen el transporte de correo y el alcance inicial de fotografías. Los modelos ER y de clases y sus SVG regenerados manualmente incorporan ambos catálogos. La comprobación estructural está descrita en el [inventario](diagrams/README.md#criterios-de-sincronización).
 
-Los diagramas C4 actuales de contexto y contenedores se encuentran en [architecture.md](architecture.md).
+**[Pendiente: nuevo C4 Deployment]**. Cuando se decidan hosting, dominios, TLS, redes, topología y estrategia de operación, documentarlos en un diagrama de despliegue adicional (por ejemplo, `docs/diagrams/deployment.drawio`). Esto **no** es una tarea pendiente de corrección de los gráficos C4/ER/clases existentes.
 
-## 4. Frontend web: desarrollo frente a producción
+## 4. Frontend web: desarrollo y producción
 
-### 4.1. Desarrollo comprobado
-
-Desde la raíz:
+El frontend utiliza Expo SDK 57, Expo Router y TypeScript. El servidor de desarrollo puede ejecutarse con `npx expo start --web --port 7777` desde `frontend/`, o desde la raíz con:
 
 ```bash
 docker compose up --build frontend
 ```
 
-El contenedor ejecuta `npx expo start --web --port 7777`; se accede a <http://localhost:7777>. La fuente se monta como volumen y las dependencias permanecen en un volumen separado. La aplicación web también se ha probado sin Docker con el mismo puerto.
-
-### 4.2. Exportación comprobada
-
-Desde `frontend/`:
+La compilación `npx expo export --platform web` fue comprobada históricamente y genera `frontend/dist/`; por sí sola no prueba una imagen de producción. `frontend/Dockerfile` construye la SPA y copia los estáticos a Nginx, con `frontend/nginx.conf` para servir rutas de Expo Router. **La imagen final Nginx sigue sin verificarse en el despliegue real**. Para una prueba local posterior desde la raíz:
 
 ```bash
-npx expo export --platform web
-```
-
-La configuración `app.json` contiene `web.output="single"`. La exportación web genera `dist/`, con HTML, JavaScript y recursos estáticos, pero **no equivale a desplegarlo**.
-
-### 4.3. Contenedor de producción (pendiente de validar)
-
-`frontend/Dockerfile` es multietapa: instala con `npm ci`, exporta la aplicación y copia `dist/` a Nginx. `frontend/nginx.conf` escucha en el puerto 7777 y utiliza `try_files ... /index.html` para soportar rutas SPA de Expo Router.
-
-Comandos propuestos de validación local desde la raíz, en PowerShell:
-
-```powershell
 docker build -f frontend/Dockerfile --build-arg EXPO_PUBLIC_API_URL=http://localhost:8888 -t urbanpulse-frontend:local frontend
 docker run --rm -p 7777:7777 urbanpulse-frontend:local
 ```
 
-Abrir <http://localhost:7777>. **Todavía no se ha adjuntado evidencia de esta prueba.**
+`EXPO_PUBLIC_API_URL` se integra en el código cliente en tiempo de compilación, es **pública** y debe apuntar a una API accesible y preferiblemente HTTPS en producción. No incluir en ninguna variable `EXPO_PUBLIC_*` contraseñas, tokens de servidor ni credenciales Neon/S3. La distribución móvil y la adecuación de direcciones (`localhost` en un dispositivo no significa el host Docker) se verificarán por separado.
 
-### 4.4. Configuración pública en tiempo de build
+## 5. Backend, imagen y persistencia
 
-`EXPO_PUBLIC_API_URL` debe proporcionarse al construir la imagen. Se incorpora al bundle JavaScript y **no es un secreto**. En producción reemplazar por el endpoint HTTPS verdadero de la API; por ejemplo `https://api.ejemplo.invalid`, una URL **ficticia, no operativa**. Si cambia la URL, la imagen actual necesitará reconstruirse o evolucionar hacia otro sistema de configuración pública en ejecución.
+`backend/Dockerfile` es la imagen multietapa prevista para ejecutar el JAR, distinta de `backend/Dockerfile.dev` para desarrollo. El informe histórico menciona un `backend/Dockerfile.test` de pruebas, **no incluido en el repositorio**. El servicio arranca por el puerto 8888, configurable con `SERVER_PORT`; usa Spring Security, JPA/Hibernate, Flyway, HikariCP y un cliente S3. Las variables se suministran externamente y no se versionan secretos.
 
-La API del backend deberá admitir el origen web mediante la política CORS que se defina. No usar el hostname Docker `backend` en código ejecutado por el navegador.
+El código Java está ordenado por funcionalidades, no en paquetes globales `controller/entity/service`. [Arquitectura](architecture.md) y [desarrollo](development.md) describen su estructura exacta. `V1__initial_schema.sql` crea identidad/verificación, departamentos, pertenencias, invitaciones, auditoría y categorías. `spring.jpa.hibernate.ddl-auto=validate` comprueba el esquema; **Flyway puede modificarlo al iniciar** si las migraciones aún no figuran aplicadas.
 
-## 5. Backend Spring Boot: imagen independiente
+Antes de arrancar cualquier versión nueva conectada a Neon:
 
-`backend/Dockerfile` usa Maven 3.9.16 y Java 25 para compilar el JAR y una imagen con JRE 25 para ejecutarlo. Puerto interno previsto: **8888**.
+1. Confirmar la **rama real** de las conexiones JDBC y S3: nombre de base, usuario y bucket pueden coincidir entre `development` y `production`; la prueba de conectividad no demuestra el ID de rama.
+2. Comprobar migraciones y checksums en `flyway_schema_history`; si una BD tiene V1 aplicada con otro contenido, **no sobrescribir V1 ni editar el historial**: diseñar una migración posterior compatible.
+3. Preparar copia de seguridad, ventana de cambio, credenciales de migración adecuadas, plan de reversión y verificación postdespliegue. No ensayar cambios sobre producción.
+4. Revisar el scheduler `EmailVerificationCleanup`: borra cuentas no verificadas después de 24 h y los códigos caducados; la configuración de su cron se hereda del entorno en que corre el backend.
 
-Comando de referencia para la imagen **de producción, aún no validado**:
+No consta un arranque del backend actual con V1 consolidada sobre Neon compartido. La evidencia previa `NeonConnectivityIT` solo comprobó JDBC y `HeadBucket` en `development` con Flyway/Hibernate desactivados en ese test.
+
+## 6. Seguridad y variables externas
+
+Consultar `backend/.env.example` para los nombres exactos y valores por defecto. Son especialmente relevantes:
+
+| Variable o familia                                                  | Finalidad                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `SPRING_DATASOURCE_*`                                               | JDBC, usuario y contraseña específicos del entorno                                          |
+| `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Object Storage privado; no exponer al frontend                                              |
+| `JWT_SECRET`, `JWT_ISSUER`                                          | Firma HS256 y emisor del JWT; el secreto se configura como Base64 suficientemente aleatorio |
+| `EMAIL_VERIFICATION_SECRET`                                         | HMAC independiente para códigos decimales de verificación                                   |
+| `STAFF_INVITATION_SECRET`, `STAFF_INVITATION_TTL_DAYS`              | HMAC independiente y TTL de invitación, por defecto siete días (1..30)                      |
+| `MAIL_*`                                                            | SMTP, cuenta remitente, autenticación y seguridad de transporte                             |
+| `EMAIL_VERIFICATION_CLEANUP_CRON`                                   | Planificación de limpieza de cuentas/códigos pendientes                                     |
+| `CORS_ALLOWED_ORIGINS`                                              | Orígenes permitidos del cliente web                                                         |
+
+Las claves HMAC y JWT deben ser independientes; **rotar `STAFF_INVITATION_SECRET` invalida los códigos de invitaciones pendientes** porque no existe soporte multiclave. Guardar secretos en un gestor seguro y restringir acceso; evitar logs, imágenes Docker, repositorio y valores de pruebas. Configurar HTTPS, proxy de confianza, cabeceras, CORS, transporte de JWT y condiciones de CSRF antes de publicar. El limitador en memoria usa la IP de conexión y no confía en cabeceras `Forwarded`: detrás de un proxy requerirá diseño seguro para reconocer clientes y cuotas compartidas si hay réplicas.
+
+## 7. Mailpit, envío y limpieza
+
+En desarrollo Mailpit expone la interfaz en `http://localhost:8025`, con SMTP local. Registro/verificación y emisión de invitaciones publican eventos atendidos `AFTER_COMMIT` por los listeners específicos de `auth/mail` e `invitations/mail`, ambos con el transporte de `shared/mail`. Si SMTP falla, el alta/verificación/reenvío o la invitación confirmada en SQL **no se revierte**. No se ha implementado outbox ni reintentos automáticos para invitaciones: el procedimiento actual es revocar y emitir otra.
+
+La limpieza periódica `EmailVerificationCleanup` se ejecuta según el cron configurado (ordinariamente una vez por hora) con lotes y bloqueos `SKIP LOCKED`. `staff_invitations.email` **no** es FK a `users`, por lo que una invitación no canjeada sobrevive a la eliminación de una cuenta sin verificar. Otras referencias históricas usan `RESTRICT`; las futuras políticas de eliminación/retención deben definirse antes de producción.
+
+## 8. Pruebas previas a un despliegue
+
+Desde `backend/`, con Java 25, Maven y Docker:
 
 ```bash
-docker build -f backend/Dockerfile -t urbanpulse-backend:local backend
+mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El backend tiene cinco operaciones de autenticación/verificación, pero **todavía no tiene API de negocio de incidencias**; el arranque real de esta nueva versión con Mailpit y Neon no consta verificado. La imagen final de producción y las comprobaciones de despliegue siguen pendientes; **ya existe una V1 ampliada para autenticación y verificación de correo**, probada en PostgreSQL efímero, pero no consta aplicada a Neon `development`. Durante la fase Maven `package` del Dockerfile se ejecutarán los tests Surefire habituales; el test manual `NeonConnectivityIT` (`*IT`) no se ejecuta por defecto.
+El perfil incorpora siete suites aisladas de autenticación, correo, invitaciones, departamentos, categorías, usuarios y pertenencias con PostgreSQL 18 de Testcontainers y **no** ejecuta `NeonConnectivityIT`. En el informe histórico fechado el **30/10/2026** constan **90 pruebas superadas** y un flujo HTTP adicional del JAR con PostgreSQL `tmpfs` (sin puerto publicado), Mailpit, y fixtures sintéticos: rutas, autorización, permisos, auditoría, cuotas, limpieza y entrega local. El servicio de pruebas utilizaba `127.0.0.1:18888` y Mailpit `127.0.0.1:18025`; el cron y las cuotas de fixtures estaban ajustados exclusivamente para tests.
 
-En despliegue no incluir contraseñas ni claves mediante `ENV`, `ARG` o archivos versionados. Inyectar credenciales de Neon y claves de autenticación mediante mecanismos de secretos del proveedor de hosting.
+**Pruebas superadas y reproducibilidad:** la entrega de Invitaciones registró **90 pruebas exitosas** mediante Maven/Testcontainers y un recorrido HTTP aislado con resultado satisfactorio. El perfil `-Ppostgres-it` sigue configurado en `pom.xml`. El repositorio no contiene `compose.test.yaml`, `backend/Dockerfile.test` ni `backend/scripts/invitations_http_test.py`; por ello, el recorrido HTTP ejecutado no es reproducible **con este árbol de archivos**, aunque su resultado ya quedó documentado. [Guía de desarrollo](development.md).
 
-## 6. Distribución móvil
+## 9. CI/CD y pasos pendientes
 
-Android e iOS reutilizan `frontend/src`. Expo permite iniciar un servidor para pruebas con Expo Go en bibliotecas compatibles o usar _development builds_ cuando se requieran módulos nativos adicionales. Las compilaciones finales serán artefactos móviles, no imágenes Docker.
+Quedan para una **fase posterior de despliegue y producto** los workflows GitHub Actions que automaticen las suites **ya ejecutadas**, el análisis periódico de dependencias y secretos, el control de migraciones, backups/restauración, observabilidad, imágenes productivas endurecidas, dominios/TLS, entrega SMTP externa, procedimiento del **primer ADMIN**, retirada de permisos y política de conservación de invitaciones/auditoría (RGPD). Los casos de uso de incidencias y su documentación operativa pertenecen a otros tags; no se deben implementar tablas por aparecer en el diseño sin revisar el tag.
 
-**Pendientes:** pruebas reales en dispositivo, identificadores finales, permisos de ubicación/cámara, firma de apps y modalidad de distribución. El bundle de Android generado durante una sesión de Expo no demuestra que exista una aplicación Android ya validada.
+## 10. Referencias
 
-Las aplicaciones móviles se conectarán a una URL HTTPS pública, no a `localhost` del ordenador de desarrollo.
-
-## 7. Neon: PostgreSQL y fotografías
-
-- **Proyecto** `urban-pulse-app`, **AWS Frankfurt**, PostgreSQL **18**, base `urban-pulse` en ramas Neon `production` (principal) y `development` (desarrollo). `production` no se puede proteger automáticamente con el plan gratuito disponible; extremar precauciones.
-- **PostgreSQL:** JDBC/TLS desde Spring Boot mediante variables, con rol `backend`. La conexión directa a `development` está comprobada. Flyway habilitado y Hibernate con `ddl-auto=validate`; en `development` existía `flyway_schema_history` sin entidades. En el código ya existe `V1__create_authentication.sql` para `users`, `roles`, `user_roles` y `email_verifications`, probada en PostgreSQL efímero; **su ejecución sobre Neon `development` aún no está confirmada**. Verificar el destino y el plan de recuperación antes del primer arranque con Flyway activo.
-- **Object Storage:** bucket `incident-evidence` **privado**, ramificado junto a los datos. El backend utiliza AWS SDK for Java 2.x y credenciales distintas por entorno. `HeadBucket` en `development` está comprobado; **no se han probado ni implementado todavía operaciones reales de fotografías ni URLs firmadas**.
-- **Configuración de entorno:** Compose local carga `backend/.env.development` (ignorado por Git). En producción se inyectarán `SPRING_DATASOURCE_*`, `AWS_*`, `JWT_SECRET`, `JWT_ISSUER` y `CORS_ALLOWED_ORIGINS` como variables y secretos del proveedor, sin incrustar endpoints o credenciales en el Dockerfile. Nunca usar producción como destino de tests.
-- **Backups y recuperación:** no hay un procedimiento de restauración validado ni una política de snapshots programados; la retención de historial de Neon es limitada (6 horas en la configuración comprobada). Definir copias verificables antes de emplear datos importantes.
-
-## 8. Seguridad y configuración
-
-El backend ya implementa JWT HS256 de 7200 s, BCrypt 12, comprobación de estado/versión/CITIZEN/roles actuales por petición, 503 para indisponibilidad de PostgreSQL, errores sin credenciales y límites locales contra abuso. **Pendiente antes del despliegue detrás de un proxy:** configurar confianza en el proxy e IP efectiva, ya que `server.forward-headers-strategy=none` usa la dirección de conexión y puede agrupar muchos clientes en el mismo bucket. Rotación de claves, TLS, dominios y CORS finales todavía no están validados.
-
-| Dato                                  | Dónde debe estar                                                 |
-| ------------------------------------- | ---------------------------------------------------------------- |
-| URL pública de API                    | `EXPO_PUBLIC_API_URL` en compilación web / configuración cliente |
-| JDBC, usuario y contraseña Neon       | Entorno seguro del backend, nunca frontend                       |
-| Claves de firma/validación JWT        | `JWT_SECRET` Base64 externo de ≥32 bytes aleatorios              |
-| Credenciales S3 y permisos del bucket | Backend / servicio seguro; jamás bundle cliente                  |
-| Dominio público y CORS                | Configuración de hosting y backend por entorno                   |
-
-La API y los archivos privados no deben ser accesibles saltándose la autorización del backend. Validar formatos y tamaños de fotografías, acceso y eliminación, y tratamiento de información personal. Las evidencias no se publicarán por defecto.
-
-## 9. CI/CD y controles previos
-
-Los workflows en `.github/workflows/` están pendientes. Propuesta al implementarlos:
-
-1. En PR: instalar dependencias con lockfile y ejecutar `npx expo install --check`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web`; añadir después tests.
-2. Backend: ejecutar `mvn test` / `mvn verify` con **tests unitarios aislados**, sin credenciales de Neon. No activar `NeonConnectivityIT` ni otras pruebas externas en CI por defecto; reservarlas a verificaciones manuales o entornos efímeros autorizados.
-3. Verificar Dockerfiles de producción sin enviar secretos al build.
-4. Publicar imágenes inmutables y desplegar web/backend de forma independiente, con comprobaciones posteriores.
-
-Al fusionar un PR, los despliegues automáticos necesitarán autorización, credenciales seguras y permisos mínimos; no se activarán a ciegas.
-
-## 10. Pruebas previas a un despliegue real
-
-- Imagen web de Nginx funcionando con rutas SPA recargadas directamente.
-- Acceso a la API por HTTPS desde web y móvil; CORS correcto.
-- Backend inicia con la configuración de producción, y las migraciones aprobadas crean/validan el esquema esperado (sin probar sobre datos reales sensibles).
-- JWT válidos e inválidos correctamente gestionados, con permisos comprobados.
-- Evidencias privadas consultables solo tras autorización; subida y descarga controladas.
-- Logs sin secretos; tratamiento de errores externos, revisión de vulnerabilidades.
-- Plan de versiones y rollback de imágenes. Revertir una imagen **no revierte** automáticamente el esquema SQL.
-
-## 11. Costes, riesgos y pendientes
-
-Neon y el hosting tendrán límites de sus planes gratuitos; confirmar cuotas y política de suspensión antes de exponer el proyecto. No hay actualmente proveedores ni URLs finales para las aplicaciones web/backend. La política de copias de seguridad y recuperación permanece pendiente.
-
-Falta además resolver la licencia del repositorio público, probar la app en dispositivos y crear los workflows. Estas tareas no impiden continuar el desarrollo local, pero **sí impiden considerar completado el despliegue de producción**.
-
-## 12. Documentación relacionada
-
-- [Arquitectura](architecture.md)
-- [Guía de desarrollo](development.md)
-- [ADR](adr/README.md)
-- [Diagramas](diagrams/README.md)
-
-## Correo y limpieza de cuentas pendientes
-
-Docker Compose **de desarrollo** incluye Mailpit, cuya UI web está ligada a `127.0.0.1:8025` y su SMTP de host a `127.0.0.1:1025`; el backend accede internamente a `mailpit:1025`. Mailpit **no es el servicio de entrega de producción**. El SMTP real, su dominio, DNS (SPF/DKIM/DMARC), credenciales, límites, datos personales y obligaciones del proveedor siguen pendientes. `SmtpEmailSender` usa `JavaMailSender` y configuración mediante `MAIL_*`; el secreto HMAC `EMAIL_VERIFICATION_SECRET` es diferente de `JWT_SECRET` y debe guardarse como secreto del entorno.
-
-El servicio `EmailVerificationCleanup` se ejecuta automáticamente según cron sobre **la base configurada en ese backend**: elimina códigos caducados y cuentas sin verificar con al menos 24 horas de antigüedad; la frecuencia ordinaria es horaria y usa lotes/`SKIP LOCKED`. Su activación junto con Flyway debe planificarse explícitamente; no arrancar una instancia conectada por error a `production`. Revisar el borrado **antes de incorporar nuevas claves foráneas hacia `users`**. No existe un outbox ni un mecanismo de reintento automático del correo; fallos SMTP no revierten el alta/reenvío.
-
-La V1 de Flyway se cambió deliberadamente **antes de aplicarse por primera vez en Neon**. Si cualquier BD ya tiene registrada otra V1 con checksum distinto, no modificar su historial: detener despliegue y preparar una migración correctiva nueva. No interpretar una prueba con PostgreSQL efímero como aplicación validada de la V1 sobre Neon `development`.
+- [Arquitectura y componentes](architecture.md), [desarrollo y pruebas](development.md) y [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
+- [Diagramas existentes](diagrams/README.md) y [ADR](adr/README.md).
+- [Autenticación](auth-design.md), [API OpenAPI](api/README.md) y [seguridad del proyecto](../SECURITY.md).

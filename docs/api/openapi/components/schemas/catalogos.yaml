@@ -72,7 +72,7 @@ DepartmentDTO:
       type: string
       description: Código corto único, normalizado a mayúsculas.
       example: MOV
-      pattern: '^[A-Z0-9_-]+$'
+      pattern: "^[A-Z0-9_-]+$"
     description:
       type: string
       nullable: true
@@ -96,7 +96,7 @@ DepartmentWriteRequest:
       type: string
       minLength: 2
       maxLength: 20
-      pattern: '^[A-Za-z0-9_-]+$'
+      pattern: "^[A-Za-z0-9_-]+$"
     description:
       type: string
       nullable: true
@@ -121,7 +121,7 @@ DepartmentPatchRequest:
       type: string
       minLength: 2
       maxLength: 20
-      pattern: '^[A-Za-z0-9_-]+$'
+      pattern: "^[A-Za-z0-9_-]+$"
     description:
       type: string
       maxLength: 500

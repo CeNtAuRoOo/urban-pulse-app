@@ -2,6 +2,7 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-11-03
+- **Ampliación aprobada:** 2026-11-04; integración modular, V1 única y cuentas activas/verificadas.
 - **Decisores:** Equipo de desarrollo de Urban Pulse
 - **Relacionado con:** ADR-0009 y ADR-0012
 
@@ -58,11 +59,15 @@ Esta información complementa los roles globales del usuario, sin sustituirlos.
 
 ## 5. Persistencia y migraciones
 
-La estructura necesaria para almacenar las pertenencias se incorpora mediante una nueva migración de Flyway.
+La tabla ya forma parte de `V1__initial_schema.sql`, única migración activa bajo la premisa autorizada de destino vacío. No existe una V4 adicional ni una segunda entidad. `organization/model/DepartmentMembership`, su repositorio y `organization/service/DepartmentMembershipService` son canónicos. La V1 contiene el índice parcial `department_memberships_active_unique` sobre `(user_id, department_id, role_code)` con `left_at IS NULL`, las FK históricas RESTRICT, roles departamentales y orden de fechas. No hay departamentos precargados; los tests crean sus unidades.
 
-Las modificaciones del esquema se realizan mediante nuevas migraciones, sin alterar las migraciones que ya han sido aplicadas.
+Toda alta exige usuario activo con correo verificado y departamento activo. El servicio bloquea usuario y después departamento; Invitaciones coordina el mismo orden (usuario → invitación → departamento), conserva su error de permiso duplicado y crea la pertenencia en la misma transacción que consumo y auditoría. Una infracción 23505 del índice parcial se traduce a conflicto; otras infracciones no se ocultan.
 
-La migración debe incluir las restricciones e índices necesarios para mantener la integridad de las relaciones y garantizar la unicidad de las pertenencias activas.
+La baja interna consulta primero solo el ID del titular, bloquea usuario y después pertenencia y registra `leftAt >= joinedAt`. Repetirla se rechaza y nunca sobrescribe el periodo histórico. El siguiente ingreso crea un UUID nuevo. No se añaden endpoints de altas/bajas: la API de Usuarios conserva sus cinco operaciones. La exposición HTTP de retirada de permisos y los equipos siguen fuera de alcance.
+
+La limpieza de cuentas no verificadas de más de 24 horas conserva íntegramente las cuentas referenciadas por pertenencias (incluso históricas), actores de invitaciones o auditoría. Se excluyen antes del límite del lote y se revalidan bajo bloqueo para no detener el barrido de cuentas eliminables. No se añade CASCADE, anonimización ni borrado de historia. Los códigos de verificación caducados mantienen su política independiente de limpieza.
+
+Después de aplicar V1 en un entorno conservado, cualquier cambio posterior requiere una migración nueva; esta consolidación no autoriza reescribir esquemas desplegados.
 
 ## 6. Consecuencias
 
