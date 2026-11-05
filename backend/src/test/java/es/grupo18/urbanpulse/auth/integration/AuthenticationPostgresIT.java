@@ -118,7 +118,7 @@ class AuthenticationPostgresIT {
     @Test
     void flywaySchemaValidatesAndPersistsV7DefaultsAndCompositeRoles() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(3);
         assertThat(roles.findAll()).hasSize(5);
         assertThat(jdbc.queryForObject(
                 "select count(*) from information_schema.columns where table_name='roles' and column_name='scope'",
