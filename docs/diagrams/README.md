@@ -1,57 +1,81 @@
 # Diagramas de UrbanPulse
 
-Este directorio contiene las **fuentes editables en diagrams.net / draw.io** y sus exportaciones para revisión en GitHub. Se distinguen los diagramas de arquitectura C4 del **modelo de dominio v1**, que es una base compartida sincronizada con OpenAPI `0.2.0`, todavía pendiente de validación exhaustiva e implementación por tag, **salvo el núcleo de identidad/auth ya implementado**.
+Las fuentes editables describen Autenticación, Usuarios, Invitaciones, Departamentos, pertenencias y Categorías en la V1 consolidada. Los siete SVG se han regenerado desde las tres fuentes con draw.io Desktop 32.6.1 el 04/11/2026.
 
-## Inventario
+Los diagramas representan **el dominio lógico global**, cuya evolución se valida por tag. El esquema realmente migrado se limita a Flyway V1 consolidada; las demás entidades, asociaciones y servicios que aparecen en el modelo siguen siendo **diseño** hasta que tengan migraciones, código y pruebas.
 
-| Fuente editable                                            | Exportación para lectura                                                                                                                                                  | Propósito y estado                                                                                                                                                                                                                 |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`c4.drawio`](c4.drawio)                                   | [`c4-context.svg`](c4-context.svg) · [`c4-containers.svg`](c4-containers.svg)                                                                                             | Arquitectura C4, contexto y contenedores; diagramas ya disponibles. Se incorpora ahora la fuente `.drawio` independiente.                                                                                                          |
-| [`relacional.drawio`](relacional.drawio)                   | [`relacional-01.svg`](relacional-01.svg) · [`relacional-02.svg`](relacional-02.svg) · [`relacional-03.svg`](relacional-03.svg) · [`relacional-04.svg`](relacional-04.svg) | **Modelo relacional lógico v1** en cuatro páginas: incidencias, tramitación, organización, territorio/contexto. El núcleo identidad (`users`, `roles`, `user_roles`, `email_verifications`) ya tiene la migración V1 ampliada; las demás tablas siguen propuestas. |
-| [`clases-simplificado.drawio`](clases-simplificado.drawio) | [`clases-simplificado.svg`](clases-simplificado.svg)                                                                                                                      | **Catálogo de clases Java (parte del núcleo auth ya implementada) v1**, una sola página: atributos, tipos, enums, embeddables y DTO auxiliares. Sin líneas UML intencionadamente: consultar relaciones en el ER.                   |
+## Inventario verificable
 
-> **Nota de nombres:** las cuatro exportaciones `relacional-01` a `relacional-04` se enlazan aquí como `.svg`, siguiendo el patrón de las demás exportaciones. Si en la copia local se exportaron en `.png`, hay que adaptar los enlaces a las **extensiones reales** antes del commit. La fuente y sus SVG deben quedar sincronizados en cada PR del tag.
+| Fuente editable                                            | Exportación                                                                   | Contenido                                                                                                                                                             |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`c4.drawio`](c4.drawio)                                   | [`c4-context.svg`](c4-context.svg) y [`c4-containers.svg`](c4-containers.svg) | C4 de contexto y de contenedores; contenedor API, almacenamiento y correo SMTP/Mailpit; alcance inicial de evidencias: fotografías.                                   |
+| [`relacional.drawio`](relacional.drawio), **página 1**     | [`relacional-01.svg`](relacional-01.svg)                                      | Category implementada en V1; Incident y sus relaciones continúan en diseño.                                                                                           |
+| [`relacional.drawio`](relacional.drawio), **página 2**     | [`relacional-02.svg`](relacional-02.svg)                                      | Tramitación y auditoría: `AuditEvent`, detalles JSONB y referencias históricas conforme al modelo vigente.                                                            |
+| [`relacional.drawio`](relacional.drawio), **página 3**     | [`relacional-03.svg`](relacional-03.svg)                                      | Identidad/organización: `User`, roles, `EmailVerification`, `StaffInvitation`, `Department` y `DepartmentMembership`; V1 consolidada en SQL.                          |
+| [`relacional.drawio`](relacional.drawio), **página 4**     | [`relacional-04.svg`](relacional-04.svg)                                      | Territorio y contexto urbano, todavía modelo provisional.                                                                                                             |
+| [`clases-simplificado.drawio`](clases-simplificado.drawio) | [`clases-simplificado.svg`](clases-simplificado.svg)                          | Catálogo Java simplificado de entidades, DTO, enums y embebidos; estado de invitación derivado y atributos V1 consolidada. Sin conectores UML por elección de diseño. |
 
-## Vistas previas del modelo de dominio
+El conjunto de exportaciones es **SVG, no PNG**. Los diez archivos enumerados (tres `.drawio` y siete `.svg`) existen en la rama; no se necesitan rutas alternativas ni instrucciones de cambiar extensiones. El C4 contiene ambas vistas en una fuente editable; el relacional, cuatro páginas.
 
-### Relacional: página 1 — Incidencias
+## Vistas previas
 
-![Incidencias y trazabilidad](relacional-01.svg)
+### C4 — contexto y contenedores
 
-### Relacional: página 2 — Tramitación
+![Contexto](c4-context.svg)
 
-![Tramitación municipal](relacional-02.svg)
+![Contenedores](c4-containers.svg)
 
-### Relacional: página 3 — Identidad y organización
+### Relacional — página 1: incidencias
 
-![Usuarios, roles, departamentos y equipos](relacional-03.svg)
+![Incidencias](relacional-01.svg)
 
-### Relacional: página 4 — Territorio y contexto
+### Relacional — página 2: tramitación y auditoría
 
-![Territorio y contexto urbano provisional](relacional-04.svg)
+![Tramitación](relacional-02.svg)
 
-### Clases Java simplificadas
+### Relacional — página 3: identidad y organización
 
-![Clases del dominio, enums, embeddables y DTO](clases-simplificado.svg)
+![Identidad y organización](relacional-03.svg)
 
-## Cómo revisar y mantener los modelos
+### Relacional — página 4: territorio y contexto
 
-1. Abrir el `.drawio` correspondiente y cambiar de página (el relacional tiene cuatro; el simplificado de clases tiene una).
-2. Revisar primero [**el proceso de validación incremental**](../domain-model.md) y el [contrato dominio–API unificado](../api/domain-openapi.md). **No implementar todas las clases por el mero hecho de estar dibujadas**.
-3. Al desarrollar un tag, contrastar en conjunto requisitos del enunciado, contratos OpenAPI, relaciones/PK/FK del ER, atributos/tipos de las clases y decisiones ADR.
-4. Actualizar **las dos vistas** si cambia una entidad compartida, incluso aunque en el UML simplificado no aparezcan líneas de relación; exportar otra vez las imágenes editadas.
-5. Documentar en el PR qué parte del dominio se revisó y qué puntos siguen pendientes. Las imágenes no sustituyen al `.drawio` fuente; conservar ambos.
+![Territorio y contexto](relacional-04.svg)
 
-**Fuera del tag auth:** validación de tipos/capacidades de los proveedores del contexto urbano, diagramas de despliegue de producción o secuencia completa de fotografías. **Dentro de auth ya existen la V1 y entidades JPA mínimas**, aunque no se dibujan los componentes técnicos (filtros, repositorios, DTO HTTP) en el catálogo de dominio. Siguen siendo potencialmente útiles `incident-lifecycle.drawio` y `incident-flow.drawio`, pero están pendientes/no incluidos: no se pretende que existan.
+### Clases simplificadas
 
-**Revisión C4 pendiente de esta tarea:** `c4-containers.svg` sigue mencionando vídeos/documentos en la descripción de evidencias; el alcance inicial decidido es **solo fotografías** (ADR-0004, aceptado). No se han redibujado diagramas C4 en este PR.
+![Catálogo de clases](clases-simplificado.svg)
 
-### Cambios visuales pendientes por el sistema de correo (28/10/2026)
+## Criterios de sincronización
 
-Los diagramas de esta carpeta **todavía no se han redibujado** para la nueva entidad y el servicio SMTP. Cambios obligatorios antes de dar por sincronizada la documentación gráfica:
+La validación del **04/11/2026** comprueba XML válido en las tres fuentes y los siete SVG, identificadores únicos y referencias de conexiones válidas en cada página. Se inspeccionaron visualmente las siete páginas mediante renders PNG del mismo exportador: dos C4, cuatro ER y el catálogo de clases. Se corrigieron el recorte del texto de la base de datos en C4 y la proximidad de la nota de verificación a su entidad en ER03; las exportaciones finales muestran las etiquetas completas y separadas.
 
-1. En `relacional.drawio`, página **ER 03 (identidad/organización)**, añadir `email_verifications` con `user_id UUID` como PK/FK a `users(id)`, `code_hash BYTEA(32)`, `created_at TIMESTAMPTZ` y `expires_at TIMESTAMPTZ`, relación **User 1 : EmailVerification 0..1**, restricción de hash/caducidad e índices de expiración y usuarios sin verificar. Actualizar `relacional-03.svg`.
-2. En `clases-simplificado.drawio`, añadir `EmailVerification` y relación `@MapsId` con `User` en los detalles del catálogo JPA, y la nueva capa de servicio si se representan componentes técnicos. Actualizar `clases-simplificado.svg`.
-3. En `c4.drawio`, página de **contenedores**, incorporar la dependencia del backend respecto de un servidor SMTP configurable y **Mailpit solo para desarrollo**; no representarlo como servicio de producción ni insinuar un proveedor real contratado. Actualizar `c4-containers.svg`.
+La leyenda de C4 y las cabeceras ER distinguen implementación y diseño futuro. Esta revisión no acredita despliegue en Neon, entrega SMTP externa ni implementación de las entidades futuras.
 
-Las fuentes `.drawio` son editables; **no sustituirlas solo modificando el texto de un SVG**. Se conservan sin cambios en este paquete para evitar desincronizar una fuente no regenerada con su exportación. El resto de las entidades de otros tags permanece en estado de diseño.
+- **ER03:** las invitaciones tienen correo obligatorio (sin FK al destinatario), `codeHash` de 32 bytes, ámbito/rol/departamento, emisor, fechas, titular de canje y revocador; `DepartmentMembership` tiene unicidad activa parcial y conserva historial. La verificación de correo pertenece a V1.
+- **ER02:** `AuditEvent` figura en la página de tramitación, **no se duplica** en ER03; el detalle es JSONB, con actor/recurso/fecha.
+- **Clases:** `InvitationStatus` es derivado y no columna persistente; se mantienen nombres/campos actuales (`createdAt`, `isDepartmental`) y roles globales derivados de `UserRole`.
+- **C4:** la API comparte transportes de correo y usa Mailpit **solo en desarrollo/pruebas**; el alcance de evidencias inicial es fotografías, no vídeos ni documentos.
+
+Estos puntos están recogidos en el estado gráfico actual; se citan como **criterios de mantenimiento**, no como lista de tareas sin hacer. Para la definición SQL exacta, el código y las invariantes, consultar [`V1__initial_schema.sql`](../../backend/src/main/resources/db/migration/V1__initial_schema.sql) y [ADR-0007](../adr/0007-invitaciones-personal.md) y [modelo de dominio](../domain-model.md). Las relaciones de otras áreas siguen sujetas a revisión incremental.
+
+## Cómo mantener los modelos
+
+1. Abrir el `.drawio` correspondiente y seleccionar la página adecuada.
+2. Contrastar requisitos, [modelo de dominio](../domain-model.md), [contrato OpenAPI](../api/domain-openapi.md), migraciones reales y [ADR](../adr/README.md).
+3. Cambiar la fuente `.drawio` y revisar ambas vistas de entidades compartidas, conservando páginas, identificadores, geometrías y conexiones ajenas al cambio.
+4. Exportar cada página a SVG desde diagrams.net y revisar los vínculos Markdown y las vistas previas; el SVG no sustituye al archivo editable.
+5. Documentar qué parte está implementada y qué parte sigue siendo solo propuesta. Una clase dibujada no autoriza añadir automáticamente toda su persistencia.
+
+**Diagramas nuevos potenciales, aún no existentes:** C4 Deployment de hosting definitivo, flujo/secuencia de subida de fotografías y máquina completa de estados/permisos de incidencias (`incident-lifecycle.drawio`/`incident-flow.drawio` no están en este inventario). No confundir esos diseños futuros con una supuesta desactualización de ER02, ER03, clases o C4 ya editados.
+
+## Catálogos implementados
+
+Department incluye nombre/código únicos, estado y fechas internas. Category incluye UUIDv7, nombre recortado único de 2–100 puntos Unicode, descripción nullable de hasta 500 y active; no añade código ni fechas. Ambos pertenecen a V1 y no tienen semillas. Las relaciones de Department con pertenencias/invitaciones son persistentes; la asociación Category–Incident es futura, sin FK en SQL.
+
+C4 mantiene un solo backend con siete módulos. Para reproducir una exportación con draw.io Desktop (páginas numeradas desde 1):
+
+```bash
+drawio --disable-update -x --timeout 45 --theme light --embed-svg-fonts false -b 15 -p 1 -f svg -o docs/diagrams/c4-context.svg docs/diagrams/c4.drawio
+```
+
+Aplicar el mismo procedimiento a la página 2 de C4, las páginas 1–4 del relacional y la página 1 de clases, usando los nombres del inventario. Las imágenes PNG de revisión son auxiliares; los artefactos versionados siguen siendo SVG.

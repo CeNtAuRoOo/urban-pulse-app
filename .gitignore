@@ -48,4 +48,6 @@ pnpm-debug.log*
 **/.env
 **/.env.*
 !**/.env.example
-oracleJdk-27/
+
+# Herramientas
+repomix-output.xml

@@ -17,6 +17,7 @@ services:
     volumes:
       - ./backend:/app
       - maven-cache:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
 
   mailpit:
     image: axllent/mailpit:v1.27.4
@@ -37,6 +38,7 @@ services:
     volumes:
       - ./frontend:/app
       - node-modules:/app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   maven-cache:

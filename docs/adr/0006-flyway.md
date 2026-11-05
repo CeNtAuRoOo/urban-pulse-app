@@ -1,45 +1,40 @@
-# ADR-0006: Migraciones PostgreSQL con Flyway
+# ADR-0006: Migraciones de PostgreSQL mediante Flyway
 
-- **Estado:** Aceptado
-- **Fecha:** 2026-10-11
-- **Actualización documental:** 2026-10-27
-- **Ámbito:** UrbanPulse
+- **Estado:** Aceptado e implementado en el backend.
+- **Alcance:** evolución explícita del esquema PostgreSQL, aislamiento de pruebas y migración segura entre entornos.
 
 ## Contexto
 
-El esquema relacional de UrbanPulse evolucionará por entregas, con varios desarrolladores. Los cambios deben poder reproducirse en orden y auditarse desde el repositorio. Existe ya un [modelo relacional lógico base](../domain-model.md), pero **no está validado entidad por entidad** ni justifica crear ahora todas las tablas.
+UrbanPulse utiliza PostgreSQL 18 y JPA/Hibernate. El esquema debe evolucionar con control de versiones, revisión de restricciones y una estrategia reproducible entre instancias y ambientes. `spring.jpa.hibernate.ddl-auto=update` no es aceptable para introducir cambios no controlados en Neon: no documentaría bien la historia ni permitiría revisar efectos antes de desplegar.
 
-## Opciones consideradas
+## Alternativas consideradas
 
-1. Flyway con migraciones SQL versionadas.
-2. Liquibase.
-3. Creación/alteración automática con Hibernate `ddl-auto=update`.
-4. Scripts manuales fuera del repositorio.
+Se estudiaron esquemas generados automáticamente por Hibernate, SQL aplicado manualmente y migraciones versionadas. Se adopta **Flyway**, con ficheros SQL auditables en `backend/src/main/resources/db/migration/`, historial de checksums y validación Hibernate del esquema resultante (`spring.jpa.hibernate.ddl-auto=validate`). La ejecución de Flyway forma parte del arranque configurado del backend y **puede modificar la base real** a la que apunten las variables; no es un mecanismo inocuo de conectividad.
 
-## Decisión
+## Decisión y configuración
 
-Utilizar **Flyway** en `backend/src/main/resources/db/migration/`. La primera migración funcional es `V1__create_authentication.sql` y crea **únicamente las tablas y restricciones necesarias para el primer alcance funcional realmente implementado**. Cada tag posterior añadirá migraciones propias si necesita ampliar el esquema.
+- Cada cambio de esquema estable se incorpora como **nueva migración versionada**; revisar SQL, constraints, índices, compatibilidad y rollback antes de ejecutarlo.
+- Mantener `ddl-auto=validate` para comprobar mapeos; `spring.sql.init.mode=never` evita mecanismos de creación paralelos no previstos.
+- Separar conexiones y credenciales de `development` y `production`; nunca usar producción como base de pruebas. Conservar la identidad de la rama Neon, no inferirla por nombre de DB/rol/bucket compartidos.
+- Ejecutar integración SQL y JPA con PostgreSQL 18 efímero a través de Testcontainers, sin utilizar una base compartida ni material sensible.
+- Si una migración **ya** se aplicó en algún entorno, **no modificar su contenido ni editar directamente `flyway_schema_history`**. Diseñar una siguiente versión compatible para cambios posteriores.
 
-Hibernate deberá conservar `spring.jpa.hibernate.ddl-auto=validate`: **Flyway crea/evoluciona el esquema; Hibernate valida las entidades presentes**. No editar migraciones ya aplicadas; ampliar con nuevos scripts de versión. Revisar FKs, índices, campos nullable, tablas intermedias, restricciones de unicidad y concurrencia **al implementar cada entidad**; contrastar siempre [diagrama relacional](../diagrams/relacional.drawio), [catálogo de clases](../diagrams/clases-simplificado.drawio), OpenAPI y ADR.
+## Esquema inicial vigente
 
-## Consecuencias
+`V1__initial_schema.sql` es la única migración activa. Crea `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events` y `categories`. Inicializa únicamente los cinco roles; no crea cuentas ADMIN ni catálogos ficticios.
 
-**Positivas:** trazabilidad y migraciones reproducibles, sin adelantar tablas ni imponer decisiones de campos todavía en revisión.
+Antes del primer despliegue funcional se consolidaron las migraciones de autenticación, las dos V2 desarrolladas en paralelo para Departamentos e Invitaciones y la V3 de Categorías. La decisión del 02/11/2026 eliminó las semillas departamentales; la ampliación del 03/11 conserva esa política para ambos catálogos. La premisa es un destino vacío, sin migraciones funcionales previas que deban conservarse. No autoriza modificar una base existente ni ejecutar `repair` para ocultar discrepancias.
 
-**Costes:** coordinar cambios de esquema entre ramas/tags compartidos, versiones de migraciones y compatibilidad de código. Las entidades de un tag no pueden depender de tablas no existentes; comprobar integridad y orden de migración.
+Department conserva nombre/código únicos mediante índices `lower(...)`, CHECK de formato, descripción nullable, active y fechas `timestamptz`. `createdAt`/`updatedAt` se mantienen mediante callbacks JPA, no triggers para escrituras SQL externas. Category tiene nombre único `lower(name)` incluso inactivo, descripción nullable y active predeterminado true; no tiene código ni fechas. Sus CHECK preservan los límites Unicode, `Character.isWhitespace` y el recorte de `String.trim()` en inserciones SQL externas. Ambos catálogos usan UUIDv7 Hibernate y default SQL `uuidv7()`.
 
-## Configuración comprobada (15/10/2026)
+Se conservan las PK/FK y restricciones históricas de Invitaciones: email normalizado sin FK al destinatario, hash HMAC de 32 bytes único, coherencia rol/ámbito, fechas y actores de estados finales, pertenencias activas únicas e índices de consulta. Las referencias históricas utilizan `RESTRICT`; auditoría conserva detalles JSONB. No se crea FK a Incident ni tablas de módulos pendientes.
 
-`spring.flyway.enabled=true` y `spring.flyway.locations=classpath:db/migration` están configurados. El backend conecta con Neon `development` a través de JDBC directo; el rol `backend` puede crear objetos en el esquema `public`.
+## Validación y consecuencias
 
-Flyway ya creó su tabla técnica `flyway_schema_history` en `development` (evidencia histórica). Ahora existe `V1__create_authentication.sql` para `users`, `roles`, `user_roles` y `email_verifications` y precarga cinco roles sin `scope`. **La V1 se ha comprobado con PostgreSQL 18 efímero y Hibernate `ddl-auto=validate`; no consta aplicada a Neon `development`.** La prueba de conectividad desactiva Flyway y Hibernate **solo en su contexto de test**; la aplicación ordinaria conserva su configuración.
+El perfil `postgres-it` ejecuta las cinco suites de Autenticación, correo, Invitaciones, Departamentos y Categorías sobre PostgreSQL 18 efímero con Hibernate `validate`. Comprueba una sola versión en Flyway, nueve tablas funcionales, cinco roles y ausencia de semillas de catálogo. [Comandos y resultados](../development.md#verificación-del-backend).
 
-## Consideraciones pendientes
+La conectividad histórica JDBC/S3 con Neon no acredita la aplicación de la V1 consolidada. El primer despliegue requiere comprobar destino, historial, permisos, backup y plan de migración. Después de aplicar V1, cualquier evolución necesita una versión nueva coordinada. Siguen pendientes automatización CI/CD, rol migrador dedicado y políticas operativas de conservación; no se anticipan tablas por aparecer en los diagramas.
 
-Repetir pruebas de la V1 actual tras los últimos cambios y **aplicarla de forma controlada a `development`** antes del primer arranque ordinario de este backend, nunca experimentalmente a `production`. No modificar la V1 después de aplicarla en algún entorno: añadir V2 para cambios posteriores. Evaluar un rol exclusivo de migración, índices reales, política de cambios concurrentes y uso de bases/ramas efímeras para CI. No inventar tablas para todos los elementos del diagrama por aparecer en el borrador.
+## Identidad y pertenencias (04/11/2026)
 
-### Ampliación previa a la primera aplicación de V1 — 28/10/2026
-
-La V1 `V1__create_authentication.sql` se amplió en la rama de autenticación **antes de aplicarse a Neon `development`** para incluir `email_verifications`, PK/FK compartida con `users`, restricciones sobre hash/caducidad e índices para barrido. Esto es una excepción válida **solo cuando la V1 original no está aplicada en la base de destino**. Flyway registra checksums: si alguna BD ya ejecutó una V1 anterior, no sustituirla silenciosamente ni alterar `flyway_schema_history`; crear una nueva migración compatible en su lugar. La V1 ampliada fue probada en PostgreSQL 18 efímero por Testcontainers; la aplicación sobre Neon compartido no está acreditada.
-
-Las operaciones transaccionales de registro/confirmación/reenvío usan la tabla; la limpieza periódica borra solicitudes caducadas y cuentas no verificadas de más de 24 horas, con lotes y bloqueos. Esta limpieza de datos **no es una migración de esquema Flyway** y debe revisarse antes de agregar nuevas FK a `users`.
+La integración de Usuarios mantiene las nueve tablas y los cinco roles de V1, sin semillas de catálogos ni migraciones adicionales. La restricción de `users.display_name` valida 2–120 puntos Unicode, texto normalizado y ausencia de controles. El índice parcial de pertenencias conserva el nombre `department_memberships_active_unique`; `left_at` conserva el historial y permite reingresos en filas nuevas. Las FK hacia usuarios se mantienen sin CASCADE. La limpieza excluye cuentas con referencias históricas según [ADR-0013](0013-pertenencias-usuarios-departamentos.md), sin borrar su evidencia ni bloquear cuentas eliminables.

@@ -1,8 +1,8 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado y probado para `User`, futuros tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado para User, Department, DepartmentMembership, StaffInvitation, AuditEvent y Category; restantes tipos pendientes.
 - **Fecha:** 2026-10-18.
-- **Revisión:** 2026-10-27.
+- **Revisión:** 2026-11-03.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
 
 ## Contexto
@@ -22,7 +22,7 @@ Utilizar **UUIDv7** como PK de entidades con identidad propia: `UUID` en Java, `
 
 **La generación se hará en Java mediante el generador de Hibernate** `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)` y `@GeneratedValue`, para las entidades JPA pertinentes. No se utilizará indiscriminadamente `GenerationType.UUID` sin fijar la versión. Las migraciones Flyway crearán columnas PostgreSQL `uuid` y PK/FK y Hibernate generará los identificadores de nuevas entidades del backend. No añadir un generador alternativo sin necesidad.
 
-PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta como generador ordinario de entidades JPA en esta fase. Las fechas `createdAt` siguen existiendo y el UUIDv7 nunca constituye control de seguridad ni de autorización.
+PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta como generador ordinario de entidades JPA en esta fase. Las fechas `createdAt` se conservan donde forman parte del modelo; Category no incorpora fechas internas y el UUIDv7 nunca constituye control de seguridad ni de autorización.
 
 ## Consecuencias
 
@@ -30,10 +30,8 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 **Costes:** 16 bytes por identificador, índices mayores que `BIGINT`, inferencia temporal aproximada y necesidad de probar la estrategia de generación del Hibernate real. `VERSION_7` puede marcarse como API incubadora en algunas versiones de Hibernate; verificar su compatibilidad y versionado al implementar.
 
-## Evidencias de implementación y pendientes
+## Evidencias y alcance
 
-- **Probado en `AuthenticationPostgresIT` con PostgreSQL 18 efímero:** inserción/recuperación de `User` mediante JPA y UUID con `id.version() == 7`; Flyway y validación Hibernate.
-- Verificar FKs, restricciones, índices, relaciones compuestas y tratamiento de identidades ya persistidas.
-- Ejecutar pruebas de persistencia en PostgreSQL efímera, y posteriormente comprobar `development` sin ejecutar migraciones experimentales en `production`.
+Las suites PostgreSQL verifican persistencia y UUIDv7 de las entidades implementadas. Department y Category conservan también `uuidv7()` como default SQL para inserciones externas en la única V1. Category no añade código ni fechas; el UUID no sustituye la auditoría RF18 pendiente. Se conservan identidades, referencias e historial al desactivar o reactivar un catálogo.
 
-**Estado real:** generado mediante Hibernate para `User` y comprobado en un test de integración anterior; la V1 no consta aplicada en Neon `development`, y los demás tipos del modelo siguen por implementar.
+[Resultados reproducibles](../development.md#verificación-del-backend), [migración vigente](0006-flyway.md#esquema-inicial-vigente) y [modelo de dominio](../domain-model.md). Los futuros tipos requieren revisar sus claves, restricciones y pruebas al implementarse; las verificaciones aisladas no acreditan despliegue en Neon.

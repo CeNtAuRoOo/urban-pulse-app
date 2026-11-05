@@ -1,22 +1,30 @@
 CategoryDTO:
   type: object
+  additionalProperties: false
   properties:
     id:
       type: string
       format: uuid
     name:
       type: string
+      minLength: 2
+      maxLength: 100
+      description: Nombre recortado, único sin distinguir mayúsculas, incluso si la categoría está inactiva.
       example: Tráfico y semáforos
     description:
       type: string
+      nullable: true
+      maxLength: 500
     active:
       type: boolean
   required:
     - id
     - name
+    - description
     - active
 
 CategoryWriteRequest:
+  description: Nombre obligatorio, no blanco y único sin distinguir mayúsculas, incluidas categorías inactivas. Se aplica trim() antes de validar los límites y persistir, conservando espacios interiores. Los límites cuentan puntos de código Unicode, como PostgreSQL y OpenAPI. Descripción omitida o null se guarda como null, sin recortar su texto. Active omitido o null equivale a true. No existe code. Propiedades desconocidas devuelven 422 UNKNOWN_PROPERTY; datos inválidos, 422 VALIDATION_ERROR; JSON o tipos no interpretables, 400 INVALID_JSON.
   type: object
   properties:
     name:
@@ -25,9 +33,12 @@ CategoryWriteRequest:
       maxLength: 100
     description:
       type: string
+      nullable: true
       maxLength: 500
     active:
       type: boolean
+      nullable: true
+      default: true
   required:
     - name
   additionalProperties: false
@@ -44,7 +55,7 @@ CategoryPatchRequest:
       maxLength: 500
     active:
       type: boolean
-  description: Cambia uno o varios atributos de la categoría.
+  description: Cambia uno o varios atributos. Omitir conserva el valor; null explícito en cualquier campo devuelve 400 INVALID_JSON. Descripción vacía limpia su contenido sin convertirlo en null. Trim() del nombre antes de validar sus límites; conserva espacios interiores. Un objeto vacío devuelve 422 VALIDATION_ERROR. Active false desactiva y true reactiva, conservando UUID y nombre reservado. Los PATCH sobre la misma fila se serializan para preservar cambios en campos omitidos.
   additionalProperties: false
   minProperties: 1
 
@@ -57,29 +68,46 @@ DepartmentDTO:
     name:
       type: string
       example: Movilidad
+    code:
+      type: string
+      description: Código corto único, normalizado a mayúsculas.
+      example: MOV
+      pattern: "^[A-Z0-9_-]+$"
     description:
       type: string
+      nullable: true
     active:
       type: boolean
   required:
     - id
     - name
+    - code
     - active
 
 DepartmentWriteRequest:
+  description: Se aplica trim a nombre y código antes de validar; se conservan espacios interiores del nombre. Unicidad sin distinguir mayúsculas. Active omitido o null equivale a true.
   type: object
   properties:
     name:
       type: string
       minLength: 2
       maxLength: 120
+    code:
+      type: string
+      minLength: 2
+      maxLength: 20
+      pattern: "^[A-Za-z0-9_-]+$"
     description:
       type: string
+      nullable: true
       maxLength: 500
     active:
       type: boolean
+      nullable: true
+      default: true
   required:
     - name
+    - code
   additionalProperties: false
 
 DepartmentPatchRequest:
@@ -89,11 +117,16 @@ DepartmentPatchRequest:
       type: string
       minLength: 2
       maxLength: 120
+    code:
+      type: string
+      minLength: 2
+      maxLength: 20
+      pattern: "^[A-Za-z0-9_-]+$"
     description:
       type: string
       maxLength: 500
     active:
       type: boolean
-  description: Cambia uno o varios atributos del departamento.
+  description: Cambia uno o varios atributos. Omitir conserva el valor; null explícito se rechaza con 400. Descripción vacía borra su contenido. Trim de nombre y código antes de validar; código en mayúsculas. Un objeto vacío devuelve 422. Active false desactiva sin borrar.
   additionalProperties: false
   minProperties: 1

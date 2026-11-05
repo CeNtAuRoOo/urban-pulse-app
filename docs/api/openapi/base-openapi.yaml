@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.4.0
+  version: 0.5.0
   description:
-    Contrato del tag Autenticación implementado en el backend (registro, login,
-    cambio de contraseña y verificación de correo por código). Dominio v1 y ADR de identidad actualizados. Las restantes áreas del API
+    Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
+    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Dominio v1 y ADR de identidad actualizados. Departamentos y Categorías también implementan consulta, alta y PATCH. Las restantes áreas del API
     mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
     requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
     por tag. Funciones avanzadas opcionales aplazadas.
@@ -12,7 +12,7 @@ info:
     name: Equipo UrbanPulse
 servers:
   - url: http://localhost:8888/api/v1
-    description: Backend local en desarrollo (prefijo /api/v1 previsto).
+    description: Backend local en desarrollo (prefijo /api/v1 implementado).
 tags:
   - name: Autenticación
     description: Registro, login, cambio de contraseña y verificación obligatoria de correo mediante código.
@@ -63,8 +63,8 @@ paths:
     $ref: ./paths/usuarios.yaml#/~1users~1{userId}
   /staff-invitations:
     $ref: ./paths/invitaciones.yaml#/~1staff-invitations
-  /auth/staff-registrations:
-    $ref: ./paths/invitaciones.yaml#/~1auth~1staff-registrations
+  /staff-invitations/{invitationId}:
+    $ref: ./paths/invitaciones.yaml#/~1staff-invitations~1{invitationId}
   /users/me/staff-invitation-redemptions:
     $ref: ./paths/invitaciones.yaml#/~1users~1me~1staff-invitation-redemptions
   /staff-invitations/{invitationId}/revocations:
@@ -184,8 +184,8 @@ components:
       $ref: ./components/schemas/usuarios.yaml#/UserSummaryDTO
     UserDTO:
       $ref: ./components/schemas/usuarios.yaml#/UserDTO
-    UpdateProfileRequest:
-      $ref: ./components/schemas/usuarios.yaml#/UpdateProfileRequest
+    UpdateMyProfileRequest:
+      $ref: ./components/schemas/usuarios.yaml#/UpdateMyProfileRequest
     AdminUpdateUserRequest:
       $ref: ./components/schemas/usuarios.yaml#/AdminUpdateUserRequest
     UsersPageDTO:
@@ -212,12 +212,14 @@ components:
       $ref: ./components/schemas/invitaciones.yaml#/InvitationRequest
     InvitationDTO:
       $ref: ./components/schemas/invitaciones.yaml#/InvitationDTO
-    InvitationCreatedDTO:
-      $ref: ./components/schemas/invitaciones.yaml#/InvitationCreatedDTO
-    StaffRegistrationRequest:
-      $ref: ./components/schemas/invitaciones.yaml#/StaffRegistrationRequest
-    ExistingAccountInvitationRedemptionRequest:
-      $ref: ./components/schemas/invitaciones.yaml#/ExistingAccountInvitationRedemptionRequest
+    InvitationPageDTO:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationPageDTO
+    InvitationRedemptionDTO:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationRedemptionDTO
+    InvitationRedemptionRequest:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationRedemptionRequest
+    InvitationStatus:
+      $ref: ./components/schemas/invitaciones.yaml#/InvitationStatus
     StaffGlobalRoleCode:
       $ref: ./components/schemas/invitaciones.yaml#/StaffGlobalRoleCode
     GlobalInvitationRequest:

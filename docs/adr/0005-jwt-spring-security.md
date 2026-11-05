@@ -1,71 +1,55 @@
 # ADR-0005: Autenticación JWT y autorización con Spring Security
 
-- **Estado:** Aceptado; núcleo de autenticación implementado en código (despliegue pendiente).
-- **Fecha:** 2026-10-11.
-- **Revisión de diseño:** 2026-10-25.
-- **Verificación documental de implementación:** 2026-10-27.
-- **Ámbito:** UrbanPulse, backend, identidad y seguridad.
+- **Estado:** Aceptado; núcleo implementado en backend. Extensiones de correo e Invitaciones implementadas después.
+- **Ámbito:** identidad, seguridad por petición y decisiones de autorización.
 
 ## Contexto
 
-UrbanPulse expone una API REST compartida por clientes web y móviles. Ciudadanos y personal municipal tienen permisos distintos y pueden tener varios roles. El backend debe validar cada operación, independientemente del frontend. La infraestructura Spring Boot/Spring Security y la conexión a Neon están preparadas; **los endpoints de autenticación y entidades de identidad se han incorporado al código, sin acreditación de despliegue en Neon `development`**.
+UrbanPulse necesita una identidad compartida para ciudadanos y personal municipal, sesiones sin estado de servidor y permisos controlados aunque cambie el rol de una cuenta. La API REST no debe depender de sesiones en memoria ni confiar en autorizaciones declaradas por el frontend o por `x-roles` en OpenAPI. Una credencial válida no garantiza por sí sola que la cuenta siga activa, conserve permisos ni tenga correo verificado.
 
-## Opciones consideradas
+## Alternativas consideradas
 
-1. JWT Bearer emitidos y verificados por el backend (**elegida**).
-2. Sesiones HTTP mantenidas en el servidor.
-3. Proveedor externo de identidad.
-4. API keys compartidas (descartadas como autenticación de usuarios).
+Se valoraron sesiones de servidor, JWT con roles incrustados como autoridad hasta expirar y JWT firmado con validación del estado de seguridad actual contra PostgreSQL. Se adopta esta última variante porque permite invalidación global tras cambio de contraseña, activación de permisos tras canje y denegación inmediata de cuentas inactivas, a costa de una consulta a base de datos por petición protegida y de requerir disponibilidad de PostgreSQL.
 
-En cuanto a autorización: confiar en roles embebidos en JWT durante toda su vigencia o consultar el estado y los privilegios actuales en PostgreSQL (**elegida**). En cuanto a abusos: contador en PostgreSQL/Redis/gateway o limitación inicial local en la memoria del backend (**elegida por ahora**).
+## Decisión implementada
 
-## Decisión implementada en el núcleo auth
-
-1. **Registro ciudadano** `POST /auth/register` y **login** `POST /auth/login` mediante credenciales y BCrypt, con rechazo genérico de credenciales incorrectas; el registro público solo concede `CITIZEN` (ADR-0009). Ambos devuelven un `TokenDTO` con JWT de acceso y datos autorizados del titular; registro responde `201`, login `200`.
-2. JWT Bearer **firmado**, sin datos sensibles ni roles como fuente autoritativa. Duración inicial **7200 segundos (2 h)**, sin refresh token. Claims mínimos `sub` (UUID), `iat`, `exp`, `iss` y `ver` (`User.tokenVersion`). El emisor y el material de firma se configuran externamente, nunca mediante secretos versionados. Se implementa HS256 mediante Spring Security/Nimbus, con `JWT_SECRET` Base64 externo de al menos 32 bytes aleatorios, emisor externo y rotación pendiente para producción.
-3. Validar la firma, caducidad y claims en Spring Security y **consultar PostgreSQL en cada petición protegida** para comprobar cuenta activa, `tokenVersion` y roles vigentes. Comprobar también titularidad, ámbito departamental y estado de recurso cuando se implementen esos casos. Un JWT emitido antes de una revocación de rol no concede permisos retirados; una cuenta desactivada pierde acceso en la siguiente petición.
-4. **Cambio de contraseña autenticado:** `POST /users/me/password-changes`. Comprobar contraseña actual, guardar el hash BCrypt nuevo e **incrementar `User.tokenVersion` en la misma transacción**. Todos los JWT anteriores, incluido el empleado para cambiarla, dejan de ser válidos en las siguientes peticiones. La respuesta de éxito es `204` y el cliente deberá iniciar sesión de nuevo.
-5. **Rate limiting inicial en memoria por instancia**, en la capa/filtros de seguridad, antes de operaciones costosas. Aplicar políticas diferenciadas a registro y login, por IP y, en login, también por identificador normalizado de cuenta. Contadores con expiración/reposición temporal y tamaño acotado; rechazar exceso con `429` y `Retry-After` cuando sea calculable. Las capacidades y reposiciones actuales son registro/IP 5/300 s, login/IP 20/1200 s, login/email 5/300 s, con máximo 10 000 buckets, TTL propio por política y cuerpo de los cinco POST limitado a 16 KiB (confirmación/reenvío consumen buckets independientes y cambio de contraseña ninguno). Son parámetros de implementación revisables, no cuotas empresariales definitivas. Una instancia reiniciada pierde sus contadores y varias instancias no comparten límite.
-6. **Errores uniformes:** `application/problem+json` (`ProblemDetail`). `400` para JSON no interpretable, `422` para datos válidamente parseados que incumplen validaciones, `409` para registro con email duplicado, `401` para fallo de login/token/cuenta o ausencia de rol `CITIZEN`, `403` para falta de privilegios, `503` para indisponibilidad de PostgreSQL tipada y `500` para errores inesperados. Las respuestas `503`/`500` no llevan `WWW-Authenticate`. Integrar `@RestControllerAdvice` con `AuthenticationEntryPoint`/`AccessDeniedHandler` y filtros, porque algunas excepciones ocurren antes del controlador.
-7. **Correo (implementado localmente):** el registro crea `emailVerified=false` y un código HMAC protegido en la misma transacción. Se envía por SMTP después del commit; confirmación por código marca `emailVerified=true` y elimina la solicitud de forma atómica. En cada petición protegida se lee el estado en PostgreSQL y se exige `EMAIL_VERIFIED` para negocio; los JWT de cuentas pendientes solo sirven para login/confirmación/reenvío/cambio de contraseña. Recuperación de contraseña por email permanece pendiente.
-8. **Preferencias iniciales:** `NotificationPreferences` con `inApp`, `email` y `push` en `true`; guardar como preferencia, sin implementar envíos ni confundirla con permiso del dispositivo o consentimiento de comunicaciones comerciales.
-9. Proteger con HTTPS/TLS en despliegue, definir CORS de orígenes permitidos y revisar CSRF según transporte Bearer. No registrar contraseñas, hashes, JWT ni secretos; usar errores no enumerables. La autenticación del servicio PostgreSQL permanece independiente de los JWT de usuarios.
+- **Una cuenta `User`** por correo normalizado; al registrarse recibe `CITIZEN`, `emailVerified=false`, `tokenVersion=0` y preferencias activadas por defecto. `Role` y `UserRole` almacenan roles globales; `RoleCode` diferencia ámbitos sin columna `Role.scope`.
+- JWT Bearer **HS256** de **7200 s** con claims `sub`, `iat`, `exp`, `iss` y `ver`. `JWT_SECRET` externo Base64, al menos 32 bytes aleatorios, con emisor `JWT_ISSUER` configurado. No hay refresh.
+- En cada petición protegida, `DatabaseJwtAuthenticationConverter` comprueba usuario, actividad, presencia de `CITIZEN`, `tokenVersion`, correo verificado y roles globales **actuales en PostgreSQL**, sin confiar en claims de rol antiguos.
+- La autoridad `EMAIL_VERIFIED` se incorpora cuando procede y se exige por defecto para negocio; confirmar/reemitir y cambiar contraseña constituyen las excepciones autenticadas previstas. Un usuario sin correo confirmado recibe `403 EMAIL_NOT_VERIFIED` en rutas protegidas.
+- Cambio de contraseña con bloqueo pesimista del usuario, BCrypt (coste 12) e incremento **transaccional de `tokenVersion`**. Los JWT anteriores dejan de funcionar en la siguiente petición; confirmar el correo o canjear una invitación **no** invalidan el JWT.
+- `SecurityConfig`, handlers de errores y `ProblemDetailFactory` son compartidos (`shared/security`, `shared/error`); los controladores y servicios viven dentro de sus módulos (`auth`, `invitations`, `identity`). Los permisos dependientes de recursos se comprobarán dentro del caso de uso.
 
 ## Implementación y comprobaciones
 
-- **Implementado:** `AuthController` expone cinco POST; `AuthService` usa BCrypt **coste 12**, registro transaccional con CITIZEN y cambio bloqueado mediante `PESSIMISTIC_WRITE` con incremento de `tokenVersion`. `DatabaseJwtAuthenticationConverter` consulta cada petición y exige rol base CITIZEN además de cuenta activa/versión. Secretos y CORS externos; sin roles en claims autoritativos.
-- **Implementado:** errores RFC 9457 `ProblemDetail` en MVC y filtros; `AuthenticationBackendException` distingue interrupción de PostgreSQL (`503`) de fallo lógico (`500`) sin filtrar detalles JDBC. Logging selectivo por tipo de error. Token buckets locales; límites de cuerpo de 16 KiB.
-- **Esquema:** `V1__create_authentication.sql` contiene exclusivamente `users`, `roles` y `user_roles`, precarga cinco roles y no añade `Role.scope`; `email_verified=false`, `token_version=0`, preferencias `true`, UUIDv7 Hibernate.
-- **Verificación histórica:** Codex registró el 25/10/2026 una ejecución con 23 pruebas superadas (16 unitarias/MVC y 7 PostgreSQL efímero). Las correcciones posteriores incluyen nuevas pruebas HTTP de 503/500 y CITIZEN y protección de cuerpo; **la ejecución final comunicada para el módulo ampliado incluye 55 pruebas superadas**. No consta aplicación de Flyway V1 sobre Neon `development` ni despliegue. Contrato modular/artefactos y diagramas se revisan por separado.
+Los endpoints de auth son los cinco POST de registro (`201`), login (`200`), cambio de contraseña (`204`), confirmación de correo (`204`) y reenvío (`202`/`204`/`410`), todos bajo `/api/v1`. El registro crea cuenta `CITIZEN` y comienza verificación de email; no expone un endpoint para registro de personal. El correo no verificado no da acceso normal al negocio.
 
-## Mejoras futuras expresamente fuera de esta rama
+El sistema responde con errores `ProblemDetail` uniformes: `400` JSON/tipos/cuerpo mal interpretables o mayor de 16 KiB, `401` credenciales/JWT/cuenta/rol base inválidos, `403` autorización denegada, `409` duplicidad de correo, `422` datos invalidables, `429` con `Retry-After`, `503` indisponibilidad tipada PostgreSQL y `500` errores internos saneados. Se evitan datos sensibles en logs y en respuestas.
 
-- Refresh tokens, renovación y cierre de sesiones individual.
-- Proveedor de envío real, outbox/reintentos automáticos y recuperación de contraseña por correo. La verificación local SMTP/Mailpit con códigos ya se ha implementado.
-- Recuperación de contraseña olvidada por correo, tokens de recuperación de uso único y caducidad.
-- Despliegue de limitación compartida mediante gateway/Redis si hay escalado horizontal o requisitos estrictos de límite global.
-- Política avanzada de visibilidad de campos `fields` y anotaciones `OWNER`, `ADMIN`, `NONE`, etc. Pendiente de investigación y aprobación; no forma parte del contrato activo.
+Se completaron tres hitos de pruebas: **23** (16 unitarias/MVC + 7 PostgreSQL IT) el 25/10/2026; **55** (35 + 20) tras incorporar verificación; y **90 pruebas superadas** (48 + 42) en el informe de Invitaciones del 30/10/2026, además del recorrido HTTP aislado. El historial de commits sitúa el refactor **antes** de Invitaciones y del commit de pruebas. Estos resultados acreditan la validación del backend en entornos aislados, no un despliegue sobre Neon. [Resultados y comandos](../development.md).
 
-## Consecuencias y riesgos
+## Extensión del 28/10/2026: verificación obligatoria y SMTP
 
-**Ventajas:** API autocontenida, autorización coherente con el dominio, revocación por cambio de contraseña sin tabla de tokens, coste operativo bajo inicialmente.
+`EmailVerification` y V1 ampliada incorporan códigos de **ocho dígitos** mediante HMAC-SHA256 de clave `EMAIL_VERIFICATION_SECRET` independiente de JWT. Vencen como máximo a los **diez minutos**; una cuenta pendiente se limpia después de **24 horas** mediante `EmailVerificationCleanup` (cron ordinario horario, lotes acotados y bloqueos `SKIP LOCKED`). El mismo JWT inicialmente limitado sirve para acceder a negocio tras verificar sin cambiar `tokenVersion`.
 
-**Costes/riesgos:** lectura de PostgreSQL en cada petición protegida; posibilidad de fallo de conexión, caducidad de sesión sin refresh y ausencia temporal de email verificable. El limitador local no proporciona una cuota global entre instancias. El JWT robado seguirá funcionando hasta caducar si no se cambia contraseña, desactiva cuenta o retiran sus permisos. La consulta de `tokenVersion` solo invalida tokens al incrementar su valor por una acción aprobada, no existe una blacklist por token.
+`EmailSender` y `SmtpEmailSender` residen en `shared/mail`. `VerificationEmailListener` escucha `AFTER_COMMIT`: un fallo SMTP posterior no revierte registro/reenvío. Mailpit en Compose es **correo local**, sin entrega externa garantizada ni outbox. Existen cuotas locales independientes: registro/IP **5/300 s**, login/IP **20/1200 s** y login/email **5/300 s**; confirmación/usuario **5/3600 s**, confirmación/IP **30/3600 s**; reenvío enfriamiento **1/60 s**, usuario **5/86400 s**, IP **20/3600 s**. No son ventanas fijas ni límites distribuidos. Las cinco operaciones POST auth conservan límite protector de **16 KiB**.
 
-## Fuentes y relaciones
+V1 se amplió **antes** de su primera aplicación prevista en Neon; no modificar su checksum si una BD ya la ejecutó. La limpieza deberá revisarse al introducir nuevas FK a `users`, evitando borrar historial necesario o vulnerar políticas de privacidad.
 
-- [Diseño funcional de autenticación](../auth-design.md).
-- [ADR-0007: invitaciones](0007-invitaciones-personal.md).
-- [ADR-0009: roles](0009-rbac-departamentos-equipos.md).
-- [ADR-0011: UUIDv7](0011-identificadores-uuidv7.md).
-- [OpenAPI modular](../api/openapi/paths/autenticacion.yaml).
+## Extensión del 31/10/2026: integración con Invitaciones
 
-**Estado real:** núcleo auth implementado en código y pruebas diseñadas; no implica despliegue. Se debe repetir la suite completa tras las últimas correcciones.
+Las cinco rutas de Invitaciones implementadas después de la reorganización exigen **`ADMIN` activo/verificado** para crear/listar/consultar/revocar, y **`CITIZEN` activo/verificado** para canjear. Dentro de una transacción se vuelve a comprobar actividad, versión y roles, bloqueando primero `User`, luego invitación y departamento cuando existe. Emitir no crea `User`; el titular usa registro y verificación normales. Canjear añade `UserRole` o `DepartmentMembership` sin cambiar `tokenVersion`: un JWT anterior al canje reconoce un nuevo rol global por la lectura posterior de PostgreSQL.
 
-### Ampliación de implementación — 28/10/2026
+Las cuotas de canje son independientes, **10/900 s por usuario** y **30/900 s por IP**, gestionadas por `InvitationRateLimitFilter` con el limitador compartido en memoria. El límite general de cuerpo sigue aplicándose a sus POST mediante un filtro actualmente alojado en `auth/security`; una posible extracción futura a `shared/security` es opcional. La emisión usa `AFTER_COMMIT` y HMAC independiente, sin compartir el código ni el secreto de verificación. Más detalles en [ADR-0007](0007-invitaciones-personal.md) y [contrato API](../api/README.md).
 
-- `DatabaseJwtAuthenticationConverter` incorpora la autoridad `EMAIL_VERIFIED` cuando `User.emailVerified=true`. `SecurityConfig` la exige por defecto, con excepción para confirmación/reenvío y cambio de contraseña. Una cuenta sin verificar recibe `403 EMAIL_NOT_VERIFIED` en las rutas protegidas restantes; no se cambia `tokenVersion` al verificar.
-- `EmailVerification` y tabla de código HMAC de ocho dígitos, generados con `SecureRandom`; clave externa Base64 de mínimo 32 bytes distinta de JWT. Vida del código: diez minutos como máximo; cuenta no verificada: 24 horas; bloqueo pesimista en confirmación/reenvío.
-- SMTP desacoplado mediante `EmailSender`, implementado con `JavaMailSender`, `VerificationEmailListener` y evento `AFTER_COMMIT`. En desarrollo Compose ejecuta Mailpit; ningún proveedor externo está activado. La respuesta del registro/reenvío puede ser éxito aunque el correo no se entregue; se permite reenvío manual, sin outbox.
-- Nuevos buckets locales (confirmación usuario 5/3600 s, IP 30/3600 s; reenvío enfriamiento 1/60 s, usuario 5/86400 s, IP 20/3600 s). No son ventanas fijas ni sobreviven a reinicios. Los cinco POST tienen máximo 16 KiB.
-- `EmailVerificationCleanup` elimina códigos vencidos y cuentas sin verificar tras 24 horas, en barridos horarios limitados por lote y `SKIP LOCKED`; su política **se revisará antes de añadir nuevas FK a usuarios**. Codex comunicó 55 tests superados, sin ejecución conjunta backend real+Mailpit ni migración sobre Neon.
+## Consecuencias, riesgos y límites
+
+El JWT es compacto y no exige almacenamiento de sesión, pero el sistema depende de PostgreSQL para validar permisos actuales; una base temporalmente indisponible debe causar `503`, **no** un `401` falso ni una autorización basada en permisos antiguos. La seguridad de cada tag necesita comprobar sus propias reglas de negocio además de los filtros HTTP. El rate limiting local no protege múltiples réplicas como un límite global ni se debe confiar ciegamente en `Forwarded` tras un proxy.
+
+No están incluidos: refresh tokens, recuperación de contraseña olvidada, logout individual por token, bootstrap del primer ADMIN, retirada de permisos, gestión de equipos y asignaciones de trabajo, proveedor SMTP público, keyring/rotación segura y autorización granular de incidencias. La propuesta de selección `GET fields` y permisos por campo requiere un estudio propio, no tablas anticipadas.
+
+## Referencias
+
+- [Diseño funcional de Autenticación](../auth-design.md), [arquitectura modular](../architecture.md) y [OpenAPI modular](../api/README.md).
+- [ADR-0006 — Flyway](0006-flyway.md), [ADR-0007 — Invitaciones](0007-invitaciones-personal.md) y [ADR-0009 — roles](0009-rbac-departamentos-equipos.md).
+- [Pruebas y evidencia histórica de Invitaciones](../development.md).

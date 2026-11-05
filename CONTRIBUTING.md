@@ -1,88 +1,91 @@
 # Guía de contribución
 
-Este documento establece las normas para contribuir a UrbanPulse. El repositorio se desarrolla de forma incremental, con un **dominio–OpenAPI sincronizado** cuyas vistas se revisan como una sola especificación al implementar cada funcionalidad.
+UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación, Invitaciones, Departamentos y Categorías con migración V1 consolidada). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
 
 ## Flujo de trabajo
 
-1. Actualizar `main` antes de empezar.
-2. Crear una rama para el cambio.
-3. Revisar requisitos, diseño y decisiones del ámbito correspondiente.
-4. Implementar exclusivamente el alcance aprobado, incluidos contratos, persistencia y pruebas cuando corresponda.
-5. Realizar commits pequeños, descriptivos y coherentes.
-6. Ejecutar las verificaciones pertinentes y documentar resultados reales.
-7. Abrir Pull Request hacia `main`, solicitar revisión y fusionar únicamente cuando esté aprobado.
+1. Actualizar `main` antes de comenzar el desarrollo.
+2. Crear una rama específica para la funcionalidad, corrección, refactor o documentación.
+3. Revisar los requisitos, ADR, diagramas y contrato OpenAPI del ámbito afectado.
+4. Implementar exclusivamente el alcance acordado (migración, modelo, DTO, servicio, seguridad, controladores y pruebas cuando correspondan).
+5. Hacer commits pequeños y descriptivos.
+6. Ejecutar las comprobaciones pertinentes y registrar **resultados reales, con fecha y entorno**; no extrapolar resultados anteriores a refactors posteriores.
+7. Abrir Pull Request contra `main`, solicitar revisión y fusionar solo tras la aprobación.
 
-## Ramas
+## Ramas y commits
 
-Prefijos admitidos:
+Prefijos de rama: `feature/`, `fix/`, `docs/`, `refactor/`, `test/`, `ci/`.
 
-- `feature/`: funcionalidad nueva.
-- `fix/`: corrección.
-- `docs/`: documentación y diagramas.
-- `refactor/`: refactorización sin cambios funcionales.
-- `test/`: pruebas.
-- `ci/`: integración continua.
+Usar **Conventional Commits** con tipo inglés y descripción en español: `tipo(scope): descripción del cambio`, con scope opcional. Ejemplos:
 
-## Commits
+```text
+feat(backend): añadir endpoint para crear incidencias
+fix(backend): corregir validación de incidencias
+refactor(backend): reorganizar paquetes por módulos
+test(backend): ampliar pruebas de canje concurrente
+docs(diagrams): sincronizar modelos y exportaciones
+docs(adr): registrar las decisiones de permisos
+ci: configurar comprobaciones automatizadas
+```
 
-Usar **Conventional Commits**: prefijos estándar en inglés y descripción en español:
+## Dominio–OpenAPI: revisión conjunta por tag
 
-`tipo(scope): descripción del cambio`
+La documentación del [modelo de dominio](docs/domain-model.md) es una referencia inicial **revisable**, no una afirmación de que todas las tablas o clases estén implementadas. Consultar [diagramas](docs/diagrams/README.md): `relacional.drawio` tiene cuatro páginas con entidades, PK/FK y relaciones; `clases-simplificado.drawio` presenta un catálogo Java de atributos y tipos sin líneas UML deliberadamente.
 
-El `scope` es opcional para cambios generales. Ejemplos:
-
-- `feat(backend): añadir endpoint para crear incidencias`
-- `feat(frontend): implementar formulario de incidencias`
-- `fix(backend): corregir validación de incidencias`
-- `refactor(backend): simplificar servicios de tramitación`
-- `test(backend): añadir pruebas de asignaciones`
-- `docs(diagrams): incorporar modelos relacional y de clases`
-- `docs(domain): documentar la revisión incremental del dominio`
-- `docs(adr): registrar decisiones de roles y asignaciones`
-- `ci: configurar comprobaciones automatizadas`
-
-## Dominio–OpenAPI: revisión conjunta obligatoria por tag
-
-La documentación [del modelo de dominio v1](docs/domain-model.md) contiene las decisiones y entidades previstas; **no es código implementado ni una validación integral de todas las entidades**. En [diagramas](docs/diagrams/README.md) hay:
-
-- `relacional.drawio`: cuatro páginas de tablas candidatas, PK/FK, relaciones y cardinalidades.
-- `clases-simplificado.drawio`: una sola página de campos/tipos Java, enumeraciones, objetos embebidos y DTO de apoyo **sin conexiones UML**, ya que las relaciones están en el ER.
-
-**No se añadirán todas las entidades al backend de forma anticipada.** Cada compañero que trabaje en un tag realizará la revisión de las clases y tablas que necesita, además del contrato API, y **comunicará cambios relevantes sobre clases compartidas**.
-
-Antes de implementar una funcionalidad:
-
-1. Comprobar los casos de uso del enunciado y su alcance, incluidos los apartados opcionales aplazados.
-2. Leer `docs/api/openapi/paths/<tag>.yaml`, los DTO de `components/schemas/` y la guía [`docs/api/README.md`](docs/api/README.md).
-3. Examinar **ambos diagramas**; verificar campos, tipos, cardinalidades, nulabilidad, relaciones, persistencia, permisos y reglas de negocio de las entidades afectadas.
-4. Resolver nuevas decisiones o divergencias detectadas durante la implementación a partir de los requisitos y los [ADR](docs/adr/README.md), sin tratar automáticamente los datos de un dibujo como decisiones cerradas.
-5. Actualizar en el mismo PR los esquemas OpenAPI modulares, diagramas `.drawio` y sus exportaciones, el [modelo de dominio](docs/domain-model.md), los ADR y las pruebas que correspondan. No alterar recursos ajenos sin coordinación.
-6. Implementar **solo el subconjunto requerido** de entidades JPA, migraciones Flyway, servicios, controladores y frontend. No usar `ddl-auto=update`; probar migraciones en entorno aislado/`development`, nunca de forma experimental en `production`.
-7. Explicar qué se validó, qué se implementó y qué quedó pendiente. Aprobar un tag **no valida automáticamente todo el modelo**.
-
-Para decisiones con impacto arquitectónico no resueltas por los ADR vigentes, documentar un nuevo ADR. Las modificaciones menores de una entidad pueden registrarse en el PR y en `docs/domain-model.md` sin crear ADR por cada campo.
+1. Analizar requisitos y casos de uso, incluidos los componentes aplazados del enunciado.
+2. Leer `docs/api/openapi/paths/<tag>.yaml`, los esquemas de `components/schemas/` y la [guía de API](docs/api/README.md).
+3. Contrastar **las dos vistas del dominio**: tipos, nulabilidad, restricciones, cardinalidades, roles, transiciones y persistencia; no dar por implementado lo dibujado.
+4. Resolver divergencias con los [ADR](docs/adr/README.md) o registrar una nueva decisión cuando afecte a la arquitectura.
+5. Actualizar en el mismo PR **las fuentes `.drawio` y sus SVG**, los YAML modulares, el [contrato dominio–API](docs/api/domain-openapi.md), el modelo de dominio, los ADR y las pruebas pertinentes. No alterar componentes ajenos sin coordinación.
+6. Implementar solo las entidades necesarias en cada tag; no añadir todas las tablas previstas anticipadamente ni usar `ddl-auto=update`.
+7. Describir con precisión qué se implementó, qué se probó y qué permanece como diseño o tarea futura.
 
 ## Verificaciones por ámbito
 
-- **Frontend:** en `frontend/`, ejecutar `npx expo install --check`, `npx tsc --noEmit` y `npm run lint`; cuando aplique, `npx expo export --platform web`. Documentar advertencias relevantes de dependencias.
-- **Backend:** ejecutar `mvn test`/`mvn verify` para tests aislados. Los tests externos `*IT` se invocan expresamente, por ejemplo `docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test`, confirmando que se apunta a Neon `development`. **No** ejecutar tests externos o migraciones contra `production`.
-- **Contrato API:** tras revisar el tag, ejecutar (si se dispone de la herramienta) `npx @redocly/cli lint docs/api/openapi/base-openapi.yaml` y regenerar `docs/api/openapi.yaml` desde el modular y `docs/api/openapi.html` desde el bundle; revisar ambos diffs. Consultar [la guía unificada](docs/api/domain-openapi.md).
-- **Diagramas y documentación:** abrir los `.drawio` en diagrams.net; comprobar las cuatro páginas ER y la página de clases, exportaciones y vínculos Markdown. Ejecutar `git diff --check`, verificar que no se incluyen secretos, datos personales reales ni ficheros generados ajenos al cambio.
+**Frontend**, desde `frontend/`:
 
-La [guía de desarrollo](docs/development.md) distingue qué comandos se han probado realmente. No afirmar que se ejecutaron nuevas comprobaciones si no fue así.
+```bash
+npx expo install --check
+npx tsc --noEmit
+npm run lint
+npx expo export --platform web
+```
+
+**Backend**, desde `backend/`, con Java 25, Maven y Docker:
+
+```bash
+mvn -B -ntp test
+mvn -B -ntp clean verify -Ppostgres-it
+```
+
+El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
+
+```bash
+docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
+```
+
+No lanzar tests de escritura en Neon compartido ni migraciones experimentales sobre `production`. Los resultados de 90 pruebas y HTTP aislado figuran en un informe fechado el 30/10/2026; **el orden Git sitúa la reorganización antes de los commits de Invitaciones y pruebas**, por lo que no deben invertirse los hitos por la fecha del informe. Registrar una ejecución nueva solo cuando se realice efectivamente.
+
+**API (design-first):**
+
+```bash
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+```
+
+Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y no se editan manualmente. Comprobar versión `0.5.0`, enlaces `$ref` y cambios esperados antes de incluirlos en el commit.
+
+**Documentación:** comprobar vínculos relativos, presencia de todos los SVG que se enlazan, correspondencia `.drawio`/exportación, ausencia de referencias a informes temporales y coherencia con el árbol Java actual. Ejecutar `git diff --check` y comprobar que no se han incorporado secretos, datos personales reales, `.env`, `target`, `dist` o `node_modules`.
+
+El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backend/scripts/invitations_http_test.py` con PostgreSQL/Mailpit efímeros, **pero esos archivos no figuran en el repositorio**. No presentar ese flujo como reproducible sin restaurar y revisar el runner. Las suites Maven/Testcontainers configuradas en el proyecto se describen en [Desarrollo](docs/development.md); la política funcional y de seguridad, en [ADR-0007](docs/adr/0007-invitaciones-personal.md).
 
 ## Pull Requests
 
-Utilizar [la plantilla](.github/pull_request_template.md): descripción, ámbito, tipo, pruebas, checklist e issue asociado cuando exista. Para PR funcional de un tag añadir dentro de la descripción:
+Usar la [plantilla](.github/pull_request_template.md): descripción, tipo, alcance, pruebas, checklist e issue asociado cuando exista. Para un tag funcional, incluir operaciones y DTO revisados, entidades/relaciones comprobadas, decisiones abiertas, migraciones, pruebas ejecutadas y compatibilidad con otros tags.
 
-- Tag y operaciones/DTO revisados.
-- Entidades, relaciones y restricciones revisadas en los dos diagramas.
-- Divergencias de diseño resueltas y decisiones aún abiertas.
-- Componentes implementados y pruebas ejecutadas (o motivo por el que no corresponden).
-- Impacto sobre otros tags o entidades compartidas y documentación actualizada.
-
-Para PR **solo documental**, señalar expresamente que **no hay cambios de lógica, API desplegada ni migraciones**; basta verificar la documentación, los diagramas y los vínculos relativos (no inventar tests de backend).
+Si el PR modifica **solo documentación**, dejarlo explícito y comprobar contenido, enlaces, fuente y exportaciones de diagramas sin atribuirle una ejecución de tests Java no realizada. Cuando se reorganizan paquetes, actualizar rutas de ejemplos, tests y arquitectura antes de completar el PR.
 
 ## Documentación
 
-Mantener sincronizados el contrato API, el modelo del dominio, los ADR y las exportaciones del diagrama **cuando su área de negocio evolucione**. Los cambios arquitectónicos importantes requieren un ADR o la revisión explícita de uno existente.
+Mantener sincronizados OpenAPI, dominio, ADR y gráficos **cada vez que cambie una regla o entidad relevante**. Los cambios arquitectónicos importantes requieren ADR nuevo o revisión explícita del correspondiente. No reproducir informes temporales de Codex en enlaces de documentación permanente: su información verificable se consolida en los documentos estables del proyecto.

@@ -1,6 +1,6 @@
 # ADR-0009: Roles globales y departamentales, pertenencias y equipos
 
-- **Estado:** Aceptado; roles globales del núcleo auth implementados, pertenencias/equipos pendientes.
+- **Estado:** Aceptado; roles globales y pertenencias por invitación implementados; equipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-10-27.
 - **Ámbito:** Dominio, autorización y organización municipal.
@@ -24,7 +24,7 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 - `OPERATOR` tiene competencias municipales transversales de revisión, priorización y derivación sin necesitar pertenencia a un departamento. El coordinador distribuye los trabajos dentro de sus departamentos; el técnico acepta/ejecuta los trabajos autorizados.
 - `Team` es estable, reutilizable y desactivable; preserva referencias históricas. `TeamMembership` relaciona `Team` con `DepartmentMembership` activa del rol técnico y del mismo departamento. No crear equipos ficticios de una sola persona para trabajos individuales.
 - No se adoptan por ahora tablas genéricas `Permission`/`RolePermission`; las comprobaciones de rol y contexto se implementan en Spring Security y servicios.
-- La autorización **implementada lee cuenta activa, versión del JWT y permisos globales actuales desde PostgreSQL en cada acceso protegido**, sin confiar en roles embebidos en el JWT. Incluye control de titularidad, pertenencia activa y estado de recursos cuando corresponda. La excepción funcional es la emisión de JWT en registro/login y rutas expresamente públicas.
+- La autorización **implementada lee cuenta activa, versión del JWT y permisos globales actuales desde PostgreSQL en cada acceso protegido**, sin confiar en roles embebidos en el JWT. El canje comprueba titularidad de la invitación y ausencia de permisos duplicados; la autorización por pertenencia y estado de incidencias se concretará al implementar esos casos de uso. La excepción funcional es la emisión de JWT en registro/login y rutas expresamente públicas.
 - No se incluye `ANALYST` por estar aplazada la parte analítica avanzada del enunciado.
 
 ## Consecuencias
@@ -35,13 +35,33 @@ El enunciado diferencia ciudadanía, operadores municipales, técnicos y adminis
 
 **Costes:** lecturas de estado/permisos por petición y necesidad de evitar N+1; controlar pertenencias concurrentes, revocaciones y privilegios cruzados cuando un usuario pertenezca a varios departamentos. La persistencia de `UserRole` debe quedar coherente con cualquier colección `User.globalRoles` en JPA: no representar dos fuentes editables independientes.
 
-## Verificaciones pendientes por tag
+## Garantías implementadas y verificaciones pendientes por tag
 
 - Matriz fina de operaciones autorizadas, revocación y promoción de roles.
-- Si se permite más de una pertenencia activa del mismo rol por departamento y qué índice impide duplicados.
+- No se permite más de una pertenencia activa del mismo usuario/rol/departamento: V1 impone un índice único parcial con left_at IS NULL.
 - Desactivación de equipos, conservación de integrantes históricos y transferencias de técnicos con asignaciones abiertas.
-- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Pendientes:** resto de entidades, reglas departamentales, proyecciones de otros DTO y visibilidad contextual de datos personales.
+- **Ya implementados para `User`/`Role`/`UserRole`:** mapeos JPA, PK/FK/CHECK, `RoleCode` sin scope persistido, proyección SQL de roles, validación de `CITIZEN` y DTO propio de auth. **Implementados en Invitaciones:** Department y DepartmentMembership, roles departamentales y unicidad activa. **Pendientes:** equipos, autorización de operaciones de incidencias, proyecciones y visibilidad contextual.
 - Selección dinámica de campos `fields` y posible anotación por propiedad con condiciones `OWNER`/`ADMIN`/`NONE`: **propuesta en investigación, no adoptada aún ni incluida en esta implementación**.
 - Restricción de roles globales invitables a `OPERATOR`/`ADMIN` según ADR-0007.
 
-**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. Las relaciones departamentales y equipos siguen diseñados, sin migraciones ni implementación anticipada. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
+**Alcance implementado `auth`:** entidades `User`, `Role`, `UserRole`, preferencias embebidas, rol CITIZEN al registrar y verificación de su presencia al validar cada JWT. V1 implementa departamentos y pertenencias para canjes. Team y TeamMembership siguen diseñados y sin migraciones. PostgreSQL no obliga por sí sola a que todo usuario conserve CITIZEN; la cadena JWT lo exige y el alta lo concede transaccionalmente.
+
+## Incorporación municipal implementada (30/10/2026)
+
+[ADR-0007](0007-invitaciones-personal.md) concede permisos a una cuenta existente,
+activa y verificada, sin modificar CITIZEN. Department contiene UUIDv7, name, code,
+description, active y fechas internas, con administración REST y sin catálogo precargado. DepartmentMembership guarda
+UUIDv7, usuario, departamento, rol departamental, joinedAt/leftAt. El índice parcial
+solo permite un permiso activo idéntico; pueden existir varios históricos finalizados.
+CHECK impide roles globales y bajas anteriores al alta. Las FK restringen borrados.
+La baja interna de pertenencias y el reingreso están implementados según ADR-0013; no hay endpoints para ello. La retirada de UserRole sigue fuera de alcance.
+La lectura de JWT sigue resolviendo roles globales; no convierte TECHNICIAN en autoridad
+global ni implementa por anticipado la autorización contextual de otros tags.
+
+## Administración de catálogos
+
+Departamentos y Categorías permiten consultar a cuentas activas con correo verificado. Crear y modificar exige además ADMIN global vigente, consultado en PostgreSQL en cada petición; un rol departamental no concede administración global. Ambos catálogos se desactivan sin borrar identidades ni historial.
+
+Department es la entidad compartida por administración, Invitaciones y pertenencias. Su desactivación impide emitir y canjear invitaciones departamentales; no retira pertenencias. Category permanece independiente y su relación con Incident es diseño futuro. La auditoría específica de las escrituras de catálogos (RF18) requiere definir acciones, actor, contenido y política; `AuditEvent` y la auditoría de Invitaciones no la completan.
+
+[Contrato HTTP](../api/README.md), [persistencia vigente](0006-flyway.md#esquema-inicial-vigente) y [reglas de Invitaciones](0007-invitaciones-personal.md).
