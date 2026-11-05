@@ -185,8 +185,10 @@ CREATE TABLE categories (
     description VARCHAR(500),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT chk_categories_name_length CHECK (char_length(name) BETWEEN 2 AND 100),
+    CONSTRAINT chk_categories_name_trimmed CHECK (name !~ U&'^[\0001-\0020]|[\0001-\0020]$'),
     CONSTRAINT chk_categories_name_not_blank CHECK (
         name !~ U&'^[\0009-\000D\001C-\0020\1680\2000-\2006\2008-\200A\2028\2029\205F\3000]+$'
-    ),
+    )
+);
 
 CREATE UNIQUE INDEX uk_categories_name_normalized ON categories (lower(name));

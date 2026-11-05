@@ -187,8 +187,8 @@ public class SecurityConfig {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(properties.allowedOrigins());
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        cors.setExposedHeaders(List.of("Retry-After", "Location"));
+        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "If-Match"));
+        cors.setExposedHeaders(List.of("Retry-After", "Location", "ETag"));
         cors.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
@@ -291,6 +291,13 @@ public class SecurityConfig {
                                         DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
+                        // Colección administrativa exacta; /mine no coincide con este matcher.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/incidents")
+                        .access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager
+                                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager.hasAnyRole("OPERATOR", "ADMIN")))
+
                         // Resto de rutas: requieren correo verificado
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
@@ -316,6 +323,8 @@ public class SecurityConfig {
                             }
                         }))
                 .addFilterBefore(new AuthRateLimitFilter(limiter, limits, problems, mapper),
+                        BearerTokenAuthenticationFilter.class)
+                .addFilterBefore(new es.grupo18.urbanpulse.incidents.api.IncidentBodyLimitFilter(problems),
                         BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new EmailVerificationRateLimitFilter(limiter, limits, problems),
                         BearerTokenAuthenticationFilter.class)

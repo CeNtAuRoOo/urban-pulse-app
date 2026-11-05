@@ -245,10 +245,6 @@ public class UserService {
      *                                 admisibles (400)
      */
     public static void validatePagination(int page, int pageSize) {
-        if (page < 1 || pageSize < 1 || pageSize > 100
-                || ((long) page - 1) * pageSize > Integer.MAX_VALUE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La página debe ser positiva, pageSize de 1 a 100 y el offset como máximo 2147483647.");
-        }
+        PageMetadata.validate(page, pageSize);
     }
 }
