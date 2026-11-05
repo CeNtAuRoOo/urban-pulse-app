@@ -2,10 +2,11 @@
   get:
     tags:
     - Contexto urbano
-    summary: Consultar contexto asociado
+    summary: 'Diseño futuro: Consultar contexto asociado'
     description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE 
       sin ocultar la incidencia.
     operationId: getIncidentsIncidentIdUrbanContext
+    x-implementation: future
     x-roles:
     - OPERATOR
     - TECHNICIAN
@@ -36,10 +37,11 @@
   get:
     tags:
     - Contexto urbano
-    summary: Candidatos a activo urbano
+    summary: 'Diseño futuro: Candidatos a activo urbano'
     description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe 
       ambigüedad.
     operationId: getIncidentsIncidentIdAssetCandidates
+    x-implementation: future
     x-roles:
     - OPERATOR
     - ADMIN
@@ -71,9 +73,10 @@
   put:
     tags:
     - Contexto urbano
-    summary: Confirmar activo urbano
+    summary: 'Diseño futuro: Confirmar activo urbano'
     description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
     operationId: putIncidentsIncidentIdAssetAssociation
+    x-implementation: future
     x-roles:
     - OPERATOR
     - ADMIN
@@ -111,9 +114,10 @@
   get:
     tags:
     - Contexto urbano
-    summary: Buscar activos urbanos
+    summary: 'Diseño futuro: Buscar activos urbanos'
     description: Filtra activos por tipo o proximidad.
     operationId: getUrbanAssets
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     parameters:
@@ -173,9 +177,10 @@
   get:
     tags:
     - Contexto urbano
-    summary: Consultar activo urbano
+    summary: 'Diseño futuro: Consultar activo urbano'
     description: Devuelve geometría, procedencia y metadatos permitidos.
     operationId: getUrbanAssetsAssetId
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     parameters:
@@ -204,9 +209,10 @@
   get:
     tags:
     - Contexto urbano
-    summary: Consultar observaciones normalizadas
+    summary: 'Diseño futuro: Consultar observaciones normalizadas'
     description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
     operationId: getExternalObservations
+    x-implementation: future
     x-roles:
     - OPERATOR
     - ADMIN

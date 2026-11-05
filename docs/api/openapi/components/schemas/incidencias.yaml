@@ -1,207 +1,163 @@
 LocationDTO:
   type: object
+  description: Coordenadas implementadas. Los atributos de geocodificación son futuros y se omiten; no se emiten estados ficticios.
   properties:
     coordinates:
-      $ref: "./comunes.yaml#/CoordinatesDTO"
+      $ref: './comunes.yaml#/CoordinatesDTO'
     formattedAddress:
       type: string
-      description: Dirección normalizada (puede estar ausente si falla la geocodificación).
+      description: Futuro; dirección normalizada por un proveedor backend.
+      x-implementation: future
     neighborhood:
       type: string
-      description: Barrio deducido de la posición.
+      description: Futuro; nombre del barrio, respaldado por Neighborhood.
+      x-implementation: future
     districtId:
       type: string
-      description: Distrito obtenido por geocodificación.
       format: uuid
+      x-implementation: future
     districtName:
       type: string
-      description: Nombre del distrito.
+      x-implementation: future
     geocodingStatus:
       type: string
-      enum:
-        - PENDING
-        - AVAILABLE
-        - UNAVAILABLE
-      description: Resultado del enriquecimiento de localización.
-  required:
-    - coordinates
-    - geocodingStatus
+      enum: [PENDING, AVAILABLE, UNAVAILABLE]
+      description: Futuro; solo se emitirá tras disponer de un proceso real.
+      x-implementation: future
+  required: [coordinates]
 
 IncidentStatus:
   type: string
-  enum:
-    - REPORTED
-    - VALIDATED
-    - REJECTED
-    - ASSIGNED_TO_DEPARTMENT
-    - WORK_ASSIGNED
-    - IN_PROGRESS
-    - RESOLVED
-    - REOPENED
-    - CLOSED
-  description: 'ADR-0010: validación y derivación pueden estar separadas; el trabajo se distribuye después.
-    La matriz completa de transiciones permanece pendiente.'
+  enum: [REPORTED, VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT, WORK_ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED]
+  description: La API actual solo crea REPORTED. Tramitación futura permitirá reabrir RESOLVED directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con trabajo válido y motivo; CLOSED es terminal.
 
 IncidentPriority:
   type: string
-  enum:
-    - LOW
-    - MEDIUM
-    - HIGH
-    - CRITICAL
-  description: Escala acordada para UrbanPulse; LOW, MEDIUM, HIGH, CRITICAL.
+  enum: [LOW, MEDIUM, HIGH, CRITICAL]
+  description: Ausente hasta una decisión futura de prioridad justificada.
 
 CreateIncidentRequest:
   type: object
+  description: Cuenta activa y verificada como informante desde JWT. Textos con trim() antes de validar puntos Unicode, sin cambiar formato interior ni acentos; no blancos, sin NUL ni sustitutos aislados. No admite atributos calculados. Categoría omitida/null equivale a sin categoría; una UUID proporcionada debe existir y estar activa.
   properties:
     title:
       type: string
-      description: Título breve.
-      minLength: 5
-      maxLength: 150
+      x-normalized-minLength: 5
+      x-normalized-maxLength: 150
+      description: De 5 a 150 puntos de código después de trim(), no sobre el texto bruto.
     description:
       type: string
-      description: Descripción detallada.
-      minLength: 10
-      maxLength: 5000
+      x-normalized-minLength: 10
+      x-normalized-maxLength: 5000
+      description: De 10 a 5000 puntos de código después de trim(); conserva saltos y espacios interiores.
     coordinates:
-      $ref: "./comunes.yaml#/CoordinatesDTO"
+      $ref: './comunes.yaml#/CoordinatesDTO'
     categoryId:
       type: string
       format: uuid
-      description: Categoría opcional; puede decidirse durante revisión.
-  required:
-    - title
-    - description
-    - coordinates
+      nullable: true
+  required: [title, description, coordinates]
   additionalProperties: false
 
 UpdateIncidentRequest:
   type: object
+  description: Titular o, provisionalmente, OPERATOR/ADMIN; solo REPORTED. If-Match obligatorio. Omitir conserva; categoryId:null desclasifica; null en title, description o coordinates produce 400. Coordenadas se sustituyen completas; precisión omitida/null se elimina. Objeto vacío produce 422. No-op conserva versión, fecha e historial. Normalización idéntica al alta.
   properties:
     title:
       type: string
-      minLength: 5
-      maxLength: 150
+      x-normalized-minLength: 5
+      x-normalized-maxLength: 150
     description:
       type: string
-      minLength: 10
-      maxLength: 5000
+      x-normalized-minLength: 10
+      x-normalized-maxLength: 5000
     categoryId:
       type: string
       format: uuid
-      description: Categoría opcional; puede decidirse durante revisión.
+      nullable: true
     coordinates:
-      $ref: "./comunes.yaml#/CoordinatesDTO"
-  description: "Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado."
+      $ref: './comunes.yaml#/CoordinatesDTO'
   additionalProperties: false
+  minProperties: 1
 
 IncidentSummaryDTO:
   type: object
+  description: Resumen implementado. Los opcionales sin valor se omiten, salvo la description nullable del catálogo CategoryDTO compartido.
   properties:
-    id:
-      type: string
-      format: uuid
-    title:
-      type: string
+    id: {type: string, format: uuid}
+    title: {type: string}
     category:
-      $ref: "./catalogos.yaml#/CategoryDTO"
+      $ref: './catalogos.yaml#/CategoryDTO'
     status:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+      $ref: '#/IncidentStatus'
     priority:
-      $ref: "./incidencias.yaml#/IncidentPriority"
+      $ref: '#/IncidentPriority'
     location:
-      $ref: "./incidencias.yaml#/LocationDTO"
-    createdAt:
-      type: string
-      format: date-time
-    updatedAt:
-      type: string
-      format: date-time
+      $ref: '#/LocationDTO'
+    createdAt: {type: string, format: date-time}
+    updatedAt: {type: string, format: date-time}
+    version: {type: integer, format: int64, minimum: 0}
     attachmentCount:
       type: integer
       minimum: 0
-  required:
-    - id
-    - title
-    - status
-    - location
-    - createdAt
-    - updatedAt
-    - attachmentCount
+      description: Futuro; no se devuelve un cero artificial sin módulo de evidencias.
+      x-implementation: future
+  required: [id, title, status, location, createdAt, updatedAt, version]
 
 IncidentDTO:
   type: object
+  description: Detalle autorizado. Opcionales sin valor se omiten; no se simulan geocodificación, evidencias, contexto ni asignaciones. CategoryDTO conserva description:null. assignedDepartment representa derivación; currentAssignment será trabajo activo, nunca departamento.
   properties:
-    id:
-      type: string
-      format: uuid
-    title:
-      type: string
-    description:
-      type: string
-    category:
-      $ref: "./catalogos.yaml#/CategoryDTO"
+    id: {type: string, format: uuid}
+    title: {type: string}
+    description: {type: string}
     reporter:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: './usuarios.yaml#/UserSummaryDTO'
+    category:
+      $ref: './catalogos.yaml#/CategoryDTO'
     status:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+      $ref: '#/IncidentStatus'
     priority:
-      $ref: "./incidencias.yaml#/IncidentPriority"
+      $ref: '#/IncidentPriority'
+    location:
+      $ref: '#/LocationDTO'
+    assignedDepartment:
+      $ref: './catalogos.yaml#/DepartmentDTO'
+    createdAt: {type: string, format: date-time}
+    updatedAt: {type: string, format: date-time}
+    resolvedAt: {type: string, format: date-time}
+    closedAt: {type: string, format: date-time}
+    version:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Versión optimista JPA, distinta del JWT. Participa en la ETag junto al detalle completo; no permite reconstruir la etiqueta.
     prioritySource:
       type: string
-      enum:
-        - MANUAL
-        - ASSISTED
-      description: Ausente hasta priorización.
+      enum: [MANUAL, ASSISTED]
+      x-implementation: future
     priorityJustification:
       type: string
-    location:
-      $ref: "./incidencias.yaml#/LocationDTO"
+      x-implementation: future
     urbanAsset:
-      $ref: "./contexto-urbano.yaml#/UrbanAssetAssociationDTO"
+      description: Futuro; asociación autorizada con activo urbano.
+      x-implementation: future
+      allOf:
+        - $ref: './contexto-urbano.yaml#/UrbanAssetAssociationDTO'
     currentAssignment:
-      $ref: "./tramitacion.yaml#/AssignmentDTO"
+      description: Futuro; asignación activa a equipo o técnico.
+      x-implementation: future
+      allOf:
+        - $ref: './tramitacion.yaml#/AssignmentDTO'
     contextStatus:
       type: string
-      enum:
-        - PENDING
-        - AVAILABLE
-        - PARTIAL
-        - UNAVAILABLE
+      enum: [PENDING, AVAILABLE, PARTIAL, UNAVAILABLE]
+      x-implementation: future
     attachmentCount:
       type: integer
       minimum: 0
-    createdAt:
-      type: string
-      format: date-time
-    updatedAt:
-      type: string
-      format: date-time
-    resolvedAt:
-      type: string
-      format: date-time
-    closedAt:
-      type: string
-      format: date-time
-    version:
-      type: integer
-      description: Versión de control de concurrencia; propuesta.
-      minimum: 0
-    assignedDepartment:
-      $ref: ./catalogos.yaml#/DepartmentDTO
-  required:
-    - id
-    - title
-    - description
-    - status
-    - location
-    - contextStatus
-    - attachmentCount
-    - createdAt
-    - updatedAt
-  description: El departamento actual se devuelve en assignedDepartment; currentAssignment representa 
-    solamente trabajo activo (ADR-0010).
+      x-implementation: future
+  required: [id, title, description, reporter, status, location, createdAt, updatedAt, version]
 
 IncidentPageDTO:
   type: object
@@ -209,46 +165,42 @@ IncidentPageDTO:
     data:
       type: array
       items:
-        $ref: "./incidencias.yaml#/IncidentSummaryDTO"
+        $ref: '#/IncidentSummaryDTO'
     pagination:
-      $ref: "./comunes.yaml#/PageMetadata"
-  required:
-    - data
-    - pagination
+      $ref: './comunes.yaml#/PageMetadata'
+  required: [data, pagination]
 
 HistoryEventDTO:
   type: object
+  description: Proyección pública de AuditEvent, no tabla. Solo CREATED y UPDATED están implementados; los demás tipos son diseño futuro y deberán evitar duplicar transiciones.
   properties:
-    id:
-      type: string
-      format: uuid
+    id: {type: string, format: uuid}
     eventType:
       type: string
-      enum:
-        - CREATED
-        - REVIEWED
-        - PRIORITIZED
-        - DEPARTMENT_ASSIGNED
-        - DEPARTMENT_TRANSFERRED
-        - WORK_ASSIGNED
-        - WORK_REASSIGNED
-        - STATUS_CHANGED
-        - COMMENTED
-        - ATTACHMENT_ADDED
-        - ASSET_LINKED
-    occurredAt:
-      type: string
-      format: date-time
+      enum: [CREATED, UPDATED, REVIEWED, PRIORITIZED, DEPARTMENT_ASSIGNED, DEPARTMENT_TRANSFERRED, WORK_ASSIGNED, WORK_REASSIGNED, STATUS_CHANGED, COMMENTED, ATTACHMENT_ADDED, ASSET_LINKED]
+    occurredAt: {type: string, format: date-time}
     actor:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: './usuarios.yaml#/UserSummaryDTO'
     summary:
       type: string
+      description: Texto estable del servidor; nunca el summary arbitrario del evento interno.
     details:
       type: object
-      additionalProperties: true
-      description: Datos públicos o internos según permisos; sin información sensible.
-  required:
-    - id
-    - eventType
-    - occurredAt
-    - summary
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+          pattern: '^[0-9]{1,19}$'
+      description: Lista permitida de datos públicos; no replica el JSONB de auditoría.
+  required: [id, eventType, occurredAt, summary, details]
+
+HistoryPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/HistoryEventDTO'
+    pagination:
+      $ref: './comunes.yaml#/PageMetadata'
+  required: [data, pagination]

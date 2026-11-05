@@ -46,4 +46,4 @@ Las tablas de Invitaciones pertenecen a la única V1 junto con identidad y los c
 
 Las siete suites del perfil `postgres-it` comprueban los módulos implementados con PostgreSQL efímero y excluyen Neon. [Desarrollo](../development.md#verificación-del-backend) mantiene los comandos y resultados vigentes, incluida la regresión entre administración departamental y canje.
 
-Las fuentes ER02, ER03, clases y C4 reflejan Invitaciones, auditoría, correo y departamentos compartidos. Los SVG regenerados con draw.io Desktop corresponden estructuralmente a sus fuentes e incluyen ambos catálogos; véase [inventario de diagramas](../diagrams/README.md). Los flujos de incidencias y el despliegue definitivo requieren nuevos diseños al implementarse.
+Las fuentes ER02, ER03, clases y C4 reflejan Invitaciones, auditoría, correo y departamentos compartidos. La exportación documentada de Invitaciones y catálogos precede a las fuentes de Incidencias V2; la revisión correctiva valida fuentes sin generar SVG; véase [inventario de diagramas](../diagrams/README.md). Los flujos de incidencias y el despliegue definitivo requieren nuevos diseños al implementarse.

@@ -1,0 +1,11 @@
+IncidentETag:
+  description: ETag fuerte opaca SHA-256 del JSON de detalle completo, incluida version y sus recursos proyectados. Enviar sin alterar en If-Match; no derivar de version.
+  schema:
+    type: string
+    pattern: '^"sha256-[0-9a-f]{64}"$'
+    example: '"sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+PrivateCache:
+  description: Respuesta privada que no debe almacenarse.
+  schema:
+    type: string
+    example: no-store

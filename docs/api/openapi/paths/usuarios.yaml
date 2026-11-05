@@ -1,5 +1,6 @@
 /users/me:
   get:
+    x-implementation: implemented
     tags:
       - Usuarios
     summary: Consultar mi perfil
@@ -33,6 +34,7 @@
         $ref: "../components/responses.yaml#/ServiceUnavailable"
 
   patch:
+    x-implementation: implemented
     tags:
       - Usuarios
     summary: Modificar mi perfil
@@ -75,6 +77,7 @@
 
 /users:
   get:
+    x-implementation: implemented
     tags:
       - Usuarios
     summary: Listar usuarios
@@ -126,6 +129,7 @@
 
 /users/{userId}:
   get:
+    x-implementation: implemented
     tags:
       - Usuarios
     summary: Consultar usuario
@@ -161,6 +165,7 @@
         $ref: "../components/responses.yaml#/ServiceUnavailable"
 
   patch:
+    x-implementation: implemented
     tags:
       - Usuarios
     summary: Administrar usuario

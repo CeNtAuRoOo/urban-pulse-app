@@ -29,12 +29,19 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 @Component
 @Slf4j
 public class EmailVerificationCleanup {
-    /** Predicado compartido por selección y revisión bajo bloqueo; incluye todas las FK históricas. */
+    /**
+     * Predicado compartido por selección y revisión bajo bloqueo; incluye todas las
+     * FK históricas.
+     */
     private static final String WITHOUT_HISTORY = """
             not exists (select 1 from department_memberships m where m.user_id = u.id)
             and not exists (select 1 from staff_invitations i where i.created_by_user_id = u.id
                 or i.redeemed_by_user_id = u.id or i.revoked_by_user_id = u.id)
             and not exists (select 1 from audit_events a where a.actor_user_id = u.id)
+            and not exists (select 1 from incidents i where i.reporter_user_id = u.id)
+            and not exists (select 1 from status_changes s where s.changed_by_user_id = u.id)
+            and not exists (select 1 from incident_reviews r where r.reviewed_by_user_id = u.id)
+            and not exists (select 1 from priority_decisions p where p.decided_by_user_id = u.id)
             """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
@@ -133,7 +140,8 @@ public class EmailVerificationCleanup {
     private int deleteUserBatch(Timestamp cutoff) {
         var ids = jdbc.query("""
                 select u.id from users u where u.email_verified = false and u.created_at <= ? and
-                """ + WITHOUT_HISTORY + " order by u.created_at, u.id limit ? for update of u skip locked", (rs, row) -> rs.getObject(1, UUID.class), cutoff, properties.cleanupBatchSize());
+                """ + WITHOUT_HISTORY + " order by u.created_at, u.id limit ? for update of u skip locked",
+                (rs, row) -> rs.getObject(1, UUID.class), cutoff, properties.cleanupBatchSize());
 
         int deleted = 0;
 

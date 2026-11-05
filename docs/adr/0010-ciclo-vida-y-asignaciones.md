@@ -18,7 +18,7 @@ El enunciado utiliza `ASSIGNED` e introduce `Assignment` como vínculo temporal 
 
 El enum de diseño `IncidentStatus` contiene:
 
-`REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED_TO_DEPARTMENT`, `WORK_ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED`, `CLOSED`.
+`REPORTED`, `VALIDATED`, `REJECTED`, `ASSIGNED_TO_DEPARTMENT`, `WORK_ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`.
 
 - El operador municipal puede validar un reporte y **dejarlo en `VALIDATED`** hasta determinar un departamento. El departamento responsable actual se referencia mediante `Incident.assignedDepartment` (nullable antes de la derivación).
 - Al derivarlo al departamento se registra el cambio hacia `ASSIGNED_TO_DEPARTMENT`. La información anterior/nueva de departamento debe auditarse incluso si una transferencia posterior no cambia el estado.
@@ -37,10 +37,28 @@ El enum de diseño `IncidentStatus` contiene:
 
 ## Pendiente antes de implementar el tag Tramitación
 
-- Tabla/máquina completa de transiciones, incluida `REOPENED`, `REJECTED`, `REQUEST_INFORMATION`, revisión posterior y cierre.
+- Tabla/máquina completa de transiciones, incluidos rechazo, solicitud de información, reapertura directa desde RESOLVED y cierre definitivo.
 - Qué sucede si un departamento no tiene coordinador o si el trabajo queda sin técnico disponible.
 - Índice único parcial para una asignación activa, concurrencia, reversión ante error y criterios de cierre/reasignación.
 - Qué eventos son visibles al ciudadano y cuáles son internos.
-- El OpenAPI modular `0.2.0` ya distingue derivación departamental y asignación de trabajo; concretar la matriz de transiciones y permisos de cada operación al implementar el tag.
+- El OpenAPI modular vigente `0.6.0` distingue derivación departamental y asignación de trabajo; concretar la matriz de transiciones y permisos de cada operación al implementar el tag.
 
-**Estado de entrega:** representación conceptual/documental, no migración ni lógica de negocio ya implementada.
+**Estado de entrega:** núcleo de Incidencias operativo en V2; StatusChange, IncidentReview y PriorityDecision tienen persistencia base sin operaciones. Assignment y el resto de Tramitación siguen como diseño.
+
+## Revisión del 05/11/2026: núcleo y reapertura
+
+El alta crea Incident en REPORTED y AuditEvent INCIDENT_CREATED en una sola transacción; no crea StatusChange inicial. Las correcciones efectivas generan INCIDENT_UPDATED, nunca revisiones o decisiones artificiales. HistoryEventDTO es una proyección pública paginada de esos eventos; deberá integrar las transiciones futuras sin duplicar hechos.
+
+Se elimina el estado persistente de reapertura del diseño anterior. Una incidencia RESOLVED podrá reabrirse en el futuro mediante transición directa, motivada, a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED si conserva una asignación válida y coherente. CLOSED es terminal: un nuevo aviso requiere otra incidencia. No se implementan transiciones en esta entrega.
+
+REQUEST_INFORMATION no cambia necesariamente el estado; tanto REQUEST_INFORMATION como REJECT exigen motivo no blanco de 3–2000 puntos Unicode tras trim. VALIDATE admite omitirlo, pero si existe debe cumplir esos mismos límites. Prioridad es null hasta una decisión justificada. El permiso provisional de OPERATOR/ADMIN para corregir avisos de terceros solo en REPORTED requiere revisión de seguridad/negocio por ámbito y campo antes de extender el flujo municipal. Los permisos departamentales no otorgan lectura global.
+
+[Estado, modelo objetivo y pendientes](../incidents-implementation-roadmap.md); [control de concurrencia](0014-incidencias-concurrencia-historial.md).
+
+## Invariantes estructurales verificadas
+
+V3 refuerza los CHECK de revisión/prioridad sin reescribir V1/V2. Java normaliza los motivos de revisión y la justificación de prioridad con trim, rechaza blancos, NUL y sustitutos aislados, y cuenta puntos Unicode. SQL exige su forma ya normalizada y limita longitudes. PriorityDecision requiere prioridad, origen MANUAL/ASSISTED, responsable y justificación de 3–2000; no actualiza Incident.priority por sí sola.
+
+StatusChange requiere estados no nulos y distintos, nunca origen CLOSED; no existe null → REPORTED ni REOPENED. Java y varchar limitan reason a 2000 y resolutionNotes a 5000 puntos Unicode; ambos son opcionales y conservan formato/blancos. El futuro servicio exigirá texto no blanco para las transiciones que lo necesiten y notas al resolver, autorizará actor/ámbito, comprobará estado actual, asignación y fechas, y escribirá todo atómicamente. Esas reglas de negocio no se atribuyen al constructor ni al CHECK estructural. Las entidades no habilitan endpoints ni ejecutan la máquina de estados.
+
+El estado REOPENED del enunciado original se adapta deliberadamente a la reapertura directa desde RESOLVED acordada por el equipo; CLOSED permanece terminal.

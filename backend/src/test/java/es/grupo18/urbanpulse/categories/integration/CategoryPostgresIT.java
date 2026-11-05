@@ -79,7 +79,8 @@ class CategoryPostgresIT {
                 String.class))
                 .containsExactlyInAnyOrder("flyway_schema_history", "users", "roles", "user_roles",
                         "email_verifications", "departments", "department_memberships", "staff_invitations",
-                        "audit_events", "categories");
+                        "audit_events", "categories", "incidents", "status_changes", "incident_reviews",
+                        "priority_decisions");
         assertThat(jdbc.queryForObject("select count(*) from categories", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
         assertThat(jdbc.queryForList("select code from roles", String.class))
@@ -90,7 +91,7 @@ class CategoryPostgresIT {
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1");
+                .containsExactly("1", "2", "3");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);

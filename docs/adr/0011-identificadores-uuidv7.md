@@ -1,6 +1,6 @@
 # ADR-0011: Identificadores UUIDv7 en el modelo del dominio
 
-- **Estado:** Aceptado; UUIDv7 implementado para User, Department, DepartmentMembership, StaffInvitation, AuditEvent y Category; restantes tipos pendientes.
+- **Estado:** Aceptado; UUIDv7 implementado para User, Department, DepartmentMembership, StaffInvitation, AuditEvent, Category, Incident, StatusChange, IncidentReview y PriorityDecision; restantes tipos pendientes.
 - **Fecha:** 2026-10-18.
 - **Revisión:** 2026-11-03.
 - **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
@@ -32,6 +32,6 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 ## Evidencias y alcance
 
-Las suites PostgreSQL verifican persistencia y UUIDv7 de las entidades implementadas. Department y Category conservan también `uuidv7()` como default SQL para inserciones externas en la única V1. Category no añade código ni fechas; el UUID no sustituye la auditoría RF18 pendiente. Se conservan identidades, referencias e historial al desactivar o reactivar un catálogo.
+Las suites PostgreSQL verifican persistencia y UUIDv7 de las entidades implementadas. Department y Category conservan también `uuidv7()` como default SQL para inserciones externas en V1. Category no añade código ni fechas; el UUID no sustituye la auditoría RF18 pendiente. Se conservan identidades, referencias e historial al desactivar o reactivar un catálogo.
 
 [Resultados reproducibles](../development.md#verificación-del-backend), [migración vigente](0006-flyway.md#esquema-inicial-vigente) y [modelo de dominio](../domain-model.md). Los futuros tipos requieren revisar sus claves, restricciones y pruebas al implementarse; las verificaciones aisladas no acreditan despliegue en Neon.

@@ -2,11 +2,12 @@
   post:
     tags:
       - Evidencias
-    summary: Adjuntar fotografía
+    summary: 'Diseño futuro: Adjuntar fotografía'
     description:
       Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar
       compensación ante fallos parciales y EXIF sensible.
     operationId: postIncidentsIncidentIdAttachments
+    x-implementation: future
     x-roles:
       - CITIZEN
       - OPERATOR
@@ -63,9 +64,10 @@
   get:
     tags:
       - Evidencias
-    summary: Listar fotografías
+    summary: 'Diseño futuro: Listar fotografías'
     description: Lista metadatos sin revelar URLs S3 públicas permanentes.
     operationId: getIncidentsIncidentIdAttachments
+    x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
@@ -96,9 +98,10 @@
   get:
     tags:
       - Evidencias
-    summary: Consultar metadatos de fotografía
+    summary: 'Diseño futuro: Consultar metadatos de fotografía'
     description: Metadatos de evidencia bajo autorización por incidencia.
     operationId: getIncidentsIncidentIdAttachmentsAttachmentId
+    x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
@@ -128,9 +131,10 @@
   get:
     tags:
       - Evidencias
-    summary: Descargar fotografía privada
+    summary: 'Diseño futuro: Descargar fotografía privada'
     description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
     operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
+    x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:

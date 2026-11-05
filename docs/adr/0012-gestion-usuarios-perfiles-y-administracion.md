@@ -130,7 +130,7 @@ PATCH administrativo solo admite `active`. No se permite desactivar al último A
 
 El listado usa `page=1`, `pageSize=20` (1–100), orden `createdAt DESC, id ASC` y filtros opcionales por `active` y `role`. El filtro departamental solo considera `leftAt IS NULL`, aunque el DTO muestra también la historia. Primero se pagina en SQL y luego se recuperan roles y pertenencias en lote para los IDs seleccionados, sin fetch de colecciones sobre la consulta paginada. Las pertenencias se ordenan por `joinedAt DESC, id ASC`.
 
-La auditoría de Invitaciones se conserva. La auditoría administrativa de Usuarios y catálogos continúa dentro del alcance parcial pendiente de RF18; no se introduce una política de datos o retención implícita. OpenAPI mantiene la versión 0.5.0.
+La auditoría de Invitaciones se conserva. La auditoría administrativa de Usuarios y catálogos continúa dentro del alcance parcial pendiente de RF18; no se introduce una política de datos o retención implícita. La revisión de Usuarios se publicó en OpenAPI 0.5.0; el contrato vigente 0.6.0 añade Incidencias.
 
 ## 10. Referencias
 

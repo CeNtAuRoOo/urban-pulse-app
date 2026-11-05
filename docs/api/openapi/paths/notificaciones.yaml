@@ -2,9 +2,10 @@
   get:
     tags:
     - Notificaciones
-    summary: Consultar bandeja
+    summary: 'Diseño futuro: Consultar bandeja'
     description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
     operationId: getNotifications
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     parameters:
@@ -40,9 +41,10 @@
   patch:
     tags:
     - Notificaciones
-    summary: Marcar como leída
+    summary: 'Diseño futuro: Marcar como leída'
     description: Actualiza el indicador de lectura de una notificación propia.
     operationId: patchNotificationsNotificationId
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     parameters:
@@ -90,9 +92,10 @@
   get:
     tags:
     - Notificaciones
-    summary: Consultar preferencias
+    summary: 'Diseño futuro: Consultar preferencias'
     description: Canales configurados para el usuario.
     operationId: getUsersMeNotificationPreferences
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     responses:
@@ -118,10 +121,11 @@
   put:
     tags:
     - Notificaciones
-    summary: Actualizar preferencias
+    summary: 'Diseño futuro: Actualizar preferencias'
     description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los 
       proveedores.
     operationId: putUsersMeNotificationPreferences
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     requestBody:

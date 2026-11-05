@@ -45,3 +45,9 @@ sin credenciales reales ni puerto PostgreSQL publicado al host. Ese archivo no f
 en el repositorio; nunca se deben reutilizar los fixtures en producción.
 
 **Usuarios y pertenencias:** perfil propio y administración requieren cuenta activa y correo verificado; ADMIN global administra cuentas. PATCH solo admite `displayName` en el perfil y `active` en administración. Se protege al último ADMIN activo y verificado, también frente a bajas simultáneas. Las altas departamentales requieren cuenta activa/verificada; el historial nunca concede autoridad global. Las actualizaciones y la limpieza se coordinan mediante bloqueos de usuario. La auditoría de Invitaciones se mantiene; RF18 administrativo sigue parcialmente pendiente.
+
+## Incidencias
+
+Registro y consulta propia requieren cuenta activa, CITIZEN y correo verificado. Listado administrativo solo OPERATOR/ADMIN globales. Detalle, historial y corrección: titular o esos roles; la corrección solo en REPORTED y con If-Match obligatorio. La autorización transversal para corregir terceros es provisional y debe revisarse por ámbito/campo antes de ampliar tramitación. Técnicos/coordinadores no heredan acceso global por pertenencia.
+
+404 oculta recursos ajenos; DTO de informante/actor solo contienen UUID y displayName. El historial filtra recurso/acciones permitidas y no devuelve JSONB arbitrario. Las respuestas privadas usan no-store; ETag/If-Match evita actualizaciones perdidas y auditoría comparte transacción. Las nuevas FK se conservan al limpiar cuentas no verificadas. Retención/anonimización, cuotas específicas de Incidencias y prevención distribuida de abuso siguen como decisiones futuras en el [roadmap](docs/incidents-implementation-roadmap.md).

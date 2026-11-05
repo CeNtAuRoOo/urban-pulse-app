@@ -2,10 +2,11 @@
   post:
     tags:
       - Asistencia inteligente
-    summary: Solicitar evaluación asistida
+    summary: 'Diseño futuro: Solicitar evaluación asistida'
     description: Genera sugerencias NO vinculantes de clasificación, prioridad, resumen o acciones; 
       conserva confianza y procedencia del modelo.
     operationId: postAiIncidentAssessments
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -41,9 +42,10 @@
   get:
     tags:
       - Asistencia inteligente
-    summary: Consultar evaluación asistida
+    summary: 'Diseño futuro: Consultar evaluación asistida'
     description: Devuelve recomendaciones, confianza y estado del cálculo.
     operationId: getAiIncidentAssessmentsAssessmentId
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -73,9 +75,10 @@
   post:
     tags:
       - Asistencia inteligente
-    summary: Entrenar o evaluar modelo
+    summary: 'Diseño futuro: Entrenar o evaluar modelo'
     description: Trabajo asíncrono de experimentación de clasificación, prioridad o hotspots.
     operationId: postAiTrainingJobs
+    x-implementation: future
     x-roles:
       - ADMIN
     requestBody:
@@ -110,9 +113,10 @@
   get:
     tags:
       - Asistencia inteligente
-    summary: Consultar entrenamiento
+    summary: 'Diseño futuro: Consultar entrenamiento'
     description: Devuelve resultado, modelo e indicadores de evaluación si el proceso terminó.
     operationId: getAiTrainingJobsTrainingId
+    x-implementation: future
     x-roles:
       - ADMIN
     parameters:

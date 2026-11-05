@@ -1,5 +1,6 @@
 /staff-invitations:
   post:
+    x-implementation: implemented
     tags: [Invitaciones]
     summary: Emitir invitación municipal
     description: >-
@@ -44,6 +45,7 @@
       "503":
         $ref: "../components/responses.yaml#/ServiceUnavailable"
   get:
+    x-implementation: implemented
     tags: [Invitaciones]
     summary: Listar invitaciones
     description: >-
@@ -101,6 +103,7 @@
         $ref: "../components/responses.yaml#/ServiceUnavailable"
 /staff-invitations/{invitationId}:
   get:
+    x-implementation: implemented
     tags: [Invitaciones]
     summary: Consultar invitación
     description: >-
@@ -137,6 +140,7 @@
         $ref: "../components/responses.yaml#/ServiceUnavailable"
 /staff-invitations/{invitationId}/revocations:
   post:
+    x-implementation: implemented
     tags: [Invitaciones]
     summary: Revocar invitación activa
     description: >-
@@ -166,6 +170,7 @@
         $ref: "../components/responses.yaml#/ServiceUnavailable"
 /users/me/staff-invitation-redemptions:
   post:
+    x-implementation: implemented
     tags: [Invitaciones]
     summary: Canjear invitación con cuenta verificada
     description: >-

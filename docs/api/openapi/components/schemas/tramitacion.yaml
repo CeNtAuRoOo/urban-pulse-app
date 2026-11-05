@@ -9,7 +9,7 @@ ReviewRequest:
       - REQUEST_INFORMATION
     reason:
       type: string
-      description: Obligatorio en rechazo o solicitud de información.
+      description: Obligatorio en REJECT y REQUEST_INFORMATION; opcional en VALIDATE. Si se aporta, texto no blanco de 3–2000 puntos Unicode tras trim.
       minLength: 3
       maxLength: 2000
     categoryId:
@@ -17,6 +17,12 @@ ReviewRequest:
       format: uuid
   required:
   - decision
+  oneOf:
+  - properties:
+      decision: {enum: [VALIDATE]}
+  - properties:
+      decision: {enum: [REJECT, REQUEST_INFORMATION]}
+    required: [reason]
   additionalProperties: false
 
 ReviewDTO:
@@ -63,6 +69,7 @@ PriorityRequest:
       - ASSISTED
     justification:
       type: string
+      description: Texto no blanco de 3–2000 puntos Unicode tras trim; se conserva la justificación manual o asistida.
       minLength: 3
       maxLength: 2000
   required:
@@ -154,17 +161,17 @@ StatusChangeRequest:
       enum:
       - IN_PROGRESS
       - RESOLVED
-      - REOPENED
+      - ASSIGNED_TO_DEPARTMENT
+      - WORK_ASSIGNED
       - CLOSED
-      description: Solo transiciones operativas. Validación, derivación y designación de trabajo tienen 
-        sus propias operaciones.
+      description: Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con asignación válida, coherente y motivo obligatorio. CLOSED es definitivo. Validación, derivación ordinaria y designación de trabajo tienen sus propias operaciones.
     reason:
       type: string
-      description: Motivo exigible en reapertura/cierre, según reglas a acordar.
+      description: El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura persistente solo limita a 2000 puntos Unicode y admite null/blancos.
       maxLength: 2000
     resolutionNotes:
       type: string
-      description: Obligatoria al pasar a RESOLVED; detalle de la actuación.
+      description: El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a 5000 puntos Unicode y admite null/blancos.
       maxLength: 5000
   required:
   - toStatus
@@ -195,11 +202,10 @@ StatusChangeDTO:
   required:
   - id
   - incidentId
+  - fromStatus
   - toStatus
   - changedAt
-  description: fromStatus se omite en el registro inicial si no existía estado previo; changedBy se omite
-    para eventos internos del sistema. El resto de los cambios debe respetar la trazabilidad y 
-    autorización previstas.
+  description: Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin StatusChange inicial. changedBy puede omitirse en futuros procesos internos. CLOSED no admite salida.
 CommentRequest:
   type: object
   properties:

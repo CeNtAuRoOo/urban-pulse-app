@@ -80,6 +80,7 @@ PageMetadata:
 
 CoordinatesDTO:
   type: object
+  additionalProperties: false
   properties:
     latitude:
       type: number
@@ -95,10 +96,11 @@ CoordinatesDTO:
       example: -4.4214
     accuracyMeters:
       type: number
+      nullable: true
       description: Precisión estimada de la posición en metros.
       minimum: 0
       example: 8
   required:
     - latitude
     - longitude
-  description: Coordenadas geográficas; la precisión es opcional.
+  description: Coordenadas WGS84 finitas; precisión opcional, finita y no negativa. En entrada accuracyMeters admite null; en salida se omite si no se conoce.

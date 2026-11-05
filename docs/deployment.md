@@ -12,18 +12,18 @@ UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS E
 
 ## 2. Componentes y responsabilidades
 
-| Componente        | Implementado/configurado                                                                                                           | Pendiente de validar o entregar                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas                                                                      | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI             |
-| Android/iOS       | Base de código compartida Expo/React Native                                                                                        | Ejecución funcional completa y distribución en dispositivos                        |
-| API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`; puerto 8888 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen           |
-| PostgreSQL        | V1 consolidada para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente                                                       | Aplicación planificada de V1 consolidada a Neon `development` y gestión de backups |
-| Object Storage    | Cliente S3, bucket privado `incident-evidence` y `HeadBucket`                                                                      | Subida, descarga, borrado y autorización por objeto                                |
-| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                              | Proveedor SMTP real, entregabilidad y recuperación/reintentos                      |
+| Componente        | Implementado/configurado                                                                                                           | Pendiente de validar o entregar                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Frontend Expo Web | Ejecución de desarrollo y exportación web `dist/` comprobadas                                                                      | Imagen multietapa Nginx desplegada, cliente REST y autenticación en UI          |
+| Android/iOS       | Base de código compartida Expo/React Native                                                                                        | Ejecución funcional completa y distribución en dispositivos                     |
+| API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`; puerto 8888 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen        |
+| PostgreSQL        | V1, V2 y V3 para PostgreSQL 18 vacío; JDBC Neon comprobado históricamente                                                          | Aplicación planificada de V1, V2 y V3 a Neon `development` y gestión de backups |
+| Object Storage    | Cliente S3, bucket privado `incident-evidence` y `HeadBucket`                                                                      | Subida, descarga, borrado y autorización por objeto                             |
+| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                              | Proveedor SMTP real, entregabilidad y recuperación/reintentos                   |
 
 ## 3. Diagramas arquitectónicos
 
-Las vistas [C4 de contexto y contenedores](diagrams/README.md) están actualizadas, con fuente editable [`c4.drawio`](diagrams/c4.drawio) y SVG asociados; incluyen el transporte de correo y el alcance inicial de fotografías. Los modelos ER y de clases y sus SVG regenerados manualmente incorporan ambos catálogos. La comprobación estructural está descrita en el [inventario](diagrams/README.md#criterios-de-sincronización).
+Las fuentes [C4 de contexto y contenedores](diagrams/README.md) actualizan el alcance V2 en [`c4.drawio`](diagrams/c4.drawio); incluyen el transporte de correo y el alcance inicial de fotografías. Las fuentes ER y de clases incorporan V2 y distinguen el modelo futuro; La revisión correctiva no genera SVG; su exportación manual sigue el procedimiento del inventario. La comprobación estructural está descrita en el [inventario](diagrams/README.md#criterios-de-sincronización).
 
 **[Pendiente: nuevo C4 Deployment]**. Cuando se decidan hosting, dominios, TLS, redes, topología y estrategia de operación, documentarlos en un diagrama de despliegue adicional (por ejemplo, `docs/diagrams/deployment.drawio`). Esto **no** es una tarea pendiente de corrección de los gráficos C4/ER/clases existentes.
 
@@ -96,10 +96,12 @@ El perfil incorpora siete suites aisladas de autenticación, correo, invitacione
 
 ## 9. CI/CD y pasos pendientes
 
-Quedan para una **fase posterior de despliegue y producto** los workflows GitHub Actions que automaticen las suites **ya ejecutadas**, el análisis periódico de dependencias y secretos, el control de migraciones, backups/restauración, observabilidad, imágenes productivas endurecidas, dominios/TLS, entrega SMTP externa, procedimiento del **primer ADMIN**, retirada de permisos y política de conservación de invitaciones/auditoría (RGPD). Los casos de uso de incidencias y su documentación operativa pertenecen a otros tags; no se deben implementar tablas por aparecer en el diseño sin revisar el tag.
+Quedan para una **fase posterior de despliegue y producto** los workflows GitHub Actions que automaticen las suites **ya ejecutadas**, el análisis periódico de dependencias y secretos, el control de migraciones, backups/restauración, observabilidad, imágenes productivas endurecidas, dominios/TLS, entrega SMTP externa, procedimiento del **primer ADMIN**, retirada de permisos y política de conservación de invitaciones/auditoría (RGPD). La tramitación y las integraciones avanzadas de incidencias pertenecen a entregas futuras; no se deben implementar tablas por aparecer en el diseño sin revisar el tag.
 
 ## 10. Referencias
 
 - [Arquitectura y componentes](architecture.md), [desarrollo y pruebas](development.md) y [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
 - [Diagramas existentes](diagrams/README.md) y [ADR](adr/README.md).
 - [Autenticación](auth-design.md), [API OpenAPI](api/README.md) y [seguridad del proyecto](../SECURITY.md).
+
+V3 valida motivos y justificaciones existentes sin transformarlos; revisar filas incompatibles antes de aplicar en un entorno persistente. La ETag de detalle es opaca y depende del JSON completo: cualquier proxy que transforme o comprima representaciones deberá mantener validadores correctos por variante. La configuración actual no habilita compresión de respuestas; no se ha desplegado sobre Neon.
