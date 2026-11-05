@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.5.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Dominio v1 y ADR de identidad actualizados. Departamentos y Categorías también implementan consulta, alta y PATCH. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.6.0
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -42,6 +42,7 @@ tags:
 paths:
   /auth/register:
     post:
+      x-implementation: implemented
       tags:
         - Autenticación
       summary: Registrar ciudadano y solicitar verificación de correo
@@ -77,6 +78,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /auth/login:
     post:
+      x-implementation: implemented
       tags:
         - Autenticación
       summary: Iniciar sesión
@@ -112,6 +114,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /auth/email-verifications/confirm:
     post:
+      x-implementation: implemented
       tags:
         - Autenticación
       summary: Confirmar el correo de la cuenta autenticada
@@ -146,6 +149,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /auth/email-verifications/resend:
     post:
+      x-implementation: implemented
       tags:
         - Autenticación
       summary: Solicitar otro código de verificación
@@ -172,6 +176,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /users/me/password-changes:
     post:
+      x-implementation: implemented
       tags:
         - Autenticación
       summary: Cambiar mi contraseña
@@ -202,6 +207,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /users/me:
     get:
+      x-implementation: implemented
       tags:
         - Usuarios
       summary: Consultar mi perfil
@@ -232,6 +238,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     patch:
+      x-implementation: implemented
       tags:
         - Usuarios
       summary: Modificar mi perfil
@@ -271,6 +278,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /users:
     get:
+      x-implementation: implemented
       tags:
         - Usuarios
       summary: Listar usuarios
@@ -317,6 +325,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /users/{userId}:
     get:
+      x-implementation: implemented
       tags:
         - Usuarios
       summary: Consultar usuario
@@ -349,6 +358,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     patch:
+      x-implementation: implemented
       tags:
         - Usuarios
       summary: Administrar usuario
@@ -394,6 +404,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /staff-invitations:
     post:
+      x-implementation: implemented
       tags:
         - Invitaciones
       summary: Emitir invitación municipal
@@ -440,6 +451,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     get:
+      x-implementation: implemented
       tags:
         - Invitaciones
       summary: Listar invitaciones
@@ -499,6 +511,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /staff-invitations/{invitationId}:
     get:
+      x-implementation: implemented
       tags:
         - Invitaciones
       summary: Consultar invitación
@@ -537,6 +550,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /users/me/staff-invitation-redemptions:
     post:
+      x-implementation: implemented
       tags:
         - Invitaciones
       summary: Canjear invitación con cuenta verificada
@@ -583,6 +597,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /staff-invitations/{invitationId}/revocations:
     post:
+      x-implementation: implemented
       tags:
         - Invitaciones
       summary: Revocar invitación activa
@@ -613,6 +628,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /categories:
     get:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Listar categorías
@@ -641,6 +657,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     post:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Crear categoría
@@ -687,6 +704,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /categories/{categoryId}:
     get:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Consultar categoría
@@ -721,6 +739,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     patch:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Actualizar categoría
@@ -770,6 +789,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /departments:
     get:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Listar departamentos
@@ -798,6 +818,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     post:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Crear departamento
@@ -840,6 +861,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /departments/{departmentId}:
     get:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Consultar departamento
@@ -870,6 +892,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     patch:
+      x-implementation: implemented
       tags:
         - Catálogos
       summary: Actualizar departamento
@@ -914,8 +937,9 @@ paths:
       tags:
         - Incidencias
       summary: Registrar incidencia
-      description: Registra inmediatamente en REPORTED y genera la primera entrada de auditoría. Geocodificación, duplicados, activos y contexto urbano son enriquecimientos opcionales que no bloquean la creación. Las fotografías se adjuntan después.
+      description: Implementado. Cuenta activa y verificada; informante exclusivamente desde JWT. Cuerpo bruto máximo 65536 bytes, incluidos espacios y escapes JSON; exceso 413 antes de deserializar. Crea REPORTED y AuditEvent INCIDENT_CREATED atómicamente, sin StatusChange, prioridad ni procesos externos.
       operationId: postIncidents
+      x-implementation: implemented
       x-roles:
         - CITIZEN
         - OPERATOR
@@ -928,102 +952,74 @@ paths:
               $ref: '#/components/schemas/CreateIncidentRequest'
       responses:
         '201':
-          description: Recurso creado.
+          description: Incidencia creada; Location y ETag siempre presentes.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Ruta /api/v1/incidents/{incidentId}.
+            ETag:
+              $ref: '#/components/headers/IncidentETag'
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     get:
       tags:
         - Incidencias
-      summary: Buscar incidencias
-      description: Búsqueda paginada. Los coordinadores acceden únicamente a incidencias de sus departamentos activos; el departamento de cada resultado se comprueba en el backend. Filtros opcionales.
+      summary: Listar incidencias administrativamente
+      description: Implementado. Solo OPERATOR/ADMIN globales verificados. Filtros SQL opcionales, fechas inclusivas y orden fijo createdAt DESC, id DESC. Parámetros desconocidos, sort y filtros futuros se rechazan con 400. Offset máximo 2147483647.
       operationId: getIncidents
+      x-implementation: implemented
       x-roles:
-        - AUTHENTICATED
+        - OPERATOR
+        - ADMIN
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - name: status
           in: query
-          required: false
           schema:
             $ref: '#/components/schemas/IncidentStatus'
-          description: Estado.
         - name: categoryId
           in: query
-          required: false
           schema:
             type: string
             format: uuid
-          description: Categoría.
-        - name: districtId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Distrito.
-        - name: departmentId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Departamento asignado.
-        - name: priority
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/IncidentPriority'
-          description: Prioridad.
         - name: createdFrom
           in: query
-          required: false
+          description: Inicio inclusivo como instante ISO-8601 con zona; no puede ser posterior a createdTo.
           schema:
             type: string
             format: date-time
-          description: Inicio de creación.
         - name: createdTo
           in: query
-          required: false
+          description: Fin inclusivo como instante ISO-8601 con zona.
           schema:
             type: string
             format: date-time
-          description: Fin de creación.
-        - name: sort
-          in: query
-          required: false
-          schema:
-            type: string
-            enum:
-              - createdAt
-              - -createdAt
-              - priority
-              - -priority
-          description: Orden permitido.
       responses:
         '200':
-          description: Operación correcta.
+          description: Página administrativa.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
@@ -1034,19 +1030,18 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/mine:
     get:
       tags:
         - Incidencias
       summary: Mis incidencias
-      description: Solo incidencias creadas por la identidad del JWT; no se acepta userId de terceros.
+      description: Implementado. SQL restringido al sujeto del JWT activo y verificado; nunca acepta userId. Orden createdAt DESC, id DESC. Offset máximo 2147483647; no admite filtros adicionales.
       operationId: getIncidentsMine
+      x-implementation: implemented
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1054,7 +1049,10 @@ paths:
         - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
-          description: Operación correcta.
+          description: Página del titular.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
@@ -1065,26 +1063,30 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}:
     get:
       tags:
         - Incidencias
       summary: Consultar incidencia
-      description: Detalle con dirección si se ha resuelto, clasificación, fechas y estado. Los campos sujetos a privacidad se filtran por permisos.
+      description: Implementado. Informante o OPERATOR/ADMIN globales, activos y verificados. Incidencias ajenas sin permiso responden como inexistentes (404). Rol departamental no concede acceso global.
       operationId: getIncidentsIncidentId
+      x-implementation: implemented
       x-roles:
         - AUTHENTICATED
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
         '200':
-          description: Operación correcta.
+          description: Detalle autorizado con ETag fuerte.
+          headers:
+            ETag:
+              $ref: '#/components/headers/IncidentETag'
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
@@ -1097,22 +1099,24 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       tags:
         - Incidencias
       summary: Corregir incidencia
-      description: 'Propuesta: permitir ajustes al titular mientras REPORTED y edición limitada al operador según reglas del dominio. Auditar modificaciones.'
+      description: Implementado. Informante o provisionalmente OPERATOR/ADMIN globales; únicamente REPORTED. Cuerpo bruto máximo 65536 bytes; exceso 413 antes de deserializar. Revalida cuenta, titularidad, ETag del detalle vigente y estado dentro de la transacción. Auditoría INCIDENT_UPDATED solo para cambios efectivos. No permite estado, prioridad, informante ni departamento. Autorización transversal sujeta a revisión futura de negocio/seguridad.
       operationId: patchIncidentsIncidentId
+      x-implementation: implemented
       x-roles:
         - CITIZEN
         - OPERATOR
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/IncidentIfMatch'
       requestBody:
         required: true
         content:
@@ -1121,7 +1125,12 @@ paths:
               $ref: '#/components/schemas/UpdateIncidentRequest'
       responses:
         '200':
-          description: Operación correcta.
+          description: Detalle resultante; no-op conserva ETag y fecha.
+          headers:
+            ETag:
+              $ref: '#/components/headers/IncidentETag'
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
@@ -1136,30 +1145,42 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/history:
     get:
       tags:
         - Incidencias
       summary: Consultar historial
-      description: 'Historial visible para el solicitante: sucesos internos no deben filtrarse al ciudadano.'
+      description: Implementado. Mismo acceso que detalle. Página SQL de AuditEvent con resourceType INCIDENT, identidad exacta y acciones INCIDENT_CREATED/INCIDENT_UPDATED. Orden occurredAt ASC, id ASC; sin eventos internos, datos arbitrarios ni transiciones duplicadas. Offset máximo 2147483647.
       operationId: getIncidentsIncidentIdHistory
+      x-implementation: implemented
       x-roles:
         - AUTHENTICATED
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
-          description: Operación correcta.
+          description: Historial público paginado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/HistoryEventDTO'
+                $ref: '#/components/schemas/HistoryPageDTO'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1168,17 +1189,18 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/attachments:
     post:
       tags:
         - Evidencias
-      summary: Adjuntar fotografía
+      summary: 'Diseño futuro: Adjuntar fotografía'
       description: Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar compensación ante fallos parciales y EXIF sensible.
       operationId: postIncidentsIncidentIdAttachments
+      x-implementation: future
       x-roles:
         - CITIZEN
         - OPERATOR
@@ -1234,9 +1256,10 @@ paths:
     get:
       tags:
         - Evidencias
-      summary: Listar fotografías
+      summary: 'Diseño futuro: Listar fotografías'
       description: Lista metadatos sin revelar URLs S3 públicas permanentes.
       operationId: getIncidentsIncidentIdAttachments
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1266,9 +1289,10 @@ paths:
     get:
       tags:
         - Evidencias
-      summary: Consultar metadatos de fotografía
+      summary: 'Diseño futuro: Consultar metadatos de fotografía'
       description: Metadatos de evidencia bajo autorización por incidencia.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentId
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1297,9 +1321,10 @@ paths:
     get:
       tags:
         - Evidencias
-      summary: Descargar fotografía privada
+      summary: 'Diseño futuro: Descargar fotografía privada'
       description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1333,9 +1358,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Validar, rechazar o pedir información
+      summary: 'Diseño futuro: Validar, rechazar o pedir información'
       description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
       operationId: postIncidentsIncidentIdReviews
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1376,9 +1402,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Consultar revisiones
+      summary: 'Diseño futuro: Consultar revisiones'
       description: Historial de decisiones y motivos para trazabilidad.
       operationId: getIncidentsIncidentIdReviews
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1409,9 +1436,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Establecer prioridad
+      summary: 'Diseño futuro: Establecer prioridad'
       description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; siempre confirmada por personal autorizado.
       operationId: postIncidentsIncidentIdPriorityDecisions
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1452,9 +1480,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Historial de prioridades
+      summary: 'Diseño futuro: Historial de prioridades'
       description: Conserva todas las decisiones de prioridad y su fuente.
       operationId: getIncidentsIncidentIdPriorityDecisions
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1485,9 +1514,10 @@ paths:
     put:
       tags:
         - Tramitación
-      summary: Derivar o transferir incidencia a departamento
+      summary: 'Diseño futuro: Derivar o transferir incidencia a departamento'
       description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. Una incidencia VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir trabajo activo requiere finalizar la asignación anterior.
       operationId: putIncidentsIncidentIdDepartment
+      x-implementation: future
       x-roles:
         - OPERATOR
       parameters:
@@ -1523,9 +1553,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Asignar o reasignar trabajo a equipo o técnico
+      summary: 'Diseño futuro: Asignar o reasignar trabajo a equipo o técnico'
       description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha de estar derivada previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o Technician y una asignación activa por incidencia.
       operationId: postIncidentsIncidentIdAssignments
+      x-implementation: future
       x-roles:
         - DEPARTMENT_COORDINATOR
       parameters:
@@ -1565,9 +1596,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Consultar asignaciones
+      summary: 'Diseño futuro: Consultar asignaciones'
       description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; acceso restringido por departamento, asignación y permisos.
       operationId: getIncidentsIncidentIdAssignments
+      x-implementation: future
       x-roles:
         - OPERATOR
         - DEPARTMENT_COORDINATOR
@@ -1600,9 +1632,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Aceptar trabajo asignado
+      summary: 'Diseño futuro: Aceptar trabajo asignado'
       description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra acceptedBy/acceptedAt sin pasar automáticamente a IN_PROGRESS.
       operationId: postIncidentsIncidentIdAssignmentsAssignmentIdAcceptance
+      x-implementation: future
       x-roles:
         - TECHNICIAN
       parameters:
@@ -1631,9 +1664,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Registrar transición de estado
+      summary: 'Diseño futuro: Registrar transición de estado'
       description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y WORK_ASSIGNED se gestionan mediante sus operaciones específicas.
       operationId: postIncidentsIncidentIdStatusChanges
+      x-implementation: future
       x-roles:
         - OPERATOR
         - DEPARTMENT_COORDINATOR
@@ -1676,9 +1710,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Consultar cambios de estado
+      summary: 'Diseño futuro: Consultar cambios de estado'
       description: Historial ordenado de transiciones, actores, motivos y fechas.
       operationId: getIncidentsIncidentIdStatusChanges
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1708,9 +1743,10 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: Añadir comentario
+      summary: 'Diseño futuro: Añadir comentario'
       description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
       operationId: postIncidentsIncidentIdComments
+      x-implementation: future
       x-roles:
         - CITIZEN
         - OPERATOR
@@ -1753,9 +1789,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Listar comentarios
+      summary: 'Diseño futuro: Listar comentarios'
       description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
       operationId: getIncidentsIncidentIdComments
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -1785,9 +1822,10 @@ paths:
     get:
       tags:
         - Tramitación
-      summary: Mi cola de trabajo
+      summary: 'Diseño futuro: Mi cola de trabajo'
       description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento responsable. El servicio comprueba pertenencia y visibilidad.
       operationId: getIncidentsAssignedToMe
+      x-implementation: future
       x-roles:
         - TECHNICIAN
       parameters:
@@ -1822,9 +1860,10 @@ paths:
     get:
       tags:
         - Duplicados
-      summary: Sugerir incidencias duplicadas
+      summary: 'Diseño futuro: Sugerir incidencias duplicadas'
       description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría si está disponible). La confirmación siempre corresponde al personal municipal.
       operationId: getIncidentsIncidentIdDuplicateCandidates
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1855,9 +1894,10 @@ paths:
     post:
       tags:
         - Duplicados
-      summary: Vincular duplicado confirmado
+      summary: 'Diseño futuro: Vincular duplicado confirmado'
       description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
       operationId: postIncidentsIncidentIdDuplicateLinks
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1899,9 +1939,10 @@ paths:
     get:
       tags:
         - Contexto urbano
-      summary: Consultar contexto asociado
+      summary: 'Diseño futuro: Consultar contexto asociado'
       description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE sin ocultar la incidencia.
       operationId: getIncidentsIncidentIdUrbanContext
+      x-implementation: future
       x-roles:
         - OPERATOR
         - TECHNICIAN
@@ -1931,9 +1972,10 @@ paths:
     get:
       tags:
         - Contexto urbano
-      summary: Candidatos a activo urbano
+      summary: 'Diseño futuro: Candidatos a activo urbano'
       description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe ambigüedad.
       operationId: getIncidentsIncidentIdAssetCandidates
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -1964,9 +2006,10 @@ paths:
     put:
       tags:
         - Contexto urbano
-      summary: Confirmar activo urbano
+      summary: 'Diseño futuro: Confirmar activo urbano'
       description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
       operationId: putIncidentsIncidentIdAssetAssociation
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2003,9 +2046,10 @@ paths:
     get:
       tags:
         - Contexto urbano
-      summary: Buscar activos urbanos
+      summary: 'Diseño futuro: Buscar activos urbanos'
       description: Filtra activos por tipo o proximidad.
       operationId: getUrbanAssets
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -2064,9 +2108,10 @@ paths:
     get:
       tags:
         - Contexto urbano
-      summary: Consultar activo urbano
+      summary: 'Diseño futuro: Consultar activo urbano'
       description: Devuelve geometría, procedencia y metadatos permitidos.
       operationId: getUrbanAssetsAssetId
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -2094,9 +2139,10 @@ paths:
     get:
       tags:
         - Contexto urbano
-      summary: Consultar observaciones normalizadas
+      summary: 'Diseño futuro: Consultar observaciones normalizadas'
       description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
       operationId: getExternalObservations
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2141,9 +2187,10 @@ paths:
     get:
       tags:
         - Mapas
-      summary: Obtener incidencias del mapa
+      summary: 'Diseño futuro: Obtener incidencias del mapa'
       description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son obligatorios para evitar consultas ilimitadas.
       operationId: getMapIncidents
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -2215,9 +2262,10 @@ paths:
     get:
       tags:
         - Notificaciones
-      summary: Consultar bandeja
+      summary: 'Diseño futuro: Consultar bandeja'
       description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
       operationId: getNotifications
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -2252,9 +2300,10 @@ paths:
     patch:
       tags:
         - Notificaciones
-      summary: Marcar como leída
+      summary: 'Diseño futuro: Marcar como leída'
       description: Actualiza el indicador de lectura de una notificación propia.
       operationId: patchNotificationsNotificationId
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
@@ -2301,9 +2350,10 @@ paths:
     get:
       tags:
         - Notificaciones
-      summary: Consultar preferencias
+      summary: 'Diseño futuro: Consultar preferencias'
       description: Canales configurados para el usuario.
       operationId: getUsersMeNotificationPreferences
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       responses:
@@ -2328,9 +2378,10 @@ paths:
     put:
       tags:
         - Notificaciones
-      summary: Actualizar preferencias
+      summary: 'Diseño futuro: Actualizar preferencias'
       description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los proveedores.
       operationId: putUsersMeNotificationPreferences
+      x-implementation: future
       x-roles:
         - AUTHENTICATED
       requestBody:
@@ -2364,9 +2415,10 @@ paths:
     get:
       tags:
         - Analítica
-      summary: Estadísticas territoriales
+      summary: 'Diseño futuro: Estadísticas territoriales'
       description: Agregados por estado, categoría, distrito y tiempos de resolución.
       operationId: getAnalyticsStatistics
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2403,9 +2455,10 @@ paths:
     get:
       tags:
         - Analítica
-      summary: Análisis de zona y periodo
+      summary: 'Diseño futuro: Análisis de zona y periodo'
       description: Agrega incidencias y observaciones contextuales del distrito/zona.
       operationId: getZonesZoneIdAnalysis
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2436,9 +2489,10 @@ paths:
     get:
       tags:
         - Analítica
-      summary: Consultar correlaciones históricas
+      summary: 'Diseño futuro: Consultar correlaciones históricas'
       description: Relaciona tendencias de incidencias con variables urbanas; no implica causalidad.
       operationId: getAnalyticsCorrelations
+      x-implementation: future
       x-roles:
         - ADMIN
       parameters:
@@ -2482,9 +2536,10 @@ paths:
     post:
       tags:
         - Informes
-      summary: Solicitar generación de informe
+      summary: 'Diseño futuro: Solicitar generación de informe'
       description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
       operationId: postReports
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2518,9 +2573,10 @@ paths:
     get:
       tags:
         - Informes
-      summary: Listar informes
+      summary: 'Diseño futuro: Listar informes'
       description: Informes solicitados por usuarios autorizados.
       operationId: getReports
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2550,9 +2606,10 @@ paths:
     get:
       tags:
         - Informes
-      summary: Consultar estado del informe
+      summary: 'Diseño futuro: Consultar estado del informe'
       description: Estado de creación, fechas y error de generación si procede.
       operationId: getReportsReportId
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2581,9 +2638,10 @@ paths:
     get:
       tags:
         - Informes
-      summary: Descargar informe terminado
+      summary: 'Diseño futuro: Descargar informe terminado'
       description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
       operationId: getReportsReportIdFile
+      x-implementation: future
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2614,9 +2672,10 @@ paths:
     get:
       tags:
         - Administración
-      summary: Listar fuentes externas
+      summary: 'Diseño futuro: Listar fuentes externas'
       description: Estado de disponibilidad de proveedores y última sincronización.
       operationId: getExternalSources
+      x-implementation: future
       x-roles:
         - ADMIN
       responses:
@@ -2643,9 +2702,10 @@ paths:
     post:
       tags:
         - Administración
-      summary: Registrar fuente de datos
+      summary: 'Diseño futuro: Registrar fuente de datos'
       description: Registra metadatos públicos de la fuente; las claves de integración van fuera del contrato y del repositorio.
       operationId: postExternalSources
+      x-implementation: future
       x-roles:
         - ADMIN
       requestBody:
@@ -2684,9 +2744,10 @@ paths:
     patch:
       tags:
         - Administración
-      summary: Configurar fuente
+      summary: 'Diseño futuro: Configurar fuente'
       description: Activa/desactiva y ajusta configuración permitida de una fuente.
       operationId: patchExternalSourcesSourceId
+      x-implementation: future
       x-roles:
         - ADMIN
       parameters:
@@ -2722,9 +2783,10 @@ paths:
     get:
       tags:
         - Administración
-      summary: Consultar auditoría
+      summary: 'Diseño futuro: Consultar auditoría'
       description: Acciones administrativas y cambios relevantes, con correlación por requestId.
       operationId: getAuditEvents
+      x-implementation: future
       x-roles:
         - ADMIN
       parameters:
@@ -2857,6 +2919,7 @@ components:
         - totalPages
     CoordinatesDTO:
       type: object
+      additionalProperties: false
       properties:
         latitude:
           type: number
@@ -2872,41 +2935,45 @@ components:
           example: -4.4214
         accuracyMeters:
           type: number
+          nullable: true
           description: Precisión estimada de la posición en metros.
           minimum: 0
           example: 8
       required:
         - latitude
         - longitude
-      description: Coordenadas geográficas; la precisión es opcional.
+      description: Coordenadas WGS84 finitas; precisión opcional, finita y no negativa. En entrada accuracyMeters admite null; en salida se omite si no se conoce.
     LocationDTO:
       type: object
+      description: Coordenadas implementadas. Los atributos de geocodificación son futuros y se omiten; no se emiten estados ficticios.
       properties:
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
         formattedAddress:
           type: string
-          description: Dirección normalizada (puede estar ausente si falla la geocodificación).
+          description: Futuro; dirección normalizada por un proveedor backend.
+          x-implementation: future
         neighborhood:
           type: string
-          description: Barrio deducido de la posición.
+          description: Futuro; nombre del barrio, respaldado por Neighborhood.
+          x-implementation: future
         districtId:
           type: string
-          description: Distrito obtenido por geocodificación.
           format: uuid
+          x-implementation: future
         districtName:
           type: string
-          description: Nombre del distrito.
+          x-implementation: future
         geocodingStatus:
           type: string
           enum:
             - PENDING
             - AVAILABLE
             - UNAVAILABLE
-          description: Resultado del enriquecimiento de localización.
+          description: Futuro; solo se emitirá tras disponer de un proceso real.
+          x-implementation: future
       required:
         - coordinates
-        - geocodingStatus
     IncidentStatus:
       type: string
       enum:
@@ -2917,9 +2984,8 @@ components:
         - WORK_ASSIGNED
         - IN_PROGRESS
         - RESOLVED
-        - REOPENED
         - CLOSED
-      description: 'ADR-0010: validación y derivación pueden estar separadas; el trabajo se distribuye después. La matriz completa de transiciones permanece pendiente.'
+      description: La API actual solo crea REPORTED. Tramitación futura permitirá reabrir RESOLVED directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con trabajo válido y motivo; CLOSED es terminal.
     IncidentPriority:
       type: string
       enum:
@@ -2927,26 +2993,27 @@ components:
         - MEDIUM
         - HIGH
         - CRITICAL
-      description: Escala acordada para UrbanPulse; LOW, MEDIUM, HIGH, CRITICAL.
+      description: Ausente hasta una decisión futura de prioridad justificada.
     CreateIncidentRequest:
       type: object
+      description: Cuenta activa y verificada como informante desde JWT. Textos con trim() antes de validar puntos Unicode, sin cambiar formato interior ni acentos; no blancos, sin NUL ni sustitutos aislados. No admite atributos calculados. Categoría omitida/null equivale a sin categoría; una UUID proporcionada debe existir y estar activa.
       properties:
         title:
           type: string
-          description: Título breve.
-          minLength: 5
-          maxLength: 150
+          x-normalized-minLength: 5
+          x-normalized-maxLength: 150
+          description: De 5 a 150 puntos de código después de trim(), no sobre el texto bruto.
         description:
           type: string
-          description: Descripción detallada.
-          minLength: 10
-          maxLength: 5000
+          x-normalized-minLength: 10
+          x-normalized-maxLength: 5000
+          description: De 10 a 5000 puntos de código después de trim(); conserva saltos y espacios interiores.
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
         categoryId:
           type: string
           format: uuid
-          description: Categoría opcional; puede decidirse durante revisión.
+          nullable: true
       required:
         - title
         - description
@@ -2954,25 +3021,27 @@ components:
       additionalProperties: false
     UpdateIncidentRequest:
       type: object
+      description: Titular o, provisionalmente, OPERATOR/ADMIN; solo REPORTED. If-Match obligatorio. Omitir conserva; categoryId:null desclasifica; null en title, description o coordinates produce 400. Coordenadas se sustituyen completas; precisión omitida/null se elimina. Objeto vacío produce 422. No-op conserva versión, fecha e historial. Normalización idéntica al alta.
       properties:
         title:
           type: string
-          minLength: 5
-          maxLength: 150
+          x-normalized-minLength: 5
+          x-normalized-maxLength: 150
         description:
           type: string
-          minLength: 10
-          maxLength: 5000
+          x-normalized-minLength: 10
+          x-normalized-maxLength: 5000
         categoryId:
           type: string
           format: uuid
-          description: Categoría opcional; puede decidirse durante revisión.
+          nullable: true
         coordinates:
           $ref: '#/components/schemas/CoordinatesDTO'
-      description: 'Edición limitada por estado y propiedad; propuesta: titular mientras REPORTED o personal autorizado.'
       additionalProperties: false
+      minProperties: 1
     IncidentSummaryDTO:
       type: object
+      description: Resumen implementado. Los opcionales sin valor se omiten, salvo la description nullable del catálogo CategoryDTO compartido.
       properties:
         id:
           type: string
@@ -2993,9 +3062,15 @@ components:
         updatedAt:
           type: string
           format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
         attachmentCount:
           type: integer
           minimum: 0
+          description: Futuro; no se devuelve un cero artificial sin módulo de evidencias.
+          x-implementation: future
       required:
         - id
         - title
@@ -3003,9 +3078,10 @@ components:
         - location
         - createdAt
         - updatedAt
-        - attachmentCount
+        - version
     IncidentDTO:
       type: object
+      description: Detalle autorizado. Opcionales sin valor se omiten; no se simulan geocodificación, evidencias, contexto ni asignaciones. CategoryDTO conserva description:null. assignedDepartment representa derivación; currentAssignment será trabajo activo, nunca departamento.
       properties:
         id:
           type: string
@@ -3014,38 +3090,18 @@ components:
           type: string
         description:
           type: string
-        category:
-          $ref: '#/components/schemas/CategoryDTO'
         reporter:
           $ref: '#/components/schemas/UserSummaryDTO'
+        category:
+          $ref: '#/components/schemas/CategoryDTO'
         status:
           $ref: '#/components/schemas/IncidentStatus'
         priority:
           $ref: '#/components/schemas/IncidentPriority'
-        prioritySource:
-          type: string
-          enum:
-            - MANUAL
-            - ASSISTED
-          description: Ausente hasta priorización.
-        priorityJustification:
-          type: string
         location:
           $ref: '#/components/schemas/LocationDTO'
-        urbanAsset:
-          $ref: '#/components/schemas/UrbanAssetAssociationDTO'
-        currentAssignment:
-          $ref: '#/components/schemas/AssignmentDTO'
-        contextStatus:
-          type: string
-          enum:
-            - PENDING
-            - AVAILABLE
-            - PARTIAL
-            - UNAVAILABLE
-        attachmentCount:
-          type: integer
-          minimum: 0
+        assignedDepartment:
+          $ref: '#/components/schemas/DepartmentDTO'
         createdAt:
           type: string
           format: date-time
@@ -3060,21 +3116,50 @@ components:
           format: date-time
         version:
           type: integer
-          description: Versión de control de concurrencia; propuesta.
+          format: int64
           minimum: 0
-        assignedDepartment:
-          $ref: '#/components/schemas/DepartmentDTO'
+          description: Versión optimista JPA, distinta del JWT. Participa en la ETag junto al detalle completo; no permite reconstruir la etiqueta.
+        prioritySource:
+          type: string
+          enum:
+            - MANUAL
+            - ASSISTED
+          x-implementation: future
+        priorityJustification:
+          type: string
+          x-implementation: future
+        urbanAsset:
+          description: Futuro; asociación autorizada con activo urbano.
+          x-implementation: future
+          allOf:
+            - $ref: '#/components/schemas/UrbanAssetAssociationDTO'
+        currentAssignment:
+          description: Futuro; asignación activa a equipo o técnico.
+          x-implementation: future
+          allOf:
+            - $ref: '#/components/schemas/AssignmentDTO'
+        contextStatus:
+          type: string
+          enum:
+            - PENDING
+            - AVAILABLE
+            - PARTIAL
+            - UNAVAILABLE
+          x-implementation: future
+        attachmentCount:
+          type: integer
+          minimum: 0
+          x-implementation: future
       required:
         - id
         - title
         - description
+        - reporter
         - status
         - location
-        - contextStatus
-        - attachmentCount
         - createdAt
         - updatedAt
-      description: El departamento actual se devuelve en assignedDepartment; currentAssignment representa solamente trabajo activo (ADR-0010).
+        - version
     IncidentPageDTO:
       type: object
       properties:
@@ -3089,6 +3174,7 @@ components:
         - pagination
     HistoryEventDTO:
       type: object
+      description: Proyección pública de AuditEvent, no tabla. Solo CREATED y UPDATED están implementados; los demás tipos son diseño futuro y deberán evitar duplicar transiciones.
       properties:
         id:
           type: string
@@ -3097,6 +3183,7 @@ components:
           type: string
           enum:
             - CREATED
+            - UPDATED
             - REVIEWED
             - PRIORITIZED
             - DEPARTMENT_ASSIGNED
@@ -3114,15 +3201,21 @@ components:
           $ref: '#/components/schemas/UserSummaryDTO'
         summary:
           type: string
+          description: Texto estable del servidor; nunca el summary arbitrario del evento interno.
         details:
           type: object
-          additionalProperties: true
-          description: Datos públicos o internos según permisos; sin información sensible.
+          additionalProperties: false
+          properties:
+            version:
+              type: string
+              pattern: ^[0-9]{1,19}$
+          description: Lista permitida de datos públicos; no replica el JSONB de auditoría.
       required:
         - id
         - eventType
         - occurredAt
         - summary
+        - details
     UserSummaryDTO:
       type: object
       properties:
@@ -3646,7 +3739,7 @@ components:
             - REQUEST_INFORMATION
         reason:
           type: string
-          description: Obligatorio en rechazo o solicitud de información.
+          description: Obligatorio en REJECT y REQUEST_INFORMATION; opcional en VALIDATE. Si se aporta, texto no blanco de 3–2000 puntos Unicode tras trim.
           minLength: 3
           maxLength: 2000
         categoryId:
@@ -3654,6 +3747,18 @@ components:
           format: uuid
       required:
         - decision
+      oneOf:
+        - properties:
+            decision:
+              enum:
+                - VALIDATE
+        - properties:
+            decision:
+              enum:
+                - REJECT
+                - REQUEST_INFORMATION
+          required:
+            - reason
       additionalProperties: false
     ReviewDTO:
       type: object
@@ -3698,6 +3803,7 @@ components:
             - ASSISTED
         justification:
           type: string
+          description: Texto no blanco de 3–2000 puntos Unicode tras trim; se conserva la justificación manual o asistida.
           minLength: 3
           maxLength: 2000
       required:
@@ -3784,16 +3890,17 @@ components:
           enum:
             - IN_PROGRESS
             - RESOLVED
-            - REOPENED
+            - ASSIGNED_TO_DEPARTMENT
+            - WORK_ASSIGNED
             - CLOSED
-          description: Solo transiciones operativas. Validación, derivación y designación de trabajo tienen sus propias operaciones.
+          description: Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con asignación válida, coherente y motivo obligatorio. CLOSED es definitivo. Validación, derivación ordinaria y designación de trabajo tienen sus propias operaciones.
         reason:
           type: string
-          description: Motivo exigible en reapertura/cierre, según reglas a acordar.
+          description: El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura persistente solo limita a 2000 puntos Unicode y admite null/blancos.
           maxLength: 2000
         resolutionNotes:
           type: string
-          description: Obligatoria al pasar a RESOLVED; detalle de la actuación.
+          description: El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a 5000 puntos Unicode y admite null/blancos.
           maxLength: 5000
       required:
         - toStatus
@@ -3823,9 +3930,10 @@ components:
       required:
         - id
         - incidentId
+        - fromStatus
         - toStatus
         - changedAt
-      description: fromStatus se omite en el registro inicial si no existía estado previo; changedBy se omite para eventos internos del sistema. El resto de los cambios debe respetar la trazabilidad y autorización previstas.
+      description: Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin StatusChange inicial. changedBy puede omitirse en futuros procesos internos. CLOSED no admite salida.
     CommentRequest:
       type: object
       properties:
@@ -4575,6 +4683,18 @@ components:
       required:
         - data
         - pagination
+    HistoryPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEventDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
   parameters:
     IncidentId:
       name: incidentId
@@ -4719,6 +4839,15 @@ components:
       schema:
         type: string
         format: uuid
+    IncidentIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Una única ETag fuerte opaca recibida del servidor, sha256 y 64 hexadecimales minúsculos entre comillas. Ausencia 428; detalle obsoleto o carrera de escritura 412; formato no admitido 400 INVALID_IF_MATCH. No admite el formato decimal anterior, wildcard, listas, varias cabeceras ni prefijo W/. La autorización precede a la comparación; no derivar la etiqueta desde version.
+      schema:
+        type: string
+        pattern: ^"sha256-[0-9a-f]{64}"$
+        example: '"sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
   responses:
     BadRequest:
       description: JSON mal formado, cuerpo mayor de 16 KiB en los POST de autenticación e invitaciones, tipo de contenido incorrecto o solicitud no interpretable.
@@ -4786,3 +4915,33 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+    PayloadTooLarge:
+      description: El cuerpo bruto de Incidencias supera 65536 bytes; código PAYLOAD_TOO_LARGE. Se rechaza antes de deserializar JSON, incluso sin Content-Length.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    PreconditionFailed:
+      description: Versión obsoleta o conflicto optimista detectado durante el flush (INCIDENT_VERSION_MISMATCH). La modificación y su auditoría se revierten.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    PreconditionRequired:
+      description: If-Match obligatorio ausente (IF_MATCH_REQUIRED); se comprueba después del acceso al recurso.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+  headers:
+    PrivateCache:
+      description: Respuesta privada que no debe almacenarse.
+      schema:
+        type: string
+        example: no-store
+    IncidentETag:
+      description: ETag fuerte opaca SHA-256 del JSON de detalle completo, incluida version y sus recursos proyectados. Enviar sin alterar en If-Match; no derivar de version.
+      schema:
+        type: string
+        pattern: ^"sha256-[0-9a-f]{64}"$
+        example: '"sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'

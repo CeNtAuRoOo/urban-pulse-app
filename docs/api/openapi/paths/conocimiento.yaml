@@ -2,10 +2,11 @@
   post:
     tags:
       - Conocimiento
-    summary: Incorporar documento
+    summary: 'Diseño futuro: Incorporar documento'
     description: Sube procedimiento versionado para indexación posterior. Su autorización y retención se 
       concretarán al abordar RAG.
     operationId: postKnowledgeDocuments
+    x-implementation: future
     x-roles:
       - ADMIN
     requestBody:
@@ -55,9 +56,10 @@
   get:
     tags:
       - Conocimiento
-    summary: Listar documentos
+    summary: 'Diseño futuro: Listar documentos'
     description: Catálogo de documentos indexados y versiones.
     operationId: getKnowledgeDocuments
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -87,10 +89,11 @@
   post:
     tags:
       - Conocimiento
-    summary: Consultar procedimientos con RAG
+    summary: 'Diseño futuro: Consultar procedimientos con RAG'
     description: Responde con citas documentales verificables; marca insuficiencia de evidencia y no 
       suplanta decisiones humanas.
     operationId: postKnowledgeQueries
+    x-implementation: future
     x-roles:
       - OPERATOR
       - TECHNICIAN

@@ -1,25 +1,25 @@
 # UrbanPulse
 
-**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; el resto de funcionalidades sigue en diseño.
+**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección e historial; la tramitación operativa y las integraciones siguen en diseño.
 
-## Estado del proyecto (04/11/2026)
+## Estado del proyecto (05/11/2026)
 
-| Área                                         | Estado                                                                                                                                                                                        |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend web                                 | Expo SDK 57/React Native Web con pantalla inicial, exportación web y desarrollo con Compose verificados. No hay integración real con los endpoints.                                           |
-| Frontend Android/iOS                         | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                        |
-| Backend                                      | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `audit` y `shared`.                                                      |
-| Autenticación                                | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                        |
-| Usuarios                                     | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                |
-| Invitaciones                                 | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                              |
-| Departamentos                                | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                |
-| Categorías                                   | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                  |
-| PostgreSQL                                   | V1 consolidada para bases vacías; evidencia actual en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
-| Object Storage                               | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; operaciones de fotografías pendientes.                                                                                         |
-| Incidencias, tramitación, equipos, analítica | Contrato y modelo revisables, **sin endpoints funcionales implementados**.                                                                                                                    |
-| Despliegue real/CI/CD                        | Pendientes. Compose de desarrollo y runner HTTP de pruebas no acreditan producción.                                                                                                           |
+| Área                  | Estado                                                                                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend web          | Expo SDK 57/React Native Web con pantalla inicial, exportación web y desarrollo con Compose verificados. No hay integración real con los endpoints.                                      |
+| Frontend Android/iOS  | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                   |
+| Backend               | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit` y `shared`.                                    |
+| Autenticación         | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                   |
+| Usuarios              | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                           |
+| Invitaciones          | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                         |
+| Departamentos         | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                           |
+| Categorías            | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                             |
+| PostgreSQL            | V1, V2 y V3 de Incidencias; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
+| Object Storage        | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; operaciones de fotografías pendientes.                                                                                    |
+| Incidencias           | Seis endpoints backend con auditoría, titularidad y concurrencia optimista; Tramitación, equipos y analítica siguen en diseño.                                                           |
+| Despliegue real/CI/CD | Pendientes. Compose de desarrollo y runner HTTP de pruebas no acreditan producción.                                                                                                      |
 
-Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. Sus SVG se han regenerado con draw.io Desktop desde las fuentes `.drawio`; el inventario detalla la validación XML y la inspección visual de las siete páginas.
+Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas históricas; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
 
 ## Tecnologías
 
@@ -67,11 +67,11 @@ Para arrancar también el backend conectado a **Neon `development`** (solo despu
 docker compose up --build
 ```
 
-Frontend web: <http://localhost:7777>; backend: <http://localhost:8888>; bandeja Mailpit local: <http://localhost:8025>. Arrancar el backend con Flyway habilitado puede aplicar V1 consolidada a la base configurada; **no** es un comando inocuo de conectividad. La guía completa y la distinción entre pruebas aisladas y recursos reales están en [Desarrollo](docs/development.md).
+Frontend web: <http://localhost:7777>; backend: <http://localhost:8888>; bandeja Mailpit local: <http://localhost:8025>. Arrancar el backend con Flyway habilitado puede aplicar V1, V2 y V3 a la base configurada; **no** es un comando inocuo de conectividad. La guía completa y la distinción entre pruebas aisladas y recursos reales están en [Desarrollo](docs/development.md).
 
 ## API REST disponible
 
-La fuente editable es el [OpenAPI modular 0.5.0](docs/api/openapi/base-openapi.yaml), con [bundle YAML](docs/api/openapi.yaml) y [HTML](docs/api/openapi.html) regenerados mediante Redocly. El prefijo de las rutas es `/api/v1`.
+La fuente editable es el [OpenAPI modular 0.6.0](docs/api/openapi/base-openapi.yaml), con [bundle YAML](docs/api/openapi.yaml) y [HTML](docs/api/openapi.html) regenerados mediante Redocly. El prefijo de las rutas es `/api/v1`.
 
 Autenticación implementa cinco POST:
 
@@ -93,7 +93,9 @@ Departamentos añade `GET /departments`, `GET /departments/{departmentId}`, `POS
 
 Categorías ofrece las mismas cuatro operaciones en `/categories`, con `CategoryDTO` sin código ni fechas; nombre único reservado incluso estando inactiva. [Contrato HTTP](docs/api/README.md#contrato-de-categorías).
 
-Los demás recursos del contrato son **diseño**, no endpoints ya desplegados.
+Incidencias implementa `POST/GET /incidents`, `GET /incidents/mine`, `GET/PATCH /incidents/{incidentId}` y `GET /incidents/{incidentId}/history`. PATCH exige If-Match y solo admite correcciones en REPORTED; detalle e historial son privados al titular o personal global autorizado. [Contrato y evolución](docs/incidents-implementation-roadmap.md).
+
+Los demás recursos del contrato son **diseño**, no endpoints ejecutables.
 
 ## Pruebas y validación
 

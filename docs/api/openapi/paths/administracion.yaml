@@ -2,9 +2,10 @@
   get:
     tags:
     - Administración
-    summary: Listar fuentes externas
+    summary: 'Diseño futuro: Listar fuentes externas'
     description: Estado de disponibilidad de proveedores y última sincronización.
     operationId: getExternalSources
+    x-implementation: future
     x-roles:
     - ADMIN
     responses:
@@ -32,10 +33,11 @@
   post:
     tags:
     - Administración
-    summary: Registrar fuente de datos
+    summary: 'Diseño futuro: Registrar fuente de datos'
     description: Registra metadatos públicos de la fuente; las claves de integración van fuera del 
       contrato y del repositorio.
     operationId: postExternalSources
+    x-implementation: future
     x-roles:
     - ADMIN
     requestBody:
@@ -75,9 +77,10 @@
   patch:
     tags:
     - Administración
-    summary: Configurar fuente
+    summary: 'Diseño futuro: Configurar fuente'
     description: Activa/desactiva y ajusta configuración permitida de una fuente.
     operationId: patchExternalSourcesSourceId
+    x-implementation: future
     x-roles:
     - ADMIN
     parameters:
@@ -114,9 +117,10 @@
   get:
     tags:
     - Administración
-    summary: Consultar auditoría
+    summary: 'Diseño futuro: Consultar auditoría'
     description: Acciones administrativas y cambios relevantes, con correlación por requestId.
     operationId: getAuditEvents
+    x-implementation: future
     x-roles:
     - ADMIN
     parameters:

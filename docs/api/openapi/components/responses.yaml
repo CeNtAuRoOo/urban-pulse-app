@@ -28,6 +28,18 @@ Conflict:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
+PreconditionRequired:
+  description: If-Match obligatorio ausente (IF_MATCH_REQUIRED); se comprueba después del acceso al recurso.
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/comunes.yaml#/ProblemDetail'
+PreconditionFailed:
+  description: Versión obsoleta o conflicto optimista detectado durante el flush (INCIDENT_VERSION_MISMATCH). La modificación y su auditoría se revierten.
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/comunes.yaml#/ProblemDetail'
 Gone:
   description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
   content:
@@ -64,3 +76,10 @@ ServiceUnavailable:
     application/problem+json:
       schema:
         $ref: "./schemas/comunes.yaml#/ProblemDetail"
+
+PayloadTooLarge:
+  description: El cuerpo bruto de Incidencias supera 65536 bytes; código PAYLOAD_TOO_LARGE. Se rechaza antes de deserializar JSON, incluso sin Content-Length.
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/comunes.yaml#/ProblemDetail'

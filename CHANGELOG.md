@@ -4,6 +4,18 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+- Revisión correctiva de Incidencias: fixture propio de paginación restaurado y aislado; ETag fuerte opaca del detalle completo (cambio aprobado del formato decimal), precisión temporal estable y precondiciones sobre datos relacionados.
+- Límite bruto de 64 KiB en POST/PATCH de Incidencias, con 413; reutilización del cuerpo almacenado sin cambiar las cuotas de Autenticación/Invitaciones.
+- V3 aditiva para invariantes de revisión/prioridad, límites Java de StatusChange y regresiones SQL/HTTP; sin reescribir V1/V2 ni habilitar Tramitación.
+- Trazabilidad RF01–RF26, estado explícito de operaciones OpenAPI y corrección de contradicciones documentales. Resultados comprobados en la guía de desarrollo.
+
+### Incidencias (05/11/2026)
+
+- Seis operaciones backend de registro, listados, detalle, corrección e historial. Informante JWT, REPORTED inicial, permisos por titularidad/rol global y corrección solo en REPORTED.
+- V2 con Incident, Location/Coordinates embebidos y estructuras StatusChange/IncidentReview/PriorityDecision sin operaciones. Auditoría atómica CREATED/UPDATED, @Version y ETag/If-Match con 428/412; no-op sin evento.
+- OpenAPI 0.6.0, roadmap del modelo objetivo, ADR de ciclo/concurrencia y fuentes de diagramas distinguen datos actuales y funciones futuras.
+- Limpieza de cuentas conserva las nuevas referencias históricas; los tests existentes reconocen V1/V2/V3. No se aplican migraciones a Neon.
+
 ### Añadido
 
 - Cinco operaciones de Usuarios en `identity`: perfil propio, consulta administrativa, listado paginado y activación/desactivación. Roles globales y pertenencias activas/históricas en registro, login y consultas; DTO estrictos y sin credenciales.
@@ -25,7 +37,7 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ### Pendientes actuales
 
-Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, API de retirada de permisos, equipos, incidencias/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
+Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, API de retirada de permisos, equipos, tramitación/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
 
 ## 2026-11-03 — Categorías en el backend modular
 

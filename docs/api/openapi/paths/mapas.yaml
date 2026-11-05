@@ -2,10 +2,11 @@
   get:
     tags:
     - Mapas
-    summary: Obtener incidencias del mapa
+    summary: 'Diseño futuro: Obtener incidencias del mapa'
     description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son 
       obligatorios para evitar consultas ilimitadas.
     operationId: getMapIncidents
+    x-implementation: future
     x-roles:
     - AUTHENTICATED
     parameters:

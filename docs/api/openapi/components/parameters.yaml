@@ -116,6 +116,16 @@ Page:
     minimum: 1
     default: 1
 
+IncidentIfMatch:
+  name: If-Match
+  in: header
+  required: true
+  description: Una única ETag fuerte opaca recibida del servidor, sha256 y 64 hexadecimales minúsculos entre comillas. Ausencia 428; detalle obsoleto o carrera de escritura 412; formato no admitido 400 INVALID_IF_MATCH. No admite el formato decimal anterior, wildcard, listas, varias cabeceras ni prefijo W/. La autorización precede a la comparación; no derivar la etiqueta desde version.
+  schema:
+    type: string
+    pattern: '^"sha256-[0-9a-f]{64}"$'
+    example: '"sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+
 PageSize:
   name: pageSize
   in: query

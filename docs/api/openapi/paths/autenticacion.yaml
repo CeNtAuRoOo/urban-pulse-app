@@ -1,5 +1,6 @@
 /auth/register:
   post:
+    x-implementation: implemented
     tags:
       - Autenticación
     summary: Registrar ciudadano y solicitar verificación de correo
@@ -39,6 +40,7 @@
 
 /auth/login:
   post:
+    x-implementation: implemented
     tags:
       - Autenticación
     summary: Iniciar sesión
@@ -78,6 +80,7 @@
 
 /users/me/password-changes:
   post:
+    x-implementation: implemented
     tags:
       - Autenticación
     summary: Cambiar mi contraseña
@@ -113,6 +116,7 @@
 
 /auth/email-verifications/confirm:
   post:
+    x-implementation: implemented
     tags:
       - Autenticación
     summary: Confirmar el correo de la cuenta autenticada
@@ -155,6 +159,7 @@
 
 /auth/email-verifications/resend:
   post:
+    x-implementation: implemented
     tags:
       - Autenticación
     summary: Solicitar otro código de verificación

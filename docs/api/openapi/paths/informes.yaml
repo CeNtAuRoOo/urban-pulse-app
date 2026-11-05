@@ -2,9 +2,10 @@
   post:
     tags:
       - Informes
-    summary: Solicitar generación de informe
+    summary: 'Diseño futuro: Solicitar generación de informe'
     description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
     operationId: postReports
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -39,9 +40,10 @@
   get:
     tags:
       - Informes
-    summary: Listar informes
+    summary: 'Diseño futuro: Listar informes'
     description: Informes solicitados por usuarios autorizados.
     operationId: getReports
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -72,9 +74,10 @@
   get:
     tags:
       - Informes
-    summary: Consultar estado del informe
+    summary: 'Diseño futuro: Consultar estado del informe'
     description: Estado de creación, fechas y error de generación si procede.
     operationId: getReportsReportId
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -104,9 +107,10 @@
   get:
     tags:
       - Informes
-    summary: Descargar informe terminado
+    summary: 'Diseño futuro: Descargar informe terminado'
     description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
     operationId: getReportsReportIdFile
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN

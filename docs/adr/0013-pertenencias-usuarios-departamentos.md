@@ -59,7 +59,7 @@ Esta información complementa los roles globales del usuario, sin sustituirlos.
 
 ## 5. Persistencia y migraciones
 
-La tabla ya forma parte de `V1__initial_schema.sql`, única migración activa bajo la premisa autorizada de destino vacío. No existe una V4 adicional ni una segunda entidad. `organization/model/DepartmentMembership`, su repositorio y `organization/service/DepartmentMembershipService` son canónicos. La V1 contiene el índice parcial `department_memberships_active_unique` sobre `(user_id, department_id, role_code)` con `left_at IS NULL`, las FK históricas RESTRICT, roles departamentales y orden de fechas. No hay departamentos precargados; los tests crean sus unidades.
+La tabla ya forma parte de `V1__initial_schema.sql`, migración inicial bajo la premisa autorizada de destino vacío. No existe una V4 adicional ni una segunda entidad. `organization/model/DepartmentMembership`, su repositorio y `organization/service/DepartmentMembershipService` son canónicos. La V1 contiene el índice parcial `department_memberships_active_unique` sobre `(user_id, department_id, role_code)` con `left_at IS NULL`, las FK históricas RESTRICT, roles departamentales y orden de fechas. No hay departamentos precargados; los tests crean sus unidades.
 
 Toda alta exige usuario activo con correo verificado y departamento activo. El servicio bloquea usuario y después departamento; Invitaciones coordina el mismo orden (usuario → invitación → departamento), conserva su error de permiso duplicado y crea la pertenencia en la misma transacción que consumo y auditoría. Una infracción 23505 del índice parcial se traduce a conflicto; otras infracciones no se ocultan.
 

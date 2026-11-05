@@ -2,10 +2,11 @@
   post:
     tags:
       - Tramitación
-    summary: Validar, rechazar o pedir información
+    summary: 'Diseño futuro: Validar, rechazar o pedir información'
     description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a 
       REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
     operationId: postIncidentsIncidentIdReviews
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -47,9 +48,10 @@
   get:
     tags:
       - Tramitación
-    summary: Consultar revisiones
+    summary: 'Diseño futuro: Consultar revisiones'
     description: Historial de decisiones y motivos para trazabilidad.
     operationId: getIncidentsIncidentIdReviews
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -81,10 +83,11 @@
   post:
     tags:
       - Tramitación
-    summary: Establecer prioridad
+    summary: 'Diseño futuro: Establecer prioridad'
     description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; 
       siempre confirmada por personal autorizado.
     operationId: postIncidentsIncidentIdPriorityDecisions
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -126,9 +129,10 @@
   get:
     tags:
       - Tramitación
-    summary: Historial de prioridades
+    summary: 'Diseño futuro: Historial de prioridades'
     description: Conserva todas las decisiones de prioridad y su fuente.
     operationId: getIncidentsIncidentIdPriorityDecisions
+    x-implementation: future
     x-roles:
       - OPERATOR
       - ADMIN
@@ -160,11 +164,12 @@
   post:
     tags:
       - Tramitación
-    summary: Asignar o reasignar trabajo a equipo o técnico
+    summary: 'Diseño futuro: Asignar o reasignar trabajo a equipo o técnico'
     description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha
       de estar derivada previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o 
       Technician y una asignación activa por incidencia.
     operationId: postIncidentsIncidentIdAssignments
+    x-implementation: future
     x-roles:
       - DEPARTMENT_COORDINATOR
     parameters:
@@ -205,10 +210,11 @@
   get:
     tags:
       - Tramitación
-    summary: Consultar asignaciones
+    summary: 'Diseño futuro: Consultar asignaciones'
     description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; 
       acceso restringido por departamento, asignación y permisos.
     operationId: getIncidentsIncidentIdAssignments
+    x-implementation: future
     x-roles:
       - OPERATOR
       - DEPARTMENT_COORDINATOR
@@ -242,10 +248,11 @@
   post:
     tags:
       - Tramitación
-    summary: Registrar transición de estado
+    summary: 'Diseño futuro: Registrar transición de estado'
     description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y 
       WORK_ASSIGNED se gestionan mediante sus operaciones específicas.
     operationId: postIncidentsIncidentIdStatusChanges
+    x-implementation: future
     x-roles:
       - OPERATOR
       - DEPARTMENT_COORDINATOR
@@ -289,9 +296,10 @@
   get:
     tags:
       - Tramitación
-    summary: Consultar cambios de estado
+    summary: 'Diseño futuro: Consultar cambios de estado'
     description: Historial ordenado de transiciones, actores, motivos y fechas.
     operationId: getIncidentsIncidentIdStatusChanges
+    x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
@@ -322,9 +330,10 @@
   post:
     tags:
       - Tramitación
-    summary: Añadir comentario
+    summary: 'Diseño futuro: Añadir comentario'
     description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
     operationId: postIncidentsIncidentIdComments
+    x-implementation: future
     x-roles:
       - CITIZEN
       - OPERATOR
@@ -368,9 +377,10 @@
   get:
     tags:
       - Tramitación
-    summary: Listar comentarios
+    summary: 'Diseño futuro: Listar comentarios'
     description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
     operationId: getIncidentsIncidentIdComments
+    x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
@@ -401,10 +411,11 @@
   get:
     tags:
       - Tramitación
-    summary: Mi cola de trabajo
+    summary: 'Diseño futuro: Mi cola de trabajo'
     description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento 
       responsable. El servicio comprueba pertenencia y visibilidad.
     operationId: getIncidentsAssignedToMe
+    x-implementation: future
     x-roles:
       - TECHNICIAN
     parameters:
@@ -439,11 +450,12 @@
   put:
     tags:
       - Tramitación
-    summary: Derivar o transferir incidencia a departamento
+    summary: 'Diseño futuro: Derivar o transferir incidencia a departamento'
     description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. 
       Una incidencia VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir 
       trabajo activo requiere finalizar la asignación anterior.
     operationId: putIncidentsIncidentIdDepartment
+    x-implementation: future
     x-roles:
       - OPERATOR
     parameters:
@@ -479,10 +491,11 @@
   post:
     tags:
       - Tramitación
-    summary: Aceptar trabajo asignado
+    summary: 'Diseño futuro: Aceptar trabajo asignado'
     description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra 
       acceptedBy/acceptedAt sin pasar automáticamente a IN_PROGRESS.
     operationId: postIncidentsIncidentIdAssignmentsAssignmentIdAcceptance
+    x-implementation: future
     x-roles:
       - TECHNICIAN
     parameters:

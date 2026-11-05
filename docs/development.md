@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado a 04/11/2026:** la estructura Java del backend es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `audit`, `shared`). Se han implementado Autenticación, Usuarios, Invitaciones, Departamentos y Categorías, con una única migración V1 verificada en PostgreSQL 18 aislado. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
+> **Estado a 05/11/2026:** la estructura Java es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit`, `shared`). Incidencias añade V2 y seis operaciones al núcleo anterior de V1. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
 
 ## 1. Requisitos y clonación
 
@@ -30,18 +30,22 @@ urban-pulse-app/
 │   │   ├── invitations/{api,config,dto,mail,model,repository,security,service}/
 │   │   ├── organization/{api,dto,model,repository,service}/
 │   │   ├── categories/{api,dto,model,repository,service}/
+│   │   ├── incidents/{api,dto,model,repository,service}/
 │   │   ├── audit/{model,repository}/
+│   │   ├── incidents/{api,integration,model,service}/
 │   │   └── shared/{error,mail,pagination,ratelimit,security,storage}/
 │   ├── src/main/resources/
 │   │   ├── application.properties
 │   │   └── db/migration/
-│   │       └── V1__initial_schema.sql
+│   │       ├── V1__initial_schema.sql
+│   │       └── V2__incidents.sql
 │   ├── src/test/java/es/grupo18/urbanpulse/
 │   │   ├── auth/{api,integration,service}/
 │   │   ├── identity/{api,dto,integration,service}/
 │   │   ├── invitations/{api,integration,service}/
 │   │   ├── organization/{api,integration,model,service}/
 │   │   ├── categories/{api,integration,service}/
+│   │   ├── incidents/{api,integration,model,service}/
 │   │   └── shared/
 │   │       ├── error/, mail/, ratelimit/, security/
 │   │       └── storage/integration/NeonConnectivityIT.java
@@ -65,7 +69,7 @@ urban-pulse-app/
 └── .editorconfig
 ```
 
-Los tests de integración PostgreSQL están en `auth/integration`, `invitations/integration` `organization/integration` y `categories/integration`. No situar `NeonConnectivityIT` en la raíz del árbol de pruebas ni inferir que `mvn test` ejecuta suites `*IT` automáticamente. El proyecto sigue siendo **un solo backend Spring Boot**, con siete módulos funcionales y transversales. Consultar [Arquitectura](architecture.md) para las responsabilidades de cada módulo.
+Los tests de integración PostgreSQL están en `auth/integration`, `identity/integration`, `invitations/integration`, `organization/integration`, `categories/integration` e `incidents/integration`. No situar `NeonConnectivityIT` en la raíz del árbol de pruebas ni inferir que `mvn test` ejecuta suites `*IT` automáticamente. El proyecto sigue siendo **un solo backend Spring Boot**, con ocho módulos funcionales y transversales. Consultar [Arquitectura](architecture.md) para las responsabilidades de cada módulo.
 
 ## 3. Configuración y secretos
 
@@ -147,9 +151,9 @@ npx expo export --platform web
 
 ## 5. Backend: ejecución y migraciones
 
-La única migración activa es `V1__initial_schema.sql`: crea nueve tablas funcionales y cinco roles, sin cuentas ADMIN, departamentos ni categorías precargados. Está destinada a una base vacía; el historial y las decisiones de consolidación se recogen en [ADR-0006](adr/0006-flyway.md).
+V1 crea nueve tablas funcionales y cinco roles; V2 añade cuatro tablas de Incidencias y estructuras base. No se precargan cuentas ADMIN, departamentos ni categorías. Está destinada a una base vacía; el historial y las decisiones de consolidación se recogen en [ADR-0006](adr/0006-flyway.md).
 
-**Precaución:** el Compose principal conecta con Neon **development** y un backend nuevo puede ejecutar **Flyway V1 consolidada** al arrancar. No iniciar a ciegas con secretos de producción ni sobre bases de datos compartidas. Hacer backup/plan de migración y verificar `SPRING_DATASOURCE_URL`.
+**Precaución:** el Compose principal conecta con Neon **development** y un backend nuevo puede ejecutar **Flyway V1, V2 y V3** al arrancar. No iniciar a ciegas con secretos de producción ni sobre bases de datos compartidas. Hacer backup/plan de migración y verificar `SPRING_DATASOURCE_URL`.
 
 ```bash
 # Desde la raíz, con backend/.env.development correctamente configurado:
@@ -177,7 +181,7 @@ mvn -B -ntp test                       # Surefire: pruebas unitarias y MVC
 mvn -B -ntp clean verify -Ppostgres-it # Surefire + Failsafe: IT con PostgreSQL efímero
 ```
 
-El perfil `postgres-it` incluye explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `DepartmentPostgresIT` y `CategoryPostgresIT`, cada una con PostgreSQL 18 de Testcontainers. **No ejecuta** `NeonConnectivityIT`. Las invocaciones normales `mvn test`, `mvn package`, `mvn verify` no ejecutan `*IT` por defecto; `mvn spring-boot:run` y `docker compose up --build` con `Dockerfile.dev` tampoco lanzan las suites automáticamente.
+El perfil `postgres-it` incluye explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT` e `IncidentPostgresIT`, cada una con PostgreSQL 18 de Testcontainers. **No ejecuta** `NeonConnectivityIT`. Las invocaciones normales `mvn test`, `mvn package`, `mvn verify` no ejecutan `*IT` por defecto; `mvn spring-boot:run` y `docker compose up --build` con `Dockerfile.dev` tampoco lanzan las suites automáticamente.
 
 ### 6.1. Evidencia histórica de SMTP
 
@@ -219,11 +223,66 @@ Para cada tag, revisar como una unidad el OpenAPI modular, ambas vistas de domin
 - Si `NeonConnectivityIT` no aparece con `mvn test`, es normal: invocarlo expresamente, **solo** con Neon `development` autorizado.
 - `HeadBucket` correcto no garantiza subida/descarga/borrado; esas pruebas corresponden al futuro módulo de evidencias.
 
-Pendientes funcionales: incidencias, fotografías reales, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
+Pendientes funcionales: tramitación de incidencias, fotografías reales, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
 
 ## Verificación del backend
 
-Ejecución del **04/11/2026**, Java 25.0.4 y PostgreSQL 18.6 efímero: `mvn -B -ntp clean verify -Ppostgres-it`, **BUILD SUCCESS**, **228 pruebas**, sin fallos, errores ni omisiones. Los informes XML registran 21 suites Surefire y siete suites Failsafe. El resultado histórico previo a Usuarios fue de 148 pruebas el 03/11/2026; no se suma a la ejecución actual.
+### Incidencias: revisión correctiva del 05/11/2026
+
+Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6 efímero. No se ejecutó NeonConnectivityIT ni se utilizaron credenciales de Neon. El inventario Docker no ofrecía una base PostgreSQL persistente local. El historial remoto de Neon no se ha consultado; V1/V2 se conservan y V3 es aditiva.
+
+`mvn -B -ntp test`: **BUILD SUCCESS, 163 pruebas unitarias/MVC**. `mvn -B -ntp clean verify -Ppostgres-it`: **BUILD SUCCESS, 261 pruebas**, 163 Surefire (26 suites) y 98 Failsafe (ocho suites), sin fallos, errores ni omisiones. No se suman ejecuciones parciales ni resultados históricos.
+
+| Suite                          | Pruebas |
+| ------------------------------ | ------: |
+| Unitarias/MVC                  |     163 |
+| AuthenticationPostgresIT       |       8 |
+| EmailVerificationPostgresIT    |      12 |
+| StaffInvitationPostgresIT      |      24 |
+| DepartmentPostgresIT           |       6 |
+| CategoryPostgresIT             |       6 |
+| UserRepositoryPostgresIT       |      15 |
+| DepartmentMembershipPostgresIT |       9 |
+| IncidentPostgresIT             |      18 |
+| **Total**                      | **261** |
+
+La cifra anterior de 248 no era reproducible con el árbol recibido para esta revisión: `sqlPaginationFiltersStableOrderAndUnknownQueries` no creaba las incidencias del titular y falló con **esperado 2, obtenido 0**. Se restauró la preparación explícita, con control de otro titular, fechas fijas y limpieza independiente. No se modificó autorización para satisfacer el test. Esta medición sustituye aquella cifra como evidencia vigente.
+
+También se reprodujeron: cambios de perfil/categoría por sus APIs que alteraban el JSON conservando ETag `"0"`; aceptación con 201 de un cuerpo de 65537 bytes; y dos fallos unitarios por motivos/límites estructurales no comprobados. La revisión incorpora ETag opaca de la representación, 64 KiB con 413 y reglas Java/SQL coherentes mediante V3. Las fechas se truncan a microsegundos para conservar el JSON al releer PostgreSQL.
+
+Las pruebas cubren JWT real, UUIDv7, Unicode/WGS84, propiedad y permisos globales/departamentales, categoría opcional/inactiva histórica, PATCH omitido/null, 428/412/409, no-op, ETag y datos relacionados, paginación/filtros SQL con empates y límites inclusivos, historial filtrado, rollback de auditoría y carrera real con un único ganador. Se comprueban límites de cuerpo en POST/PATCH, Unicode escapado, longitud declarada ausente/falsa y HTTP real por bloques. Las estructuras futuras se prueban en Java/PostgreSQL sin habilitar Tramitación, incluyendo límites exactos, nulos, blancos, CLOSED terminal y ausencia de REOPENED/transición inicial.
+
+V3 se aplica sobre esquema vacío junto a V1/V2 y también sobre un esquema V2 con datos: rechaza una revisión REQUEST_INFORMATION sin motivo, conserva el historial y permite migrar tras corregir explícitamente el dato sintético. La primera regresión completa reveló dos expectativas de recuento de Flyway que debían adaptarse a V3 y distinguir su marcador de creación de esquema; se corrigieron y la repetición completa pasó. Las pruebas PostgreSQL de los módulos anteriores comprueban la limpieza y compatibilidad del nuevo esquema.
+
+Los comandos se ejecutaron dentro de una copia temporal del código en el contenedor, aislando target del host. Desde la raíz, en PowerShell, la ejecución completa se reproduce así:
+
+```powershell
+docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=/src,readonly" --mount type=volume,source=urbanpulse-auth-maven,target=/root/.m2 --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal maven:3.9.16-eclipse-temurin-25 sh -c 'mkdir -p /tmp/incident-build; cp -a /src/pom.xml /src/src /tmp/incident-build/; cd /tmp/incident-build; mvn -B -ntp clean verify -Ppostgres-it'
+```
+
+Comandos de reproducciones previas y regresión dirigida, desde la copia de backend:
+
+```bash
+mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentTest -Dit.test=IncidentPostgresIT#sqlPaginationFiltersStableOrderAndUnknownQueries
+mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentTest -Dit.test=IncidentPostgresIT#etagTracksChangesToProjectedResources
+mvn -B -ntp test -Dtest=ProcessingStructuresTest
+mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentTest -Dit.test=IncidentPostgresIT#incidentBodiesAcceptUnicodeAtTheByteLimitAndRejectExcess
+mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentETagsTest -Dit.test=IncidentPostgresIT
+mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentETagsTest -Dit.test=IncidentPostgresIT#createDetailAndPatchExposeOnlyRealDataAndAtomicHistory
+mvn -B -ntp javadoc:javadoc -Ddoclint=all
+```
+
+La verificación dirigida final (`-Dtest=IncidentETagsTest -Dit.test=IncidentPostgresIT`) pasó con 2 unitarias y 18 IT tras añadir aserciones de etiqueta antes válida ya obsoleta y cabeceras repetidas. La comprobación adicional dirigida a createDetailAndPatchExposeOnlyRealDataAndAtomicHistory también pasó (2 unitarias y 1 IT): el digest coincide con los bytes HTTP y Accept con charset UTF-16 obtiene 406, sin necesitar un cambio de implementación. Son repeticiones de las suites anteriores, no pruebas que se sumen al total de 261.
+
+Javadoc con Maven Javadoc Plugin 3.12.0 y `-Ddoclint=all`: **BUILD SUCCESS**, cero errores y **57 avisos de completitud documental**, incluidos constructores generados por Lombok y comentarios incompletos del conjunto del backend. Se corrigió una etiqueta `@Version` interpretada como tag Javadoc y se ampliaron las descripciones del módulo; no se atribuye una ejecución sin avisos.
+
+OpenAPI 0.6.0 se validó con Redocly 2.16.0: cero errores y dos avisos, `info-license` (licencia no declarada) y `no-server-example.com` (localhost). Bundle YAML y HTML se regeneraron con los comandos versionados de [API](api/README.md#7-validación-y-visualización). El bundle tiene 70 operaciones: 29 implemented y 41 future, sin operaciones referenciadas sin estado. La primera llamada npm quedó bloqueada por DNS del entorno restringido; la repetición autorizada completó las tres operaciones.
+
+La revisión de las tres fuentes drawio verifica siete páginas, XML/IDs/conexiones válidos y conservación de geometría/estilos. No se modificaron ni regeneraron SVG durante esta revisión correctiva. Los enlaces Markdown locales y anclas se comprobaron; no hay informes temporales de pruebas incorporados a la rama. No se repitieron frontend, SMTP externo ni despliegue en Neon.
+
+### Evidencia anterior a Incidencias
+
+Evidencia histórica del **04/11/2026**, Java 25.0.4 y PostgreSQL 18.6 efímero: `mvn -B -ntp clean verify -Ppostgres-it`, **BUILD SUCCESS**, **228 pruebas**, sin fallos, errores ni omisiones. Los informes XML registran 21 suites Surefire y siete suites Failsafe. El resultado histórico previo a Usuarios fue de 148 pruebas el 03/11/2026; no se suma a las ejecuciones posteriores.
 
 | Suite                          | Pruebas |
 | ------------------------------ | ------: |
@@ -243,7 +302,7 @@ Desde la raíz en PowerShell, con Docker Desktop, el comando reproducible sin cr
 docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=/app" --mount type=volume,source=urbanpulse-auth-maven,target=/root/.m2 --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -w /app maven:3.9.16-eclipse-temurin-25 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Flyway aplica solo V1 sobre cada base vacía y Hibernate valida los mapeos. Se comprueban las nueve tablas funcionales, cinco roles y ausencia de semillas de ambos catálogos. Category cubre UUIDv7, límites Unicode Java/SQL, valores por defecto, reserva del nombre inactivo, altas y renombrados concurrentes, rollback y espera real de bloqueo entre PATCH. Las suites anteriores conservan los escenarios de Departamentos e Invitaciones, incluido el canje frente a desactivación concurrente. `NeonConnectivityIT` está excluido; no se utilizan bases compartidas.
+En esa ejecución histórica, Flyway aplicó solo V1 sobre cada base vacía y Hibernate valida los mapeos. Se comprueban las nueve tablas funcionales, cinco roles y ausencia de semillas de ambos catálogos. Category cubre UUIDv7, límites Unicode Java/SQL, valores por defecto, reserva del nombre inactivo, altas y renombrados concurrentes, rollback y espera real de bloqueo entre PATCH. Las suites anteriores conservan los escenarios de Departamentos e Invitaciones, incluido el canje frente a desactivación concurrente. `NeonConnectivityIT` está excluido; no se utilizan bases compartidas.
 
 Usuarios añade regresiones de normalización previa a validación, límites Unicode Java/SQL, JSON estricto, permisos y paginación. La medición PostgreSQL del listado registra **12 consultas con acceso lazy frente a 4 con carga en lote** para diez usuarios; otra página mantiene cuatro y se comprueba la página vacía. Se verifica la conservación de cuentas vinculadas a todas las FK históricas incluso con lotes de tamaño uno, las bajas concurrentes de administradores, el bloqueo compartido con contraseña, altas/bajas departamentales concurrentes y reingresos con historial. Una comparación de fechas de prueba se ajustó a la precisión de microsegundos de PostgreSQL antes de la ejecución completa satisfactoria.
 

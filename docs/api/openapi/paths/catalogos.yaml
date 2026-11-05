@@ -1,5 +1,6 @@
 /categories:
   get:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Listar categorías
@@ -29,6 +30,7 @@
         $ref: "../components/responses.yaml#/InternalError"
 
   post:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Crear categoría
@@ -76,6 +78,7 @@
 
 /categories/{categoryId}:
   get:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Consultar categoría
@@ -111,6 +114,7 @@
         $ref: "../components/responses.yaml#/InternalError"
 
   patch:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Actualizar categoría
@@ -161,6 +165,7 @@
 
 /departments:
   get:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Listar departamentos
@@ -190,6 +195,7 @@
         $ref: "../components/responses.yaml#/InternalError"
 
   post:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Crear departamento
@@ -233,6 +239,7 @@
 
 /departments/{departmentId}:
   get:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Consultar departamento
@@ -264,6 +271,7 @@
         $ref: "../components/responses.yaml#/InternalError"
 
   patch:
+    x-implementation: implemented
     tags:
       - Catálogos
     summary: Actualizar departamento

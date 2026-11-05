@@ -1,10 +1,10 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 04/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos y Categorías están implementados; los demás tags de negocio siguen siendo diseño. Existe una V1 consolidada y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases y sus SVG regenerados con draw.io Desktop incorporan los módulos actuales; la validación XML y la inspección visual están descritas en el [inventario](diagrams/README.md).
+> **Estado a 05/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías e Incidencias están implementados; los demás tags de negocio siguen siendo diseño. Existen V1, V2 y V3 y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V2 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
 
 ## 1. Propósito y decisiones arquitectónicas
 
-UrbanPulse está planteado para registrar incidencias con localización y fotografías, validarlas, priorizarlas, asignarlas y enriquecerlas gradualmente con contexto urbano. Las funciones operativas de incidencias, fotografías completas, analítica y proveedores externos **no están implementadas** en el backend actual. Los clientes web y móviles podrán compartir código Expo/React Native; todas las decisiones de autorización se aplicarán en el servidor.
+UrbanPulse está planteado para registrar incidencias con localización y fotografías, validarlas, priorizarlas, asignarlas y enriquecerlas gradualmente con contexto urbano. El núcleo implementa alta, consulta, corrección e historial. La tramitación municipal, fotografías completas, analítica y proveedores externos **no están implementados**. Los clientes web y móviles podrán compartir código Expo/React Native; todas las decisiones de autorización se aplicarán en el servidor.
 
 Se adopta **un único proceso Spring Boot** con módulos organizados por responsabilidad de negocio, en lugar de los antiguos paquetes globales `controller`, `entity`, `service`, `repository`, `dto` y `config`. Dentro de cada módulo siguen existiendo capas técnicas (`api`, `dto`, `model`, `repository`, `service`, etc.) cuando son necesarias. Por tanto, hay separación de capas _dentro de módulos_, pero **no** un «monolito organizado globalmente por capas». No se incorporan microservicios, colas ni cachés distribuidas sin una necesidad verificable; las transacciones de identidad, permisos y auditoría se benefician de una misma base PostgreSQL.
 
@@ -12,15 +12,15 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 ## 2. Contenedores C4 y tecnologías
 
-| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                              |
-| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                            |
-| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | Cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo (Departamentos y Categorías) disponibles; módulos de negocio pendientes. |
-| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                             |
-| Objetos privados                    | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                    |
-| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                    |
-| Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                                                 |
+| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                                               |
+| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                             |
+| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 29 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo y seis de Incidencias. Tramitación y otros módulos avanzados pendientes. |
+| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                              |
+| Objetos privados                    | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                                     |
+| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                     |
+| Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                                                                  |
 
 ### Contexto y contenedores
 
@@ -81,6 +81,7 @@ urbanpulse/
 │   ├── model/            # Category
 │   ├── repository/       # Catálogo y bloqueo de fila
 │   └── service/          # CategoryService y excepciones
+├── incidents/           # API, DTO, modelo, repositorios y servicios del núcleo V2
 ├── audit/
 │   ├── model/            # AuditEvent
 │   └── repository/
@@ -102,7 +103,7 @@ La misma división se reproduce en `backend/src/test/java/es/grupo18/urbanpulse/
 - **`invitations`**: ciclo de emisión/listado/consulta/revocación/canje, códigos HMAC, cuotas y notificación SMTP; utiliza `identity`, `organization`, `audit` y utilidades `shared`, pero **no** depende de `AuthService` para registrar al invitado.
 - **`organization`**: administración de departamentos y ciclo interno de alta/baja de pertenencias. Comparte entidad y bloqueos con Invitaciones; equipos siguen pendientes.
 - **`categories`**: catálogo independiente con API, DTO, modelo, repositorio y servicio; reutiliza seguridad y errores de `shared`.
-- **`audit`**: persistencia de eventos de invitaciones; no existe un endpoint de consulta pública.
+- **`audit`**: persistencia compartida de eventos de invitaciones e incidencias; no existe un endpoint de consulta pública.
 - **`shared`**: adaptadores y preocupaciones transversales: `SecurityConfig` centralizado, autorización JWT contra datos vigentes, errores, paginación, limitación en memoria, SMTP y almacenamiento S3.
 
 La dirección típica dentro de un caso de uso es `Controller → Service → Repository → PostgreSQL`; las reglas del dominio y la persistencia no se trasladan al controlador. `StaffInvitationService` concentra las cinco operaciones y las transacciones necesarias, sin servicio delegador redundante. La configuración externa se inyecta en el inicio de Spring Boot.
@@ -111,9 +112,11 @@ La dirección típica dentro de un caso de uso es `Controller → Service → Re
 
 Flyway gestiona migraciones en `backend/src/main/resources/db/migration/`:
 
-| Migración                | Alcance                                                                                                                                                                                                                                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `V1__initial_schema.sql` | `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events`, `categories`; cinco roles, restricciones e índices de los módulos implementados, FK históricas `RESTRICT`, sin departamentos ni categorías precargados. |
+| Migración                                 | Alcance                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `V3__processing_structure_invariants.sql` | Restricciones coherentes de motivos de revisión y justificaciones; conserva V1/V2 y no añade tablas ni operaciones.                                                                                                                                                                          |
+| `V2__incidents.sql`                       | Incidencias y estructuras base de transición, revisión y prioridad; sin operaciones de Tramitación.                                                                                                                                                                                          |
+| `V1__initial_schema.sql`                  | `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events`, `categories`; cinco roles, restricciones e índices de los módulos implementados, FK históricas `RESTRICT`, sin departamentos ni categorías precargados. |
 
 `spring.jpa.hibernate.ddl-auto=validate` comprueba los mapeos, no crea ni migra tablas. Se generan UUIDv7 desde Hibernate en las entidades apropiadas. La consolidación se autoriza únicamente bajo la premisa de destino vacío y ninguna migración previa aplicada en bases que deban conservarse; después de aplicar V1 no debe reescribirse. Se ha comprobado JDBC y el bucket privados en Neon `development` en una **prueba histórica de conectividad**, distinta de las pruebas V1 consolidada con PostgreSQL efímero. No ejecutar tests de escritura ni migraciones experimentales contra Neon `production`.
 
@@ -121,7 +124,7 @@ Invitaciones utiliza bloqueos pesimistas de PostgreSQL en el orden **usuario →
 
 PATCH de Departamentos adquiere un bloqueo pesimista sobre la misma fila que Invitaciones. Su repositorio mantiene las consultas de ambos casos de uso. Los índices únicos de nombre/código resuelven carreras de alta, y solo sus infracciones 23505 se traducen a duplicado. Fechas JPA y UUIDv7 conservados; [contrato detallado](api/README.md#51-departamentos-implementados-catálogos).
 
-Category tiene su entidad y repositorio exclusivos en `categories`, sin dependencia de `organization`. PATCH bloquea la fila con `PESSIMISTIC_WRITE` antes de modificar; el índice único y `saveAndFlush` resuelven altas y renombrados concurrentes. Solo SQLSTATE 23505 del índice `uk_categories_name_normalized` se traduce a `CATEGORY_DUPLICATE`; otras infracciones conservan el tratamiento común. La transacción revierte todos los cambios del perdedor. No hay FK a Incident ni implementación anticipada de incidencias.
+Category tiene su entidad y repositorio exclusivos en `categories`, sin dependencia de `organization`. PATCH bloquea la fila con `PESSIMISTIC_WRITE` antes de modificar; el índice único y `saveAndFlush` resuelven altas y renombrados concurrentes. Solo SQLSTATE 23505 del índice `uk_categories_name_normalized` se traduce a `CATEGORY_DUPLICATE`; otras infracciones conservan el tratamiento común. La transacción revierte todos los cambios del perdedor. V2 incorpora la FK opcional desde Incident; la desactivación conserva referencias y consultas históricas.
 
 Usuarios bloquea la fila antes de cambiar perfil o actividad, coordinándose con contraseña, verificación y canje. Las bajas administrativas adquieren primero un bloqueo transaccional común en PostgreSQL y comprueban que quede un ADMIN activo y verificado. El listado pagina usuarios en SQL y carga roles y pertenencias en lote (sin fetch paginado de colecciones). La baja interna de pertenencias bloquea usuario y después pertenencia, sin cargar previamente estado mutable.
 
@@ -135,7 +138,7 @@ La limpieza excluye las cuentas no verificadas con referencias históricas antes
 
 `StaffInvitationController` expone bajo `/api/v1` cinco operaciones de invitaciones (emisión, listado, GET individual, revocación, canje) descritas en [ADR-0007](adr/0007-invitaciones-personal.md) y [OpenAPI](api/README.md). Emitir/consultar/listar/revocar requiere `ADMIN` y correo verificado; canjear requiere `CITIZEN` y correo verificado coincidente. `OPERATOR`/`ADMIN` son globales; `TECHNICIAN`/`DEPARTMENT_COORDINATOR` requieren pertenencia departamental activa. La autorización contextual de futuras incidencias y equipos **no** está implementada.
 
-Los módulos de auth e Invitaciones reutilizan `ProblemDetail`, protección HTTP de cuerpos de 16 KiB, buckets de tasa locales y transporte SMTP configurable. Los buckets de canje por usuario (10/900 s) y por IP (30/900 s) no son distribuidos. Una futura extracción de protección general de cuerpos desde `auth/security/AuthRateLimitFilter` a `shared/security` sería solo una mejora organizativa; el código actual funciona con la separación mostrada.
+Los módulos de auth e Invitaciones reutilizan `ProblemDetail`, protección HTTP de cuerpos de 16 KiB, buckets de tasa locales y transporte SMTP configurable. Los buckets de canje por usuario (10/900 s) y por IP (30/900 s) no son distribuidos. El envoltorio CachedBodyRequest es compartido en shared/security; cada filtro mantiene su selección de rutas y límites, incluido el límite de 64 KiB de Incidencias sin cuotas funcionales.
 
 `organization.api.DepartmentController` expone GET de colección y detalle, POST y PATCH. Consultas con correo verificado, escrituras con ADMIN global; CORS expone Location. Desactivar conserva pertenencias e historial y bloquea nuevas invitaciones/canjes. La auditoría específica de estas escrituras sigue pendiente de especificación (RF18).
 
@@ -153,4 +156,14 @@ Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, pol
 
 Las suites reproducibles de backend, las comprobaciones del frontend y sus límites se mantienen en [Desarrollo](development.md#verificación-del-backend). Las pruebas aisladas no acreditan despliegue en Neon ni entrega SMTP en Internet.
 
-Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, APIs de incidencias, flujos S3 reales, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
+Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, tramitación de incidencias, flujos S3 reales, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
+
+## Incidencias: integración modular
+
+`incidents/{api,dto,model,repository,service}` depende de identity, categories, organization, audit y shared; no de servicios externos. V2 añade incidents y las estructuras base status_changes, incident_reviews y priority_decisions. Se reutilizan User, Category, Department, AuditEvent, DTO de catálogos, UserSummaryDTO de identity, ProblemDetail y PageMetadata. No hay entidades duplicadas, estado de sesión ni nuevos clientes S3.
+
+Las transacciones pertenecen a IncidentService. La escritura revalida cuenta bajo el bloqueo compartido de identidad, comprueba titularidad/rol global, estado y precondición, y usa @Version/flush sobre Incident. Alta/corrección y AuditEvent confirman o revierten conjuntamente. La categoría usa el bloqueo de su catálogo para coordinar desactivaciones. La limpieza de cuentas reconoce las cuatro nuevas FK a User, sin borrar historia. Los entity graphs solo cargan relaciones to-one necesarias y los filtros/paginación se ejecutan en SQL.
+
+La API no implementa tramitación, evidencias, geocodificación, mapas ni notificaciones de negocio. Las cuotas específicas de alta/corrección siguen como propuesta proporcional sobre el limitador compartido; no se afirma protección distribuida ni se reutiliza un máximo de 16 KiB incompatible con descripciones Unicode válidas. [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [roadmap](incidents-implementation-roadmap.md).
+
+El detalle de Incidencias usa ETag fuerte SHA-256 del JSON completo (incluidos recursos proyectados y version), junto a @Version para carreras de escritura. POST/PATCH tienen un límite bruto de 64 KiB antes de Jackson y responden 413 al excederlo; no incorporan cuotas funcionales nuevas. Se reutiliza CachedBodyRequest con Autenticación, que conserva su límite de 16 KiB. Véase [ADR-0014](adr/0014-incidencias-concurrencia-historial.md).

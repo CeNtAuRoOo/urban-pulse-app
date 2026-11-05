@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.5.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.6.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -20,7 +20,9 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.2.0`**: base documental de dominio compartido por tags (roles, organización, incidencias, asignaciones, identificadores, contexto).
 - **`0.3.0`**: definición del núcleo de autenticación, registro con JWT, cambio de contraseña, invalidación por `tokenVersion` y permisos actuales desde PostgreSQL.
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
-- **`0.5.0` (vigente)**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
+- **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
+
+- **`0.6.0` (vigente)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
 
 La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
 
@@ -135,11 +137,33 @@ npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/
 npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-**Validación del 04/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las 23 operaciones implementadas comprenden cinco de Usuarios, cinco de Autenticación, cinco de Invitaciones y cuatro de cada catálogo; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
+**Validación histórica del 04/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las 23 operaciones implementadas comprenden cinco de Usuarios, cinco de Autenticación, cinco de Invitaciones y cuatro de cada catálogo; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: equipos, API de retirada de permisos, autorización de incidencias por ámbito/titularidad, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
+
+## Incidencias implementadas (0.6.0)
+
+Seis operaciones: POST/GET `/incidents`, GET `/incidents/mine`, GET/PATCH `/incidents/{incidentId}` y GET `/incidents/{incidentId}/history`. Listado general solo OPERATOR/ADMIN globales; propios por sujeto JWT en SQL; detalle, corrección e historial por titular o esos roles. Todos requieren cuenta activa/verificada. Los roles departamentales no amplían acceso. Recurso ajeno sin permiso e inexistente producen el mismo 404.
+
+Alta REPORTED, prioridad no asignada, sin StatusChange inicial; creación y corrección efectiva registran AuditEvent en la misma transacción. PATCH solo título, descripción, categoría y coordenadas mientras REPORTED. Omisión conserva, categoryId:null desclasifica, null en los otros campos devuelve 400; objeto vacío 422. Textos con trim y límites de 5–150/10–5000 puntos Unicode; posición WGS84 finita. Categoría aportada activa y existente; las asociaciones históricas sobreviven a su desactivación.
+
+POST/GET detalle/PATCH devuelven ETag fuerte opaca del JSON completo. PATCH exige If-Match: 428 si falta, 412 si es obsoleta o hay carrera optimista; formato no admitido 400. El formato y el límite de cuerpo se detallan al final de esta sección. Un no-op conserva versión, fecha y auditoría. CORS permite If-Match y expone ETag; respuestas privadas con no-store. El permiso de OPERATOR/ADMIN sobre terceros es provisional y requiere revisión futura por ámbito/campo.
+
+Paginación compartida page=1/pageSize=20 (máximo 100), offset máximo 2147483647. Listados createdAt DESC,id DESC; filtros administrativos status/categoryId/createdFrom/createdTo, fechas inclusivas. Historial occurredAt ASC,id ASC, solo CREATED/UPDATED; datos y totales filtrados antes de paginar. No se aceptan userId en mine ni sort/filtros futuros. Los opcionales sin valor se omiten, salvo description:null del CategoryDTO existente. No se emiten geocodificación, contexto o contadores ficticios.
+
+El [roadmap técnico](../incidents-implementation-roadmap.md) detalla columnas, errores, DTO, modelo futuro, dependencias y trazabilidad RF. Las rutas de otros tags identificadas como «Diseño futuro» no están implementadas.
+
+**Validación del 05/11/2026:** OpenAPI 0.6.0 válido con Redocly 2.16.0, cero errores y los dos avisos conocidos de licencia/localhost. Bundle y HTML regenerados desde la fuente modular. Hay 29 operaciones implementadas: las 23 anteriores y seis de Incidencias; los restantes tags conservan diseño futuro.
+
+### Precondiciones y tamaño del núcleo de Incidencias
+
+POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`. El digest incluye todo el JSON de detalle, version y las proyecciones actuales de informante/categoría/departamento. PATCH exige reenviar esa etiqueta en If-Match; el antiguo formato decimal no es válido. Cambios de datos relacionados pueden causar 412 aunque version no haya cambiado. Un no-op con representación idéntica conserva la etiqueta. Véase [ADR-0014](../adr/0014-incidencias-concurrencia-historial.md).
+
+El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
+
+Todas las operaciones referenciadas tienen x-implementation explícito: 29 implemented y 41 future. Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
