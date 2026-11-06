@@ -66,12 +66,12 @@ Consultar `backend/.env.example` para los nombres exactos y valores por defecto.
 | Variable o familia                                                  | Finalidad                                                                                   |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `SPRING_DATASOURCE_*`                                               | JDBC, usuario y contraseña específicos del entorno                                          |
-| `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Object Storage privado; no exponer al frontend                                              |
+| `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `STORAGE_BUCKET`                | Endpoint, región y bucket de Object Storage del entorno                                    |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                         | Credenciales de Object Storage leídas por el SDK; no exponer al frontend                    |
 | `JWT_SECRET`, `JWT_ISSUER`                                          | Firma HS256 y emisor del JWT; el secreto se configura como Base64 suficientemente aleatorio |
 | `EMAIL_VERIFICATION_SECRET`                                         | HMAC independiente para códigos decimales de verificación                                   |
-| `STAFF_INVITATION_SECRET`, `STAFF_INVITATION_TTL_DAYS`              | HMAC independiente y TTL de invitación, por defecto siete días (1..30)                      |
+| `STAFF_INVITATION_SECRET`                                           | HMAC independiente para códigos de invitación                                              |
 | `MAIL_*`                                                            | SMTP, cuenta remitente, autenticación y seguridad de transporte                             |
-| `EMAIL_VERIFICATION_CLEANUP_CRON`                                   | Planificación de limpieza de cuentas/códigos pendientes                                     |
 | `CORS_ALLOWED_ORIGINS`                                              | Orígenes permitidos del cliente web                                                         |
 
 Las claves HMAC y JWT deben ser independientes; **rotar `STAFF_INVITATION_SECRET` invalida los códigos de invitaciones pendientes** porque no existe soporte multiclave. Guardar secretos en un gestor seguro y restringir acceso; evitar logs, imágenes Docker, repositorio y valores de pruebas. Configurar HTTPS, proxy de confianza, cabeceras, CORS, transporte de JWT y condiciones de CSRF antes de publicar. El limitador en memoria usa la IP de conexión y no confía en cabeceras `Forwarded`: detrás de un proxy requerirá diseño seguro para reconocer clientes y cuotas compartidas si hay réplicas.

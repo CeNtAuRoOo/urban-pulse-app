@@ -1,5 +1,11 @@
-import { Stack } from "expo-router";
+import { Slot } from "expo-router";
+import { SessionProvider } from "../services/session";
+import "../global.css";
 
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <SessionProvider>
+      <Slot />
+    </SessionProvider>
+  );
 }
