@@ -97,19 +97,20 @@ SPRING_DATASOURCE_URL=jdbc:postgresql://HOST-DEVELOPMENT:5432/urban-pulse?sslmod
 SPRING_DATASOURCE_USERNAME=backend
 SPRING_DATASOURCE_PASSWORD=PASSWORD_DEVELOPMENT
 AWS_ENDPOINT_URL_S3=https://BRANCH-DEVELOPMENT.storage.c-7.eu-central-1.aws.neon.tech
+AWS_REGION=eu-central-1
+STORAGE_BUCKET=incident-evidence
 AWS_ACCESS_KEY_ID=ACCESS_KEY_DEVELOPMENT
 AWS_SECRET_ACCESS_KEY=SECRET_KEY_DEVELOPMENT
 JWT_ISSUER=urbanpulse-development
 JWT_SECRET=BASE64_OF_32_OR_MORE_RANDOM_BYTES
 EMAIL_VERIFICATION_SECRET=DIFFERENT_BASE64_OF_32_OR_MORE_RANDOM_BYTES
 STAFF_INVITATION_SECRET=ANOTHER_DIFFERENT_BASE64_OF_32_OR_MORE_RANDOM_BYTES
-STAFF_INVITATION_TTL_DAYS=7
 CORS_ALLOWED_ORIGINS=http://localhost:7777
 ```
 
 Son **marcadores ficticios**: no copiar valores reales a Git. La BD histórica se llama `urban-pulse`, el rol es `backend` y el bucket S3 privado es `incident-evidence`. La rama Neon debe confirmarse **por los endpoints efectivos** y no solo por nombres de base/rol/bucket. `compose.yaml` carga `backend/.env.development`; `StorageProperties` y `StorageConfig` configuran S3 con credenciales AWS estándar y direccionamiento path-style. La configuración de producción debe ser distinta y suministrarse externamente.
 
-`application.properties` configura puerto **8888**, HikariCP, `spring.jpa.open-in-view=false`, `ddl-auto=validate`, Flyway, JWT, CORS y cuotas; Hibernate **no** genera tablas. El token HS256 dura **7200 s** y los secretos JWT/HMAC deben ser distintos. `STAFF_INVITATION_TTL_DAYS` tiene rango 1–30, valor por defecto 7. El archivo de propiedades de tests (`auth-test.properties`) nunca se utilizará como configuración productiva.
+`application.properties` mantiene los ajustes comunes: puerto **8888**, HikariCP, `spring.jpa.open-in-view=false`, `ddl-auto=validate`, Flyway, caducidades y cuotas; Hibernate **no** genera tablas. El token HS256 dura **7200 s** y las invitaciones **7 días**. Los `.env` contienen conexiones, credenciales, emisor JWT, orígenes CORS y transporte SMTP de cada entorno; los secretos JWT/HMAC deben ser distintos. El archivo de propiedades de tests (`auth-test.properties`) nunca se utilizará como configuración productiva.
 
 ### Correo local
 
