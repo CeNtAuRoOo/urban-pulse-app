@@ -21,3 +21,6 @@ Autenticación, Usuarios, Invitaciones, Departamentos, Categorías e Incidencias
 La [guía de desarrollo](development.md#verificación-del-backend) reúne las pruebas reproducibles. Los catálogos requieren correo verificado para consultar y ADMIN global para escribir. Invitaciones conserva la concesión transaccional de roles y pertenencias, con auditoría propia.
 
 Incidencias implementa registro, listados, detalle, corrección e historial con V2. Tramitación, equipos, fotografías y auditoría administrativa completa RF18 siguen pendientes. Véase el [roadmap técnico de Incidencias](incidents-implementation-roadmap.md). La conectividad histórica con Neon no acredita el despliegue de V1. Las fuentes `.drawio` distinguen núcleo V2 y diseño futuro; las exportaciones históricas se describen en el inventario; la [validación de diagramas](diagrams/README.md#criterios-de-sincronización) distingue integridad XML de las fuentes actuales e inspección visual histórica de las siete páginas.
+
+
+**Implementación de evidencias (04/11/2026):** el tag **Evidencias** pasa de diseño a implementado. El contrato `incidents/{incidentId}/attachments` y `incidents/{incidentId}/attachments/{attachmentId}` (incluido `/content`) queda cubierto por `AttachmentService` y los endpoints asociados.

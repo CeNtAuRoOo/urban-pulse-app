@@ -167,3 +167,7 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
 Todas las operaciones referenciadas tienen x-implementation explícito: 29 implemented y 41 future. Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+
+## Implementación de evidencias (04/11/2026):
+
+El tag **Evidencias** pasa de diseño a implementado. El contrato `paths/evidencias.yaml` cubre cinco operaciones sobre adjuntos de incidencia, respaldadas por `AttachmentService`, `ObjectStorageService` (bucket privado de Neon) e `ImageSanitizer`. Se respeta ADR-0004 (solo JPEG, PNG y WebP, verificados por **firma binaria**, no por `Content-Type` declarado) y se aplica **compensación** (borrado del objeto en el bucket si falla la persistencia en PostgreSQL) y **soft delete** (los metadatos permanecen y el binario no se elimina del almacenamiento).

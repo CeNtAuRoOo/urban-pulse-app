@@ -1,35 +1,39 @@
 AttachmentDTO:
   type: object
+  additionalProperties: false
   properties:
     id:
       type: string
       format: uuid
-    incidentId:
+      description: Identificador UUIDv7 de la evidencia.
+    originalFilename:
       type: string
-      format: uuid
-    fileName:
-      type: string
+      maxLength: 128
+      description: Nombre original del archivo, sin rutas de directorios.
     contentType:
       type: string
+      description: Formato de imagen detectado mediante firma binaria.
       enum:
-        - image/jpeg
-        - image/png
-        - image/webp
+        - IMAGE_JPEG
+        - IMAGE_PNG
+        - IMAGE_WEBP
     sizeBytes:
       type: integer
+      format: int64
       minimum: 0
-    uploadedBy:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      description: Tamaño del contenido procesado y almacenado, expresado en bytes.
+    description:
+      type: string
+      maxLength: 300
+      nullable: true
+      description: Descripción opcional de la evidencia.
     createdAt:
       type: string
       format: date-time
-    description:
-      type: string
-      description: Descripción accesible de la fotografía.
+      description: Instante de creación de la evidencia.
   required:
     - id
-    - incidentId
-    - fileName
+    - originalFilename
     - contentType
     - sizeBytes
     - createdAt
