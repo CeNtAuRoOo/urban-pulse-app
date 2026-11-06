@@ -1,5 +1,5 @@
 
-package es.grupo18.urbanpulse.controller;
+package es.grupo18.urbanpulse.attachment.api;
 
 import java.net.URI;
 import java.util.List;
@@ -20,11 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import es.grupo18.urbanpulse.dto.attachment.AttachmentDTO;
-import es.grupo18.urbanpulse.entity.model.User;
+import es.grupo18.urbanpulse.attachment.dto.AttachmentDTO;
+import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.service.AttachmentService;
 import es.grupo18.urbanpulse.service.attachment.AttachmentContent;
-
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
@@ -46,7 +45,7 @@ public class AttachmentController {
             @Size(max = 300) String description,
             @AuthenticationPrincipal User uploader) {
 
-        AttachmentDTO response = attachmentService.attachPhoto(
+        AttachmentDTO response = (AttachmentDTO) attachmentService.attachPhoto(
                 file,
                 description,
                 uploader
@@ -67,7 +66,7 @@ public class AttachmentController {
      * Lists all active attachments.
      */
     @GetMapping
-    public ResponseEntity<List<AttachmentDTO>> getAttachments() {
+    public ResponseEntity<List<Object>> getAttachments() {
 
         return ResponseEntity.ok(
                 attachmentService.getAttachments()
@@ -78,7 +77,7 @@ public class AttachmentController {
      * Retrieves attachment metadata.
      */
     @GetMapping("/{attachmentId}")
-    public ResponseEntity<AttachmentDTO> getAttachment(
+    public ResponseEntity<Object> getAttachment(
             @PathVariable UUID attachmentId) {
 
         return ResponseEntity.ok(
