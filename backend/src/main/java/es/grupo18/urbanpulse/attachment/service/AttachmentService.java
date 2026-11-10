@@ -17,6 +17,8 @@ import es.grupo18.urbanpulse.attachment.model.Attachment;
 import es.grupo18.urbanpulse.attachment.model.ContentType;
 import es.grupo18.urbanpulse.attachment.repository.AttachmentRepository;
 import es.grupo18.urbanpulse.identity.model.User;
+import es.grupo18.urbanpulse.incidents.model.Incident;
+import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 @Service
@@ -27,6 +29,7 @@ public class AttachmentService {
     private static final int MAX_FILENAME_LENGTH = 128;
 
     private final AttachmentRepository attachments;
+    private final IncidentRepository incidents;
     private final ObjectStorageService storage;
     private final ImageSanitizer imageSanitizer;
     private final AttachmentMapper mapper;
@@ -34,12 +37,13 @@ public class AttachmentService {
 
     /**
      * Uploads an attachment to Neon Object Storage
-     * and saves its metadata in PostgreSQL.
+     * and saves its metadata in PostgreSQL, linked to the given incident.
      */
     public AttachmentDTO attachPhoto(
             MultipartFile file,
             String description,
-            User uploader) {
+            User uploader,
+            UUID incidentId) {
 
         validateFile(file);
         validateDescription(description);
@@ -47,6 +51,19 @@ public class AttachmentService {
         if (uploader == null || !uploader.isActive()) {
             throw ApiException.unauthorized();
         }
+
+        if (incidentId == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INCIDENT_REQUIRED",
+                    "Debe indicar la incidencia asociada a la fotografía.");
+        }
+
+        Incident incident = incidents.findById(incidentId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "INCIDENT_NOT_FOUND",
+                        "No se encontró la incidencia solicitada."));
 
         String storageKey = UUID.randomUUID().toString();
 
@@ -87,6 +104,7 @@ public class AttachmentService {
                 return transactionTemplate.execute(status -> {
 
                     Attachment attachment = Attachment.create(
+                            incident,
                             uploader,
                             filename,
                             contentType,
@@ -119,32 +137,19 @@ public class AttachmentService {
         }
     }
 
-    /**
-     * Returns all attachments that have not been deleted.
-     */
     public List<AttachmentDTO> getAttachments() {
-
         return attachments.findAllByDeletedAtIsNull()
                 .stream()
                 .map(mapper::toDTO)
                 .toList();
     }
 
-    /**
-     * Returns the metadata of a specific attachment.
-     */
     public AttachmentDTO getAttachment(UUID attachmentId) {
-
         Attachment attachment = findActiveAttachment(attachmentId);
-
         return mapper.toDTO(attachment);
     }
 
-    /**
-     * Retrieves the actual image from Neon Object Storage.
-     */
     public AttachmentContent getAttachmentContent(UUID attachmentId) {
-
         Attachment attachment = findActiveAttachment(attachmentId);
 
         byte[] data;
@@ -165,11 +170,7 @@ public class AttachmentService {
                 data);
     }
 
-    /**
-     * Finds an attachment that has not been deleted.
-     */
     private Attachment findActiveAttachment(UUID attachmentId) {
-
         return attachments.findByIdAndDeletedAtIsNull(attachmentId)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -178,7 +179,6 @@ public class AttachmentService {
     }
 
     private void validateFile(MultipartFile file) {
-
         if (file == null || file.isEmpty()) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -188,10 +188,8 @@ public class AttachmentService {
     }
 
     private void validateDescription(String description) {
-
         if (description != null &&
                 description.length() > MAX_DESCRIPTION_LENGTH) {
-
             throw new ApiException(
                     HttpStatus.UNPROCESSABLE_CONTENT,
                     "INVALID_ATTACHMENT_DESCRIPTION",
@@ -199,37 +197,24 @@ public class AttachmentService {
         }
     }
 
-    /**
-     * Soft-deletes an attachment.
-     */
     public void deleteAttachment(UUID attachmentId) {
-
         Attachment attachment = findActiveAttachment(attachmentId);
-
         attachment.markAsDeleted();
-
         attachments.save(attachment);
     }
 
-    /**
-     * Detects the image format using its binary signature.
-     */
     private ContentType detectContentType(byte[] bytes) {
-
         if (bytes == null) {
             throw invalidFormat();
         }
 
-        // JPEG
         if (bytes.length >= 3 &&
                 (bytes[0] & 0xFF) == 0xFF &&
                 (bytes[1] & 0xFF) == 0xD8 &&
                 (bytes[2] & 0xFF) == 0xFF) {
-
             return ContentType.IMAGE_JPEG;
         }
 
-        // PNG
         if (bytes.length >= 8 &&
                 (bytes[0] & 0xFF) == 0x89 &&
                 bytes[1] == 0x50 &&
@@ -239,11 +224,9 @@ public class AttachmentService {
                 bytes[5] == 0x0A &&
                 bytes[6] == 0x1A &&
                 bytes[7] == 0x0A) {
-
             return ContentType.IMAGE_PNG;
         }
 
-        // WebP
         if (bytes.length >= 12 &&
                 bytes[0] == 'R' &&
                 bytes[1] == 'I' &&
@@ -253,7 +236,6 @@ public class AttachmentService {
                 bytes[9] == 'E' &&
                 bytes[10] == 'B' &&
                 bytes[11] == 'P') {
-
             return ContentType.IMAGE_WEBP;
         }
 
@@ -261,26 +243,19 @@ public class AttachmentService {
     }
 
     private static ApiException invalidFormat() {
-
         return new ApiException(
                 HttpStatus.UNPROCESSABLE_CONTENT,
                 "INVALID_ATTACHMENT_FORMAT",
                 "Solo se permiten fotografías JPEG, PNG o WebP.");
     }
 
-    /**
-     * Removes directory paths and limits the filename length.
-     */
     private String sanitizeFilename(String filename) {
-
         if (filename == null || filename.isBlank()) {
             return "attachment";
         }
 
         String sanitized = filename.replace('\\', '/');
-
-        sanitized = sanitized.substring(
-                sanitized.lastIndexOf('/') + 1);
+        sanitized = sanitized.substring(sanitized.lastIndexOf('/') + 1);
 
         if (sanitized.isBlank()) {
             return "attachment";

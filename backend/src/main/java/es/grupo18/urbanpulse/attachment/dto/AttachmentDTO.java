@@ -21,12 +21,12 @@ import java.util.UUID;
  * @param description descripción accesible opcional de la fotografía
  */
 public record AttachmentDTO(
-                UUID id,
-                UUID incidentId,
-                String fileName,
-                String contentType,
-                long sizeBytes,
-                UUID uploadedBy, // TODO: To be replaced with an User DTO.
-                Instant createdAt,
-                String description) {
+        UUID id,
+        UUID incidentId,
+        String fileName,
+        String contentType,
+        long sizeBytes,
+        UUID uploadedBy, // TODO: To be replaced with an User DTO.
+        Instant createdAt,
+        String description) {
 }

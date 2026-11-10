@@ -171,3 +171,14 @@ Todas las operaciones referenciadas tienen x-implementation explícito: 29 imple
 ## Implementación de evidencias (04/11/2026):
 
 El tag **Evidencias** pasa de diseño a implementado. El contrato `paths/evidencias.yaml` cubre cinco operaciones sobre adjuntos de incidencia, respaldadas por `AttachmentService`, `ObjectStorageService` (bucket privado de Neon) e `ImageSanitizer`. Se respeta ADR-0004 (solo JPEG, PNG y WebP, verificados por **firma binaria**, no por `Content-Type` declarado) y se aplica **compensación** (borrado del objeto en el bucket si falla la persistencia en PostgreSQL) y **soft delete** (los metadatos permanecen y el binario no se elimina del almacenamiento).
+
+## 5.1. Evidencias implementadas
+
+| Método | Ruta bajo `/api/v1`                                          | Autorización                                 | Respuesta                       |
+| ------ | ------------------------------------------------------------ | -------------------------------------------- | ------------------------------- |
+| POST   | `/incidents/{incidentId}/attachments`                        | `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` | `201 AttachmentDTO`, `Location` |
+| GET    | `/incidents/{incidentId}/attachments`                        | AUTHENTICATED                                | `200 List<AttachmentDTO>`       |
+| GET    | `/incidents/{incidentId}/attachments/{attachmentId}`         | AUTHENTICATED                                | `200 AttachmentDTO`             |
+| GET    | `/incidents/{incidentId}/attachments/{attachmentId}/content` | AUTHENTICATED                                | `200` binario (`image/*`)       |
+
+La subida exige una incidencia existente (`incidentId`); si no existe responde `404 INCIDENT_NOT_FOUND`. Solo se aceptan JPEG, PNG o WebP por firma binaria (ADR-0004). El sanitizador elimina EXIF. La persistencia en PostgreSQL crea la FK `attachments.incident_id` (migración `V5`), y el `AttachmentDTO` expone `incidentId` y `uploadedBy`. La descarga entrega el binario desde el backend, no una URL pública.

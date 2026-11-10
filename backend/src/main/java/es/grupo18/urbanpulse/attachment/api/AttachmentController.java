@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse.attachment.api;
 
 import java.net.URI;
@@ -35,73 +34,59 @@ import es.grupo18.urbanpulse.identity.model.User;
 @RequestMapping("/api/v1/attachments")
 public class AttachmentController {
 
-        private final AttachmentService attachmentService;
+    private final AttachmentService attachmentService;
 
-        /**
-         * Uploads a photograph.
-         */
-        @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-        public ResponseEntity<AttachmentDTO> attachPhoto(
-                        @RequestParam("file") MultipartFile file,
-                        @RequestParam(value = "description", required = false) @Size(max = 300) String description,
-                        @AuthenticationPrincipal User uploader) {
+    /**
+     * Uploads a photograph, linked to a given incident.
+     */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AttachmentDTO> attachPhoto(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "description", required = false) @Size(max = 300) String description,
+            @RequestParam("incidentId") UUID incidentId,
+            @AuthenticationPrincipal User uploader) {
 
-                AttachmentDTO response = (AttachmentDTO) attachmentService.attachPhoto(
-                                file,
-                                description,
-                                uploader);
+        AttachmentDTO response = attachmentService.attachPhoto(
+                file,
+                description,
+                uploader,
+                incidentId);
 
-                URI location = ServletUriComponentsBuilder
-                                .fromCurrentRequest()
-                                .path("/{attachmentId}")
-                                .buildAndExpand(response.id())
-                                .toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{attachmentId}")
+                .buildAndExpand(response.id())
+                .toUri();
 
-                return ResponseEntity
-                                .created(location)
-                                .body(response);
-        }
+        return ResponseEntity
+                .created(location)
+                .body(response);
+    }
 
-        /**
-         * Lists all active attachments.
-         */
-        @GetMapping
-        public ResponseEntity<List<AttachmentDTO>> getAttachments() {
+    @GetMapping
+    public ResponseEntity<List<AttachmentDTO>> getAttachments() {
+        return ResponseEntity.ok(attachmentService.getAttachments());
+    }
 
-                return ResponseEntity.ok(
-                                attachmentService.getAttachments());
-        }
+    @GetMapping("/{attachmentId}")
+    public ResponseEntity<Object> getAttachment(@PathVariable UUID attachmentId) {
+        return ResponseEntity.ok(attachmentService.getAttachment(attachmentId));
+    }
 
-        /**
-         * Retrieves attachment metadata.
-         */
-        @GetMapping("/{attachmentId}")
-        public ResponseEntity<Object> getAttachment(
-                        @PathVariable UUID attachmentId) {
+    @GetMapping("/{attachmentId}/content")
+    public ResponseEntity<byte[]> getAttachmentContent(@PathVariable UUID attachmentId) {
 
-                return ResponseEntity.ok(
-                                attachmentService.getAttachment(attachmentId));
-        }
+        AttachmentContent content = attachmentService.getAttachmentContent(attachmentId);
 
-        /**
-         * Retrieves the actual photograph from Neon.
-         */
-        @GetMapping("/{attachmentId}/content")
-        public ResponseEntity<byte[]> getAttachmentContent(
-                        @PathVariable UUID attachmentId) {
-
-                AttachmentContent content = attachmentService.getAttachmentContent(attachmentId);
-
-                return ResponseEntity.ok()
-                                .contentType(MediaType.parseMediaType(
-                                                content.contentType()))
-                                .contentLength(content.sizeBytes())
-                                .header(
-                                                HttpHeaders.CONTENT_DISPOSITION,
-                                                ContentDisposition.inline()
-                                                                .filename(content.fileName())
-                                                                .build()
-                                                                .toString())
-                                .body(content.data());
-        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(content.contentType()))
+                .contentLength(content.sizeBytes())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline()
+                                .filename(content.fileName())
+                                .build()
+                                .toString())
+                .body(content.data());
+    }
 }
