@@ -7,18 +7,25 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import org.junit.jupiter.api.Test;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -31,15 +38,6 @@ import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 import es.grupo18.urbanpulse.organization.service.DepartmentService;
 import es.grupo18.urbanpulse.organization.service.DuplicateDepartmentException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -73,7 +71,7 @@ class DepartmentPostgresIT {
     static void initialSchemaStartsWithoutDepartments(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class))
-                .containsExactly("1", "2", "3");
+                .containsExactly("1", "2", "3", "4");
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
                 String.class))
                 .contains("users", "roles", "user_roles", "email_verifications", "departments",
@@ -157,7 +155,7 @@ class DepartmentPostgresIT {
     @Test
     void migratesInitialSchemaAndRoundTripsLifecycle() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
-                .isEqualTo(3);
+                .isEqualTo(4);
         assertThat(jdbc.queryForObject(
                 "select count(*) from departments where id in ('0199f6de-0001-7000-8000-000000000001', '0199f6de-0002-7000-8000-000000000002', '0199f6de-0003-7000-8000-000000000003')",
                 Integer.class)).isZero();

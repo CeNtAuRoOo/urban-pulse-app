@@ -143,6 +143,7 @@
                                 <include>**/CategoryPostgresIT.java</include>
                                 <include>**/DepartmentMembershipPostgresIT.java</include>
                                 <include>**/IncidentPostgresIT.java</include>
+                                <include>**/AttachmentServicePostgresIT.java</include>
                             </includes>
                         </configuration>
                         <executions>
@@ -157,7 +158,25 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>neon-storage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*StorageIT.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
+
 
     <build>
         <plugins>

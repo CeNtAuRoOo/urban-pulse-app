@@ -9,20 +9,27 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -35,15 +42,6 @@ import es.grupo18.urbanpulse.categories.dto.PatchCategoryRequest;
 import es.grupo18.urbanpulse.categories.service.CategoryService;
 import es.grupo18.urbanpulse.categories.service.DuplicateCategoryException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -80,7 +78,7 @@ class CategoryPostgresIT {
                 .containsExactlyInAnyOrder("flyway_schema_history", "users", "roles", "user_roles",
                         "email_verifications", "departments", "department_memberships", "staff_invitations",
                         "audit_events", "categories", "incidents", "status_changes", "incident_reviews",
-                        "priority_decisions");
+                        "priority_decisions", "attachments");
         assertThat(jdbc.queryForObject("select count(*) from categories", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
         assertThat(jdbc.queryForList("select code from roles", String.class))
@@ -91,7 +89,7 @@ class CategoryPostgresIT {
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "2", "3");
+                .containsExactly("1", "2", "3", "4");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);
