@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.6.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.7.0
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -1197,48 +1197,54 @@ paths:
     post:
       tags:
         - Evidencias
-      summary: 'Diseño futuro: Adjuntar fotografía'
-      description: Almacena el binario en bucket privado Neon Object Storage y los metadatos en PostgreSQL; gestionar compensación ante fallos parciales y EXIF sensible.
+      summary: Adjuntar fotografía
+      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Máximo cinco evidencias activas en total por incidencia, resistente a concurrencia; la sexta devuelve 409 ATTACHMENT_LIMIT_REACHED. Firma y decodificación determinan el formato, no la extensión ni el MIME declarado. Recodifica sin EXIF/GPS antes de S3; compensa el objeto si falla la confirmación SQL.
       operationId: postIncidentsIncidentIdAttachments
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
         - CITIZEN
         - OPERATOR
-        - TECHNICIAN
         - ADMIN
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       requestBody:
         required: true
-        description: Subida autenticada; solo fotografías según ADR-0004. Tamaño máximo aún por acordar.
         content:
           multipart/form-data:
             schema:
               type: object
+              required:
+                - file
               properties:
                 file:
                   type: string
                   format: binary
-                  description: JPEG, PNG o WebP.
+                  description: JPEG (.jpg/.jpeg) o PNG; máximo 10 MiB (10485760 bytes). No acepta otros formatos.
                 description:
                   type: string
-                  description: Texto alternativo opcional.
                   maxLength: 300
-              required:
-                - file
-              additionalProperties: false
+                  description: Texto opcional, máximo 300 puntos Unicode. Si se omite, el DTO devuelve null.
       responses:
         '201':
-          description: Recurso creado.
+          description: Evidencia confirmada; sizeBytes corresponde al contenido saneado.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+              description: Prohíbe almacenar respuestas privadas.
+            Location:
+              description: Ruta relativa del recurso creado.
+              schema:
+                type: string
+                example: /api/v1/incidents/019a6fb0-1234-7000-8000-000000000001/attachments/019a6fb0-1234-7000-8000-000000000002
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttachmentDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1249,28 +1255,52 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          description: ATTACHMENT_TOO_LARGE; entrada o salida mayor de 10485760 bytes, o petición multipart mayor de 11534336 bytes. Se aplica incluso antes del controlador.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '422':
-          $ref: '#/components/responses/ValidationError'
+          description: INVALID_ATTACHMENT_FORMAT o INVALID_ATTACHMENT_DESCRIPTION; solo JPEG/PNG íntegros de hasta 16 millones de píxeles y 8192 por lado; descripción de hasta 300 puntos Unicode.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     get:
       tags:
         - Evidencias
-      summary: 'Diseño futuro: Listar fotografías'
-      description: Lista metadatos sin revelar URLs S3 públicas permanentes.
+      summary: Listar fotografías de una incidencia
+      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Colección sin paginación de hasta cinco activas, orden createdAt DESC e id DESC; no existe listado global.
       operationId: getIncidentsIncidentIdAttachments
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
-        - AUTHENTICATED
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IncidentId'
       responses:
         '200':
-          description: Operación correcta.
+          description: Metadatos activos de la incidencia autorizada.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+              description: Prohíbe almacenar respuestas privadas.
           content:
             application/json:
               schema:
                 type: array
+                maxItems: 5
                 items:
                   $ref: '#/components/schemas/AttachmentDTO'
         '400':
@@ -1281,26 +1311,37 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/attachments/{attachmentId}:
     get:
       tags:
         - Evidencias
-      summary: 'Diseño futuro: Consultar metadatos de fotografía'
-      description: Metadatos de evidencia bajo autorización por incidencia.
+      summary: Consultar metadatos de fotografía
+      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentId
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
-        - AUTHENTICATED
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IncidentId'
         - $ref: '#/components/parameters/AttachmentId'
       responses:
         '200':
-          description: Operación correcta.
+          description: Evidencia activa de esa incidencia.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+              description: Prohíbe almacenar respuestas privadas.
           content:
             application/json:
               schema:
@@ -1313,26 +1354,86 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      tags:
+        - Evidencias
+      summary: Eliminar lógicamente fotografía
+      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Establece deletedAt una sola vez, conserva fila y objeto privado S3 y libera una plaza. Repetir devuelve 404; no hay restauración HTTP. Registra auditoría interna atómica, sin ampliar el historial público de incidencias.
+      operationId: deleteIncidentsIncidentIdAttachmentsAttachmentId
+      x-implementation: implemented
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/AttachmentId'
+      responses:
+        '204':
+          description: Baja lógica confirmada, sin cuerpo.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+              description: Prohíbe almacenar respuestas privadas.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/attachments/{attachmentId}/content:
     get:
       tags:
         - Evidencias
-      summary: 'Diseño futuro: Descargar fotografía privada'
-      description: Entrega binario autorizado mediante backend; el enlace no otorga acceso anónimo al objeto privado.
+      summary: Descargar fotografía privada
+      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Entrega el binario saneado desde el backend, sin URLs S3 públicas ni claves de almacenamiento. Descarga acotada a 10 MiB en memoria.
       operationId: getIncidentsIncidentIdAttachmentsAttachmentIdContent
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
-        - AUTHENTICATED
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IncidentId'
         - $ref: '#/components/parameters/AttachmentId'
       responses:
         '200':
-          description: Binario de imagen autorizado.
+          description: Fotografía privada autorizada.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
+              description: Prohíbe almacenar respuestas privadas.
+            Content-Disposition:
+              description: attachment con nombre saneado y codificación UTF-8 segura.
+              schema:
+                type: string
+            Content-Length:
+              description: Longitud real de la imagen saneada.
+              schema:
+                type: integer
+                format: int64
+                minimum: 1
+                maximum: 10485760
           content:
             image/jpeg:
               schema:
@@ -1342,10 +1443,8 @@ paths:
               schema:
                 type: string
                 format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1354,6 +1453,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/reviews:
     post:
       tags:
@@ -4018,39 +4119,62 @@ components:
       additionalProperties: false
     AttachmentDTO:
       type: object
+      additionalProperties: false
+      required:
+        - id
+        - incidentId
+        - originalFilename
+        - contentType
+        - sizeBytes
+        - uploadedBy
+        - createdAt
+        - description
       properties:
         id:
           type: string
           format: uuid
+          description: Identificador UUIDv7 público; independiente de la clave privada S3.
         incidentId:
           type: string
           format: uuid
-        fileName:
+        originalFilename:
           type: string
+          minLength: 1
+          maxLength: 128
+          description: Nombre saneado, sin rutas ni controles; máximo 128 puntos Unicode.
         contentType:
           type: string
           enum:
             - image/jpeg
             - image/png
-            - image/webp
+          description: MIME real detectado y decodificado; .jpg y .jpeg son JPEG.
         sizeBytes:
           type: integer
-          minimum: 0
+          format: int64
+          minimum: 1
+          maximum: 10485760
+          description: Tamaño de la imagen saneada almacenada.
         uploadedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          type: string
+          format: uuid
+          description: UUID del autor, no una entidad User ni mecanismo de autorización exclusivo.
         createdAt:
           type: string
           format: date-time
         description:
           type: string
-          description: Descripción accesible de la fotografía.
-      required:
-        - id
-        - incidentId
-        - fileName
-        - contentType
-        - sizeBytes
-        - createdAt
+          maxLength: 300
+          nullable: true
+          description: Hasta 300 puntos Unicode; siempre se incluye, con null si no se aportó.
+      example:
+        id: 019a6fb0-1234-7000-8000-000000000002
+        incidentId: 019a6fb0-1234-7000-8000-000000000001
+        originalFilename: bache.jpg
+        contentType: image/jpeg
+        sizeBytes: 24576
+        uploadedBy: 019a6fb0-1234-7000-8000-000000000003
+        createdAt: '2026-11-11T10:00:00Z'
+        description: null
     DuplicateSuggestionDTO:
       type: object
       properties:

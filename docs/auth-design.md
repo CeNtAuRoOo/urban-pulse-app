@@ -4,7 +4,7 @@
 
 ## 1. Referencias, alcance y responsabilidades
 
-El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.6.0` incluye cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Incidencias añade seis operaciones que reutilizan identidad y seguridad compartidas; la tramitación y los restantes recursos siguen en diseño.
+El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.7.0` incluye cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Incidencias añade seis operaciones que reutilizan identidad y seguridad compartidas; Evidencias añade cinco rutas con la misma política de acceso por incidencia. La tramitación y los restantes recursos siguen en diseño.
 
 La organización de paquetes es **por funcionalidad**:
 

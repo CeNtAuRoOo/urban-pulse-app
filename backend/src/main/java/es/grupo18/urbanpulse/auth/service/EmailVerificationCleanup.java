@@ -29,6 +29,7 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 @Component
 @Slf4j
 public class EmailVerificationCleanup {
+
     /**
      * Predicado compartido por selección y revisión bajo bloqueo; incluye todas las
      * FK históricas.
@@ -39,6 +40,7 @@ public class EmailVerificationCleanup {
                 or i.redeemed_by_user_id = u.id or i.revoked_by_user_id = u.id)
             and not exists (select 1 from audit_events a where a.actor_user_id = u.id)
             and not exists (select 1 from incidents i where i.reporter_user_id = u.id)
+            and not exists (select 1 from attachments a where a.uploaded_by = u.id)
             and not exists (select 1 from status_changes s where s.changed_by_user_id = u.id)
             and not exists (select 1 from incident_reviews r where r.reviewed_by_user_id = u.id)
             and not exists (select 1 from priority_decisions p where p.decided_by_user_id = u.id)

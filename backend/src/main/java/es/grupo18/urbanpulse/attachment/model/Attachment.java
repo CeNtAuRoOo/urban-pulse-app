@@ -3,11 +3,6 @@ package es.grupo18.urbanpulse.attachment.model;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UuidGenerator;
-
-import es.grupo18.urbanpulse.identity.model.User;
-import es.grupo18.urbanpulse.incidents.model.Incident;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,11 +13,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.validator.constraints.CodePointLength;
+
+import es.grupo18.urbanpulse.identity.model.User;
+import es.grupo18.urbanpulse.incidents.model.Incident;
 
 /**
  * Esta entidad representa un archivo externo asociado a una Incidencia de
@@ -61,7 +64,8 @@ public class Attachment {
     private String storageKey;
 
     // Tamaño en bytes del recurso
-    @Min(0)
+    @Min(1)
+    @Max(10485760)
     @Column(name = "size_bytes", nullable = false)
     private long sizeBytes;
 
@@ -75,12 +79,14 @@ public class Attachment {
     private Instant deletedAt;
 
     // Descripción de la evidencia
-    @Size(max = 300)
+    @CodePointLength(max = 300)
     @Column(name = "description", length = 300)
     private String description;
 
     /**
-     * Factory method to create a new Attachment.
+     * Crea metadatos de una imagen ya validada, pendientes de persistir.
+     *
+     * @return nueva entidad sin identidad asignada todavía
      *
      * @param incident         incidencia a la que pertenece el archivo (no puede
      *                         ser nula)
@@ -117,10 +123,18 @@ public class Attachment {
         return attachment;
     }
 
+    /**
+     * Obtiene la identidad del padre sin exponer la entidad.
+     *
+     * @return identidad de la incidencia obligatoria
+     */
     public UUID getIncidentId() {
         return incident == null ? null : incident.getId();
     }
 
+    /**
+     * Establece la baja una sola vez; conserva metadatos, autor y objeto externo.
+     */
     public void markAsDeleted() {
         if (this.deletedAt == null) {
             this.deletedAt = Instant.now();

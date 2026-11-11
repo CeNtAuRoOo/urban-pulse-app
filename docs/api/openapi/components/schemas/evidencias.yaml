@@ -1,39 +1,48 @@
 AttachmentDTO:
   type: object
   additionalProperties: false
+  required: [id, incidentId, originalFilename, contentType, sizeBytes, uploadedBy, createdAt, description]
   properties:
     id:
       type: string
       format: uuid
-      description: Identificador UUIDv7 de la evidencia.
+      description: Identificador UUIDv7 público; independiente de la clave privada S3.
+    incidentId:
+      type: string
+      format: uuid
     originalFilename:
       type: string
+      minLength: 1
       maxLength: 128
-      description: Nombre original del archivo, sin rutas de directorios.
+      description: Nombre saneado, sin rutas ni controles; máximo 128 puntos Unicode.
     contentType:
       type: string
-      description: Formato de imagen detectado mediante firma binaria.
-      enum:
-        - IMAGE_JPEG
-        - IMAGE_PNG
-        - IMAGE_WEBP
+      enum: [image/jpeg, image/png]
+      description: MIME real detectado y decodificado; .jpg y .jpeg son JPEG.
     sizeBytes:
       type: integer
       format: int64
-      minimum: 0
-      description: Tamaño del contenido procesado y almacenado, expresado en bytes.
+      minimum: 1
+      maximum: 10485760
+      description: Tamaño de la imagen saneada almacenada.
+    uploadedBy:
+      type: string
+      format: uuid
+      description: UUID del autor, no una entidad User ni mecanismo de autorización exclusivo.
+    createdAt:
+      type: string
+      format: date-time
     description:
       type: string
       maxLength: 300
       nullable: true
-      description: Descripción opcional de la evidencia.
-    createdAt:
-      type: string
-      format: date-time
-      description: Instante de creación de la evidencia.
-  required:
-    - id
-    - originalFilename
-    - contentType
-    - sizeBytes
-    - createdAt
+      description: Hasta 300 puntos Unicode; siempre se incluye, con null si no se aportó.
+  example:
+    id: 019a6fb0-1234-7000-8000-000000000002
+    incidentId: 019a6fb0-1234-7000-8000-000000000001
+    originalFilename: bache.jpg
+    contentType: image/jpeg
+    sizeBytes: 24576
+    uploadedBy: 019a6fb0-1234-7000-8000-000000000003
+    createdAt: '2026-11-11T10:00:00Z'
+    description: null

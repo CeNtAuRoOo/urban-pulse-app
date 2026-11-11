@@ -36,6 +36,20 @@ public class GlobalExceptionHandler {
     private final ProblemDetailFactory problems;
 
     /**
+     * Convierte el rechazo multipart previo al controlador en un error estable.
+     *
+     * @param ex      exceso detectado por el contenedor
+     * @param request petición rechazada
+     * @return 413 sin detalles internos
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ProblemDetail> multipartTooLarge(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return response(HttpStatus.valueOf(413), "ATTACHMENT_TOO_LARGE", "La fotografía no puede superar 10 MiB.",
+                request);
+    }
+
+    /**
      * Trata identificadores o parámetros cuyo tipo no puede interpretarse, sin
      * devolver el valor recibido ni convertir un error de entrada en HTTP 500.
      *
@@ -163,7 +177,8 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ProblemDetail> response(HttpStatus status, String code, String detail,
             HttpServletRequest request) {
 
-        var response = ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON);
+        var response = ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .cacheControl(org.springframework.http.CacheControl.noStore());
 
         if (status == HttpStatus.UNAUTHORIZED) {
             response.header(HttpHeaders.WWW_AUTHENTICATE, "Bearer");

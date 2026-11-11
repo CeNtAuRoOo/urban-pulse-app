@@ -76,7 +76,7 @@ public class AuthController {
      *                                                         no está autorizado o
      *                                                         la cuenta pendiente
      *                                                         ha caducado
-     * 
+     *
      */
     @PostMapping("/auth/email-verifications/resend")
     public ResponseEntity<Void> resendEmail(@AuthenticationPrincipal Jwt jwt) {

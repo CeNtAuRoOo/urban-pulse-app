@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptado e implementado en el núcleo de Incidencias.
 - **Fecha:** 2026-11-05.
-- **Ámbito:** API `/api/v1/incidents`, persistencia V2/V3 y auditoría compartida.
+- **Ámbito:** API `/api/v1/incidents`, persistencia V1 y auditoría compartida.
 
 ## Contexto
 
@@ -34,4 +34,4 @@ La persistencia base de StatusChange, IncidentReview y PriorityDecision no equiv
 
 ## Validación
 
-`IncidentPostgresIT` verifica V1/V2/V3 con Hibernate validate, auditoría/rollback y dos correcciones concurrentes con un solo ganador, además del contrato HTTP con JWT real, cambios legítimos de perfil/categoría, estabilidad de ETag y rechazo de precondiciones anteriores. El límite de cuerpo de 64 KiB se comprueba en MVC y con HTTP real por bloques. Las pruebas de servicio comprueban también autorización independiente de URL y traducción del conflicto de flush. Los resultados de ejecución y entorno se registran en [Desarrollo](../development.md).
+`IncidentPostgresIT` verifica V1 con Hibernate validate, auditoría/rollback y dos correcciones concurrentes con un solo ganador, además del contrato HTTP con JWT real, cambios legítimos de perfil/categoría, estabilidad de ETag y rechazo de precondiciones anteriores. El límite de cuerpo de 64 KiB se comprueba en MVC y con HTTP real por bloques. Las pruebas de servicio comprueban también autorización independiente de URL y traducción del conflicto de flush. Los resultados de ejecución y entorno se registran en [Desarrollo](../development.md).
