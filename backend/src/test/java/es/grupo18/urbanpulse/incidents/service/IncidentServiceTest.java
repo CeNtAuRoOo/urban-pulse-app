@@ -42,7 +42,8 @@ class IncidentServiceTest {
     private final User actor = mock(User.class);
     private final tools.jackson.databind.json.JsonMapper mapper = tools.jackson.databind.json.JsonMapper.builder()
             .build();
-    private final IncidentService service = new IncidentService(incidents, users, categories, audit,
+    private final IncidentService service = new IncidentService(incidents, new IncidentAccess(users, incidents),
+            categories, audit,
             Clock.fixed(Instant.parse("2026-11-05T10:00:00Z"), ZoneOffset.UTC), mapper);
 
     @BeforeEach

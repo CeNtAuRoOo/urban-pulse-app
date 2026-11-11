@@ -2,12 +2,16 @@ package es.grupo18.urbanpulse.attachment.service;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,255 +20,253 @@ import es.grupo18.urbanpulse.attachment.mappers.AttachmentMapper;
 import es.grupo18.urbanpulse.attachment.model.Attachment;
 import es.grupo18.urbanpulse.attachment.model.ContentType;
 import es.grupo18.urbanpulse.attachment.repository.AttachmentRepository;
+import es.grupo18.urbanpulse.audit.model.AuditEvent;
+import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.identity.model.User;
-import es.grupo18.urbanpulse.incidents.model.Incident;
-import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
+import es.grupo18.urbanpulse.incidents.service.IncidentAccess;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
+/**
+ * Evidencias privadas: autorización por incidencia, límite coordinado en SQL y
+ * compensación S3.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AttachmentService {
 
-    private static final int MAX_DESCRIPTION_LENGTH = 300;
-    private static final int MAX_FILENAME_LENGTH = 128;
-
     private final AttachmentRepository attachments;
-    private final IncidentRepository incidents;
+    private final IncidentAccess access;
     private final ObjectStorageService storage;
     private final ImageSanitizer imageSanitizer;
     private final AttachmentMapper mapper;
     private final TransactionTemplate transactionTemplate;
+    private final AuditEventRepository audit;
 
     /**
-     * Uploads an attachment to Neon Object Storage
-     * and saves its metadata in PostgreSQL, linked to the given incident.
+     * Sanea y sube fuera de SQL; revalida y bloquea usuario → incidencia para
+     * confirmar.
+     * Suspende cualquier transacción del llamador para capturar también fallos de
+     * commit.
+     *
+     * @param actor       sujeto JWT
+     * @param version     versión JWT
+     * @param incidentId  incidencia visible, en cualquier estado
+     * @param file        fotografía obligatoria, máximo 10 MiB
+     * @param description texto nullable, máximo 300 puntos Unicode
+     * @return metadatos confirmados, sin clave S3
+     * @throws ApiException 401/403/404 por acceso, 409 sin plaza, 413 por tamaño,
+     *                      422 por imagen/texto inválido o 503 por almacenamiento
+     *                      no disponible
      */
-    public AttachmentDTO attachPhoto(
-            MultipartFile file,
-            String description,
-            User uploader,
-            UUID incidentId) {
-
-        validateFile(file);
-        validateDescription(description);
-
-        if (uploader == null || !uploader.isActive()) {
-            throw ApiException.unauthorized();
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AttachmentDTO attachPhoto(UUID actor, long version, UUID incidentId, MultipartFile file,
+            String description) {
+        transactionTemplate
+                .executeWithoutResult(tx -> access.visible(access.account(actor, version, false), incidentId, false));
+        if (file == null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_ATTACHMENT", "Debe proporcionar una fotografía.");
+        if (file.getSize() > ImageSanitizer.MAX_BYTES)
+            throw ImageSanitizer.tooLarge();
+        if (description != null && (description.codePointCount(0, description.length()) > 300
+                || description.codePoints().anyMatch(c -> c == 0 || Character.getType(c) == Character.SURROGATE))) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_ATTACHMENT_DESCRIPTION",
+                    "La descripción debe contener como máximo 300 caracteres válidos.");
         }
-
-        if (incidentId == null) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "INCIDENT_REQUIRED",
-                    "Debe indicar la incidencia asociada a la fotografía.");
+        byte[] original;
+        try (var input = file.getInputStream()) {
+            original = input.readNBytes(ImageSanitizer.MAX_BYTES + 1);
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ATTACHMENT_READ_ERROR", "No se pudo leer la fotografía.");
         }
-
-        Incident incident = incidents.findById(incidentId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "INCIDENT_NOT_FOUND",
-                        "No se encontró la incidencia solicitada."));
-
-        String storageKey = UUID.randomUUID().toString();
-
+        if (original.length > ImageSanitizer.MAX_BYTES)
+            throw ImageSanitizer.tooLarge();
+        ContentType type = imageSanitizer.detectContentType(original);
+        byte[] sanitized = imageSanitizer.sanitize(original, type);
+        String filename = sanitizeFilename(file.getOriginalFilename());
+        String key = UUID.randomUUID().toString();
         try {
-            byte[] originalBytes = file.getBytes();
-
-            ContentType contentType = detectContentType(originalBytes);
-
-            byte[] sanitizedBytes = imageSanitizer.sanitize(
-                    originalBytes,
-                    contentType);
-
-            if (sanitizedBytes == null || sanitizedBytes.length == 0) {
-                throw new ApiException(
-                        HttpStatus.UNPROCESSABLE_CONTENT,
-                        "INVALID_ATTACHMENT",
-                        "No se pudo procesar la fotografía.");
-            }
-
-            String filename = sanitizeFilename(
-                    file.getOriginalFilename());
-
-            // Upload image to Neon Object Storage.
-            try {
-                storage.upload(
-                        storageKey,
-                        sanitizedBytes,
-                        contentType.getMimeType());
-            } catch (RuntimeException exception) {
-                throw new ApiException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "ATTACHMENT_STORAGE_ERROR",
-                        "No se pudo almacenar la fotografía.");
-            }
-
-            // Save metadata to PostgreSQL.
-            try {
-                return transactionTemplate.execute(status -> {
-
-                    Attachment attachment = Attachment.create(
-                            incident,
-                            uploader,
-                            filename,
-                            contentType,
-                            storageKey,
-                            sanitizedBytes.length,
-                            description);
-
-                    Attachment saved = attachments.saveAndFlush(attachment);
-
-                    return mapper.toDTO(saved);
-                });
-
-            } catch (RuntimeException exception) {
-
-                // Compensate if database persistence fails.
-                try {
-                    storage.delete(storageKey);
-                } catch (RuntimeException cleanupException) {
-                    exception.addSuppressed(cleanupException);
+            storage.upload(key, sanitized, type.getMimeType());
+        } catch (RuntimeException e) {
+            throw storageFailure("ATTACHMENT_STORAGE_ERROR");
+        }
+        try {
+            return transactionTemplate.execute(tx -> {
+                User user = access.account(actor, version, true);
+                var incident = access.visible(user, incidentId, true);
+                if (attachments.countByIncident_IdAndDeletedAtIsNull(incidentId) >= 5) {
+                    throw new ApiException(HttpStatus.CONFLICT, "ATTACHMENT_LIMIT_REACHED",
+                            "La incidencia ya tiene cinco evidencias activas.");
                 }
-
-                throw exception;
+                Attachment saved = attachments.saveAndFlush(Attachment.create(incident, user, filename, type,
+                        key, sanitized.length, description));
+                record(user, saved, "ATTACHMENT_CREATED");
+                return mapper.toDTO(saved);
+            });
+        } catch (RuntimeException failure) {
+            try {
+                storage.delete(key);
+            } catch (RuntimeException cleanup) {
+                failure.addSuppressed(cleanup);
+                // Clave opaca solo en registro interno de reconciliación; nunca en JSON
+                // público.
+                log.error("event=ATTACHMENT_COMPENSATION_FAILED objectKey={} primaryType={} cleanupType={}",
+                        key, failure.getClass().getName(), cleanup.getClass().getName());
             }
-
-        } catch (IOException exception) {
-            throw new ApiException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "ATTACHMENT_PROCESSING_ERROR",
-                    "No se pudo procesar la fotografía.");
+            throw failure;
         }
     }
 
-    public List<AttachmentDTO> getAttachments() {
-        return attachments.findAllByDeletedAtIsNull()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    /**
+     * Lista solo evidencias activas después de revalidar acceso al padre.
+     *
+     * @param actor      sujeto JWT
+     * @param version    versión JWT
+     * @param incidentId incidencia visible
+     * @return hasta cinco metadatos activos, createdAt DESC e id DESC
+     * @throws ApiException 401/403/404 según cuenta y visibilidad
+     */
+    @Transactional(readOnly = true)
+    public List<AttachmentDTO> getAttachments(UUID actor, long version, UUID incidentId) {
+        access.visible(access.account(actor, version, false), incidentId, false);
+        return attachments.findByIncident_IdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(incidentId)
+                .stream().map(mapper::toDTO).toList();
     }
 
-    public AttachmentDTO getAttachment(UUID attachmentId) {
-        Attachment attachment = findActiveAttachment(attachmentId);
-        return mapper.toDTO(attachment);
+    /**
+     * Consulta metadatos sin revelar evidencias ajenas, eliminadas o de otro padre.
+     *
+     * @param actor        sujeto JWT
+     * @param version      versión JWT
+     * @param incidentId   incidencia visible
+     * @param attachmentId evidencia de esa incidencia
+     * @return metadatos activos
+     * @throws ApiException 401/403 por cuenta, 404 por acceso, pareja incorrecta o
+     *                      baja
+     */
+    @Transactional(readOnly = true)
+    public AttachmentDTO getAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
+        access.visible(access.account(actor, version, false), incidentId, false);
+        return mapper.toDTO(findActive(incidentId, attachmentId));
     }
 
-    public AttachmentContent getAttachmentContent(UUID attachmentId) {
-        Attachment attachment = findActiveAttachment(attachmentId);
-
-        byte[] data;
-
+    /**
+     * Autoriza y proyecta dentro de SQL antes de descargar, sin transacción durante
+     * S3.
+     *
+     * @param actor        sujeto JWT
+     * @param version      versión JWT
+     * @param incidentId   incidencia visible
+     * @param attachmentId evidencia activa de esa incidencia
+     * @return binario acotado y cabeceras confiables de metadatos
+     * @throws ApiException 401/403/404 por acceso; 503 por fallo/inconsistencia de
+     *                      almacenamiento
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AttachmentContent getAttachmentContent(UUID actor, long version, UUID incidentId, UUID attachmentId) {
+        var download = transactionTemplate.execute(tx -> {
+            access.visible(access.account(actor, version, false), incidentId, false);
+            var attachment = findActive(incidentId, attachmentId);
+            return new Download(attachment.getStorageKey(), mapper.toDTO(attachment));
+        });
         try {
-            data = storage.download(attachment.getStorageKey());
-        } catch (RuntimeException exception) {
-            throw new ApiException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "ATTACHMENT_DOWNLOAD_ERROR",
-                    "No se pudo recuperar la fotografía.");
-        }
-
-        return new AttachmentContent(
-                attachment.getOriginalFilename(),
-                attachment.getContentType().getMimeType(),
-                data.length,
-                data);
-    }
-
-    private Attachment findActiveAttachment(UUID attachmentId) {
-        return attachments.findByIdAndDeletedAtIsNull(attachmentId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "ATTACHMENT_NOT_FOUND",
-                        "No se encontró la evidencia solicitada."));
-    }
-
-    private void validateFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "EMPTY_ATTACHMENT",
-                    "Debe proporcionar una fotografía.");
+            byte[] data = storage.download(download.key());
+            if (data.length != download.metadata().sizeBytes() || data.length > ImageSanitizer.MAX_BYTES) {
+                throw storageFailure("ATTACHMENT_DOWNLOAD_ERROR");
+            }
+            return new AttachmentContent(download.metadata().originalFilename(), download.metadata().contentType(),
+                    data.length, data);
+        } catch (RuntimeException e) {
+            throw storageFailure("ATTACHMENT_DOWNLOAD_ERROR");
         }
     }
 
-    private void validateDescription(String description) {
-        if (description != null &&
-                description.length() > MAX_DESCRIPTION_LENGTH) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_CONTENT,
-                    "INVALID_ATTACHMENT_DESCRIPTION",
-                    "La descripción no puede superar los 300 caracteres.");
-        }
-    }
-
-    public void deleteAttachment(UUID attachmentId) {
-        Attachment attachment = findActiveAttachment(attachmentId);
+    /**
+     * Baja lógica y auditoría atómicas; conserva el objeto, las relaciones y el
+     * estado de incidencia.
+     *
+     * @param actor        sujeto JWT
+     * @param version      versión JWT
+     * @param incidentId   incidencia visible
+     * @param attachmentId evidencia activa de esa incidencia
+     * @throws ApiException 401/403/404 por acceso; repetir una baja devuelve 404
+     */
+    @Transactional
+    public void deleteAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
+        User user = access.account(actor, version, true);
+        access.visible(user, incidentId, true);
+        Attachment attachment = findActive(incidentId, attachmentId);
         attachment.markAsDeleted();
-        attachments.save(attachment);
+        attachments.flush();
+        record(user, attachment, "ATTACHMENT_DELETED");
     }
 
-    private ContentType detectContentType(byte[] bytes) {
-        if (bytes == null) {
-            throw invalidFormat();
-        }
-
-        if (bytes.length >= 3 &&
-                (bytes[0] & 0xFF) == 0xFF &&
-                (bytes[1] & 0xFF) == 0xD8 &&
-                (bytes[2] & 0xFF) == 0xFF) {
-            return ContentType.IMAGE_JPEG;
-        }
-
-        if (bytes.length >= 8 &&
-                (bytes[0] & 0xFF) == 0x89 &&
-                bytes[1] == 0x50 &&
-                bytes[2] == 0x4E &&
-                bytes[3] == 0x47 &&
-                bytes[4] == 0x0D &&
-                bytes[5] == 0x0A &&
-                bytes[6] == 0x1A &&
-                bytes[7] == 0x0A) {
-            return ContentType.IMAGE_PNG;
-        }
-
-        if (bytes.length >= 12 &&
-                bytes[0] == 'R' &&
-                bytes[1] == 'I' &&
-                bytes[2] == 'F' &&
-                bytes[3] == 'F' &&
-                bytes[8] == 'W' &&
-                bytes[9] == 'E' &&
-                bytes[10] == 'B' &&
-                bytes[11] == 'P') {
-            return ContentType.IMAGE_WEBP;
-        }
-
-        throw invalidFormat();
+    /**
+     * Resuelve la pareja de identificadores y oculta evidencias eliminadas.
+     *
+     * @param incidentId padre
+     * @param id         evidencia
+     * @return evidencia activa de ese padre
+     */
+    private Attachment findActive(UUID incidentId, UUID id) {
+        return attachments.findByIdAndIncident_IdAndDeletedAtIsNull(id, incidentId).orElseThrow(
+                () -> new ApiException(HttpStatus.NOT_FOUND, "ATTACHMENT_NOT_FOUND", "Evidencia no encontrada."));
     }
 
-    private static ApiException invalidFormat() {
-        return new ApiException(
-                HttpStatus.UNPROCESSABLE_CONTENT,
-                "INVALID_ATTACHMENT_FORMAT",
-                "Solo se permiten fotografías JPEG, PNG o WebP.");
+    /**
+     * Persiste el acontecimiento interno en la transacción de metadatos.
+     *
+     * @param actor      autor
+     * @param attachment evidencia
+     * @param action     evento interno, fuera del historial público
+     */
+    private void record(User actor, Attachment attachment, String action) {
+        audit.saveAndFlush(new AuditEvent(actor, action, "ATTACHMENT", attachment.getId().toString(),
+                Map.of("incidentId", attachment.getIncidentId().toString()),
+                attachment.getDeletedAt() == null ? attachment.getCreatedAt() : attachment.getDeletedAt()));
     }
 
-    private String sanitizeFilename(String filename) {
-        if (filename == null || filename.isBlank()) {
+    /**
+     * Construye un error de disponibilidad sin información del proveedor.
+     *
+     * @param code código estable
+     * @return error público sin causas S3 ni claves
+     */
+    private static ApiException storageFailure(String code) {
+        return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, code, "Almacenamiento temporalmente no disponible.");
+    }
+
+    /**
+     * Descarta rutas, controles, separadores de línea y caracteres de formato;
+     * limita por puntos Unicode.
+     *
+     * @param name nombre no confiable, nunca usado como clave ni ruta
+     * @return nombre seguro de 1 a 128 caracteres, preservando extensión
+     *         fotográfica si existe
+     */
+    static String sanitizeFilename(String name) {
+        if (name == null)
             return "attachment";
-        }
-
-        String sanitized = filename.replace('\\', '/');
-        sanitized = sanitized.substring(sanitized.lastIndexOf('/') + 1);
-
-        if (sanitized.isBlank()) {
+        name = name.replace('\\', '/');
+        name = name.substring(name.lastIndexOf('/') + 1);
+        StringBuilder safe = new StringBuilder();
+        name.codePoints().filter(c -> !Character.isISOControl(c) && Character.getType(c) != Character.FORMAT
+                && Character.getType(c) != Character.SURROGATE && c != 0x2028 && c != 0x2029
+                && c != '"' && c != ':' && c != ';').forEach(safe::appendCodePoint);
+        String result = safe.toString().strip();
+        if (result.isBlank() || result.equals(".") || result.equals(".."))
             return "attachment";
+        if (result.codePointCount(0, result.length()) > 128) {
+            int dot = result.lastIndexOf('.');
+            String extension = dot >= 0 ? result.substring(dot) : "";
+            if (!extension.matches("(?i)\\.(jpe?g|png)"))
+                extension = "";
+            result = result.substring(0, result.offsetByCodePoints(0, 128 - extension.length())) + extension;
         }
+        return result;
+    }
 
-        if (sanitized.length() > MAX_FILENAME_LENGTH) {
-            sanitized = sanitized.substring(0, MAX_FILENAME_LENGTH);
-        }
-
-        return sanitized;
+    /** Proyección interna; evita acceso lazy fuera de la transacción. */
+    private record Download(String key, AttachmentDTO metadata) {
     }
 }

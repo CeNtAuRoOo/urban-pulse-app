@@ -11,22 +11,23 @@ import java.util.UUID;
  * No expone la clave interna de almacenamiento ni URLs del bucket
  * privado.
  *
- * @param id          identificador único de la evidencia
- * @param incidentId  identificador de la incidencia asociada
- * @param fileName    nombre original del archivo
- * @param contentType tipo MIME de la fotografía
- * @param sizeBytes   tamaño del archivo en bytes
- * @param uploadedBy  información pública del usuario que subió la fotografía
- * @param createdAt   fecha de creación de la evidencia
- * @param description descripción accesible opcional de la fotografía
+ * @param id               identificador único de la evidencia
+ * @param incidentId       identificador de la incidencia asociada
+ * @param originalFilename nombre original del archivo
+ * @param contentType      tipo MIME de la fotografía
+ * @param sizeBytes        tamaño del archivo en bytes
+ * @param uploadedBy       UUID del usuario que subió la fotografía
+ * @param createdAt        fecha de creación de la evidencia
+ * @param description      descripción opcional; se serializa null si está
+ *                         ausente
  */
 public record AttachmentDTO(
         UUID id,
         UUID incidentId,
-        String fileName,
+        String originalFilename,
         String contentType,
         long sizeBytes,
-        UUID uploadedBy, // TODO: To be replaced with an User DTO.
+        UUID uploadedBy,
         Instant createdAt,
         String description) {
 }

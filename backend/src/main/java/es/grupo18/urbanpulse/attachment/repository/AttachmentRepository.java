@@ -5,31 +5,37 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import es.grupo18.urbanpulse.attachment.model.Attachment;
-import es.grupo18.urbanpulse.identity.model.User;
 
-@Repository
+/**
+ * Consultas privadas acotadas por incidencia; el servicio comprueba
+ * visibilidad.
+ */
 public interface AttachmentRepository extends JpaRepository<Attachment, UUID> {
 
     /**
-     * Retrieves all attachments uploaded by a specific user.
+     * Recupera la colección activa del padre, con desempate por identidad.
+     *
+     * @param incidentId padre autorizado
+     * @return activas en orden estable
      */
-    List<Attachment> findAllByUser(User user);
+    List<Attachment> findByIncident_IdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(UUID incidentId);
 
     /**
-     * Retrieves an attachment using its storage key.
+     * Cuenta las plazas ocupadas, independientemente del autor.
+     *
+     * @param incidentId padre bloqueado al reservar plaza
+     * @return total activo de todos los autores
      */
-    Optional<Attachment> findByStorageKey(String storageKey);
+    long countByIncident_IdAndDeletedAtIsNull(UUID incidentId);
 
     /**
-     * Retrieves all attachments that have not been deleted.
+     * Busca por identidad, pertenencia y ausencia de baja lógica.
+     *
+     * @param id         evidencia
+     * @param incidentId padre autorizado
+     * @return activa solo si coincide la pareja
      */
-    List<Attachment> findAllByDeletedAtIsNull();
-
-    /**
-     * Retrieves an attachment by ID if it has not been deleted.
-     */
-    Optional<Attachment> findByIdAndDeletedAtIsNull(UUID id);
+    Optional<Attachment> findByIdAndIncident_IdAndDeletedAtIsNull(UUID id, UUID incidentId);
 }
