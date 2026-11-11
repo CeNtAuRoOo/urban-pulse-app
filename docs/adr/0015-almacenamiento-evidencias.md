@@ -1,172 +1,60 @@
 # ADR-0015: Almacenamiento externo y gestión de evidencias fotográficas
 
-- **Estado:** Aceptado e implementado; migración V5 y suites de integración verificadas.
-- **Fecha:** 2026-11-04 (revisión: 2026-11-10).
-- **Ámbito:** Gestión de evidencias, persistencia PostgreSQL y almacenamiento de objetos en Neon.
+- **Estado:** Aceptado e implementado.
+- **Fecha:** 2026-11-04; revisión integral: 2026-11-11.
+- **Ámbito:** RF05 y aportación de evidencias de RF13; backend, SQL y almacenamiento privado.
 
-## Contexto
+## Contexto y alternativas
 
-UrbanPulse necesita permitir que los usuarios adjunten fotografías a las incidencias para aportar evidencias visuales de los problemas comunicados. Estos archivos deben poder almacenarse, recuperarse y consultarse sin comprometer la persistencia de los metadatos ni incrementar innecesariamente el tamaño de la base de datos.
+Una incidencia urbana es el recurso central. Sus fotografías privadas se guardan en Neon Object Storage y sus metadatos en PostgreSQL. Se conserva el cliente S3 existente; guardar BYTEA en SQL o archivos en el disco de cada instancia mezclaría responsabilidades o dificultaría persistencia compartida.
 
-Se requiere separar la información descriptiva de cada archivo de su contenido binario, manteniendo una referencia estable entre ambos sistemas. También es necesario contemplar la validación de los archivos recibidos, su procesamiento previo al almacenamiento, la autorización del usuario que los aporta, la vinculación con la incidencia correspondiente y la gestión de su eliminación.
+## Contrato y autorización
 
-La solución debe integrarse con la infraestructura existente de UrbanPulse, basada en PostgreSQL mediante Neon y en un backend desarrollado con Spring Boot y JPA. Para el almacenamiento de archivos se utiliza Neon Object Storage, accedido mediante su API compatible con Amazon S3 y AWS SDK for Java 2.x.
+Hay cinco operaciones bajo `/api/v1/incidents/{incidentId}/attachments`: POST, GET colección, GET `/{attachmentId}`, GET `/{attachmentId}/content` y DELETE `/{attachmentId}`. No existe colección global pública. POST devuelve 201 y Location relativa al recurso; DELETE devuelve 204 sin cuerpo. El listado no pagina y ordena `createdAt DESC, id DESC`.
 
-## Alternativas
+`IncidentAccess` comparte con `IncidentService` la política vigente: cuenta activa, tokenVersion actual, rol base CITIZEN y correo verificado; informante u OPERATOR/ADMIN global. TECHNICIAN/DEPARTMENT_COORDINATOR no conceden acceso transversal; conservan acceso como informantes. Todas las operaciones revalidan incidencia y, cuando procede, pareja incidencia/evidencia. Inexistencia y falta de acceso se ocultan con 404. Subir o borrar no modifica el estado de incidencia y funciona en todos sus estados, incluidos RESOLVED y CLOSED.
 
-1. **Almacenamiento directamente en PostgreSQL:** utilizar columnas `BYTEA` para guardar el contenido binario junto con sus metadatos. Simplifica la persistencia y permite transacciones ACID, pero incrementa el tamaño de la base de datos y mezcla información relacional con almacenamiento de archivos.
+El principal autenticado es `Jwt`; el controlador extrae sujeto y versión mediante `DatabaseJwtAuthenticationConverter`, nunca recibe una entidad User. Las respuestas usan `Cache-Control: no-store`; la descarga usa MIME validado, longitud real y Content-Disposition attachment con nombre UTF-8 seguro.
 
-2. **Almacenamiento en el sistema de archivos del servidor:** guardar las fotografías localmente y persistir únicamente sus rutas en PostgreSQL. Es sencillo de implementar, pero introduce problemas de escalabilidad, persistencia y sincronización entre instancias del backend.
+`AttachmentDTO` siempre contiene id, incidentId, originalFilename, contentType MIME, sizeBytes, uploadedBy UUID, createdAt y description (null si ausente). No expone storageKey ni URLs S3. UUIDv7 público y clave UUID aleatoria privada son independientes.
 
-3. **Almacenamiento externo mediante Object Storage:** almacenar los archivos en un servicio especializado y mantener sus metadatos y claves de referencia en PostgreSQL. Permite separar responsabilidades y escalar ambos sistemas independientemente (**elegida**).
+## Validación y memoria
 
-## Decisión
+Solo JPEG (.jpg y .jpeg) y PNG, determinados por firma y decodificación completa, sin confiar en extensión o MIME declarado. Entrada y resultado tienen límites independientes de **10 MiB (10485760 bytes)**. Multipart admite 11 MiB por petición para su sobrecoste y guarda las partes en disco; la aplicación vuelve a limitar la lectura, también en llamadas internas. Excesos previos al controlador se traducen a 413 ATTACHMENT_TOO_LARGE.
 
-Utilizar **Neon Object Storage para almacenar el contenido binario de las evidencias y PostgreSQL para persistir sus metadatos**.
+Antes de decodificar se comprueba un máximo de **16 millones de píxeles** y **8192 por lado**. Sustituye el antiguo techo de 40 millones: dos rasters de cuatro bytes por píxel pueden consumir unos 128 MB, además de buffers y sobrecoste del decodificador. No equivale a una cuota global de RAM; dimensionamiento y límites de concurrencia del despliegue siguen siendo necesarios. La caché del escritor se acota antes de aceptar bytes, evitando crecer hasta un resultado ilimitado.
 
-La entidad `Attachment` representa cada evidencia dentro del dominio y dispone de un identificador propio UUIDv7, generado mediante Hibernate:
+Se rechazan advertencias de decodificación, truncamientos, formatos incompatibles y CRC/chunks PNG inválidos. Se recodifican únicamente píxeles en un raster limpio, sin copiar EXIF/GPS, texto ni perfiles originales; PNG conserva alfa. JPEG puede perder algo de calidad por la recodificación. La descripción admite 300 puntos Unicode, coincidiendo con PostgreSQL y OpenAPI. El nombre descarta rutas, controles y caracteres de formato; limita a 128 puntos Unicode y conserva extensiones fotográficas. Un nombre vacío se convierte en attachment, nunca en ruta ni clave S3.
 
-`@GeneratedValue` y `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)`.
+## Persistencia y concurrencia
 
-La entidad almacena los siguientes atributos:
+La única migración [V1](../../backend/src/main/resources/db/migration/V1__initial_schema.sql) crea attachments con incident_id obligatorio, FK RESTRICT a incidencia/autor, storage_key única, checks de formato/tamaño/fechas/nombre e índice parcial de activas ordenadas. La consolidación está autorizada solo antes de la primera aplicación de Flyway, sobre bases vacías; no es una actualización de bases existentes.
 
-- `id`: identificador UUIDv7 de la evidencia.
-- `incident`: relación obligatoria con la incidencia a la que pertenece la evidencia, mediante la columna `incident_id` y `ON DELETE RESTRICT`.
-- `user`: relación con el usuario que ha subido el archivo, mediante la columna `uploaded_by`.
-- `originalFilename`: nombre original del archivo, limitado a 128 caracteres.
-- `contentType`: tipo de contenido, representado mediante el enumerado `ContentType`.
-- `storageKey`: clave única utilizada para localizar el objeto en Neon Object Storage.
-- `sizeBytes`: tamaño del contenido almacenado en bytes.
-- `createdAt`: instante de creación, generado automáticamente mediante `@CreationTimestamp`.
-- `deletedAt`: instante de eliminación lógica, inicialmente nulo.
-- `description`: descripción opcional de la evidencia, limitada a 300 caracteres.
+Una incidencia admite **cinco evidencias activas en total**, sumando todos sus autores. Flujo de alta:
 
-**La identificación de la entidad y la identificación del objeto almacenado son independientes.** El campo `id` utiliza UUIDv7, mientras que `storageKey` se genera mediante `UUID.randomUUID()` y se utiliza como clave del objeto en el almacenamiento externo. No se reutiliza el identificador de la entidad como clave de almacenamiento.
+1. Revalidar cuenta y visibilidad en una transacción corta.
+2. Leer, validar y sanear; subir al bucket fuera de SQL.
+3. En nueva transacción, revalidar cuenta bloqueando usuario y después incidencia con PESSIMISTIC_WRITE. Contar activas, rechazar la sexta con 409 ATTACHMENT_LIMIT_REACHED, insertar metadatos y auditoría.
+4. Esperar la confirmación SQL. Ante fallo de flush, commit, acceso o capacidad, intentar DELETE compensatorio del objeto.
 
-La FK `attachments.incident_id` se añade mediante la migración `V5__link_attachments_to_incidents.sql`, que introduce la columna `incident_id UUID NOT NULL` con FK a `incidents(id) ON DELETE RESTRICT` y un índice parcial `WHERE deleted_at IS NULL`. La migración es aditiva: no reescribe V4, que ya puede estar aplicada en ramas persistentes de Neon, y se aplica correctamente sobre bases vacías (V1–V5) y sobre bases con V1–V4. La entidad `Attachment` se actualiza con `@ManyToOne(fetch = LAZY, optional = false)` y `@JoinColumn(name = "incident_id", nullable = false)`, y `Attachment.create(...)` exige la incidencia como primer argumento, lanzando `IllegalArgumentException` si llega `null`.
+El método suspende transacciones externas para que la confirmación termine antes de devolver éxito. El bloqueo de incidencia coordina instancias y también las bajas. Si falla la compensación, conserva la causa primaria y la excepción suprimida; registra un evento interno con clave opaca y tipos de error para reconciliación, nunca en respuestas públicas. No hay atomicidad distribuida: una caída de proceso o limpieza fallida puede dejar un objeto huérfano.
 
-### Integración con Object Storage
+## Baja, auditoría y descarga
 
-La comunicación con Neon Object Storage se encapsula en el servicio `ObjectStorageService`, que utiliza `S3Client` de AWS SDK for Java 2.x.
+DELETE establece deletedAt una sola vez y conserva fila, autor, FK y objeto S3. Una repetición devuelve 404 y mantiene el estado final; no hay restauración HTTP. La baja libera una plaza y queda excluida de colección, detalle y contenido.
 
-Se emplea la API compatible con S3 para realizar las operaciones fundamentales:
+ATTACHMENT_CREATED y ATTACHMENT_DELETED usan AuditEvent, recurso ATTACHMENT y únicamente incidentId en detalles, en la misma transacción SQL. No se amplía el historial público de incidencias ni sus filtros. La limpieza de cuentas excluye también autores de evidencias históricas.
 
-- **Subida:** `putObject()`, mediante `PutObjectRequest`, indicando el bucket, la clave del objeto y su tipo MIME. El contenido binario se proporciona mediante `RequestBody.fromBytes()`.
-- **Descarga:** `getObjectAsBytes()`, mediante `GetObjectRequest`, recuperando el contenido completo como un array de bytes.
-- **Eliminación:** `deleteObject()`, mediante `DeleteObjectRequest`, identificando el objeto por su bucket y su clave.
+La descarga autoriza y proyecta metadatos en SQL antes de acceder a S3, sin mantener transacción durante la transferencia. Lee como máximo 10 MiB más un byte de detección y comprueba la longitud respecto a SQL. Los fallos S3 producen 503 saneado; nunca se descargan objetos de una evidencia ya eliminada o inaccesible en la comprobación inicial.
 
-El bucket se obtiene de `StorageProperties`, evitando introducir su nombre directamente en la lógica de negocio.
+## Configuración y verificación
 
-La configuración del cliente S3 y de las propiedades de conexión se mantiene fuera de `AttachmentService`. De esta forma, el servicio de evidencias no depende directamente del SDK de AWS ni de los detalles de comunicación con el proveedor de almacenamiento.
+Se conservan StorageProperties, AWS_ENDPOINT_URL_S3, AWS_REGION, STORAGE_BUCKET y las credenciales estándar AWS. StorageConfig usa path-style y tiempos máximos de 60 segundos por llamada y 30 por intento. El bucket es privado y el frontend solo usa el backend autenticado.
 
-`StorageProperties` (`@ConfigurationProperties(prefix = "storage.s3")`) enlaza `endpoint`, `region` y `bucket` desde `storage.s3.*`. En `application.properties` estos valores se resuelven desde las variables de entorno **`AWS_ENDPOINT_URL_S3`, `AWS_REGION` y `STORAGE_BUCKET`**, y `StorageConfig` construye el `S3Client` con `endpointOverride(properties.endpoint())`, `Region.of(properties.region())` y `forcePathStyle(true)` (necesario para el endpoint S3-compatible de Neon). Las credenciales (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) las toma el SDK de AWS de las variables de entorno estándar, no de `StorageProperties`. No se introduce ningún fallback a `127.0.0.1:9`: si la configuración no está disponible, el cliente falla en lugar de apuntar a un endpoint muerto.
+Las pruebas de imágenes construyen muestras sintéticas con EXIF/GPS y chunks PNG. AttachmentServicePostgresIT usa JWT firmado, HTTP/MVC, PostgreSQL 18 Testcontainers y un doble S3; verifica capacidad, carreras entre autores, compensación incluso por fallo de commit y autorización. Véase [Desarrollo](../development.md#verificación-del-backend) para resultados fechados.
 
-`ObjectStorageService` actúa como una capa de abstracción entre la lógica de negocio y el proveedor externo, facilitando el mantenimiento y una eventual sustitución del sistema de almacenamiento.
+El perfil neon-storage tiene integration-test y verify. La prueba real exige `NEON_STORAGE_TEST_AUTHORIZED=true` además de AWS\_\* y STORAGE_BUCKET de un entorno no productivo autorizado; usa claves temporales únicas y limpieza finally. Las pruebas ordinarias fijan un endpoint local inerte y no heredan credenciales remotas. Una prueba omitida no acredita conectividad ni operaciones reales.
 
-### Flujo de subida
+## Consecuencias y evolución
 
-El servicio `AttachmentService` centraliza el proceso de incorporación de evidencias:
-
-1. Validar que el archivo no sea nulo ni esté vacío.
-2. Validar que la descripción no supere los 300 caracteres.
-3. Comprobar que el usuario que realiza la operación existe y está activo.
-4. Comprobar que la incidencia existe; si `incidentId` es nulo se responde `INCIDENT_REQUIRED` (400) y si no existe `INCIDENT_NOT_FOUND` (404).
-5. Leer el contenido binario del archivo.
-6. Detectar el formato mediante su firma binaria (_magic bytes_), sin confiar exclusivamente en la extensión o el MIME declarado por el cliente.
-7. Admitir únicamente fotografías JPEG, PNG y WebP.
-8. Procesar la imagen mediante `ImageSanitizer` antes de almacenarla.
-9. Generar una `storageKey` única y subir el contenido procesado a Neon Object Storage.
-10. Persistir los metadatos de la evidencia en PostgreSQL mediante `TransactionTemplate` y `AttachmentRepository`, guardando `incident_id`.
-11. Devolver el DTO correspondiente mediante `AttachmentMapper`, que expone `incidentId` y `uploadedBy` reales.
-
-Los nombres de archivo se sanitizan eliminando las rutas de directorios y limitando su longitud a 128 caracteres. El contenido almacenado corresponde a la imagen procesada, y el tamaño registrado en `sizeBytes` representa el tamaño de los bytes sanitizados.
-
-### Consistencia entre PostgreSQL y Object Storage
-
-Dado que PostgreSQL y Neon Object Storage son sistemas independientes, no existe una transacción ACID distribuida que garantice la atomicidad de ambas operaciones.
-
-Se adopta una estrategia de compensación:
-
-- Primero se sube el objeto al almacenamiento externo.
-- Posteriormente se persisten sus metadatos en PostgreSQL.
-- Si falla la persistencia de los metadatos, se intenta eliminar el objeto previamente almacenado mediante `storage.delete(storageKey)`.
-- Si también falla esta operación compensatoria, la excepción de limpieza se añade como excepción suprimida a la excepción original.
-
-De esta manera se intenta evitar que queden archivos almacenados sin una referencia persistida en la base de datos.
-
-### Consulta y eliminación
-
-Se proporcionan operaciones para consultar los metadatos de todas las evidencias no eliminadas, recuperar una evidencia concreta y descargar su contenido binario desde Neon Object Storage.
-
-Las consultas individuales comprueban que `deletedAt` sea nulo. Si la evidencia no existe o ya ha sido eliminada, se devuelve un error `ATTACHMENT_NOT_FOUND` con HTTP 404.
-
-La eliminación se realiza mediante **borrado lógico (_soft delete_)**. El método `markAsDeleted()` establece `deletedAt` únicamente cuando todavía no tiene valor, evitando modificar la fecha de una eliminación anterior.
-
-La eliminación lógica no implica actualmente la eliminación física del objeto en Neon Object Storage ni desvincula la evidencia de su incidencia.
-
-### Tratamiento de metadatos EXIF
-
-Las imágenes recibidas se procesan mediante ImageSanitizer antes de almacenarse en Neon Object Storage. Este procesamiento debe eliminar los metadatos EXIF que puedan contener información sensible, como coordenadas GPS, fecha y hora de captura o información del dispositivo utilizado.
-
-La fotografía almacenada será, por tanto, la versión procesada y no necesariamente el archivo binario original enviado por el usuario.
-
-Consecuencias:
-
-- Se reduce el riesgo de exponer información personal o de localización.
-- El contenido almacenado puede diferir del archivo original.
-- El tamaño registrado en sizeBytes corresponde a la imagen procesada.
-- Es necesario verificar que el sanitizador elimina efectivamente los metadatos y que no conserva información sensible.
-
-## Consecuencias
-
-**Ventajas:**
-
-- Separación entre almacenamiento relacional y almacenamiento binario.
-- Reducción del tamaño de PostgreSQL al evitar almacenar directamente las fotografías.
-- Escalabilidad independiente de los metadatos y los archivos.
-- Identificación estable de las evidencias mediante UUIDv7.
-- Validación del formato real de las imágenes y procesamiento previo a su almacenamiento.
-- Asociación obligatoria de cada evidencia con su incidencia, garantizada por FK `RESTRICT`.
-- Asociación de cada evidencia con el usuario que la ha aportado.
-- Eliminación lógica que conserva los metadatos y permite mantener el historial.
-- Estrategia compensatoria para reducir la aparición de objetos huérfanos cuando falla la persistencia en PostgreSQL.
-- Encapsulación de la comunicación con Object Storage mediante `ObjectStorageService`.
-- Configuración externalizada del bucket y de los parámetros de almacenamiento mediante `StorageProperties`, con endpoint tomado de `AWS_ENDPOINT_URL_S3` y dirección path-style.
-- Menor acoplamiento entre la lógica de negocio y los detalles de integración con el proveedor.
-
-**Costes y limitaciones:**
-
-- Dependencia de Neon Object Storage y de la compatibilidad de su API con S3.
-- Necesidad de gestionar la consistencia entre dos sistemas de persistencia independientes.
-- Las operaciones compensatorias no garantizan atomicidad: un fallo durante la limpieza puede dejar objetos huérfanos.
-- Las descargas requieren una operación adicional contra el almacenamiento externo.
-- El borrado lógico conserva los objetos binarios, por lo que será necesario definir una política de retención y eliminación física.
-- Es necesario controlar los permisos de acceso al contenido y evitar que las claves de almacenamiento se utilicen como mecanismos de autorización.
-- La descarga mediante `getObjectAsBytes()` carga el contenido completo en memoria, lo que puede suponer limitaciones para archivos de gran tamaño.
-
-## Evidencias de implementación y pendientes
-
-- **Entidad `Attachment` implementada:** identificador UUIDv7, relación obligatoria con `Incident` (`incident_id NOT NULL`), relación con `User`, metadatos, clave externa de almacenamiento, marcas temporales y descripción.
-- **Servicio `AttachmentService` implementado:** subida (con `incidentId` obligatorio), consulta de metadatos, descarga y eliminación lógica.
-- **Servicio `ObjectStorageService` implementado:** encapsula las operaciones de subida, descarga y eliminación de objetos mediante `S3Client`.
-- **Integración S3:** utilización de `PutObjectRequest`, `GetObjectRequest` y `DeleteObjectRequest` para interactuar con Neon Object Storage. Configuración vía `StorageProperties` (`storage.s3.endpoint` ← `AWS_ENDPOINT_URL_S3`, `forcePathStyle(true)`).
-- **Migración V5:** añade `attachments.incident_id NOT NULL`, FK `ON DELETE RESTRICT` e índice parcial `WHERE deleted_at IS NULL`. Aditiva; no reescribe V4.
-- **Configuración externalizada:** bucket y parámetros de almacenamiento gestionados mediante `StorageProperties`; sin fallback a `127.0.0.1:9`.
-- **Transferencia binaria:** subida mediante `RequestBody.fromBytes()` y descarga mediante `ResponseBytes<GetObjectResponse>`.
-- **Validación de formatos:** reconocimiento de JPEG, PNG y WebP mediante firmas binarias.
-- **Procesamiento de imágenes:** integración con `ImageSanitizer` antes de almacenar el contenido.
-- **Consistencia entre sistemas:** utilización de `TransactionTemplate` y eliminación compensatoria del objeto si falla la persistencia de sus metadatos.
-- **Gestión de errores:** excepciones específicas para archivo vacío, formato inválido, error de procesamiento, error de almacenamiento, error de descarga, incidencia ausente (`INCIDENT_NOT_FOUND`) y falta de `incidentId` (`INCIDENT_REQUIRED`).
-- **Pruebas de integración:** `AttachmentServicePostgresIT` cubre subida, descarga, consulta, validación, ausencia de incidencia, borrado lógico y compensación; verifica la FK `incident_id` a través de `saved.getIncidentId()`. `NeonAttachmentStorageIT` verifica `putObject`/`getObjectAsBytes`/`deleteObject` reales contra Neon y queda activado mediante `@EnabledIfEnvironmentVariable` cuando las credenciales están presentes; se omite en su ausencia.
-
-Pendientes:
-
-- Verificar que el sanitizador `ImageSanitizer` elimina efectivamente los metadatos EXIF; falta una prueba dedicada que compruebe la ausencia de bloques EXIF en la imagen procesada.
-- Probar los escenarios de fallo de PostgreSQL y Object Storage, incluyendo fallos durante las operaciones compensatorias, con dobles que provoquen `RuntimeException` en el `saveAndFlush` y en el `delete` compensatorio.
-- Definir la política de retención y eliminación física de objetos para evidencias eliminadas lógicamente.
-- Confirmar que el bucket y las credenciales utilizados corresponden a la rama Neon correcta (endpoint, no solo nombre del bucket); una prueba de conectividad no acredita el ID de rama.
-- Añadir autorización por objeto cuando existan flujos de consulta desde el cliente web y móvil (hoy cualquier usuario verificado puede listar metadatos globalmente a través de `GET /api/v1/attachments`).
-- Definir la paginación o los filtros del listado si el volumen lo requiere.
-- Añadir endpoint(s) anidados bajo `incidents/{incidentId}/attachments` para listar adjuntos de una incidencia concreta (hoy la relación existe en BD y en la entidad, pero el listado sigue siendo global).
-
-**Estado real:** la entidad `Attachment`, `AttachmentService` y `ObjectStorageService` están implementados en la rama `feature/modulo-evidencia`. La relación con `Incident` está implementada mediante FK `RESTRICT` (`V5`) y verificada por `AttachmentServicePostgresIT`. Las operaciones reales de subida, descarga y borrado contra Neon están cubiertas por `NeonAttachmentStorageIT`, que se ejecuta cuando `AWS_*` y `STORAGE_BUCKET` están presentes y se omite en caso contrario. El listado por incidencia y la política de retención siguen pendientes.
+La retención y el purgado físico de objetos eliminados, la reconciliación de huérfanos, la anonimización adicional de personas y la autorización departamental de Tramitación son trabajo funcional futuro. No hay workflow CI/CD nuevo. La ausencia de transacción distribuida y el consumo acotado por petición siguen siendo límites operativos explícitos.

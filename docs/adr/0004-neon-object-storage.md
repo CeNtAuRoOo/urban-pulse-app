@@ -32,6 +32,12 @@ Se adopta Neon Object Storage con el bucket **privado** `incident-evidence`. Spr
 - `backend/pom.xml` incorpora AWS SDK for Java 2.x **2.56.0** y su BOM. `StorageProperties` tipa y valida `storage.s3.*`; `StorageConfig` configura el `S3Client` con direccionamiento **path-style**.
 - La prueba explícita `NeonConnectivityIT` ha superado `HeadBucket` usando las credenciales de `development`: confirma acceso al bucket, **no demuestra todavía subida, descarga, borrado ni URLs firmadas**.
 
+## Evidencias implementadas (11/11/2026)
+
+El módulo implementa subida, listado por incidencia, detalle, descarga privada y baja lógica según [ADR-0015](0015-almacenamiento-evidencias.md). Solo JPEG/PNG, 10 MiB de entrada/salida, máximo cinco activas por incidencia, sanitización sin EXIF/GPS y autorización vigente compartida con Incidencias. Las bajas conservan objetos; el DELETE S3 se limita a compensaciones de altas fallidas. No se generan URLs públicas.
+
+La configuración path-style se conserva conforme a la [compatibilidad S3 de Neon](https://neon.com/docs/storage/s3-compatibility). Las pruebas con dobles S3 y PostgreSQL efímero no acreditan operaciones en Neon real. La prueba real es opcional y exige autorización explícita del entorno de pruebas.
+
 ## Consideraciones pendientes
 
-Implementar y probar operaciones de subida, descarga, borrado y acceso autorizado (o URLs firmadas); definir tamaños máximos, MIME aceptados, revisión/anonimización, EXIF, retención y limpieza de objetos huérfanos. El acceso público a una incidencia no implica acceso público automático a su fotografía. La persistencia de metadatos SQL y de objetos no es atómica.
+Política de retención y purgado físico, reconciliación de huérfanos y anonimización adicional de personas identificables. La persistencia SQL y los objetos no forman una transacción distribuida; la compensación reduce inconsistencias pero no elimina fallos por caída de proceso.

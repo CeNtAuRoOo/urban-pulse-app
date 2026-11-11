@@ -41,9 +41,9 @@ El enum de diseño `IncidentStatus` contiene:
 - Qué sucede si un departamento no tiene coordinador o si el trabajo queda sin técnico disponible.
 - Índice único parcial para una asignación activa, concurrencia, reversión ante error y criterios de cierre/reasignación.
 - Qué eventos son visibles al ciudadano y cuáles son internos.
-- El OpenAPI modular vigente `0.6.0` distingue derivación departamental y asignación de trabajo; concretar la matriz de transiciones y permisos de cada operación al implementar el tag.
+- El OpenAPI modular vigente `0.7.0` distingue derivación departamental y asignación de trabajo; concretar la matriz de transiciones y permisos de cada operación al implementar el tag.
 
-**Estado de entrega:** núcleo de Incidencias operativo en V2; StatusChange, IncidentReview y PriorityDecision tienen persistencia base sin operaciones. Assignment y el resto de Tramitación siguen como diseño.
+**Estado de entrega:** núcleo de Incidencias operativo en V1; StatusChange, IncidentReview y PriorityDecision tienen persistencia base sin operaciones. Assignment y el resto de Tramitación siguen como diseño.
 
 ## Revisión del 05/11/2026: núcleo y reapertura
 
@@ -57,7 +57,7 @@ REQUEST_INFORMATION no cambia necesariamente el estado; tanto REQUEST_INFORMATIO
 
 ## Invariantes estructurales verificadas
 
-V3 refuerza los CHECK de revisión/prioridad sin reescribir V1/V2. Java normaliza los motivos de revisión y la justificación de prioridad con trim, rechaza blancos, NUL y sustitutos aislados, y cuenta puntos Unicode. SQL exige su forma ya normalizada y limita longitudes. PriorityDecision requiere prioridad, origen MANUAL/ASSISTED, responsable y justificación de 3–2000; no actualiza Incident.priority por sí sola.
+V1 integra los CHECK finales de revisión/prioridad bajo la consolidación previa a su primera aplicación. Java normaliza los motivos de revisión y la justificación de prioridad con trim, rechaza blancos, NUL y sustitutos aislados, y cuenta puntos Unicode. SQL exige su forma ya normalizada y limita longitudes. PriorityDecision requiere prioridad, origen MANUAL/ASSISTED, responsable y justificación de 3–2000; no actualiza Incident.priority por sí sola.
 
 StatusChange requiere estados no nulos y distintos, nunca origen CLOSED; no existe null → REPORTED ni REOPENED. Java y varchar limitan reason a 2000 y resolutionNotes a 5000 puntos Unicode; ambos son opcionales y conservan formato/blancos. El futuro servicio exigirá texto no blanco para las transiciones que lo necesiten y notas al resolver, autorizará actor/ámbito, comprobará estado actual, asignación y fechas, y escribirá todo atómicamente. Esas reglas de negocio no se atribuyen al constructor ni al CHECK estructural. Las entidades no habilitan endpoints ni ejecutan la máquina de estados.
 

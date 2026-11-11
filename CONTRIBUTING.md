@@ -1,6 +1,6 @@
 # Guía de contribución
 
-UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable (Autenticación, Usuarios, Invitaciones y catálogos en V1; Incidencias en V2 y sus restricciones correctivas en V3). La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
+UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI como una especificación conjunta** antes de implementar cada tag. La documentación distingue el modelo de diseño global del subconjunto ejecutable: Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias se apoyan actualmente en una única migración Flyway V1 consolidada. La estructura Java actual se organiza por módulos de negocio, no por paquetes técnicos globales.
 
 ## Flujo de trabajo
 
@@ -58,7 +58,7 @@ mvn -B -ntp test
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT` e `IncidentPostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
+El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT`, `IncidentPostgresIT` y `AttachmentServicePostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
 
 ```bash
 docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
@@ -74,7 +74,7 @@ npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/
 npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
 ```
 
-Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y no se editan manualmente. Comprobar versión `0.6.0`, enlaces `$ref` y cambios esperados antes de incluirlos en el commit.
+Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y no se editan manualmente. Comprobar versión `0.7.0`, enlaces `$ref` y cambios esperados antes de incluirlos en el commit.
 
 **Documentación:** comprobar vínculos relativos, presencia de todos los SVG que se enlazan, correspondencia `.drawio`/exportación, ausencia de referencias a informes temporales y coherencia con el árbol Java actual. Ejecutar `git diff --check` y comprobar que no se han incorporado secretos, datos personales reales, `.env`, `target`, `dist` o `node_modules`.
 
