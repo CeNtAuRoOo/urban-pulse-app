@@ -1,0 +1,53 @@
+-- Generated offline by backend/scripts/generate-map-boundary.mjs. Do not edit.
+-- IGN administrativeunit 1174486, province 34012900000, retrieved 2026-11-10.
+-- Derived from IGN administrative units, CC-BY 4.0 ign.es. See maps/README.md.
+-- Names and immutable geometry versioned: changing them requires new indexes/migration.
+CREATE FUNCTION map_xy_v1(lat double precision, lon double precision) RETURNS point
+LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
+  SELECT point((lon + 4.5) * @SCALE_X@, (lat - 36.75) * @SCALE_Y@)
+$$;
+CREATE FUNCTION map_lat_v1(p point) RETURNS double precision
+LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$ SELECT p[1] / @SCALE_Y@ + 36.75 $$;
+CREATE FUNCTION map_lon_v1(p point) RETURNS double precision
+LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$ SELECT p[0] / @SCALE_X@ - 4.5 $$;
+
+CREATE FUNCTION map_outline_v1() RETURNS polygon
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT '@POLYGON@'::polygon $$;
+CREATE FUNCTION map_vertices_v1() RETURNS point[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT '@VERTICES@'::point[] $$;
+
+CREATE FUNCTION map_in_malaga_v1(lat double precision, lon double precision) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE SET search_path FROM CURRENT AS $$
+BEGIN
+  RETURN map_xy_v1(lat, lon) <@ map_outline_v1();
+END $$;
+
+-- Only the 100 m cell determines this public point, never the viewport or zoom.
+-- If its centre is offshore/across a border, project that CENTRE onto the closest
+-- official boundary segment. This does not use the original point for clamping.
+CREATE FUNCTION map_public_point_v1(lat double precision, lon double precision) RETURNS point
+LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE SET search_path FROM CURRENT AS $$
+DECLARE
+  p point := map_xy_v1(lat, lon);
+  snapped point := point((floor(p[0] / 100) + 0.5) * 100, (floor(p[1] / 100) + 0.5) * 100);
+  vertices point[];
+  candidate point;
+  closest point;
+  distance double precision := 'Infinity'::double precision;
+  d double precision;
+BEGIN
+  IF snapped <@ map_outline_v1() THEN RETURN snapped; END IF;
+  vertices := map_vertices_v1();
+  FOR n IN 1 .. array_length(vertices, 1) - 1 LOOP
+    candidate := snapped ## lseg(vertices[n], vertices[n + 1]);
+    d := snapped <-> candidate;
+    IF d < distance THEN closest := candidate; distance := d; END IF;
+  END LOOP;
+  RETURN closest;
+END $$;
+
+CREATE INDEX maps_exact_location_idx ON incidents USING gist (map_xy_v1(latitude, longitude))
+  WHERE map_in_malaga_v1(latitude, longitude);
+CREATE INDEX maps_public_location_idx ON incidents USING gist (map_public_point_v1(latitude, longitude))
+  WHERE map_in_malaga_v1(latitude, longitude);
+CREATE INDEX maps_validated_review_idx ON incident_reviews (incident_id) WHERE decision = 'VALIDATE';

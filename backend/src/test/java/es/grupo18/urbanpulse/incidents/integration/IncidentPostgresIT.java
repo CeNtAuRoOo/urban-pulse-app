@@ -261,7 +261,8 @@ class IncidentPostgresIT {
         assertThat(count("status_changes", "incident_id", id)).isZero();
         assertThat(count("incident_reviews", "incident_id", id)).isZero();
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success "
+                + "and version in ('1','2','3') order by installed_rank",
                 String.class))
                 .containsExactly("1", "2", "3");
     }
@@ -575,7 +576,7 @@ class IncidentPostgresIT {
                     + "values(uuidv7(),?,?,'REQUEST_INFORMATION',null,now())", id, owner.user().id());
             var upgrade = org.flywaydb.core.Flyway.configure()
                     .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                    .schemas("review_upgrade").defaultSchema("review_upgrade").load();
+                    .schemas("review_upgrade").defaultSchema("review_upgrade").target("3").load();
             assertThatThrownBy(upgrade::migrate).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
             assertThat(jdbc.queryForObject(
                     "select count(*) from review_upgrade.flyway_schema_history where success and version is not null",

@@ -26,6 +26,7 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | [0012](0012-gestion-usuarios-perfiles-y-administracion.md) | Perfiles y administración de usuarios; protección del último ADMIN    | Aceptado e implementado                                    |
 | [0013](0013-pertenencias-usuarios-departamentos.md)        | Pertenencias activas/históricas, altas y bajas internas               | Aceptado e implementado                                    |
 | [0014](0014-incidencias-concurrencia-historial.md)         | Corrección de incidencias con precondición y auditoría pública        | Aceptado e implementado                                    |
+| [0015](0015-mapas-provinciales-privacidad.md)              | Mapas provinciales, publicación, privacidad y agrupaciones            | Implementado; títulos aprobados pendientes de Tramitación    |
 
 **Al implementar cada tag**, verificar que el [modelo de dominio base](../domain-model.md), su contrato OpenAPI y los ADR afectados continúan siendo coherentes. Si una decisión cambia materialmente, actualizarla con trazabilidad o crear un ADR sucesor; no modificar decisiones en silencio.
 

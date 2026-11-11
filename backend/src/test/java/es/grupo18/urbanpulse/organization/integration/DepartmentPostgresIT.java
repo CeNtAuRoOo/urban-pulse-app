@@ -72,7 +72,8 @@ class DepartmentPostgresIT {
     @org.junit.jupiter.api.BeforeAll
     static void initialSchemaStartsWithoutDepartments(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class))
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success "
+                + "and version in ('1','2','3') order by installed_rank", String.class))
                 .containsExactly("1", "2", "3");
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
                 String.class))
@@ -156,7 +157,8 @@ class DepartmentPostgresIT {
 
     @Test
     void migratesInitialSchemaAndRoundTripsLifecycle() {
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success "
+                + "and version in ('1','2','3')", Integer.class))
                 .isEqualTo(3);
         assertThat(jdbc.queryForObject(
                 "select count(*) from departments where id in ('0199f6de-0001-7000-8000-000000000001', '0199f6de-0002-7000-8000-000000000002', '0199f6de-0003-7000-8000-000000000003')",

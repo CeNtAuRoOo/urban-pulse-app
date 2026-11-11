@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.6.0
+  version: 0.7.0
   description:
     Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
-    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Las restantes áreas del API
+    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Mapas implementa consulta provincial con privacidad y agrupaciones. Las restantes áreas del API
     mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
     requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
     por tag. Funciones avanzadas opcionales aplazadas.
@@ -33,7 +33,7 @@ tags:
   - name: Contexto urbano
     description: Datos geográficos, activos y observaciones externas.
   - name: Mapas
-    description: Representación cartográfica de incidencias.
+    description: Consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
   - name: Notificaciones
     description: Bandeja y preferencias de avisos.
   - name: Analítica

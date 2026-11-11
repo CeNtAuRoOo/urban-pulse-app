@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.6.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.7.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias** y **Mapas**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -22,7 +22,7 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
 - **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
 
-- **`0.6.0` (vigente)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
+- **`0.6.0`**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
 
 La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
 
@@ -141,7 +141,7 @@ npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/opena
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, fotografía, notificaciones de negocio, visor de mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
@@ -167,3 +167,13 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
 Todas las operaciones referenciadas tienen x-implementation explícito: 29 implemented y 41 future. Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+
+## Mapas implementados (0.7.0)
+
+`GET /map/incidents` requiere cuatro límites WGS84 y zoom entero 0..22, con estado
+y categoría opcionales. Admite la provincia completa a zoom bajo. Aplica permisos
+actuales, publicación por revisión VALIDATE, privacidad aproximada de 100 m para
+ajenas públicas y agrupaciones SQL. Distingue INCIDENT/CLUSTER, count gráfico y
+totalIncidents. Máximo 1000 gráficos, sin truncamiento; errores 400/401/403/422/429/503.
+El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aislado.
+Son 30 operaciones implementadas. [Guía completa](../maps-backend.md).

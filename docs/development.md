@@ -308,3 +308,53 @@ En esa ejecución histórica, Flyway aplicó solo V1 sobre cada base vacía y Hi
 Usuarios añade regresiones de normalización previa a validación, límites Unicode Java/SQL, JSON estricto, permisos y paginación. La medición PostgreSQL del listado registra **12 consultas con acceso lazy frente a 4 con carga en lote** para diez usuarios; otra página mantiene cuatro y se comprueba la página vacía. Se verifica la conservación de cuentas vinculadas a todas las FK históricas incluso con lotes de tamaño uno, las bajas concurrentes de administradores, el bloqueo compartido con contraseña, altas/bajas departamentales concurrentes y reingresos con historial. Una comparación de fechas de prueba se ajustó a la precisión de microsegundos de PostgreSQL antes de la ejecución completa satisfactoria.
 
 En frontend, `npm run lint` y `npx tsc --noEmit` finalizaron correctamente el mismo día, sin cambiar dependencias ni el lockfile. OpenAPI se validó y regeneró según la [guía de API](api/README.md#7-validación-y-visualización). Las advertencias de instrumentación Mockito/Byte Buddy y APIs Java de dependencias no impidieron el build. Estas comprobaciones no incluyen un nuevo recorrido SMTP externo, validación móvil ni despliegue en Neon.
+
+## Verificación de Mapas (10/11/2026)
+
+El perfil `postgres-it` incorpora `MapPostgresIT` con PostgreSQL 18 efímero y mantiene
+excluido `NeonConnectivityIT`. No se usan secretos ni bases compartidas. Las cinco
+suites antiguas que enumeraban todas las versiones Flyway se acotan a sus versiones
+base V1–V3; la prueba de actualización de Incidencias apunta expresamente a V3.
+Mapas comprueba por separado la nueva migración, incluidos datos preexistentes en
+un esquema distinto de public y construcción de índices con search_path restringido.
+
+La ejecución de esta entrega usa una copia del backend en Docker, Java 25 y Maven
+3.9.16. El intento inicial con Maven/JDK del host Windows no completó la compilación
+de tests (acceso denegado y clases no resueltas); se utiliza el entorno aislado del
+proyecto para la evidencia final, sin modificar fuentes ajenas para solventarlo.
+
+Desde la raíz, en PowerShell, este comando reproduce la suite completa sin ejecutar
+la aplicación con variables privadas del host:
+
+```powershell
+$mapsSource = (Resolve-Path backend).Path
+docker run --rm --mount "type=bind,source=$mapsSource,target=/src,readonly" --mount type=volume,source=urbanpulse-auth-maven,target=/root/.m2 --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal maven:3.9.16-eclipse-temurin-25 sh -c 'mkdir -p /tmp/maps-build; cp -a /src/pom.xml /src/src /tmp/maps-build/; cd /tmp/maps-build; mvn -B -ntp clean verify -Ppostgres-it'
+```
+
+En la ejecución de la entrega también se copian los informes Surefire/Failsafe y los
+ejemplos capturados a `backend/target`. [Guía de Mapas](maps-backend.md),
+[ADR-0015](adr/0015-mapas-provinciales-privacidad.md) y
+[recurso oficial reproducible](../backend/src/main/resources/maps/README.md).
+
+Resultado final: **BUILD SUCCESS**, 291 pruebas (175 Surefire y 116 Failsafe), cero
+fallos, errores y omisiones. Incluye 12 pruebas unitarias y 18 de integración de
+Mapas. Java 25.0.4.1, Maven 3.9.16, Spring Boot 4.1.2 y PostgreSQL 18.6. Se validan
+geografía provincial y costa, permisos DB y pertenencias reales, privacidad por
+viewport, agrupaciones, límites, migración con datos previos y respuestas de HTTP
+al servidor en puerto efímero. La ejecución completa final dura 3 min 27 s.
+Los intentos fallidos previos se corrigieron y no se suman a estos resultados.
+Los informes de la ejecución final están aislados en `backend/target/maps-verification`
+(29 suites Surefire y nueve Failsafe), para no mezclarlos con informes históricos
+que ya existían en el target local.
+
+OpenAPI 0.7.0: Redocly 2.16.0 sin errores y con los dos avisos conocidos
+`info-license`/`no-server-example.com`. Bundle y HTML regenerados, ejemplos de
+HTTP incorporados al contrato y validados con AJV; el verificador rechaza campos
+privados adicionales. Comando reproducible:
+
+```sh
+npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-contract.cjs"
+```
+
+Verificación offline del contorno IGN con `generate-map-boundary.mjs --check` y
+`git diff --check` correctos. No se ejecutan ni se modifican funcionalidades frontend.

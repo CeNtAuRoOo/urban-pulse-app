@@ -143,6 +143,7 @@
                                 <include>**/CategoryPostgresIT.java</include>
                                 <include>**/DepartmentMembershipPostgresIT.java</include>
                                 <include>**/IncidentPostgresIT.java</include>
+                                <include>**/MapPostgresIT.java</include>
                             </includes>
                         </configuration>
                         <executions>

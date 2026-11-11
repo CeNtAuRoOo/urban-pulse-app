@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.6.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.7.0
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Mapas implementa consulta provincial con privacidad y agrupaciones. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -30,7 +30,7 @@ tags:
   - name: Contexto urbano
     description: Datos geográficos, activos y observaciones externas.
   - name: Mapas
-    description: Representación cartográfica de incidencias.
+    description: Consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
   - name: Notificaciones
     description: Bandeja y preferencias de avisos.
   - name: Analítica
@@ -2187,77 +2187,178 @@ paths:
     get:
       tags:
         - Mapas
-      summary: 'Diseño futuro: Obtener incidencias del mapa'
-      description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son obligatorios para evitar consultas ilimitadas.
+      summary: Consultar incidencias y agrupaciones de la provincia de Málaga
       operationId: getMapIncidents
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
         - AUTHENTICATED
+      description: |
+        Requiere JWT válido, cuenta activa, rol base CITIZEN y correo verificado. Permisos
+        vigentes desde PostgreSQL. OPERATOR/ADMIN global ve todas las incidencias provinciales
+        con posición exacta. El resto (incluidos TECHNICIAN y DEPARTMENT_COORDINATOR) ve
+        las propias exactas y las ajenas solo si existe incident_reviews.decision=VALIDATE,
+        independientemente del estado posterior. Un estado por sí solo no demuestra validación.
+
+        El ámbito es toda la provincia según contorno oficial IGN incorporado al backend,
+        incluidas costa y fronteras, sin llamadas externas por petición. La ubicación pública
+        ajena usa una cuadrícula métrica fija de unos 100 m; se filtra el viewport y se agrupa
+        por esa posición, nunca por la original. No depende del zoom. Reducir precisión no
+        garantiza anonimato. Se usan etiquetas genéricas hasta integrar títulos aprobados
+        de Tramitación. No se devuelven descripciones ni datos personales y la presencia
+        en Mapas no concede acceso al detalle privado de Incidencias.
+
+        Límites WGS84 finitos, inclusivos y estrictamente ordenados; sin cruce de antimeridiano.
+        Cada amplitud en grados no puede superar min(360,1440/2^zoom). Zoom 8 permite toda
+        la provincia; zoom 18 exige amplitud máxima 0.0054931640625 grados.
+        Parámetros desconocidos, repetidos o vacíos se rechazan con 400.
+
+        Celdas fijas de 100*2^(17-zoom) metros para zoom 0..17. En zoom 18..22 todos los elementos
+        son individuales, aunque compartan ubicación aproximada. El cluster se dibuja en la
+        ubicación autorizada del miembro con UUID lexicográficamente menor, dentro del viewport
+        y provincia. Filtros previos al conteo; orden estable por identificador de celda/UUID.
+
+        Máximo 1000 elementos gráficos. Si se supera, 422 MAP_RESULT_LIMIT sin colección parcial:
+        reducir el área o el zoom para agrupar más. Timeout SQL de 5 s, 503 MAP_QUERY_TIMEOUT.
+        Cuota local de 60 consultas por usuario, reposición 60/minuto; 429 con Retry-After.
+        Éxito con Cache-Control no-store. Campos opcionales ausentes omitidos.
       parameters:
         - name: minLat
           in: query
           required: true
+          description: Límite sur WGS84, menor que maxLat.
           schema:
             type: number
+            format: double
             minimum: -90
             maximum: 90
-          description: Límite sur.
         - name: minLon
           in: query
           required: true
+          description: Límite oeste WGS84, menor que maxLon.
           schema:
             type: number
+            format: double
             minimum: -180
             maximum: 180
-          description: Límite oeste.
         - name: maxLat
           in: query
           required: true
+          description: Límite norte WGS84.
           schema:
             type: number
+            format: double
             minimum: -90
             maximum: 90
-          description: Límite norte.
         - name: maxLon
           in: query
           required: true
+          description: Límite este WGS84.
           schema:
             type: number
+            format: double
             minimum: -180
             maximum: 180
-          description: Límite este.
+        - name: zoom
+          in: query
+          required: true
+          description: Nivel entero 0..22; agrupación hasta 17, individuales desde 18.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 22
         - name: status
           in: query
-          required: false
+          description: Estado actual opcional; no sustituye la validación histórica.
           schema:
             $ref: '#/components/schemas/IncidentStatus'
-          description: Estado opcional.
         - name: categoryId
           in: query
-          required: false
+          description: Categoría opcional, incluidas inactivas. UUID inexistente devuelve colección vacía.
           schema:
             type: string
             format: uuid
-          description: Categoría opcional.
       responses:
         '200':
-          description: Operación correcta.
+          description: Colección completa de elementos autorizados dentro del viewport y ámbito provincial.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - no-store
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MapIncidentsDTO'
+              examples:
+                empty:
+                  value:
+                    items: []
+                    count: 0
+                    totalIncidents: 0
+                publicIncident:
+                  summary: Respuesta HTTP capturada en PostgreSQL aislado con datos sintéticos.
+                  value:
+                    items:
+                      - type: INCIDENT
+                        incidentId: 42126143-821b-4dce-81ce-636b9752678e
+                        title: Incidencia 42126143-821b-4dce-81ce-636b9752678e
+                        status: VALIDATED
+                        createdAt: '2026-11-10T19:10:40.166261Z'
+                        coordinates:
+                          latitude: 36.721671408542676
+                          longitude: -4.4208714084871055
+                        coordinatePrecision: APPROXIMATE
+                        canAccessPrivateDetail: false
+                    count: 1
+                    totalIncidents: 1
+                cluster:
+                  summary: Agrupación real de dos incidencias autorizadas del mismo conjunto de pruebas.
+                  value:
+                    items:
+                      - type: CLUSTER
+                        clusterId: g1:8:0:-1
+                        coordinates:
+                          latitude: 36.721671408542676
+                          longitude: -4.4208714084871055
+                        incidentCount: 2
+                    count: 1
+                    totalIncidents: 2
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Parámetro ausente, desconocido, repetido, vacío, no finito, mal tipado, fuera de rango, límites invertidos o área excesiva. INVALID_PARAMETER o HTTP_ERROR.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '422':
+          description: MAP_RESULT_LIMIT. Más de 1000 elementos; sin colección parcial ni total engañoso.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '429':
+          description: RATE_LIMITED. Cuota por usuario de la instancia o capacidad del limitador agotada.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          description: PostgreSQL no disponible o MAP_QUERY_TIMEOUT; sin respuesta parcial.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /notifications:
     get:
       tags:
@@ -4285,40 +4386,38 @@ components:
         - warnings
       description: La falta de proveedores externos no impide registrar incidencias ni provoca un error del reporte.
     MapFeatureDTO:
-      type: object
-      properties:
-        incidentId:
-          type: string
-          format: uuid
-        title:
-          type: string
-        status:
-          $ref: '#/components/schemas/IncidentStatus'
-        priority:
-          $ref: '#/components/schemas/IncidentPriority'
-        coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
-        categoryId:
-          type: string
-          format: uuid
-      required:
-        - incidentId
-        - title
-        - status
-        - coordinates
+      description: Variantes disjuntas de marcador individual y agrupación.
+      oneOf:
+        - $ref: '#/components/schemas/MapIncidentFeatureDTO'
+        - $ref: '#/components/schemas/MapClusterFeatureDTO'
+      discriminator:
+        propertyName: type
+        mapping:
+          INCIDENT: '#/components/schemas/MapIncidentFeatureDTO'
+          CLUSTER: '#/components/schemas/MapClusterFeatureDTO'
     MapIncidentsDTO:
       type: object
+      additionalProperties: false
+      required:
+        - items
+        - count
+        - totalIncidents
       properties:
         items:
           type: array
+          maxItems: 1000
           items:
             $ref: '#/components/schemas/MapFeatureDTO'
         count:
           type: integer
           minimum: 0
-      required:
-        - items
-        - count
+          maximum: 1000
+          description: Número de elementos gráficos, igual a items.length.
+        totalIncidents:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Suma de incidentCount de los grupos y 1 por marcador individual. Sin truncamiento ni paginación.
     NotificationDTO:
       type: object
       properties:
@@ -4695,6 +4794,101 @@ components:
       required:
         - data
         - pagination
+    MapCoordinatesDTO:
+      type: object
+      additionalProperties: false
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+    MapIncidentFeatureDTO:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - incidentId
+        - title
+        - status
+        - createdAt
+        - coordinates
+        - coordinatePrecision
+        - canAccessPrivateDetail
+      properties:
+        type:
+          type: string
+          enum:
+            - INCIDENT
+        incidentId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          description: Etiqueta segura «Incidencia UUID». No publica Incident.title; pendiente integrar título aprobado de Tramitación.
+        category:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - name
+          description: Omitida si no existe; admite categorías históricas inactivas.
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        priority:
+          $ref: '#/components/schemas/IncidentPriority'
+        createdAt:
+          type: string
+          format: date-time
+        coordinates:
+          $ref: '#/components/schemas/MapCoordinatesDTO'
+        coordinatePrecision:
+          type: string
+          enum:
+            - EXACT
+            - APPROXIMATE
+          description: EXACT solo para autor y OPERATOR/ADMIN global; APPROXIMATE usa una cuadrícula métrica fija de unos 100 m.
+        canAccessPrivateDetail:
+          type: boolean
+          description: Autor o rol global OPERATOR/ADMIN vigente. No concede acceso nuevo al endpoint privado.
+    MapClusterFeatureDTO:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - clusterId
+        - coordinates
+        - incidentCount
+      properties:
+        type:
+          type: string
+          enum:
+            - CLUSTER
+        clusterId:
+          type: string
+          description: Identificador determinista g1:zoom:columna:fila, referido a la cuadrícula y versión.
+          example: g1:8:0:-1
+        coordinates:
+          $ref: '#/components/schemas/MapCoordinatesDTO'
+        incidentCount:
+          type: integer
+          format: int64
+          minimum: 2
+          description: Incidencias autorizadas de esta celda dentro del viewport y filtros; nunca número de grupos.
   parameters:
     IncidentId:
       name: incidentId

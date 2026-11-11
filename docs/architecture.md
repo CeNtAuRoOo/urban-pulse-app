@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 05/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías e Incidencias están implementados; los demás tags de negocio siguen siendo diseño. Existen V1, V2 y V3 y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V2 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
+> **Estado a 10/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `maps`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Mapas están implementados; los demás tags de negocio siguen siendo diseño. Existen V1, V2, V3 y V5 de Mapas y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V2 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
 
 ## 1. Propósito y decisiones arquitectónicas
 
@@ -12,15 +12,15 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 ## 2. Contenedores C4 y tecnologías
 
-| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                                           |
-| ----------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                                               |
-| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                             |
-| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 29 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo y seis de Incidencias. Tramitación y otros módulos avanzados pendientes. |
-| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                              |
-| Objetos privados                    | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                                     |
-| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                     |
-| Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                                                                  |
+| Contenedor lógico                 | Tecnología                                                        | Situación                                                                                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web                               | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                                                             |
+| Android/iOS                       | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                                           |
+| API REST                          | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 30 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo, seis de Incidencias y una de Mapas. Tramitación y otros módulos avanzados pendientes. |
+| Datos relacionales                | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                                            |
+| Objetos privados                  | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                                                   |
+| Transporte SMTP                   | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                                   |
+| Mapas / contexto / notificaciones | PostgreSQL nativo para Mapas                                      | Mapas backend implementado; visor, contexto y notificaciones pendientes.                                                                                                                          |
 
 ### Contexto y contenedores
 
@@ -82,6 +82,7 @@ urbanpulse/
 │   ├── repository/       # Catálogo y bloqueo de fila
 │   └── service/          # CategoryService y excepciones
 ├── incidents/           # API, DTO, modelo, repositorios y servicios del núcleo V2
+├── maps/                # API, DTO, políticas y consulta JDBC espacial agregada
 ├── audit/
 │   ├── model/            # AuditEvent
 │   └── repository/
@@ -164,6 +165,16 @@ Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, eq
 
 Las transacciones pertenecen a IncidentService. La escritura revalida cuenta bajo el bloqueo compartido de identidad, comprueba titularidad/rol global, estado y precondición, y usa @Version/flush sobre Incident. Alta/corrección y AuditEvent confirman o revierten conjuntamente. La categoría usa el bloqueo de su catálogo para coordinar desactivaciones. La limpieza de cuentas reconoce las cuatro nuevas FK a User, sin borrar historia. Los entity graphs solo cargan relaciones to-one necesarias y los filtros/paginación se ejecutan en SQL.
 
-La API no implementa tramitación, evidencias, geocodificación, mapas ni notificaciones de negocio. Las cuotas específicas de alta/corrección siguen como propuesta proporcional sobre el limitador compartido; no se afirma protección distribuida ni se reutiliza un máximo de 16 KiB incompatible con descripciones Unicode válidas. [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [roadmap](incidents-implementation-roadmap.md).
+La API no implementa tramitación, evidencias, geocodificación ni notificaciones de negocio; Mapas se implementa en su propio módulo. Las cuotas específicas de alta/corrección siguen como propuesta proporcional sobre el limitador compartido; no se afirma protección distribuida ni se reutiliza un máximo de 16 KiB incompatible con descripciones Unicode válidas. [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [roadmap](incidents-implementation-roadmap.md).
 
 El detalle de Incidencias usa ETag fuerte SHA-256 del JSON completo (incluidos recursos proyectados y version), junto a @Version para carreras de escritura. POST/PATCH tienen un límite bruto de 64 KiB antes de Jackson y responden 413 al excederlo; no incorporan cuotas funcionales nuevas. Se reutiliza CachedBodyRequest con Autenticación, que conserva su límite de 16 KiB. Véase [ADR-0014](adr/0014-incidencias-concurrencia-historial.md).
+
+## Mapas provinciales (10/11/2026)
+
+El módulo `maps` consulta exclusivamente la provincia de Málaga con el contorno IGN
+versionado. PostgreSQL filtra ubicaciones autorizadas, historial VALIDATE y viewport
+antes de agrupar; JDBC devuelve proyecciones acotadas y DTO propios. No altera el
+flujo de Incidencias ni la autorización del detalle privado. Aproximación pública
+de unos 100 m, política de títulos separada y agrupación por zoom. Véanse la
+[guía de Mapas](maps-backend.md) y el [ADR-0015](adr/0015-mapas-provinciales-privacidad.md),
+que incluyen el diagrama específico del módulo y el contrato pendiente con Tramitación.

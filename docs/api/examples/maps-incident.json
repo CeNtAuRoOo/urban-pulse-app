@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "type": "INCIDENT",
+      "incidentId": "42126143-821b-4dce-81ce-636b9752678e",
+      "title": "Incidencia 42126143-821b-4dce-81ce-636b9752678e",
+      "status": "VALIDATED",
+      "createdAt": "2026-11-10T19:10:40.166261Z",
+      "coordinates": {
+        "latitude": 36.721671408542676,
+        "longitude": -4.4208714084871055
+      },
+      "coordinatePrecision": "APPROXIMATE",
+      "canAccessPrivateDetail": false
+    }
+  ],
+  "count": 1,
+  "totalIncidents": 1
+}
