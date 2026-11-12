@@ -62,6 +62,6 @@ global ni implementa por anticipado la autorización contextual de otros tags.
 
 Departamentos y Categorías permiten consultar a cuentas activas con correo verificado. Crear y modificar exige además ADMIN global vigente, consultado en PostgreSQL en cada petición; un rol departamental no concede administración global. Ambos catálogos se desactivan sin borrar identidades ni historial.
 
-Department es la entidad compartida por administración, Invitaciones y pertenencias. Su desactivación impide emitir y canjear invitaciones departamentales; no retira pertenencias. Category mantiene su módulo; V2 incorpora su relación opcional con Incident. La auditoría específica de las escrituras de catálogos (RF18) requiere definir acciones, actor, contenido y política; `AuditEvent` y la auditoría de Invitaciones no la completan.
+Department es la entidad compartida por administración, Invitaciones y pertenencias. Su desactivación impide emitir y canjear invitaciones departamentales; no retira pertenencias. Category mantiene su módulo; V1 incorpora su relación opcional con Incident. La auditoría específica de las escrituras de catálogos (RF18) requiere definir acciones, actor, contenido y política; `AuditEvent` y la auditoría de Invitaciones no la completan.
 
 [Contrato HTTP](../api/README.md), [persistencia vigente](0006-flyway.md#esquema-inicial-vigente) y [reglas de Invitaciones](0007-invitaciones-personal.md).

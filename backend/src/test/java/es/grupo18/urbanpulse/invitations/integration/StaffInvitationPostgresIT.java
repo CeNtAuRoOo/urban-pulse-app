@@ -144,9 +144,21 @@ class StaffInvitationPostgresIT {
 
     @BeforeEach
     void setup() {
-        jdbc.execute("truncate status_changes, incident_reviews, priority_decisions, incidents, "
-                + "audit_events, staff_invitations, department_memberships, departments, "
-                + "email_verifications, user_roles, users");
+        jdbc.execute("""
+                TRUNCATE TABLE
+                    status_changes,
+                    incident_reviews,
+                    priority_decisions,
+                    incidents,
+                    attachments,
+                    audit_events,
+                    staff_invitations,
+                    department_memberships,
+                    departments,
+                    email_verifications,
+                    user_roles,
+                    users
+                """);
         now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         when(clock.instant()).thenAnswer(invocation -> now);
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
@@ -658,7 +670,7 @@ class StaffInvitationPostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from users where id=?", admin))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2", "3");
+                String.class)).containsExactly("1");
     }
 
     @Test

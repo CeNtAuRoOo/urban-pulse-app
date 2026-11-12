@@ -1,13 +1,13 @@
-# UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.6.0)
+# UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.7.0)
 
-> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos e Incidencias tienen API implementada. OpenAPI vigente 0.6.0; V2 añade el núcleo de incidencias y persistencia base de tramitación sin operaciones. Los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias tienen API implementada. OpenAPI vigente 0.7.0; V1 consolida 14 tablas, incluidas incidencias, evidencias y persistencia base de tramitación sin operaciones. Los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
 
 ## 1. Referencia coherente y varias vistas
 
 El proyecto aplica un flujo _design-first_ con fuentes complementarias:
 
 - **Requisitos del caso de estudio y ADR**: determinan el alcance, prioridades, roles, invariantes y decisiones arquitectónicas; las funcionalidades opcionales siguen aplazadas.
-- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1/V2/V3 implementado** y diseño aún no persistido.
+- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1 implementado** y diseño aún no persistido.
 - **Clases simplificadas**: [`../diagrams/clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (una página), con atributos Java/DTO/enums/embebidos; **sin líneas UML intencionadamente**, ya que las relaciones están en el ER.
 - **Contrato OpenAPI fuente**: [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml), rutas en `openapi/paths/` y esquemas en `openapi/components/`.
 - **Salidas derivadas**: [`openapi.yaml`](openapi.yaml) y [`openapi.html`](openapi.html), regeneradas con Redocly y **nunca editadas a mano**.
@@ -74,7 +74,7 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 `UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. `StatusChangeDTO.fromStatus` siempre corresponde a una transición real; no existe evento inicial de transición. El alta se registra en AuditEvent. El actor puede faltar en un futuro evento de sistema. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales activas e históricas ya están implementadas en UserDTO y en los servicios internos de organization (ADR-0013).
 
-**Pendiente de implementar:** equipos, API de retirada de permisos, tramitación operativa de incidencias, fotografías, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
+**Pendiente de implementar:** equipos, API de retirada de permisos, tramitación operativa de incidencias, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 
 ## 5. Proceso dominio–API por tag
 
@@ -107,12 +107,12 @@ npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/opena
 
 Las cinco operaciones cubren perfil propio y administración global con correo verificado. Los DTO admiten solo `displayName` o `active` según la ruta; la normalización de nombre se valida en puntos Unicode. `LAST_ACTIVE_ADMIN` protege la disponibilidad administrativa con estado 409. El listado pagina en SQL y carga roles y pertenencias en lote; el filtro departamental excluye historia, aunque el DTO la incluye. La baja y reentrada departamental son servicios internos sin nuevas rutas. Véanse [Usuarios](README.md#usuarios-implementados), [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).
 
-## Núcleo de Incidencias y contrato 0.6.0
+## Núcleo de Incidencias y contrato 0.7.0
 
-V2 y el módulo incidents implementan seis operaciones de alta, listados, detalle, corrección e historial. Los DTO efectivos contienen datos respaldados por persistencia; el diseño de geocodificación, evidencias, contexto y trabajo permanece opcional y explícitamente futuro. [Definición exacta de campos, permisos, errores y evolución](../incidents-implementation-roadmap.md).
+V1 y el módulo incidents implementan seis operaciones de alta, listados, detalle, corrección e historial. Los DTO efectivos contienen datos respaldados por persistencia; el diseño de geocodificación, contexto y trabajo permanece opcional y explícitamente futuro. [Definición exacta de campos, permisos, errores y evolución](../incidents-implementation-roadmap.md).
 
 El alta solo produce REPORTED y AuditEvent INCIDENT_CREATED; correcciones reales generan INCIDENT_UPDATED. StatusChange/IncidentReview/PriorityDecision tienen persistencia base sin operaciones. Se elimina el estado persistente intermedio de reapertura: RESOLVED podrá volver directamente a derivación o trabajo válido, con motivo; CLOSED es definitivo. Historial es proyección paginada, no tabla.
 
 @Version e If-Match obligatorio evitan correcciones sobre versiones obsoletas (428/412); ETag se devuelve en alta/detalle/corrección. Solo el titular u OPERATOR/ADMIN globales pueden corregir REPORTED; permisos sobre terceros provisionales y sujetos a revisión. Un rol departamental no concede acceso global ni modifica la semántica de mine. Datos ajenos sin autorización responden como inexistentes.
 
-La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V3 alinea los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la máquina de estados sigue aplazada.
+La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V1 incorpora los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la máquina de estados sigue aplazada.

@@ -2,7 +2,7 @@
 -- UrbanPulse | Datos de demostración del frontend
 -- =============================================================================
 -- USO EXCLUSIVO EN UNA BASE DE DATOS LOCAL Y DESECHABLE.
--- Requiere PostgreSQL con las migraciones Flyway V1, V2 y V3 aplicadas.
+-- Requiere PostgreSQL con la migración Flyway V1 consolidada aplicada.
 -- No forma parte de Flyway ni se ejecuta automáticamente al arrancar la API.
 --
 -- Ejecutar con psql y un hash BCrypt propio (60 caracteres, coste >= 04):

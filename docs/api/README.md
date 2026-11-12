@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.6.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.7.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias** y **Evidencias**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -22,7 +22,8 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
 - **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
 
-- **`0.6.0` (vigente)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
+- **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
+- **`0.7.0` (vigente)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
 
 La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
 
@@ -141,12 +142,12 @@ npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/opena
 
 ## 8. Alcance futuro y referencias
 
-Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, fotografía, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
+Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, notificaciones de negocio, mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
 
 - [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
 - [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
 
-## Incidencias implementadas (0.6.0)
+## Incidencias implementadas (desde 0.6.0)
 
 Seis operaciones: POST/GET `/incidents`, GET `/incidents/mine`, GET/PATCH `/incidents/{incidentId}` y GET `/incidents/{incidentId}/history`. Listado general solo OPERATOR/ADMIN globales; propios por sujeto JWT en SQL; detalle, corrección e historial por titular o esos roles. Todos requieren cuenta activa/verificada. Los roles departamentales no amplían acceso. Recurso ajeno sin permiso e inexistente producen el mismo 404.
 
@@ -158,7 +159,7 @@ Paginación compartida page=1/pageSize=20 (máximo 100), offset máximo 21474836
 
 El [roadmap técnico](../incidents-implementation-roadmap.md) detalla columnas, errores, DTO, modelo futuro, dependencias y trazabilidad RF. Las rutas de otros tags identificadas como «Diseño futuro» no están implementadas.
 
-**Validación del 05/11/2026:** OpenAPI 0.6.0 válido con Redocly 2.16.0, cero errores y los dos avisos conocidos de licencia/localhost. Bundle y HTML regenerados desde la fuente modular. Hay 29 operaciones implementadas: las 23 anteriores y seis de Incidencias; los restantes tags conservan diseño futuro.
+**Validación histórica del 05/11/2026:** OpenAPI 0.6.0 válido con Redocly 2.16.0, cero errores y los dos avisos conocidos de licencia/localhost. Bundle y HTML regenerados desde la fuente modular. En aquella versión había 29 operaciones implementadas: las 23 anteriores y seis de Incidencias; los restantes tags conservan diseño futuro.
 
 ### Precondiciones y tamaño del núcleo de Incidencias
 
@@ -166,4 +167,24 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
-Todas las operaciones referenciadas tienen x-implementation explícito: 29 implemented y 41 future. Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+Todas las operaciones referenciadas tienen x-implementation explícito: 34 implemented y 37 future (71 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+
+## Evidencias implementadas
+
+El contrato implementa cinco operaciones sobre fotografías privadas. Todas exigen cuenta activa/verificada y visibilidad vigente de Incidencias: informante u OPERATOR/ADMIN global. Los roles departamentales solo permiten actuar como informante propio. Se admiten todos los estados sin modificarlos.
+
+| Método | Ruta relativa a /api/v1                                    | Éxito                                   |
+| ------ | ---------------------------------------------------------- | --------------------------------------- |
+| POST   | /incidents/{incidentId}/attachments                        | 201, Location relativa y DTO            |
+| GET    | /incidents/{incidentId}/attachments                        | 200, hasta cinco activas sin paginación |
+| GET    | /incidents/{incidentId}/attachments/{attachmentId}         | 200, metadatos                          |
+| GET    | /incidents/{incidentId}/attachments/{attachmentId}/content | 200, binario privado                    |
+| DELETE | /incidents/{incidentId}/attachments/{attachmentId}         | 204, baja lógica                        |
+
+Solo JPEG (.jpg/.jpeg) y PNG, por firma y decodificación real; máximo 10 MiB de entrada/salida, 16 millones de píxeles y 8192 por lado. Multipart permite 11 MiB por petición. Recodifica sin EXIF/GPS conservando alfa PNG. Descripción nullable de 300 puntos Unicode y nombre saneado de 128.
+
+AttachmentDTO siempre devuelve id, incidentId, originalFilename, contentType (image/jpeg o image/png), sizeBytes, uploadedBy UUID, createdAt y description, incluso null. No expone claves S3. Lista en createdAt DESC/id DESC; todas las respuestas privadas incluyen no-store. Descarga con Content-Disposition attachment UTF-8, MIME y longitud reales.
+
+Máximo cinco activas en total por incidencia, protegido por bloqueo SQL. La sexta responde 409 ATTACHMENT_LIMIT_REACHED y compensa cualquier objeto subido. DELETE conserva fila y binario; repetir devuelve 404 y libera plaza solo la primera vez. No hay restauración. Los eventos internos no alteran el historial público de Incidencias.
+
+Errores: 400 por parámetros/multipart ausente, 401 por identidad inválida, 403 sin verificar, 404 indistinguible por incidencia ajena/inexistente o evidencia eliminada/pareja incorrecta, 409 por capacidad, 413 ATTACHMENT_TOO_LARGE incluso antes del controlador, 422 por contenido/descripción y 500/503 saneados. No existe API global de adjuntos. [Decisiones completas](../adr/0015-almacenamiento-evidencias.md).

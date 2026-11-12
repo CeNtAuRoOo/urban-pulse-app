@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado a 05/11/2026:** la estructura Java es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit`, `shared`). Incidencias añade V2 y seis operaciones al núcleo anterior de V1. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
+> **Estado a 11/11/2026:** la estructura Java es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `audit`, `shared`). La única V1 consolida 14 tablas; Evidencias añade cinco rutas a las seis de Incidencias. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
 
 ## 1. Requisitos y clonación
 
@@ -31,14 +31,13 @@ urban-pulse-app/
 │   │   ├── organization/{api,dto,model,repository,service}/
 │   │   ├── categories/{api,dto,model,repository,service}/
 │   │   ├── incidents/{api,dto,model,repository,service}/
+│   │   ├── attachment/{api,dto,mappers,model,repository,service}/
 │   │   ├── audit/{model,repository}/
-│   │   ├── incidents/{api,integration,model,service}/
 │   │   └── shared/{error,mail,pagination,ratelimit,security,storage}/
 │   ├── src/main/resources/
 │   │   ├── application.properties
 │   │   └── db/migration/
-│   │       ├── V1__initial_schema.sql
-│   │       └── V2__incidents.sql
+│   │       └── V1__initial_schema.sql
 │   ├── src/test/java/es/grupo18/urbanpulse/
 │   │   ├── auth/{api,integration,service}/
 │   │   ├── identity/{api,dto,integration,service}/
@@ -46,6 +45,8 @@ urban-pulse-app/
 │   │   ├── organization/{api,integration,model,service}/
 │   │   ├── categories/{api,integration,service}/
 │   │   ├── incidents/{api,integration,model,service}/
+│   │   ├── attachment/service/
+│   │   ├── attachments/
 │   │   └── shared/
 │   │       ├── error/, mail/, ratelimit/, security/
 │   │       └── storage/integration/NeonConnectivityIT.java
@@ -69,7 +70,7 @@ urban-pulse-app/
 └── .editorconfig
 ```
 
-Los tests de integración PostgreSQL están en `auth/integration`, `identity/integration`, `invitations/integration`, `organization/integration`, `categories/integration` e `incidents/integration`. No situar `NeonConnectivityIT` en la raíz del árbol de pruebas ni inferir que `mvn test` ejecuta suites `*IT` automáticamente. El proyecto sigue siendo **un solo backend Spring Boot**, con ocho módulos funcionales y transversales. Consultar [Arquitectura](architecture.md) para las responsabilidades de cada módulo.
+Los tests de integración PostgreSQL están en `auth/integration`, `identity/integration`, `invitations/integration`, `organization/integration`, `categories/integration`, `incidents/integration` y `attachments/`. No situar `NeonConnectivityIT` en la raíz del árbol de pruebas ni inferir que `mvn test` ejecuta suites `*IT` automáticamente. El proyecto sigue siendo **un solo backend Spring Boot**, con nueve módulos funcionales y transversales. Consultar [Arquitectura](architecture.md) para las responsabilidades de cada módulo.
 
 ## 3. Configuración y secretos
 
@@ -152,9 +153,9 @@ npx expo export --platform web
 
 ## 5. Backend: ejecución y migraciones
 
-V1 crea nueve tablas funcionales y cinco roles; V2 añade cuatro tablas de Incidencias y estructuras base. No se precargan cuentas ADMIN, departamentos ni categorías. Está destinada a una base vacía; el historial y las decisiones de consolidación se recogen en [ADR-0006](adr/0006-flyway.md).
+V1 crea catorce tablas funcionales y cinco roles, incluidas Incidencias, estructuras de tramitación y Evidencias. No se precargan cuentas ADMIN, departamentos ni categorías. Está destinada a una base vacía; el historial y las decisiones de consolidación se recogen en [ADR-0006](adr/0006-flyway.md).
 
-**Precaución:** el Compose principal conecta con Neon **development** y un backend nuevo puede ejecutar **Flyway V1, V2 y V3** al arrancar. No iniciar a ciegas con secretos de producción ni sobre bases de datos compartidas. Hacer backup/plan de migración y verificar `SPRING_DATASOURCE_URL`.
+**Precaución:** el Compose principal conecta con Neon **development** y un backend nuevo puede ejecutar **Flyway V1** al arrancar. No iniciar a ciegas con secretos de producción ni sobre bases de datos compartidas. Hacer backup/plan de migración y verificar `SPRING_DATASOURCE_URL`.
 
 ```bash
 # Desde la raíz, con backend/.env.development correctamente configurado:
@@ -182,7 +183,7 @@ mvn -B -ntp test                       # Surefire: pruebas unitarias y MVC
 mvn -B -ntp clean verify -Ppostgres-it # Surefire + Failsafe: IT con PostgreSQL efímero
 ```
 
-El perfil `postgres-it` incluye explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT` e `IncidentPostgresIT`, cada una con PostgreSQL 18 de Testcontainers. **No ejecuta** `NeonConnectivityIT`. Las invocaciones normales `mvn test`, `mvn package`, `mvn verify` no ejecutan `*IT` por defecto; `mvn spring-boot:run` y `docker compose up --build` con `Dockerfile.dev` tampoco lanzan las suites automáticamente.
+El perfil `postgres-it` incluye explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT`, `IncidentPostgresIT` y `AttachmentServicePostgresIT`, cada una con PostgreSQL 18 de Testcontainers. **No ejecuta** `NeonConnectivityIT`. Las invocaciones normales `mvn test`, `mvn package`, `mvn verify` no ejecutan `*IT` por defecto; `mvn spring-boot:run` y `docker compose up --build` con `Dockerfile.dev` tampoco lanzan las suites automáticamente.
 
 ### 6.1. Evidencia histórica de SMTP
 
@@ -222,13 +223,38 @@ Para cada tag, revisar como una unidad el OpenAPI modular, ambas vistas de domin
 - Si Docker no refleja nuevas dependencias, actualizar el volumen de `node_modules` con `npm ci`.
 - Si falla backend por credenciales, comprobar JDBC/TLS, variables S3, permisos y destino de Flyway; no confundir con error de frontend.
 - Si `NeonConnectivityIT` no aparece con `mvn test`, es normal: invocarlo expresamente, **solo** con Neon `development` autorizado.
-- `HeadBucket` correcto no garantiza subida/descarga/borrado; esas pruebas corresponden al futuro módulo de evidencias.
+- `HeadBucket` correcto no garantiza subida/descarga/borrado; el módulo de Evidencias tiene pruebas aisladas y una prueba Neon opcional explícitamente autorizada.
 
-Pendientes funcionales: tramitación de incidencias, fotografías reales, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
+Pendientes funcionales: tramitación de incidencias, retención/purgado de fotografías, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
 
 ## Verificación del backend
 
-### Incidencias: revisión correctiva del 05/11/2026
+### Evidencias y V1 consolidada: verificación del 11/11/2026
+
+Entorno aislado: Maven 3.9.16, Java 25.0.4.1, Spring Boot 4.1.2, Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6. Se ejecutó Maven en `maven:3.9.16-eclipse-temurin-25`, montando backend y la caché Maven; las IT accedieron al socket Docker con `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`. No se usaron bases compartidas, archivos privados de entorno ni credenciales Neon.
+
+| Comando desde backend                       | Resultado                                                                        |
+| ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `mvn -B -ntp test`                          | PASS: 171 pruebas unitarias/MVC, 27 suites                                       |
+| `mvn -B -ntp clean verify -Ppostgres-it`    | PASS: 171 Surefire + 114 Failsafe = **285 pruebas**, 36 suites                   |
+| `mvn -B -ntp failsafe:verify -Ppostgres-it` | PASS: comprobación adicional de los informes finales, sin repetir ni sumar tests |
+| `mvn -B -ntp javadoc:javadoc -Ddoclint=all` | PASS: cero errores; 64 avisos de completitud documental                          |
+
+Javadoc se regeneró sin reutilizar su marcador de caché tras completar las descripciones del módulo. Permanecen avisos sobre constructores implícitos/Lombok y comentarios del resto del backend; no se amplía esta entrega a un barrido documental general. Los últimos cambios Java son exclusivamente comentarios.
+
+Los informes XML de la ejecución limpia registran cero fallos, errores, omisiones o flakes. Failsafe contiene AttachmentServicePostgresIT 16, AuthenticationPostgresIT 8, EmailVerificationPostgresIT 12, CategoryPostgresIT 6, UserRepositoryPostgresIT 15, IncidentPostgresIT 18, StaffInvitationPostgresIT 24, DepartmentMembershipPostgresIT 9 y DepartmentPostgresIT 6. Cada contexto aplica solo V1 desde PostgreSQL vacío y Hibernate valida las entidades; se comprueban 14 tablas funcionales, cinco roles y restricciones finales. No se suman pruebas dirigidas ni ejecuciones históricas.
+
+La suite de Evidencias comprueba las cinco rutas con JWT firmado, DTO y cabeceras, visibilidad y pareja de IDs, todos los estados, límite conjunto y carreras con una/cero plazas, bajas lógicas, auditoría atómica, lectura fallida, tamaño declarado falso, rechazo multipart previo al controlador y errores PUT/GET/commit/compensación. El almacenamiento es un doble aislado; las transferencias se comprueban fuera de transacción SQL. Las ocho pruebas de imágenes usan muestras sintéticas JPEG con EXIF/GPS y PNG con texto/eXIf, alfa, corrupción, dimensiones, límites exactos de entrada y expansión excesiva de salida.
+
+La primera ejecución dirigida detectó una consulta derivada que interpretaba incidentId como atributo persistente: se corrigió el recorrido explícito `Incident_Id`. La repetición dirigida pasó con 12 unitarias y 13 IT; la ejecución completa posterior incluye las tres IT adicionales de lectura, rollback de auditoría y conservación del autor histórico. La comprobación previa del esquema con CategoryServiceTest/CategoryPostgresIT también pasó (7 + 6); estas ejecuciones no aumentan el total de 285.
+
+OpenAPI 3.0.3 / contrato 0.7.0: Redocly 2.16.0 validó la fuente modular, regeneró bundle YAML y HTML y validó de nuevo el bundle. Cero errores; la fuente presenta los dos avisos conocidos de licencia/localhost y el bundle añade tres componentes preexistentes sin uso (AssessmentId, TrainingId y DocumentId). Recuento verificado: **34 operaciones implemented, 37 future, 71 totales**. Enlaces/anclas Markdown locales y `git diff --check` correctos; las tres fuentes drawio conservan páginas, IDs, geometría, estilos y conexiones. Codex no modificó los SVG; sus exportaciones se actualizaron manualmente con posterioridad.
+
+`verify -Pneon-storage` no se ejecutó: no se utilizó un entorno S3 de pruebas explícitamente autorizado. El perfil requiere `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración de pruebas; no acredita un ciclo PUT/GET/DELETE en Neon. Tampoco se repitieron frontend, SMTP externo ni despliegue.
+
+### Incidencias: revisión correctiva del 05/11/2026 (histórica)
+
+Este registro conserva los resultados y migraciones de aquella fecha. La entrega vigente usa una única V1 predespliegue; estas referencias a V2/V3 no son instrucciones de ejecución actuales.
 
 Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6 efímero. No se ejecutó NeonConnectivityIT ni se utilizaron credenciales de Neon. El inventario Docker no ofrecía una base PostgreSQL persistente local. El historial remoto de Neon no se ha consultado; V1/V2 se conservan y V3 es aditiva.
 
@@ -247,7 +273,7 @@ Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.F
 | IncidentPostgresIT             |      18 |
 | **Total**                      | **261** |
 
-La cifra anterior de 248 no era reproducible con el árbol recibido para esta revisión: `sqlPaginationFiltersStableOrderAndUnknownQueries` no creaba las incidencias del titular y falló con **esperado 2, obtenido 0**. Se restauró la preparación explícita, con control de otro titular, fechas fijas y limpieza independiente. No se modificó autorización para satisfacer el test. Esta medición sustituye aquella cifra como evidencia vigente.
+La cifra anterior de 248 no era reproducible con el árbol recibido para esta revisión: `sqlPaginationFiltersStableOrderAndUnknownQueries` no creaba las incidencias del titular y falló con **esperado 2, obtenido 0**. Se restauró la preparación explícita, con control de otro titular, fechas fijas y limpieza independiente. No se modificó autorización para satisfacer el test. Esa medición sustituyó la cifra anterior en la revisión del 05/11/2026.
 
 También se reprodujeron: cambios de perfil/categoría por sus APIs que alteraban el JSON conservando ETag `"0"`; aceptación con 201 de un cuerpo de 65537 bytes; y dos fallos unitarios por motivos/límites estructurales no comprobados. La revisión incorpora ETag opaca de la representación, 64 KiB con 413 y reglas Java/SQL coherentes mediante V3. Las fechas se truncan a microsegundos para conservar el JSON al releer PostgreSQL.
 
