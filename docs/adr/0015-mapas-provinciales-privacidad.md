@@ -89,7 +89,7 @@ de coordenadas, sin cambiar reglas del módulo Incidencias. Para grandes volúme
 se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
-La migración `V20261110120000__maps_geography.sql` usa numeración temporal para evitar
+La migración `V5__maps_geography.sql` usa numeración temporal para evitar
 colisiones con V4/V5 de compañeros. No edita V1–V3. Antes de desplegar ramas combinadas,
 coordinar el orden: Flyway no aplica por defecto versiones menores añadidas después
 de una versión temporal ya instalada. No se activa outOfOrder global ni se despliega

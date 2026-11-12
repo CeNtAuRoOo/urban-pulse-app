@@ -406,8 +406,11 @@ class IncidentPostgresIT {
         var first = create(owner);
         var second = create(owner);
         var control = create(admin);
-        jdbc.update("update incidents set created_at='2026-01-02',updated_at='2026-01-02' where id=?", control.id());
-        jdbc.update("update incidents set created_at='2026-01-01',updated_at='2026-01-01' where reporter_user_id=?",
+        jdbc.update(
+                "update incidents set created_at='2026-01-02 00:00:00+00',updated_at='2026-01-02 00:00:00+00' where id=?",
+                control.id());
+        jdbc.update(
+                "update incidents set created_at='2026-01-01 00:00:00+00',updated_at='2026-01-01 00:00:00+00' where reporter_user_id=?",
                 owner.user().id());
         var page = service.mine(owner.user().id(), 0, 1, 1);
         assertThat(page.pagination().totalItems()).isEqualTo(2);

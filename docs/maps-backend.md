@@ -35,11 +35,11 @@ quedan en `backend/target/maps-examples`. No contienen JWT ni datos personales.
 
 ## Permisos y datos
 
-| Solicitante | Propias, cualquier estado | Ajenas sin VALIDATE histórico | Ajenas con VALIDATE histórico |
-|---|---|---|---|
-| CITIZEN | Exactas | No visibles | Aproximadas |
-| TECHNICIAN / DEPARTMENT_COORDINATOR | Exactas | No visibles | Aproximadas |
-| OPERATOR / ADMIN global | Exactas | Exactas | Exactas |
+| Solicitante                         | Propias, cualquier estado | Ajenas sin VALIDATE histórico | Ajenas con VALIDATE histórico |
+| ----------------------------------- | ------------------------- | ----------------------------- | ----------------------------- |
+| CITIZEN                             | Exactas                   | No visibles                   | Aproximadas                   |
+| TECHNICIAN / DEPARTMENT_COORDINATOR | Exactas                   | No visibles                   | Aproximadas                   |
+| OPERATOR / ADMIN global             | Exactas                   | Exactas                       | Exactas                       |
 
 El conversor JWT consulta permisos actuales; el servicio los revalida en su propia
 transacción. No se confía en roles del token ni del cliente. Las pertenencias de
@@ -86,14 +86,14 @@ no el de toda la celda fuera de pantalla.
 
 ## Límites y errores
 
-| HTTP | Situación |
-|---|---|
-| 400 | Parámetros inválidos, área demasiado grande para zoom; INVALID_PARAMETER/HTTP_ERROR |
-| 401 | JWT ausente/inválido/revocado, cuenta inactiva o ausencia de rol base |
-| 403 | Correo no verificado |
-| 422 | MAP_RESULT_LIMIT: más de 1000 elementos; reducir área o zoom |
-| 429 | RATE_LIMITED: bucket por usuario de 60 peticiones y reposición 60/minuto; Retry-After |
-| 503 | MAP_QUERY_TIMEOUT (5 s) o base de datos no disponible |
+| HTTP | Situación                                                                             |
+| ---- | ------------------------------------------------------------------------------------- |
+| 400  | Parámetros inválidos, área demasiado grande para zoom; INVALID_PARAMETER/HTTP_ERROR   |
+| 401  | JWT ausente/inválido/revocado, cuenta inactiva o ausencia de rol base                 |
+| 403  | Correo no verificado                                                                  |
+| 422  | MAP_RESULT_LIMIT: más de 1000 elementos; reducir área o zoom                          |
+| 429  | RATE_LIMITED: bucket por usuario de 60 peticiones y reposición 60/minuto; Retry-After |
+| 503  | MAP_QUERY_TIMEOUT (5 s) o base de datos no disponible                                 |
 
 Errores ProblemDetail, sin posiciones privadas ni mensajes SQL. Nunca se devuelve
 una respuesta parcial ni un total falso por exceso de carga. Colección vacía es
@@ -133,35 +133,35 @@ VALIDATE no publica. No se ha creado columna `public_title` ni endpoint de aprob
 
 Rutas relativas a la raíz del repositorio:
 
-| Archivo/directorio | Cambio |
-|---|---|
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/api/MapController.java` | Endpoint, parámetros, cuota, no-store |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQuery.java` | Límites y zoom |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQueryService.java` | Transacción, orquestación, DTO, límites |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicy.java` | Permisos DB actuales |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapTitlePolicy.java` | Etiquetas y futura integración |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/repository/MapIncidentRepository.java` | Consulta espacial y agregada |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapFeatureDTO.java` | Variantes individuales/grupos |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapIncidentsDTO.java` | Colección y totales |
-| `backend/src/main/resources/maps/malaga-ign.geojson`, `maps/README.md` | Contorno oficial y procedencia |
-| `backend/src/main/resources/db/migration/V20261110120000__maps_geography.sql` | Funciones constantes e índices, aditiva |
-| `backend/scripts/generate-map-boundary.mjs`, `maps-functions.sql.template` | Generación reproducible offline |
-| `backend/scripts/validate-map-contract.cjs` | Validación de respuestas capturadas contra OpenAPI y rechazo de campos privados |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryTest.java` | Parámetros y cuadrículas |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicyTest.java` | Autorización |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryServiceTest.java` | Proyección, límites y errores |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPostgresIT.java` | PostgreSQL y HTTP real de Spring Security/MVC |
-| `backend/pom.xml` | Incluir MapPostgresIT en perfil aislado |
-| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3 |
-| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3 |
-| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3 |
-| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java` | Acotar comprobaciones de migraciones base a V1–V3 |
-| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java` | Acotar V1–V3 y mantener la prueba de actualización V2 a V3 en su ámbito |
-| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml` | Contrato modular 0.7.0 |
-| `docs/api/openapi.yaml`, `docs/api/openapi.html` | Artefactos generados por Redocly |
-| `docs/api/examples/maps-incident.json`, `maps-cluster.json` | Respuestas capturadas con datos sintéticos |
-| `docs/adr/0015-mapas-provinciales-privacidad.md`, `docs/adr/README.md` | Decisión e índice |
-| `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md` | Integración y verificación |
+| Archivo/directorio                                                                                   | Cambio                                                                          |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/api/MapController.java`                            | Endpoint, parámetros, cuota, no-store                                           |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQuery.java`                             | Límites y zoom                                                                  |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQueryService.java`                      | Transacción, orquestación, DTO, límites                                         |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicy.java`                  | Permisos DB actuales                                                            |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapTitlePolicy.java`                       | Etiquetas y futura integración                                                  |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/repository/MapIncidentRepository.java`             | Consulta espacial y agregada                                                    |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapFeatureDTO.java`                            | Variantes individuales/grupos                                                   |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapIncidentsDTO.java`                          | Colección y totales                                                             |
+| `backend/src/main/resources/maps/malaga-ign.geojson`, `maps/README.md`                               | Contorno oficial y procedencia                                                  |
+| `backend/src/main/resources/db/migration/V5__maps_geography.sql`                                     | Funciones constantes e índices, aditiva                                         |
+| `backend/scripts/generate-map-boundary.mjs`, `maps-functions.sql.template`                           | Generación reproducible offline                                                 |
+| `backend/scripts/validate-map-contract.cjs`                                                          | Validación de respuestas capturadas contra OpenAPI y rechazo de campos privados |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryTest.java`                         | Parámetros y cuadrículas                                                        |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicyTest.java`              | Autorización                                                                    |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryServiceTest.java`                  | Proyección, límites y errores                                                   |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPostgresIT.java`                    | PostgreSQL y HTTP real de Spring Security/MVC                                   |
+| `backend/pom.xml`                                                                                    | Incluir MapPostgresIT en perfil aislado                                         |
+| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Acotar comprobaciones de migraciones base a V1–V3                               |
+| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Acotar V1–V3 y mantener la prueba de actualización V2 a V3 en su ámbito         |
+| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.7.0                                                          |
+| `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                |
+| `docs/api/examples/maps-incident.json`, `maps-cluster.json`                                          | Respuestas capturadas con datos sintéticos                                      |
+| `docs/adr/0015-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                               |
+| `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md`          | Integración y verificación                                                      |
 
 ## Verificación reproducible
 
