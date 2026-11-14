@@ -1,30 +1,47 @@
 name: urban-pulse-app
 
 services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: urban-pulse
+      POSTGRES_USER: urbanpulse
+      POSTGRES_PASSWORD: password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "urbanpulse" -d "urban-pulse"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:9999:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
     env_file:
       - ./backend/.env.development
-    environment:
-      MAIL_HOST: ${MAIL_HOST:-mailpit}
     depends_on:
+      postgres:
+        condition: service_healthy
       mailpit:
         condition: service_started
     ports:
-      - "8888:8888"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./backend:/app
       - maven-cache:/root/.m2
-
-  mailpit:
-    image: axllent/mailpit:v1.27.4
-    ports:
-      - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
-    environment:
-      MP_MAX_MESSAGES: 500
 
   frontend:
     build:
@@ -33,11 +50,12 @@ services:
     env_file:
       - ./frontend/.env
     ports:
-      - "7777:7777"
+      - "127.0.0.1:8888:8888"
     volumes:
       - ./frontend:/app
       - node-modules:/app/node_modules
 
 volumes:
+  postgres-data:
   maven-cache:
   node-modules:

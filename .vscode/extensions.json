@@ -9,6 +9,7 @@
     "ms-azuretools.vscode-containers",
     "redocly.openapi-vs-code",
     "expo.vscode-expo-tools",
-    "rangav.vscode-thunder-client"
+    "rangav.vscode-thunder-client",
+    "github.vscode-github-actions"
   ]
 }

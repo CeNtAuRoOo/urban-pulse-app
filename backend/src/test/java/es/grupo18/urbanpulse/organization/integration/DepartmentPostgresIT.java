@@ -1,5 +1,8 @@
 package es.grupo18.urbanpulse.organization.integration;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -9,7 +12,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -45,7 +52,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestPropertySource("classpath:auth-test.properties")
 @Testcontainers
+@Import(DepartmentPostgresIT.StableClockConfiguration.class)
 class DepartmentPostgresIT {
+    @TestConfiguration(proxyBeanMethods = false)
+    static class StableClockConfiguration {
+        @Bean
+        @Primary
+        Clock testClock() {
+            // These tests exercise roles, not elapsed time. Keep JWT issuance and
+            // validation independent of host/VM clock corrections.
+            return Clock.fixed(Instant.parse("2026-11-14T12:00:00Z"), ZoneOffset.UTC);
+        }
+    }
+
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
 

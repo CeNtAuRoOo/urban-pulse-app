@@ -56,7 +56,7 @@ class AuthServiceTest {
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(4);
     private final PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
     private final JwtProperties props = new JwtProperties("unit", Base64.getEncoder().encodeToString(new byte[32]),
-            7200, List.of("http://localhost:7777"));
+            7200, List.of("http://localhost:8888"));
     private final JwtTokenService tokens = new JwtTokenService(
             new SecurityConfig().jwtEncoder(new SecurityConfig().jwtKey(props)), props, Clock.systemUTC());
     private AuthService auth;

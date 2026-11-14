@@ -34,7 +34,7 @@ Errores: `400` JSON/tipos no interpretables y cuerpo mayor de 16 KiB; `401` JWT/
 
 ## Alcance y consecuencias
 
-Se reutilizan identidad, autenticación y transporte SMTP: `invitations` no registra usuarios mediante `AuthService`. La protección de cuota es local, no distribuida. Listados administrativos con correos personales solo son visibles a `ADMIN` verificado. No se implementa frontend, bootstrap productivo de ADMIN, retirada de `UserRole`/`DepartmentMembership`, equipos (`Team`/`TeamMembership`), auditoría pública, outbox/reintentos, proveedor SMTP público ni despliegue/migración sobre Neon. Las cuentas ADMIN de pruebas son **fixtures exclusivamente efímeros**.
+Se reutilizan identidad, autenticación y transporte SMTP: `invitations` no registra usuarios mediante `AuthService`. La protección de cuota es local, no distribuida. Listados administrativos con correos personales solo son visibles a `ADMIN` verificado. El panel web incorpora posteriormente emisión, listado y canje de invitaciones. Siguen fuera del módulo el bootstrap productivo de ADMIN, retirada de `UserRole`/`DepartmentMembership`, equipos (`Team`/`TeamMembership`), auditoría pública, outbox/reintentos, proveedor SMTP público y despliegue/migración sobre Neon. Las cuentas ADMIN de pruebas son **fixtures exclusivamente efímeros**.
 
 Antes de producción deberá acordarse una política de retención para invitaciones y auditoría (datos personales), así como una estrategia de baja/anonimización con FK históricas `RESTRICT`, rotación del secreto y tratamiento de invitaciones pendientes al revocar permisos. También deben estudiarse cuota de emisión por ADMIN y coordinación entre varias instancias.
 

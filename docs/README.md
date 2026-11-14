@@ -2,17 +2,19 @@
 
 La documentación separa **funcionalidades implementadas**, **decisiones de diseño** y **validaciones ejecutadas**. El backend es un **monolito modular**: Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, el núcleo de Incidencias y Evidencias están implementados. Tramitación e integraciones avanzadas siguen siendo diseño.
 
-| Documento                                     | Propósito                                                                                                                                                   |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Arquitectura](architecture.md)               | Contenedores C4, arquitectura modular `auth`/`identity`/`invitations`/`organization`/`categories`/`incidents`/`audit`/`shared`, dependencias y estado real. |
-| [Desarrollo](development.md)                  | Árbol actualizado, secretos de entorno, Maven/Testcontainers, evidencia histórica HTTP y comandos Redocly.                                                  |
-| [Despliegue](deployment.md)                   | Entornos Neon, preparación de producción y límites acreditados.                                                                                             |
-| [Diseño de autenticación](auth-design.md)     | JWT, identidad, correo, controles de abuso, limpieza y decisiones de seguridad.                                                                             |
-| [Modelo de dominio](domain-model.md)          | Entidades y reglas de negocio; V1 consolidada implementada frente al modelo objetivo y sus funciones futuras.                                               |
-| [Diagramas](diagrams/README.md)               | Inventario de fuentes `.drawio` actuales y exportaciones SVG históricas de C4, ER y clases.                                                                 |
-| [Contrato dominio–API](api/domain-openapi.md) | Alineación de modelo lógico, rutas/DTO y contrato vigente OpenAPI `0.7.0`.                                                                                  |
-| [Diseño de API](api/README.md)                | Fuentes YAML modulares, regeneración Redocly y tags implementados frente a los todavía diseñados.                                                           |
-| [ADR](adr/README.md)                          | Justificación de las decisiones, incluida [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md), alcance y asuntos pendientes.                       |
+| Documento                                     | Propósito                                                                                                                                                                |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Arquitectura](architecture.md)               | Contenedores C4, arquitectura modular `auth`/`identity`/`invitations`/`organization`/`categories`/`incidents`/`attachment`/`audit`/`shared`, dependencias y estado real. |
+| [Desarrollo](development.md)                  | Desarrollo con Compose, PostgreSQL local, Mailpit, Object Storage de desarrollo, Flyway y CI.                                                                            |
+| [Despliegue](deployment.md)                   | Entornos Neon, preparación de producción y límites acreditados.                                                                                                          |
+| [Diseño de autenticación](auth-design.md)     | JWT, identidad, correo, controles de abuso, limpieza y decisiones de seguridad.                                                                                          |
+| [Modelo de dominio](domain-model.md)          | Entidades y reglas de negocio; V1 consolidada implementada frente al modelo objetivo y sus funciones futuras.                                                            |
+| [Diagramas](diagrams/README.md)               | Inventario de fuentes `.drawio` actuales y exportaciones SVG históricas de C4, ER y clases.                                                                              |
+| [Contrato dominio–API](api/domain-openapi.md) | Alineación de modelo lógico, rutas/DTO y contrato vigente OpenAPI `0.7.0`.                                                                                               |
+| [Diseño de API](api/README.md)                | Fuentes YAML modulares, regeneración Redocly y tags implementados frente a los todavía diseñados.                                                                        |
+| [ADR](adr/README.md)                          | Justificación de las decisiones, incluida [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md), alcance y asuntos pendientes.                                    |
+
+La [CI](../.github/workflows/ci.yml) verifica backend, frontend, OpenAPI y Compose sin credenciales remotas. PostgreSQL 18 local es la única base de desarrollo; Neon PostgreSQL se reserva a producción y Neon Object Storage se utiliza en ambos entornos; [ADR-0016](adr/0016-ci-postgresql-local.md) documenta esta evolución de la decisión de Neon.
 
 ## Estado actual
 

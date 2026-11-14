@@ -13,7 +13,7 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | ID                                                         | Decisión                                                              | Estado                                                                            |
 | ---------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | [0001](0001-postgresql.md)                                 | PostgreSQL como base de datos principal                               | Aceptado                                                                          |
-| [0002](0002-neon-postgresql.md)                            | Neon como proveedor PostgreSQL                                        | Aceptado                                                                          |
+| [0002](0002-neon-postgresql.md)                            | Neon PostgreSQL para producción (evolución en ADR-0016)               | Aceptado                                                                          |
 | [0003](0003-expo-react-native-web.md)                      | Frontend universal Expo / React Native Web                            | Aceptado                                                                          |
 | [0004](0004-neon-object-storage.md)                        | Fotografías en Neon Object Storage                                    | Aceptado                                                                          |
 | [0005](0005-jwt-spring-security.md)                        | Autenticación JWT y autorización Spring Security                      | Aceptado                                                                          |
@@ -27,6 +27,7 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | [0013](0013-pertenencias-usuarios-departamentos.md)        | Pertenencias activas/históricas, altas y bajas internas               | Aceptado e implementado                                                           |
 | [0014](0014-incidencias-concurrencia-historial.md)         | Corrección de incidencias con precondición y auditoría pública        | Aceptado e implementado                                                           |
 | [0015](0015-almacenamiento-evidencias.md)                  | Almacenamiento externo y gestión de evidencias fotográficas           | **Aceptado e implementado** (FK a incidencia y suites de integración verificadas) |
+| [0016](0016-ci-postgresql-local.md)                        | CI y PostgreSQL local para desarrollo con Docker Compose              | Aceptado e implementado; sin CD                                                   |
 
 **Al implementar cada tag**, verificar que el [modelo de dominio base](../domain-model.md), su contrato OpenAPI y los ADR afectados continúan siendo coherentes. Si una decisión cambia materialmente, actualizarla con trazabilidad o crear un ADR sucesor; no modificar decisiones en silencio.
 

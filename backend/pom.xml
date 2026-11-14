@@ -16,7 +16,7 @@
     <artifactId>urban-pulse</artifactId>
     <version>0.1.0</version>
     <name>UrbanPulse</name>
-    <description>Plataforma cloud para la gestiÃ³n inteligente de incidencias urbanas mediante una API REST.</description>
+    <description>Plataforma cloud para la gestión inteligente de incidencias urbanas mediante una API REST.</description>
     <packaging>jar</packaging>
 
     <properties>
@@ -43,7 +43,7 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
-        <!-- ValidaciÃ³n -->
+        <!-- Validación -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
@@ -91,7 +91,7 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- SMTP: autoconfiguraciÃ³n oficial de JavaMailSender -->
+        <!-- SMTP: autoconfiguración oficial de JavaMailSender -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
@@ -171,9 +171,14 @@
                                 <include>**/*StorageIT.java</include>
                             </includes>
                         </configuration>
-                        <executions><execution><goals>
-                            <goal>integration-test</goal><goal>verify</goal>
-                        </goals></execution></executions>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

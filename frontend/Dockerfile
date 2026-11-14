@@ -8,7 +8,6 @@ RUN npm ci
 
 COPY . .
 
-# URL pública de la API, integrada al compilar
 ARG EXPO_PUBLIC_API_URL
 
 RUN test -n "$EXPO_PUBLIC_API_URL" || \
@@ -25,6 +24,6 @@ FROM nginx:stable-alpine AS runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/ /usr/share/nginx/html/
 
-EXPOSE 7777
+EXPOSE 8888
 
 CMD ["nginx", "-g", "daemon off;"]

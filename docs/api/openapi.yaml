@@ -6,7 +6,7 @@ info:
   contact:
     name: Equipo UrbanPulse
 servers:
-  - url: http://localhost:8888/api/v1
+  - url: http://localhost:8080/api/v1
     description: Backend local en desarrollo (prefijo /api/v1 implementado).
 security:
   - BearerAuth: []
@@ -56,26 +56,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
-        '201':
+        "201":
           description: Cuenta ciudadana creada, código preparado y JWT emitido con acceso limitado; la entrega SMTP no está garantizada. emailVerified=false.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/TokenDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /auth/login:
     post:
       x-implementation: implemented
@@ -92,26 +92,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Credenciales válidas; JWT emitido. Si emailVerified=false, solo acceso de autenticación limitado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/TokenDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /auth/email-verifications/confirm:
     post:
       x-implementation: implemented
@@ -127,26 +127,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConfirmEmailRequest'
+              $ref: "#/components/schemas/ConfirmEmailRequest"
       responses:
-        '204':
+        "204":
           description: Correo verificado o ya verificado. Sin cuerpo.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
           description: Código ausente, incorrecto, sustituido o caducado (INVALID_VERIFICATION_CODE), o error de validación del formato.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /auth/email-verifications/resend:
     post:
       x-implementation: implemented
@@ -156,24 +156,24 @@ paths:
       operationId: postEmailVerificationResend
       x-roles:
         - AUTHENTICATED
-      description: 'Requiere JWT válido y cuerpo vacío. Sustituye el código anterior y solicita el envío SMTP después del commit. 202 no asegura entrega final del correo. Devuelve 204 si la cuenta ya está verificada y 410 si pasaron 24 horas desde el registro (aunque todavía no se haya eliminado en la limpieza). Límite de cuerpo 16 KiB; cuotas en memoria: 1/60 s de enfriamiento por cuenta, 5/86400 s por cuenta como bucket continuo (NO cinco exactos por día) y 20/3600 s por IP. Los buckets se consumen en orden y no se reembolsan cuando una política posterior rechaza.'
+      description: "Requiere JWT válido y cuerpo vacío. Sustituye el código anterior y solicita el envío SMTP después del commit. 202 no asegura entrega final del correo. Devuelve 204 si la cuenta ya está verificada y 410 si pasaron 24 horas desde el registro (aunque todavía no se haya eliminado en la limpieza). Límite de cuerpo 16 KiB; cuotas en memoria: 1/60 s de enfriamiento por cuenta, 5/86400 s por cuenta como bucket continuo (NO cinco exactos por día) y 20/3600 s por IP. Los buckets se consumen en orden y no se reembolsan cuando una política posterior rechaza."
       responses:
-        '202':
+        "202":
           description: Nuevo código persistido y envío solicitado después del commit. Sin cuerpo.
-        '204':
+        "204":
           description: Cuenta ya verificada, no se genera otro código. Sin cuerpo.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '410':
-          $ref: '#/components/responses/Gone'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "410":
+          $ref: "#/components/responses/Gone"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /users/me/password-changes:
     post:
       x-implementation: implemented
@@ -189,22 +189,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChangePasswordRequest'
+              $ref: "#/components/schemas/ChangePasswordRequest"
       responses:
-        '204':
+        "204":
           description: Contraseña cambiada; tokens anteriores invalidados. Sin cuerpo.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /users/me:
     get:
       x-implementation: implemented
@@ -217,26 +217,26 @@ paths:
       x-roles:
         - AUTHENTICATED
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/UserDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     patch:
       x-implementation: implemented
       tags:
@@ -252,30 +252,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateMyProfileRequest'
+              $ref: "#/components/schemas/UpdateMyProfileRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/UserDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /users:
     get:
       x-implementation: implemented
@@ -288,13 +288,13 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
         - name: role
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/RoleCode'
+            $ref: "#/components/schemas/RoleCode"
           description: Filtrar por rol global asignado o pertenencia departamental activa.
         - name: active
           in: query
@@ -303,26 +303,26 @@ paths:
             type: boolean
           description: Filtrar por actividad.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsersPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/UsersPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /users/{userId}:
     get:
       x-implementation: implemented
@@ -335,28 +335,28 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/UserId'
+        - $ref: "#/components/parameters/UserId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/UserDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     patch:
       x-implementation: implemented
       tags:
@@ -368,40 +368,40 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/UserId'
+        - $ref: "#/components/parameters/UserId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdminUpdateUserRequest'
+              $ref: "#/components/schemas/AdminUpdateUserRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
+                $ref: "#/components/schemas/UserDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
           description: LAST_ACTIVE_ADMIN; la baja dejaría sin ADMIN activo y verificado. La autodesactivación se permite si queda otro.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /staff-invitations:
     post:
       x-implementation: implemented
@@ -419,14 +419,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvitationRequest'
+              $ref: "#/components/schemas/InvitationRequest"
       responses:
-        '201':
+        "201":
           description: Invitación creada sin secreto; entrega SMTP solicitada.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationDTO'
+                $ref: "#/components/schemas/InvitationDTO"
           headers:
             Cache-Control:
               schema:
@@ -438,18 +438,18 @@ paths:
               schema:
                 type: string
                 example: /api/v1/staff-invitations/019a0000-0000-7000-8000-000000000001
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       x-implementation: implemented
       tags:
@@ -462,12 +462,12 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
         - name: status
           in: query
           schema:
-            $ref: '#/components/schemas/InvitationStatus'
+            $ref: "#/components/schemas/InvitationStatus"
         - name: email
           in: query
           description: Coincidencia exacta tras trim y minúsculas; no admite vacío.
@@ -478,37 +478,37 @@ paths:
         - name: role
           in: query
           schema:
-            $ref: '#/components/schemas/RoleCode'
+            $ref: "#/components/schemas/RoleCode"
         - name: departmentId
           in: query
           schema:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Página administrativa, sin códigos ni hashes.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationPageDTO'
+                $ref: "#/components/schemas/InvitationPageDTO"
           headers:
             Cache-Control:
               schema:
                 type: string
                 enum:
                   - no-store
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /staff-invitations/{invitationId}:
     get:
       x-implementation: implemented
@@ -522,32 +522,32 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/InvitationId'
+        - $ref: "#/components/parameters/InvitationId"
       responses:
-        '200':
+        "200":
           description: Metadatos administrativos.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationDTO'
+                $ref: "#/components/schemas/InvitationDTO"
           headers:
             Cache-Control:
               schema:
                 type: string
                 enum:
                   - no-store
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /users/me/staff-invitation-redemptions:
     post:
       x-implementation: implemented
@@ -565,36 +565,36 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvitationRedemptionRequest'
+              $ref: "#/components/schemas/InvitationRedemptionRequest"
       responses:
-        '200':
+        "200":
           description: Permiso concedido; no se crea usuario ni se emite otro JWT.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationRedemptionDTO'
+                $ref: "#/components/schemas/InvitationRedemptionDTO"
           headers:
             Cache-Control:
               schema:
                 type: string
                 enum:
                   - no-store
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /staff-invitations/{invitationId}/revocations:
     post:
       x-implementation: implemented
@@ -608,24 +608,24 @@ paths:
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/InvitationId'
+        - $ref: "#/components/parameters/InvitationId"
       responses:
-        '204':
+        "204":
           description: Revocación confirmada; sin cuerpo.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /categories:
     get:
       x-implementation: implemented
@@ -638,24 +638,24 @@ paths:
         - AUTHENTICATED
       x-email-verified: true
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/CategoryDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                  $ref: "#/components/schemas/CategoryDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       x-implementation: implemented
       tags:
@@ -671,37 +671,37 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CategoryWriteRequest'
+              $ref: "#/components/schemas/CategoryWriteRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CategoryDTO'
+                $ref: "#/components/schemas/CategoryDTO"
           headers:
             Location:
               description: URI absoluta de la categoría creada. Siempre presente en la respuesta 201.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Nombre duplicado (CATEGORY_DUPLICATE), también si está inactiva o hay escrituras concurrentes.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /categories/{categoryId}:
     get:
       x-implementation: implemented
@@ -714,30 +714,30 @@ paths:
         - AUTHENTICATED
       x-email-verified: true
       parameters:
-        - $ref: '#/components/parameters/CategoryId'
+        - $ref: "#/components/parameters/CategoryId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CategoryDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/CategoryDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Categoría inexistente (CATEGORY_NOT_FOUND).
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     patch:
       x-implementation: implemented
       tags:
@@ -749,44 +749,44 @@ paths:
         - ADMIN
       x-email-verified: true
       parameters:
-        - $ref: '#/components/parameters/CategoryId'
+        - $ref: "#/components/parameters/CategoryId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CategoryPatchRequest'
+              $ref: "#/components/schemas/CategoryPatchRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CategoryDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/CategoryDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Categoría inexistente (CATEGORY_NOT_FOUND).
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '409':
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
           description: Nombre duplicado (CATEGORY_DUPLICATE), también si está inactiva o hay escrituras concurrentes.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /departments:
     get:
       x-implementation: implemented
@@ -799,24 +799,24 @@ paths:
         - AUTHENTICATED
       x-email-verified: true
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/DepartmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                  $ref: "#/components/schemas/DepartmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       x-implementation: implemented
       tags:
@@ -832,33 +832,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DepartmentWriteRequest'
+              $ref: "#/components/schemas/DepartmentWriteRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DepartmentDTO'
+                $ref: "#/components/schemas/DepartmentDTO"
           headers:
             Location:
               description: URI absoluta del departamento creado. Siempre presente en la respuesta 201.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /departments/{departmentId}:
     get:
       x-implementation: implemented
@@ -871,26 +871,26 @@ paths:
         - AUTHENTICATED
       x-email-verified: true
       parameters:
-        - $ref: '#/components/parameters/DepartmentId'
+        - $ref: "#/components/parameters/DepartmentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DepartmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/DepartmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     patch:
       x-implementation: implemented
       tags:
@@ -902,36 +902,36 @@ paths:
         - ADMIN
       x-email-verified: true
       parameters:
-        - $ref: '#/components/parameters/DepartmentId'
+        - $ref: "#/components/parameters/DepartmentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DepartmentPatchRequest'
+              $ref: "#/components/schemas/DepartmentPatchRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DepartmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/DepartmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents:
     post:
       tags:
@@ -949,9 +949,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateIncidentRequest'
+              $ref: "#/components/schemas/CreateIncidentRequest"
       responses:
-        '201':
+        "201":
           description: Incidencia creada; Location y ETag siempre presentes.
           headers:
             Location:
@@ -959,27 +959,27 @@ paths:
                 type: string
               description: Ruta /api/v1/incidents/{incidentId}.
             ETag:
-              $ref: '#/components/headers/IncidentETag'
+              $ref: "#/components/headers/IncidentETag"
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '413':
-          $ref: '#/components/responses/PayloadTooLarge'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/IncidentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       tags:
         - Incidencias
@@ -991,12 +991,12 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
         - name: status
           in: query
           schema:
-            $ref: '#/components/schemas/IncidentStatus'
+            $ref: "#/components/schemas/IncidentStatus"
         - name: categoryId
           in: query
           schema:
@@ -1015,25 +1015,25 @@ paths:
             type: string
             format: date-time
       responses:
-        '200':
+        "200":
           description: Página administrativa.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/IncidentPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/mine:
     get:
       tags:
@@ -1045,28 +1045,28 @@ paths:
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
       responses:
-        '200':
+        "200":
           description: Página del titular.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/IncidentPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}:
     get:
       tags:
@@ -1078,31 +1078,31 @@ paths:
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Detalle autorizado con ETag fuerte.
           headers:
             ETag:
-              $ref: '#/components/headers/IncidentETag'
+              $ref: "#/components/headers/IncidentETag"
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/IncidentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     patch:
       tags:
         - Incidencias
@@ -1115,48 +1115,48 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/IncidentIfMatch'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/IncidentIfMatch"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateIncidentRequest'
+              $ref: "#/components/schemas/UpdateIncidentRequest"
       responses:
-        '200':
+        "200":
           description: Detalle resultante; no-op conserva ETag y fecha.
           headers:
             ETag:
-              $ref: '#/components/headers/IncidentETag'
+              $ref: "#/components/headers/IncidentETag"
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-        '413':
-          $ref: '#/components/responses/PayloadTooLarge'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '428':
-          $ref: '#/components/responses/PreconditionRequired'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/IncidentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "428":
+          $ref: "#/components/responses/PreconditionRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}/history:
     get:
       tags:
@@ -1168,31 +1168,31 @@ paths:
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
       responses:
-        '200':
+        "200":
           description: Historial público paginado.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateCache'
+              $ref: "#/components/headers/PrivateCache"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HistoryPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/HistoryPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}/attachments:
     post:
       tags:
@@ -1208,7 +1208,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
@@ -1227,7 +1227,7 @@ paths:
                   maxLength: 300
                   description: Texto opcional, máximo 300 puntos Unicode. Si se omite, el DTO devuelve null.
       responses:
-        '201':
+        "201":
           description: Evidencia confirmada; sizeBytes corresponde al contenido saneado.
           headers:
             Cache-Control:
@@ -1244,33 +1244,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttachmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '413':
+                $ref: "#/components/schemas/AttachmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
           description: ATTACHMENT_TOO_LARGE; entrada o salida mayor de 10485760 bytes, o petición multipart mayor de 11534336 bytes. Se aplica incluso antes del controlador.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
           description: INVALID_ATTACHMENT_FORMAT o INVALID_ATTACHMENT_DESCRIPTION; solo JPEG/PNG íntegros de hasta 16 millones de píxeles y 8192 por lado; descripción de hasta 300 puntos Unicode.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ProblemDetail"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       tags:
         - Evidencias
@@ -1285,9 +1285,9 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Metadatos activos de la incidencia autorizada.
           headers:
             Cache-Control:
@@ -1302,19 +1302,19 @@ paths:
                 type: array
                 maxItems: 5
                 items:
-                  $ref: '#/components/schemas/AttachmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                  $ref: "#/components/schemas/AttachmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}/attachments/{attachmentId}:
     get:
       tags:
@@ -1330,10 +1330,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/AttachmentId'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/AttachmentId"
       responses:
-        '200':
+        "200":
           description: Evidencia activa de esa incidencia.
           headers:
             Cache-Control:
@@ -1345,19 +1345,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttachmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/AttachmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       tags:
         - Evidencias
@@ -1372,10 +1372,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/AttachmentId'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/AttachmentId"
       responses:
-        '204':
+        "204":
           description: Baja lógica confirmada, sin cuerpo.
           headers:
             Cache-Control:
@@ -1384,18 +1384,18 @@ paths:
                 enum:
                   - no-store
               description: Prohíbe almacenar respuestas privadas.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}/attachments/{attachmentId}/content:
     get:
       tags:
@@ -1411,10 +1411,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/AttachmentId'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/AttachmentId"
       responses:
-        '200':
+        "200":
           description: Fotografía privada autorizada.
           headers:
             Cache-Control:
@@ -1443,23 +1443,23 @@ paths:
               schema:
                 type: string
                 format: binary
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /incidents/{incidentId}/reviews:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Validar, rechazar o pedir información'
+      summary: "Diseño futuro: Validar, rechazar o pedir información"
       description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
       operationId: postIncidentsIncidentIdReviews
       x-implementation: future
@@ -1467,43 +1467,43 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReviewRequest'
+              $ref: "#/components/schemas/ReviewRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReviewDTO'
+                $ref: "#/components/schemas/ReviewDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Consultar revisiones'
+      summary: "Diseño futuro: Consultar revisiones"
       description: Historial de decisiones y motivos para trazabilidad.
       operationId: getIncidentsIncidentIdReviews
       x-implementation: future
@@ -1511,33 +1511,33 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ReviewDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/ReviewDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/priority-decisions:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Establecer prioridad'
+      summary: "Diseño futuro: Establecer prioridad"
       description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; siempre confirmada por personal autorizado.
       operationId: postIncidentsIncidentIdPriorityDecisions
       x-implementation: future
@@ -1545,43 +1545,43 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PriorityRequest'
+              $ref: "#/components/schemas/PriorityRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PriorityDecisionDTO'
+                $ref: "#/components/schemas/PriorityDecisionDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Historial de prioridades'
+      summary: "Diseño futuro: Historial de prioridades"
       description: Conserva todas las decisiones de prioridad y su fuente.
       operationId: getIncidentsIncidentIdPriorityDecisions
       x-implementation: future
@@ -1589,115 +1589,115 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PriorityDecisionDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/PriorityDecisionDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/department:
     put:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Derivar o transferir incidencia a departamento'
+      summary: "Diseño futuro: Derivar o transferir incidencia a departamento"
       description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. Una incidencia VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir trabajo activo requiere finalizar la asignación anterior.
       operationId: putIncidentsIncidentIdDepartment
       x-implementation: future
       x-roles:
         - OPERATOR
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DepartmentReferralRequest'
+              $ref: "#/components/schemas/DepartmentReferralRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/IncidentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/assignments:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Asignar o reasignar trabajo a equipo o técnico'
+      summary: "Diseño futuro: Asignar o reasignar trabajo a equipo o técnico"
       description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha de estar derivada previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o Technician y una asignación activa por incidencia.
       operationId: postIncidentsIncidentIdAssignments
       x-implementation: future
       x-roles:
         - DEPARTMENT_COORDINATOR
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignmentRequest'
+              $ref: "#/components/schemas/AssignmentRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssignmentDTO'
+                $ref: "#/components/schemas/AssignmentDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Consultar asignaciones'
+      summary: "Diseño futuro: Consultar asignaciones"
       description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; acceso restringido por departamento, asignación y permisos.
       operationId: getIncidentsIncidentIdAssignments
       x-implementation: future
@@ -1707,65 +1707,65 @@ paths:
         - TECHNICIAN
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AssignmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/AssignmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/assignments/{assignmentId}/acceptance:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Aceptar trabajo asignado'
+      summary: "Diseño futuro: Aceptar trabajo asignado"
       description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra acceptedBy/acceptedAt sin pasar automáticamente a IN_PROGRESS.
       operationId: postIncidentsIncidentIdAssignmentsAssignmentIdAcceptance
       x-implementation: future
       x-roles:
         - TECHNICIAN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
-        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/AssignmentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssignmentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/AssignmentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/status-changes:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Registrar transición de estado'
+      summary: "Diseño futuro: Registrar transición de estado"
       description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y WORK_ASSIGNED se gestionan mediante sus operaciones específicas.
       operationId: postIncidentsIncidentIdStatusChanges
       x-implementation: future
@@ -1775,76 +1775,76 @@ paths:
         - TECHNICIAN
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StatusChangeRequest'
+              $ref: "#/components/schemas/StatusChangeRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatusChangeDTO'
+                $ref: "#/components/schemas/StatusChangeDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Consultar cambios de estado'
+      summary: "Diseño futuro: Consultar cambios de estado"
       description: Historial ordenado de transiciones, actores, motivos y fechas.
       operationId: getIncidentsIncidentIdStatusChanges
       x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/StatusChangeDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/StatusChangeDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/comments:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Añadir comentario'
+      summary: "Diseño futuro: Añadir comentario"
       description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
       operationId: postIncidentsIncidentIdComments
       x-implementation: future
@@ -1854,114 +1854,114 @@ paths:
         - TECHNICIAN
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CommentRequest'
+              $ref: "#/components/schemas/CommentRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CommentDTO'
+                $ref: "#/components/schemas/CommentDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Listar comentarios'
+      summary: "Diseño futuro: Listar comentarios"
       description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
       operationId: getIncidentsIncidentIdComments
       x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/CommentDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/CommentDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/assigned-to-me:
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Mi cola de trabajo'
+      summary: "Diseño futuro: Mi cola de trabajo"
       description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento responsable. El servicio comprueba pertenencia y visibilidad.
       operationId: getIncidentsAssignedToMe
       x-implementation: future
       x-roles:
         - TECHNICIAN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
         - name: status
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/IncidentStatus'
+            $ref: "#/components/schemas/IncidentStatus"
           description: Estado del trabajo.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/IncidentPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/duplicate-candidates:
     get:
       tags:
         - Duplicados
-      summary: 'Diseño futuro: Sugerir incidencias duplicadas'
+      summary: "Diseño futuro: Sugerir incidencias duplicadas"
       description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría si está disponible). La confirmación siempre corresponde al personal municipal.
       operationId: getIncidentsIncidentIdDuplicateCandidates
       x-implementation: future
@@ -1969,33 +1969,33 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/DuplicateSuggestionDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/DuplicateSuggestionDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/duplicate-links:
     post:
       tags:
         - Duplicados
-      summary: 'Diseño futuro: Vincular duplicado confirmado'
+      summary: "Diseño futuro: Vincular duplicado confirmado"
       description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
       operationId: postIncidentsIncidentIdDuplicateLinks
       x-implementation: future
@@ -2003,44 +2003,44 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DuplicateLinkRequest'
+              $ref: "#/components/schemas/DuplicateLinkRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DuplicateLinkDTO'
+                $ref: "#/components/schemas/DuplicateLinkDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/urban-context:
     get:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Consultar contexto asociado'
+      summary: "Diseño futuro: Consultar contexto asociado"
       description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE sin ocultar la incidencia.
       operationId: getIncidentsIncidentIdUrbanContext
       x-implementation: future
@@ -2049,31 +2049,31 @@ paths:
         - TECHNICIAN
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrbanContextDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/UrbanContextDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/asset-candidates:
     get:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Candidatos a activo urbano'
+      summary: "Diseño futuro: Candidatos a activo urbano"
       description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe ambigüedad.
       operationId: getIncidentsIncidentIdAssetCandidates
       x-implementation: future
@@ -2081,33 +2081,33 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UrbanAssetCandidateDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/UrbanAssetCandidateDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /incidents/{incidentId}/asset-association:
     put:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Confirmar activo urbano'
+      summary: "Diseño futuro: Confirmar activo urbano"
       description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
       operationId: putIncidentsIncidentIdAssetAssociation
       x-implementation: future
@@ -2115,39 +2115,39 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/IncidentId'
+        - $ref: "#/components/parameters/IncidentId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UrbanAssetAssociationRequest'
+              $ref: "#/components/schemas/UrbanAssetAssociationRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrbanAssetAssociationDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/UrbanAssetAssociationDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /urban-assets:
     get:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Buscar activos urbanos'
+      summary: "Diseño futuro: Buscar activos urbanos"
       description: Filtra activos por tipo o proximidad.
       operationId: getUrbanAssets
       x-implementation: future
@@ -2185,62 +2185,62 @@ paths:
             maximum: 5000
           description: Radio de búsqueda.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UrbanAssetDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/UrbanAssetDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /urban-assets/{assetId}:
     get:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Consultar activo urbano'
+      summary: "Diseño futuro: Consultar activo urbano"
       description: Devuelve geometría, procedencia y metadatos permitidos.
       operationId: getUrbanAssetsAssetId
       x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/AssetId'
+        - $ref: "#/components/parameters/AssetId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrbanAssetDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/UrbanAssetDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /external-observations:
     get:
       tags:
         - Contexto urbano
-      summary: 'Diseño futuro: Consultar observaciones normalizadas'
+      summary: "Diseño futuro: Consultar observaciones normalizadas"
       description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
       operationId: getExternalObservations
       x-implementation: future
@@ -2248,8 +2248,8 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
         - name: sourceId
           in: query
           required: false
@@ -2264,31 +2264,31 @@ paths:
             type: string
           description: Variable registrada.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ExternalObservationDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/ExternalObservationDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /map/incidents:
     get:
       tags:
         - Mapas
-      summary: 'Diseño futuro: Obtener incidencias del mapa'
+      summary: "Diseño futuro: Obtener incidencias del mapa"
       description: Recorta las incidencias al rectángulo geográfico WGS84. Los límites geográficos son obligatorios para evitar consultas ilimitadas.
       operationId: getMapIncidents
       x-implementation: future
@@ -2331,7 +2331,7 @@ paths:
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/IncidentStatus'
+            $ref: "#/components/schemas/IncidentStatus"
           description: Estado opcional.
         - name: categoryId
           in: query
@@ -2341,37 +2341,37 @@ paths:
             format: uuid
           description: Categoría opcional.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MapIncidentsDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/MapIncidentsDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /notifications:
     get:
       tags:
         - Notificaciones
-      summary: 'Diseño futuro: Consultar bandeja'
+      summary: "Diseño futuro: Consultar bandeja"
       description: Notificaciones asociadas al usuario autenticado, ordenadas por fecha.
       operationId: getNotifications
       x-implementation: future
       x-roles:
         - AUTHENTICATED
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
         - name: read
           in: query
           required: false
@@ -2379,29 +2379,29 @@ paths:
             type: boolean
           description: Filtrar leídas/no leídas.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NotificationsPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/NotificationsPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /notifications/{notificationId}:
     patch:
       tags:
         - Notificaciones
-      summary: 'Diseño futuro: Marcar como leída'
+      summary: "Diseño futuro: Marcar como leída"
       description: Actualiza el indicador de lectura de una notificación propia.
       operationId: patchNotificationsNotificationId
       x-implementation: future
@@ -2427,59 +2427,59 @@ paths:
                 - read
               additionalProperties: false
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NotificationDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/NotificationDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /users/me/notification-preferences:
     get:
       tags:
         - Notificaciones
-      summary: 'Diseño futuro: Consultar preferencias'
+      summary: "Diseño futuro: Consultar preferencias"
       description: Canales configurados para el usuario.
       operationId: getUsersMeNotificationPreferences
       x-implementation: future
       x-roles:
         - AUTHENTICATED
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NotificationPreferencesDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/NotificationPreferencesDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
     put:
       tags:
         - Notificaciones
-      summary: 'Diseño futuro: Actualizar preferencias'
+      summary: "Diseño futuro: Actualizar preferencias"
       description: Sustituye la configuración de canales; no garantiza disponibilidad de todos los proveedores.
       operationId: putUsersMeNotificationPreferences
       x-implementation: future
@@ -2490,33 +2490,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NotificationPreferencesRequest'
+              $ref: "#/components/schemas/NotificationPreferencesRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NotificationPreferencesDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/NotificationPreferencesDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /analytics/statistics:
     get:
       tags:
         - Analítica
-      summary: 'Diseño futuro: Estadísticas territoriales'
+      summary: "Diseño futuro: Estadísticas territoriales"
       description: Agregados por estado, categoría, distrito y tiempos de resolución.
       operationId: getAnalyticsStatistics
       x-implementation: future
@@ -2524,8 +2524,8 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
         - name: districtId
           in: query
           required: false
@@ -2534,29 +2534,29 @@ paths:
             format: uuid
           description: Distrito opcional.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatisticsDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/StatisticsDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /zones/{zoneId}/analysis:
     get:
       tags:
         - Analítica
-      summary: 'Diseño futuro: Análisis de zona y periodo'
+      summary: "Diseño futuro: Análisis de zona y periodo"
       description: Agrega incidencias y observaciones contextuales del distrito/zona.
       operationId: getZonesZoneIdAnalysis
       x-implementation: future
@@ -2564,41 +2564,41 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/ZoneId'
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
+        - $ref: "#/components/parameters/ZoneId"
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ZoneAnalysisDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ZoneAnalysisDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /analytics/correlations:
     get:
       tags:
         - Analítica
-      summary: 'Diseño futuro: Consultar correlaciones históricas'
+      summary: "Diseño futuro: Consultar correlaciones históricas"
       description: Relaciona tendencias de incidencias con variables urbanas; no implica causalidad.
       operationId: getAnalyticsCorrelations
       x-implementation: future
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
         - name: districtId
           in: query
           required: false
@@ -2613,31 +2613,31 @@ paths:
             type: string
           description: Variable urbana.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/CorrelationDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/CorrelationDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /reports:
     post:
       tags:
         - Informes
-      summary: 'Diseño futuro: Solicitar generación de informe'
+      summary: "Diseño futuro: Solicitar generación de informe"
       description: Crea trabajo asíncrono de exportación; devuelve identificador para consultar su estado.
       operationId: postReports
       x-implementation: future
@@ -2649,32 +2649,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReportRequest'
+              $ref: "#/components/schemas/ReportRequest"
       responses:
-        '202':
+        "202":
           description: Solicitud aceptada para procesamiento asíncrono.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReportDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ReportDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags:
         - Informes
-      summary: 'Diseño futuro: Listar informes'
+      summary: "Diseño futuro: Listar informes"
       description: Informes solicitados por usuarios autorizados.
       operationId: getReports
       x-implementation: future
@@ -2682,32 +2682,32 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReportsPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ReportsPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /reports/{reportId}:
     get:
       tags:
         - Informes
-      summary: 'Diseño futuro: Consultar estado del informe'
+      summary: "Diseño futuro: Consultar estado del informe"
       description: Estado de creación, fechas y error de generación si procede.
       operationId: getReportsReportId
       x-implementation: future
@@ -2715,31 +2715,31 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/ReportId'
+        - $ref: "#/components/parameters/ReportId"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReportDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ReportDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /reports/{reportId}/file:
     get:
       tags:
         - Informes
-      summary: 'Diseño futuro: Descargar informe terminado'
+      summary: "Diseño futuro: Descargar informe terminado"
       description: Solo cuando status=COMPLETED; CSV/PDF con autorización y sin URL pública persistente.
       operationId: getReportsReportIdFile
       x-implementation: future
@@ -2747,9 +2747,9 @@ paths:
         - OPERATOR
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/ReportId'
+        - $ref: "#/components/parameters/ReportId"
       responses:
-        '200':
+        "200":
           description: Informe exportado.
           content:
             text/csv:
@@ -2759,51 +2759,51 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /external-sources:
     get:
       tags:
         - Administración
-      summary: 'Diseño futuro: Listar fuentes externas'
+      summary: "Diseño futuro: Listar fuentes externas"
       description: Estado de disponibilidad de proveedores y última sincronización.
       operationId: getExternalSources
       x-implementation: future
       x-roles:
         - ADMIN
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ExternalSourceDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/ExternalSourceDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
     post:
       tags:
         - Administración
-      summary: 'Diseño futuro: Registrar fuente de datos'
+      summary: "Diseño futuro: Registrar fuente de datos"
       description: Registra metadatos públicos de la fuente; las claves de integración van fuera del contrato y del repositorio.
       operationId: postExternalSources
       x-implementation: future
@@ -2814,87 +2814,87 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExternalSourceRequest'
+              $ref: "#/components/schemas/ExternalSourceRequest"
       responses:
-        '201':
+        "201":
           description: Recurso creado.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalSourceDTO'
+                $ref: "#/components/schemas/ExternalSourceDTO"
           headers:
             Location:
               description: Ruta al nuevo recurso, cuando esté disponible.
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /external-sources/{sourceId}:
     patch:
       tags:
         - Administración
-      summary: 'Diseño futuro: Configurar fuente'
+      summary: "Diseño futuro: Configurar fuente"
       description: Activa/desactiva y ajusta configuración permitida de una fuente.
       operationId: patchExternalSourcesSourceId
       x-implementation: future
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/SourceId'
+        - $ref: "#/components/parameters/SourceId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExternalSourcePatchRequest'
+              $ref: "#/components/schemas/ExternalSourcePatchRequest"
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalSourceDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ExternalSourceDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /audit-events:
     get:
       tags:
         - Administración
-      summary: 'Diseño futuro: Consultar auditoría'
+      summary: "Diseño futuro: Consultar auditoría"
       description: Acciones administrativas y cambios relevantes, con correlación por requestId.
       operationId: getAuditEvents
       x-implementation: future
       x-roles:
         - ADMIN
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
-        - $ref: '#/components/parameters/FromDate'
-        - $ref: '#/components/parameters/ToDate'
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
         - name: actorId
           in: query
           required: false
@@ -2915,24 +2915,24 @@ paths:
             type: string
           description: Recurso.
       responses:
-        '200':
+        "200":
           description: Operación correcta.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuditPageDTO'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/AuditPageDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     BearerAuth:
@@ -2971,7 +2971,7 @@ components:
         errors:
           type: array
           items:
-            $ref: '#/components/schemas/FieldError'
+            $ref: "#/components/schemas/FieldError"
           description: Errores de campos, cuando corresponda.
       required:
         - title
@@ -3049,7 +3049,7 @@ components:
       description: Coordenadas implementadas. Los atributos de geocodificación son futuros y se omiten; no se emiten estados ficticios.
       properties:
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
         formattedAddress:
           type: string
           description: Futuro; dirección normalizada por un proveedor backend.
@@ -3110,7 +3110,7 @@ components:
           x-normalized-maxLength: 5000
           description: De 10 a 5000 puntos de código después de trim(); conserva saltos y espacios interiores.
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
         categoryId:
           type: string
           format: uuid
@@ -3137,7 +3137,7 @@ components:
           format: uuid
           nullable: true
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
       additionalProperties: false
       minProperties: 1
     IncidentSummaryDTO:
@@ -3150,13 +3150,13 @@ components:
         title:
           type: string
         category:
-          $ref: '#/components/schemas/CategoryDTO'
+          $ref: "#/components/schemas/CategoryDTO"
         status:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
         priority:
-          $ref: '#/components/schemas/IncidentPriority'
+          $ref: "#/components/schemas/IncidentPriority"
         location:
-          $ref: '#/components/schemas/LocationDTO'
+          $ref: "#/components/schemas/LocationDTO"
         createdAt:
           type: string
           format: date-time
@@ -3192,17 +3192,17 @@ components:
         description:
           type: string
         reporter:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         category:
-          $ref: '#/components/schemas/CategoryDTO'
+          $ref: "#/components/schemas/CategoryDTO"
         status:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
         priority:
-          $ref: '#/components/schemas/IncidentPriority'
+          $ref: "#/components/schemas/IncidentPriority"
         location:
-          $ref: '#/components/schemas/LocationDTO'
+          $ref: "#/components/schemas/LocationDTO"
         assignedDepartment:
-          $ref: '#/components/schemas/DepartmentDTO'
+          $ref: "#/components/schemas/DepartmentDTO"
         createdAt:
           type: string
           format: date-time
@@ -3233,12 +3233,12 @@ components:
           description: Futuro; asociación autorizada con activo urbano.
           x-implementation: future
           allOf:
-            - $ref: '#/components/schemas/UrbanAssetAssociationDTO'
+            - $ref: "#/components/schemas/UrbanAssetAssociationDTO"
         currentAssignment:
           description: Futuro; asignación activa a equipo o técnico.
           x-implementation: future
           allOf:
-            - $ref: '#/components/schemas/AssignmentDTO'
+            - $ref: "#/components/schemas/AssignmentDTO"
         contextStatus:
           type: string
           enum:
@@ -3267,9 +3267,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/IncidentSummaryDTO'
+            $ref: "#/components/schemas/IncidentSummaryDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -3299,7 +3299,7 @@ components:
           type: string
           format: date-time
         actor:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         summary:
           type: string
           description: Texto estable del servidor; nunca el summary arbitrario del evento interno.
@@ -3355,13 +3355,13 @@ components:
           type: array
           description: Roles GLOBAL concedidos mediante UserRole. Toda cuenta tiene CITIZEN; los roles DEPARTMENT se consultan a través de departmentMemberships.
           items:
-            $ref: '#/components/schemas/GlobalRoleCode'
+            $ref: "#/components/schemas/GlobalRoleCode"
           uniqueItems: true
         departmentMemberships:
           type: array
           description: Adscripciones departamentales activas e históricas. Una pertenencia está activa cuando leftAt es null. Se ordenan por joinedAt descendente e id ascendente. Una pertenencia histórica no concede permisos; roles globales y departamentales son ámbitos distintos.
           items:
-            $ref: '#/components/schemas/DepartmentMembershipDTO'
+            $ref: "#/components/schemas/DepartmentMembershipDTO"
       required:
         - id
         - displayName
@@ -3399,9 +3399,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/UserDTO'
+            $ref: "#/components/schemas/UserDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -3419,9 +3419,9 @@ components:
       description: Adscripción a departamento con rol DEPARTMENT; solo se facilita a personas autorizadas. Las fechas conservan historial.
       properties:
         department:
-          $ref: '#/components/schemas/DepartmentDTO'
+          $ref: "#/components/schemas/DepartmentDTO"
         role:
-          $ref: '#/components/schemas/DepartmentRoleCode'
+          $ref: "#/components/schemas/DepartmentRoleCode"
         joinedAt:
           type: string
           format: date-time
@@ -3515,7 +3515,7 @@ components:
           pattern: ^[0-9]{8}$
           minLength: 8
           maxLength: 8
-          example: '01234567'
+          example: "01234567"
           description: Secreto de un solo uso, válido como máximo 10 minutos y nunca más allá de las 24 horas desde el registro.
     TokenDTO:
       type: object
@@ -3534,7 +3534,7 @@ components:
           minimum: 1
           example: 7200
         user:
-          $ref: '#/components/schemas/UserDTO'
+          $ref: "#/components/schemas/UserDTO"
       required:
         - accessToken
         - tokenType
@@ -3542,8 +3542,8 @@ components:
         - user
     InvitationRequest:
       oneOf:
-        - $ref: '#/components/schemas/GlobalInvitationRequest'
-        - $ref: '#/components/schemas/DepartmentInvitationRequest'
+        - $ref: "#/components/schemas/GlobalInvitationRequest"
+        - $ref: "#/components/schemas/DepartmentInvitationRequest"
       description: El rol selecciona dos variantes disjuntas; el destinatario se registra y verifica por Autenticación.
     InvitationDTO:
       type: object
@@ -3577,7 +3577,7 @@ components:
           format: uuid
           description: Presente exclusivamente para roles departamentales.
         status:
-          $ref: '#/components/schemas/InvitationStatus'
+          $ref: "#/components/schemas/InvitationStatus"
         createdBy:
           type: string
           format: uuid
@@ -3609,9 +3609,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/InvitationDTO'
+            $ref: "#/components/schemas/InvitationDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
     InvitationRedemptionDTO:
       type: object
       additionalProperties: false
@@ -3682,7 +3682,7 @@ components:
           maxLength: 254
           description: Obligatorio, trim y minúsculas como User.email.
         role:
-          $ref: '#/components/schemas/StaffGlobalRoleCode'
+          $ref: "#/components/schemas/StaffGlobalRoleCode"
       description: No admite departmentId, ni siquiera null, ni expiresAt. Vigencia calculada por el servidor.
     DepartmentInvitationRequest:
       type: object
@@ -3697,7 +3697,7 @@ components:
           format: email
           maxLength: 254
         role:
-          $ref: '#/components/schemas/DepartmentRoleCode'
+          $ref: "#/components/schemas/DepartmentRoleCode"
         departmentId:
           type: string
           format: uuid
@@ -3879,12 +3879,12 @@ components:
         reason:
           type: string
         reviewedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         reviewedAt:
           type: string
           format: date-time
         resultingStatus:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
       required:
         - id
         - incidentId
@@ -3896,7 +3896,7 @@ components:
       type: object
       properties:
         priority:
-          $ref: '#/components/schemas/IncidentPriority'
+          $ref: "#/components/schemas/IncidentPriority"
         source:
           type: string
           enum:
@@ -3922,7 +3922,7 @@ components:
           type: string
           format: uuid
         priority:
-          $ref: '#/components/schemas/IncidentPriority'
+          $ref: "#/components/schemas/IncidentPriority"
         source:
           type: string
           enum:
@@ -3931,7 +3931,7 @@ components:
         justification:
           type: string
         decidedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         decidedAt:
           type: string
           format: date-time
@@ -3945,9 +3945,9 @@ components:
         - decidedAt
     AssignmentRequest:
       oneOf:
-        - $ref: '#/components/schemas/TeamWorkAssignmentRequest'
-        - $ref: '#/components/schemas/TechnicianWorkAssignmentRequest'
-      description: 'ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
+        - $ref: "#/components/schemas/TeamWorkAssignmentRequest"
+        - $ref: "#/components/schemas/TechnicianWorkAssignmentRequest"
+      description: "ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro."
     AssignmentDTO:
       type: object
       properties:
@@ -3958,12 +3958,12 @@ components:
           type: string
           format: uuid
         technician:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         teamId:
           type: string
           format: uuid
         assignedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         reason:
           type: string
         assignedAt:
@@ -3973,7 +3973,7 @@ components:
           type: string
           format: date-time
         acceptedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         acceptedAt:
           type: string
           format: date-time
@@ -4016,15 +4016,15 @@ components:
           type: string
           format: uuid
         fromStatus:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
         toStatus:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
         reason:
           type: string
         resolutionNotes:
           type: string
         changedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         changedAt:
           type: string
           format: date-time
@@ -4069,7 +4069,7 @@ components:
             - PUBLIC
             - INTERNAL
         author:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         createdAt:
           type: string
           format: date-time
@@ -4173,7 +4173,7 @@ components:
         contentType: image/jpeg
         sizeBytes: 24576
         uploadedBy: 019a6fb0-1234-7000-8000-000000000003
-        createdAt: '2026-11-11T10:00:00Z'
+        createdAt: "2026-11-11T10:00:00Z"
         description: null
     DuplicateSuggestionDTO:
       type: object
@@ -4220,7 +4220,7 @@ components:
           type: string
           format: uuid
         linkedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         linkedAt:
           type: string
           format: date-time
@@ -4243,7 +4243,7 @@ components:
         name:
           type: string
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
         metadata:
           type: object
           additionalProperties: true
@@ -4260,12 +4260,12 @@ components:
         - type
         - coordinates
         - externalId
-      description: 'Activo urbano local: id UUID interno; externalId identifica al activo en un proveedor. Relación sourceId opcional, integración aún provisional.'
+      description: "Activo urbano local: id UUID interno; externalId identifica al activo en un proveedor. Relación sourceId opcional, integración aún provisional."
     UrbanAssetCandidateDTO:
       type: object
       properties:
         asset:
-          $ref: '#/components/schemas/UrbanAssetDTO'
+          $ref: "#/components/schemas/UrbanAssetDTO"
         distanceMeters:
           type: number
           minimum: 0
@@ -4295,7 +4295,7 @@ components:
       type: object
       properties:
         asset:
-          $ref: '#/components/schemas/UrbanAssetDTO'
+          $ref: "#/components/schemas/UrbanAssetDTO"
         distanceMeters:
           type: number
           minimum: 0
@@ -4310,7 +4310,7 @@ components:
             - EXPLICIT
             - OPERATOR_CONFIRMED
         confirmedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         associatedAt:
           type: string
           format: date-time
@@ -4361,7 +4361,7 @@ components:
           type: string
           format: date-time
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
       required:
         - id
         - sourceId
@@ -4390,11 +4390,11 @@ components:
         observations:
           type: array
           items:
-            $ref: '#/components/schemas/ExternalObservationDTO'
+            $ref: "#/components/schemas/ExternalObservationDTO"
         nearbyAssets:
           type: array
           items:
-            $ref: '#/components/schemas/UrbanAssetCandidateDTO'
+            $ref: "#/components/schemas/UrbanAssetCandidateDTO"
         warnings:
           type: array
           items:
@@ -4417,11 +4417,11 @@ components:
         title:
           type: string
         status:
-          $ref: '#/components/schemas/IncidentStatus'
+          $ref: "#/components/schemas/IncidentStatus"
         priority:
-          $ref: '#/components/schemas/IncidentPriority'
+          $ref: "#/components/schemas/IncidentPriority"
         coordinates:
-          $ref: '#/components/schemas/CoordinatesDTO'
+          $ref: "#/components/schemas/CoordinatesDTO"
         categoryId:
           type: string
           format: uuid
@@ -4436,7 +4436,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/MapFeatureDTO'
+            $ref: "#/components/schemas/MapFeatureDTO"
         count:
           type: integer
           minimum: 0
@@ -4521,9 +4521,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/NotificationDTO'
+            $ref: "#/components/schemas/NotificationDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -4542,15 +4542,15 @@ components:
         byStatus:
           type: array
           items:
-            $ref: '#/components/schemas/CountBucketDTO'
+            $ref: "#/components/schemas/CountBucketDTO"
         byCategory:
           type: array
           items:
-            $ref: '#/components/schemas/CountBucketDTO'
+            $ref: "#/components/schemas/CountBucketDTO"
         byDistrict:
           type: array
           items:
-            $ref: '#/components/schemas/CountBucketDTO'
+            $ref: "#/components/schemas/CountBucketDTO"
         averageResolutionHours:
           type: number
           minimum: 0
@@ -4587,11 +4587,11 @@ components:
           type: string
           format: date
         statistics:
-          $ref: '#/components/schemas/StatisticsDTO'
+          $ref: "#/components/schemas/StatisticsDTO"
         observations:
           type: array
           items:
-            $ref: '#/components/schemas/ExternalObservationDTO'
+            $ref: "#/components/schemas/ExternalObservationDTO"
       required:
         - zoneId
         - from
@@ -4670,7 +4670,7 @@ components:
           type: string
           format: date-time
         requestedBy:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         errorMessage:
           type: string
       required:
@@ -4684,9 +4684,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/ReportDTO'
+            $ref: "#/components/schemas/ReportDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -4774,7 +4774,7 @@ components:
           type: string
           format: uuid
         actor:
-          $ref: '#/components/schemas/UserSummaryDTO'
+          $ref: "#/components/schemas/UserSummaryDTO"
         action:
           type: string
         resourceType:
@@ -4801,9 +4801,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AuditEventDTO'
+            $ref: "#/components/schemas/AuditEventDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -4813,9 +4813,9 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/HistoryEventDTO'
+            $ref: "#/components/schemas/HistoryEventDTO"
         pagination:
-          $ref: '#/components/schemas/PageMetadata'
+          $ref: "#/components/schemas/PageMetadata"
       required:
         - data
         - pagination
@@ -4824,7 +4824,7 @@ components:
       name: incidentId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): incidentId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): incidentId."
       schema:
         type: string
         format: uuid
@@ -4832,7 +4832,7 @@ components:
       name: attachmentId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): attachmentId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): attachmentId."
       schema:
         type: string
         format: uuid
@@ -4840,7 +4840,7 @@ components:
       name: userId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): userId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): userId."
       schema:
         type: string
         format: uuid
@@ -4864,7 +4864,7 @@ components:
       name: assetId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): assetId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): assetId."
       schema:
         type: string
         format: uuid
@@ -4872,7 +4872,7 @@ components:
       name: reportId
       in: path
       required: true
-      description: 'Identificador público opaco: reportId.'
+      description: "Identificador público opaco: reportId."
       schema:
         type: string
         minLength: 1
@@ -4880,7 +4880,7 @@ components:
       name: assessmentId
       in: path
       required: true
-      description: 'Identificador público opaco: assessmentId.'
+      description: "Identificador público opaco: assessmentId."
       schema:
         type: string
         minLength: 1
@@ -4888,7 +4888,7 @@ components:
       name: trainingId
       in: path
       required: true
-      description: 'Identificador público opaco: trainingId.'
+      description: "Identificador público opaco: trainingId."
       schema:
         type: string
         minLength: 1
@@ -4896,7 +4896,7 @@ components:
       name: documentId
       in: path
       required: true
-      description: 'Identificador público opaco: documentId.'
+      description: "Identificador público opaco: documentId."
       schema:
         type: string
         minLength: 1
@@ -4904,7 +4904,7 @@ components:
       name: sourceId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): sourceId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): sourceId."
       schema:
         type: string
         format: uuid
@@ -4912,7 +4912,7 @@ components:
       name: invitationId
       in: path
       required: true
-      description: 'Identificador de entidad en formato UUID (generación UUIDv7 prevista): invitationId.'
+      description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): invitationId."
       schema:
         type: string
         format: uuid
@@ -4920,7 +4920,7 @@ components:
       name: zoneId
       in: path
       required: true
-      description: 'Identificador público opaco: zoneId.'
+      description: "Identificador público opaco: zoneId."
       schema:
         type: string
         minLength: 1
@@ -4978,37 +4978,37 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     Unauthorized:
       description: JWT ausente/inválido/caducado/revocado, cuenta inactiva o credenciales de login incorrectas; nunca se revela si existe un correo.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     Forbidden:
       description: Permisos insuficientes o recurso no accesible. En rutas protegidas del negocio, el código EMAIL_NOT_VERIFIED indica cuenta no verificada.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     NotFound:
       description: Recurso inexistente o no visible para este usuario.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     Conflict:
       description: Regla de negocio, conflicto de estado, dato duplicado o concurrencia.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     ValidationError:
       description: JSON interpretable pero con datos que incumplen reglas de validación, como Bean Validation, o código de verificación inexistente, incorrecto o caducado (INVALID_VERIFICATION_CODE).
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     TooManyRequests:
       description: Se ha superado el límite de solicitudes, determinado en esta primera etapa por la instancia del backend. Aplicado al registro, login, confirmación, reenvío y canje de invitaciones según buckets separados; el cambio de contraseña solo limita el tamaño de cuerpo.
       headers:
@@ -5020,43 +5020,43 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     InternalError:
       description: Error inesperado del servidor.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     ServiceUnavailable:
       description: Servicio temporalmente no disponible. En Autenticación, Usuarios, Invitaciones y catálogos se utiliza ante fallos tipados de conexión/recursos/timeout de PostgreSQL; no indica JWT inválido ni se acompaña de WWW-Authenticate.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     Gone:
       description: La cuenta pendiente de verificar ha superado sus 24 horas de vigencia (VERIFICATION_ACCOUNT_EXPIRED).
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     PayloadTooLarge:
       description: El cuerpo bruto de Incidencias supera 65536 bytes; código PAYLOAD_TOO_LARGE. Se rechaza antes de deserializar JSON, incluso sin Content-Length.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     PreconditionFailed:
       description: Versión obsoleta o conflicto optimista detectado durante el flush (INCIDENT_VERSION_MISMATCH). La modificación y su auditoría se revierten.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
     PreconditionRequired:
       description: If-Match obligatorio ausente (IF_MATCH_REQUIRED); se comprueba después del acceso al recurso.
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: "#/components/schemas/ProblemDetail"
   headers:
     PrivateCache:
       description: Respuesta privada que no debe almacenarse.

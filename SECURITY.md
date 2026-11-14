@@ -14,15 +14,21 @@ No publicar pruebas de explotación, tokens, credenciales ni datos personales en
 - Aplicar mínimo privilegio, autorización en el backend y HTTPS en el despliegue.
 - No incluir datos personales reales ni fotografías sensibles en tests, ejemplos, capturas o Issues. No ejecutar tests automáticos compartidos contra Neon `production` ni dar acceso al frontend a PostgreSQL o al bucket S3 privado.
 
+## Entorno local y CI
+
+El desarrollo usa exclusivamente PostgreSQL local y Mailpit mediante Docker Compose, con todos los puertos publicados en loopback. `backend/.env.development` debe apuntar a `postgres:5432` y `mailpit:1025`; Compose carga esos valores sin sobrescribirlos. Neon PostgreSQL se reserva a producción. Neon Object Storage se utiliza en ambos entornos con recursos y credenciales propios; la base local no aísla un bucket compartido. No ejecutar pruebas mutativas sobre S3 real sin un escenario preparado y autorización.
+
+GitHub Actions utiliza `pull_request` con permisos `contents: read`, sin credenciales persistidas por checkout ni secretos privados. Las IT usan PostgreSQL efímero y dobles S3; los perfiles externos y el runner HTTP mutativo quedan excluidos. La CI de calidad no sustituye un análisis de seguridad ni acredita un despliegue productivo.
+
 ## Dependencias y desarrollo
 
 **Seguridad HTTP en esta etapa:** registro y login son públicos y están limitados por IP (login también por email normalizado); el cambio de contraseña, la confirmación y el reenvío exigen Bearer. Los cinco POST limitan cuerpos a 16 KiB. Los errores internos y de base de datos se registran sin incluir contraseñas, JWT ni mensajes JDBC; indisponibilidad de PostgreSQL = `503`, credenciales/token inválidos = `401`. El limitador usa `getRemoteAddr()` con `server.forward-headers-strategy=none`; revisar el proxy confiable antes de exponerlo detrás de un balanceador.
 
-El frontend dispone de `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit` y `npm run lint`. Estas comprobaciones no sustituyen a una revisión de seguridad.
+El frontend dispone de `npm test`, `npx expo install --check`, `npx expo-doctor`, `npx tsc --noEmit` y `npm run lint`. Estas comprobaciones no sustituyen a una revisión de seguridad.
 
 Inspeccionar `npm audit` y priorizar los avisos de riesgo elevado antes de distribuir una versión. Las salidas previas de npm informaron de vulnerabilidades; no constan aún resultados que demuestren que hayan desaparecido. No ejecutar `npm audit fix --force` de forma automática si pudiera romper la compatibilidad con Expo.
 
-El bucket `incident-evidence` ya existe con visibilidad privada y acceso S3 comprobado mediante `HeadBucket`. **La autorización de cada fotografía, la revisión de contenidos y las operaciones de subida/descarga todavía no están implementadas.** El módulo de autenticación ya incluye JWT HS256 de dos horas, BCrypt, control de rol `CITIZEN`, consulta de permisos vigentes en PostgreSQL, revocación mediante `tokenVersion` y limitación local por instancia. La rotación de claves, el despliegue HTTPS y el saneamiento de IP detrás de proxies se revisarán antes de producción.
+El bucket `incident-evidence` ya existe con visibilidad privada y acceso S3 comprobado mediante `HeadBucket`. Las fotografías ya tienen autorización por incidencia, subida/descarga privada y sanitización JPEG/PNG sin EXIF/GPS; no se acredita moderación de contenido sensible ni un ciclo real S3 por las pruebas aisladas. Retención, purgado y reconciliación siguen pendientes. El módulo de autenticación ya incluye JWT HS256 de dos horas, BCrypt, control de rol `CITIZEN`, consulta de permisos vigentes en PostgreSQL, revocación mediante `tokenVersion` y limitación local por instancia. La rotación de claves, el despliegue HTTPS y el saneamiento de IP detrás de proxies se revisarán antes de producción.
 
 **Correo y cuentas no verificadas:** la API solo permite cambiar contraseña, confirmar y reenviar con JWT válido mientras `emailVerified=false`; otras rutas protegidas responden `403 EMAIL_NOT_VERIFIED`. Los códigos de ocho dígitos se almacenan como HMAC, nunca en claro ni en logs, y su emisión está limitada por buckets de usuario/IP. Mailpit en desarrollo no entrega fuera del equipo. El envío transaccional tras commit no garantiza recepción y permite reenvío manual. Las cuentas sin verificar con más de 24 horas se eliminan por lotes solo si carecen de referencias históricas. Se conservan las vinculadas a pertenencias, invitaciones o auditoría y se excluyen antes del límite para no bloquear las demás. Guardar `EMAIL_VERIFICATION_SECRET` separado de `JWT_SECRET`, fuera de Git.
 

@@ -4,8 +4,8 @@ UrbanPulse se desarrolla de forma incremental, revisando **el dominio y OpenAPI 
 
 ## Flujo de trabajo
 
-1. Actualizar `main` antes de comenzar el desarrollo.
-2. Crear una rama específica para la funcionalidad, corrección, refactor o documentación.
+1. Actualizar las referencias con `git fetch origin`, conservando los cambios locales existentes.
+2. Crear desde `origin/main` una rama específica para la funcionalidad, corrección, refactor o documentación.
 3. Revisar los requisitos, ADR, diagramas y contrato OpenAPI del ámbito afectado.
 4. Implementar exclusivamente el alcance acordado (migración, modelo, DTO, servicio, seguridad, controladores y pruebas cuando correspondan).
 5. Hacer commits pequeños y descriptivos.
@@ -45,11 +45,14 @@ La documentación del [modelo de dominio](docs/domain-model.md) es una referenci
 **Frontend**, desde `frontend/`:
 
 ```bash
-npx expo install --check
+npm ci
+npm test
 npx tsc --noEmit
 npm run lint
 npx expo export --platform web
 ```
+
+Como mantenimiento opcional, `npx expo install --check` consulta las recomendaciones actuales de Expo; puede pedir parches nuevos y no forma parte de los checks obligatorios de CI.
 
 **Backend**, desde `backend/`, con Java 25, Maven y Docker:
 
@@ -58,11 +61,9 @@ mvn -B -ntp test
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El perfil `postgres-it` añade `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT`, `IncidentPostgresIT` y `AttachmentServicePostgresIT` con PostgreSQL 18 Testcontainers. `NeonConnectivityIT` está en `shared/storage/integration` y se ejecuta **solo** de manera explícita con destino Neon `development` autorizado:
+El perfil `postgres-it` ejecuta las nueve suites PostgreSQL documentadas en [Desarrollo](docs/development.md#backend-unitariasmvc-e-integración-postgresql), con Testcontainers y sin la base persistente de Compose. La guía incluye comandos Docker para repetir las verificaciones sin instalar Java/Maven en el host. Los comandos de herramientas anteriores son los del CI; no definen otro modo habitual de arrancar la aplicación.
 
-```bash
-docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
-```
+`NeonConnectivityIT` es una prueba histórica explícita de JDBC/HeadBucket, excluida de CI y del desarrollo local ordinario. El perfil `neon-storage` utiliza S3 real y requiere un recurso de pruebas no productivo y autorización explícita; las credenciales locales no autorizan su ejecución automática.
 
 No lanzar tests de escritura en Neon compartido ni migraciones experimentales sobre `production`. Los resultados de 90 pruebas y HTTP aislado figuran en un informe fechado el 30/10/2026; **el orden Git sitúa la reorganización antes de los commits de Invitaciones y pruebas**, por lo que no deben invertirse los hitos por la fecha del informe. Registrar una ejecución nueva solo cuando se realice efectivamente.
 
@@ -79,6 +80,12 @@ Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y
 **Documentación:** comprobar vínculos relativos, presencia de todos los SVG que se enlazan, correspondencia `.drawio`/exportación, ausencia de referencias a informes temporales y coherencia con el árbol Java actual. Ejecutar `git diff --check` y comprobar que no se han incorporado secretos, datos personales reales, `.env`, `target`, `dist` o `node_modules`.
 
 El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backend/scripts/invitations_http_test.py` con PostgreSQL/Mailpit efímeros, **pero esos archivos no figuran en el repositorio**. No presentar ese flujo como reproducible sin restaurar y revisar el runner. Las suites Maven/Testcontainers configuradas en el proyecto se describen en [Desarrollo](docs/development.md); la política funcional y de seguridad, en [ADR-0007](docs/adr/0007-invitaciones-personal.md).
+
+## CI, bases locales y migraciones
+
+El [workflow CI](.github/workflows/ci.yml) valida PR hacia main, push a main y ejecución manual: backend (Surefire y nueve suites PostgreSQL Testcontainers), frontend (npm ci, npm test, TypeScript, ESLint y exportación web), OpenAPI y Compose. No incluye `NeonConnectivityIT`, el perfil `neon-storage` ni el runner HTTP mutativo `frontend/scripts/integration.cjs`. No necesita secretos ni despliega; las ramas se comprueban por PR/manual para evitar duplicados.
+
+Desarrollar mediante el único Compose: cada integrante usa su PostgreSQL local persistente. Cambiar de rama no separa el historial del volumen; coordinar versiones Flyway antes de integrar y validar la secuencia sobre una base nueva cuando sea incompatible. No reescribir migraciones compartidas ni usar `repair` o `down -v` como reparación rutinaria. La [guía](docs/development.md#3-ramas-y-migraciones-concurrentes) describe el procedimiento seguro.
 
 ## Pull Requests
 

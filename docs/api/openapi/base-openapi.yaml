@@ -11,7 +11,7 @@ info:
   contact:
     name: Equipo UrbanPulse
 servers:
-  - url: http://localhost:8888/api/v1
+  - url: http://localhost:8080/api/v1
     description: Backend local en desarrollo (prefijo /api/v1 implementado).
 tags:
   - name: Autenticación
