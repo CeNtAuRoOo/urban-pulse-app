@@ -3,6 +3,8 @@ package es.grupo18.urbanpulse.incidents.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -13,6 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import es.grupo18.urbanpulse.audit.model.AuditEvent;
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.categories.repository.CategoryRepository;
 import es.grupo18.urbanpulse.identity.model.RoleCode;
@@ -27,8 +30,12 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -66,7 +73,7 @@ class IncidentServiceTest {
     void ownershipIsCheckedBeforeMissingOrStalePrecondition() {
         var other = mock(User.class);
         when(other.getId()).thenReturn(UUID.randomUUID());
-        when(incidents.findById(incidentId)).thenReturn(Optional.of(incident(other)));
+        when(incidents.findForAttachments(incidentId)).thenReturn(Optional.of(incident(other)));
         assertStatus(() -> service.patch(actorId, 0, incidentId, null, patch()), 404);
         assertStatus(() -> service.patch(actorId, 0, incidentId, "obsolete", patch()), 404);
         verifyNoInteractions(audit, categories);
@@ -85,6 +92,7 @@ class IncidentServiceTest {
     @Test
     void flushConflictBecomes412BeforeWritingAudit() {
         when(incidents.findById(incidentId)).thenReturn(Optional.of(incident(actor)));
+        when(incidents.findForAttachments(incidentId)).thenReturn(Optional.of(incident(actor)));
         doThrow(new ObjectOptimisticLockingFailureException(Incident.class, incidentId)).when(incidents).flush();
         assertStatus(() -> service.patch(actorId, 0, incidentId,
                 es.grupo18.urbanpulse.incidents.api.IncidentETags.format(mapper, service.get(actorId, 0, incidentId)),
@@ -97,6 +105,44 @@ class IncidentServiceTest {
                 new Location(new Coordinates(0.0, 0.0, null)), Instant.parse("2026-11-05T09:00:00Z"));
         ReflectionTestUtils.setField(result, "id", incidentId);
         return result;
+    }
+
+    /**
+     * La identidad pública depende del informante, nunca del rol actual del autor.
+     */
+    @Test
+    void historyOnlyIdentifiesReporterForCitizenEvents() {
+        var employee = mock(User.class);
+        when(employee.getId()).thenReturn(UUID.randomUUID());
+        when(actor.getDisplayName()).thenReturn("Informante sintético");
+        when(incidents.findById(incidentId)).thenReturn(Optional.of(incident(actor)));
+        Instant at = Instant.parse("2026-11-15T10:00:00Z");
+        var events = new java.util.ArrayList<AuditEvent>();
+        for (String action : List.of("INCIDENT_CREATED", "INCIDENT_UPDATED", "INCIDENT_INFORMATION_RESPONDED")) {
+            for (User author : new User[] { actor, employee, null }) {
+                events.add(new AuditEvent(author, action, "INCIDENT", incidentId.toString(),
+                        Map.of("version", "7", "private", "no publicar"), at));
+            }
+        }
+        when(audit.findByResourceTypeAndResourceIdAndActionIn(eq("INCIDENT"), eq(incidentId.toString()), any(), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(events));
+        var page = service.history(actorId, 0, incidentId, 1, 20);
+        assertThat(page.data()).hasSize(9);
+        for (int i = 0; i < 9; i++) {
+            var event = page.data().get(i);
+            assertThat(event.occurredAt()).isEqualTo(at);
+            if (i % 3 == 0)
+                assertThat(event.actor().id()).isEqualTo(actorId);
+            else
+                assertThat(event.actor()).isNull();
+            assertThat(event.details()).doesNotContainKey("private");
+        }
+        assertThat(page.data().get(3).eventType()).isEqualTo("UPDATED");
+        assertThat(page.data().get(3).details()).containsExactlyEntriesOf(Map.of("version", "7"));
+        verify(incidents).findById(incidentId);
+        verify(employee, never()).globalRoles();
+        verify(employee, never()).isActive();
+        verify(employee, never()).getDisplayName();
     }
 
     private UpdateIncidentRequest patch() {
