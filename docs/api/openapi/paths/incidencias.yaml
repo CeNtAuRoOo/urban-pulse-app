@@ -1,187 +1,285 @@
 /incidents:
   post:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Registrar incidencia
-    description: Implementado. Cuenta activa y verificada; informante exclusivamente desde JWT. Cuerpo bruto máximo 65536 bytes, incluidos espacios y escapes JSON; exceso 413 antes de deserializar. Crea REPORTED y AuditEvent INCIDENT_CREATED atómicamente, sin StatusChange, prioridad ni procesos externos.
+    description: Implementado. Cuenta activa y verificada; informante exclusivamente desde JWT. Cuerpo bruto máximo 65536
+      bytes, incluidos espacios y escapes JSON; exceso 413 antes de deserializar. Crea REPORTED y AuditEvent
+      INCIDENT_CREATED atómicamente, sin StatusChange, prioridad ni procesos externos.
     operationId: postIncidents
     x-implementation: implemented
-    x-roles: [CITIZEN, OPERATOR, ADMIN]
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/incidencias.yaml#/CreateIncidentRequest'
+            $ref: ../components/schemas/incidencias.yaml#/CreateIncidentRequest
     responses:
-      '201':
+      "201":
         description: Incidencia creada; Location y ETag siempre presentes.
         headers:
           Location:
-            schema: {type: string}
+            schema:
+              type: string
             description: Ruta /api/v1/incidents/{incidentId}.
           ETag:
-            $ref: '../components/headers.yaml#/IncidentETag'
+            $ref: ../components/headers.yaml#/IncidentETag
           Cache-Control:
-            $ref: '../components/headers.yaml#/PrivateCache'
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/incidencias.yaml#/IncidentDTO'
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '413': {$ref: '../components/responses.yaml#/PayloadTooLarge'}
-      '422': {$ref: '../components/responses.yaml#/ValidationError'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
+              $ref: ../components/schemas/incidencias.yaml#/IncidentDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "413":
+        $ref: ../components/responses.yaml#/PayloadTooLarge
+      "422":
+        $ref: ../components/responses.yaml#/ValidationError
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
   get:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Listar incidencias administrativamente
-    description: Implementado. Solo OPERATOR/ADMIN globales verificados. Filtros SQL opcionales, fechas inclusivas y orden fijo createdAt DESC, id DESC. Parámetros desconocidos, sort y filtros futuros se rechazan con 400. Offset máximo 2147483647.
+    description: "OPERATOR/ADMIN globales verificados. Filtros SQL, fechas inclusivas y orden predeterminado createdAt
+      DESC,id DESC. priority filtra exactamente; sort solo admite priority,asc o priority,desc: rango LOW < MEDIUM <
+      HIGH < CRITICAL, null siempre al final y desempate createdAt DESC,id DESC. Paginación y totales SQL. Parámetros
+      desconocidos o valores no admitidos: 400."
     operationId: getIncidents
     x-implementation: implemented
-    x-roles: [OPERATOR, ADMIN]
+    x-roles:
+      - OPERATOR
+      - ADMIN
     parameters:
-      - $ref: '../components/parameters.yaml#/Page'
-      - $ref: '../components/parameters.yaml#/PageSize'
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
       - name: status
         in: query
         schema:
-          $ref: '../components/schemas/incidencias.yaml#/IncidentStatus'
+          $ref: ../components/schemas/incidencias.yaml#/IncidentStatus
       - name: categoryId
         in: query
-        schema: {type: string, format: uuid}
+        schema:
+          type: string
+          format: uuid
       - name: createdFrom
         in: query
         description: Inicio inclusivo como instante ISO-8601 con zona; no puede ser posterior a createdTo.
-        schema: {type: string, format: date-time}
+        schema:
+          type: string
+          format: date-time
       - name: createdTo
         in: query
         description: Fin inclusivo como instante ISO-8601 con zona.
-        schema: {type: string, format: date-time}
+        schema:
+          type: string
+          format: date-time
+      - name: priority
+        in: query
+        schema:
+          $ref: ../components/schemas/incidencias.yaml#/IncidentPriority
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum:
+            - priority,asc
+            - priority,desc
     responses:
-      '200':
+      "200":
         description: Página administrativa.
         headers:
-          Cache-Control: {$ref: '../components/headers.yaml#/PrivateCache'}
+          Cache-Control:
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
-            schema: {$ref: '../components/schemas/incidencias.yaml#/IncidentPageDTO'}
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
-
+            schema:
+              $ref: ../components/schemas/incidencias.yaml#/IncidentPageDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
 /incidents/mine:
   get:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Mis incidencias
-    description: Implementado. SQL restringido al sujeto del JWT activo y verificado; nunca acepta userId. Orden createdAt DESC, id DESC. Offset máximo 2147483647; no admite filtros adicionales.
+    description: Implementado. SQL restringido al sujeto del JWT activo y verificado; nunca acepta userId. Orden createdAt
+      DESC, id DESC. Offset máximo 2147483647; no admite filtros adicionales.
     operationId: getIncidentsMine
     x-implementation: implemented
-    x-roles: [AUTHENTICATED]
+    x-roles:
+      - AUTHENTICATED
     parameters:
-      - $ref: '../components/parameters.yaml#/Page'
-      - $ref: '../components/parameters.yaml#/PageSize'
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
     responses:
-      '200':
+      "200":
         description: Página del titular.
         headers:
-          Cache-Control: {$ref: '../components/headers.yaml#/PrivateCache'}
+          Cache-Control:
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
-            schema: {$ref: '../components/schemas/incidencias.yaml#/IncidentPageDTO'}
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
-
+            schema:
+              $ref: ../components/schemas/incidencias.yaml#/IncidentPageDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
 /incidents/{incidentId}:
   get:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Consultar incidencia
-    description: Implementado. Informante o OPERATOR/ADMIN globales, activos y verificados. Incidencias ajenas sin permiso responden como inexistentes (404). Rol departamental no concede acceso global.
+    description: Implementado. Informante o OPERATOR/ADMIN globales, activos y verificados. Incidencias ajenas sin permiso
+      responden como inexistentes (404). Rol departamental no concede acceso global.
     operationId: getIncidentsIncidentId
     x-implementation: implemented
-    x-roles: [AUTHENTICATED]
+    x-roles:
+      - AUTHENTICATED
     parameters:
-      - $ref: '../components/parameters.yaml#/IncidentId'
+      - $ref: ../components/parameters.yaml#/IncidentId
     responses:
-      '200':
+      "200":
         description: Detalle autorizado con ETag fuerte.
         headers:
-          ETag: {$ref: '../components/headers.yaml#/IncidentETag'}
-          Cache-Control: {$ref: '../components/headers.yaml#/PrivateCache'}
+          ETag:
+            $ref: ../components/headers.yaml#/IncidentETag
+          Cache-Control:
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
-            schema: {$ref: '../components/schemas/incidencias.yaml#/IncidentDTO'}
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '404': {$ref: '../components/responses.yaml#/NotFound'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
+            schema:
+              $ref: ../components/schemas/incidencias.yaml#/IncidentDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
   patch:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Corregir incidencia
-    description: Implementado. Informante o provisionalmente OPERATOR/ADMIN globales; únicamente REPORTED. Cuerpo bruto máximo 65536 bytes; exceso 413 antes de deserializar. Revalida cuenta, titularidad, ETag del detalle vigente y estado dentro de la transacción. Auditoría INCIDENT_UPDATED solo para cambios efectivos. No permite estado, prioridad, informante ni departamento. Autorización transversal sujeta a revisión futura de negocio/seguridad.
+    description: Implementado. Informante o provisionalmente OPERATOR/ADMIN globales; únicamente REPORTED. Cuerpo bruto
+      máximo 65536 bytes; exceso 413 antes de deserializar. Revalida cuenta, titularidad, ETag del detalle vigente y
+      estado dentro de la transacción. Auditoría INCIDENT_UPDATED solo para cambios efectivos. No permite estado,
+      prioridad, informante ni departamento. Autorización transversal sujeta a revisión futura de negocio/seguridad.
     operationId: patchIncidentsIncidentId
     x-implementation: implemented
-    x-roles: [CITIZEN, OPERATOR, ADMIN]
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
     parameters:
-      - $ref: '../components/parameters.yaml#/IncidentId'
-      - $ref: '../components/parameters.yaml#/IncidentIfMatch'
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - $ref: ../components/parameters.yaml#/IncidentIfMatch
     requestBody:
       required: true
       content:
         application/json:
-          schema: {$ref: '../components/schemas/incidencias.yaml#/UpdateIncidentRequest'}
+          schema:
+            $ref: ../components/schemas/incidencias.yaml#/UpdateIncidentRequest
     responses:
-      '200':
+      "200":
         description: Detalle resultante; no-op conserva ETag y fecha.
         headers:
-          ETag: {$ref: '../components/headers.yaml#/IncidentETag'}
-          Cache-Control: {$ref: '../components/headers.yaml#/PrivateCache'}
+          ETag:
+            $ref: ../components/headers.yaml#/IncidentETag
+          Cache-Control:
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
-            schema: {$ref: '../components/schemas/incidencias.yaml#/IncidentDTO'}
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '404': {$ref: '../components/responses.yaml#/NotFound'}
-      '409': {$ref: '../components/responses.yaml#/Conflict'}
-      '412': {$ref: '../components/responses.yaml#/PreconditionFailed'}
-      '413': {$ref: '../components/responses.yaml#/PayloadTooLarge'}
-      '422': {$ref: '../components/responses.yaml#/ValidationError'}
-      '428': {$ref: '../components/responses.yaml#/PreconditionRequired'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
-
+            schema:
+              $ref: ../components/schemas/incidencias.yaml#/IncidentDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "409":
+        $ref: ../components/responses.yaml#/Conflict
+      "412":
+        $ref: ../components/responses.yaml#/PreconditionFailed
+      "413":
+        $ref: ../components/responses.yaml#/PayloadTooLarge
+      "422":
+        $ref: ../components/responses.yaml#/ValidationError
+      "428":
+        $ref: ../components/responses.yaml#/PreconditionRequired
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
 /incidents/{incidentId}/history:
   get:
-    tags: [Incidencias]
+    tags:
+      - Incidencias
     summary: Consultar historial
-    description: Implementado. Mismo acceso que detalle. Página SQL de AuditEvent con resourceType INCIDENT, identidad exacta y acciones INCIDENT_CREATED/INCIDENT_UPDATED. Orden occurredAt ASC, id ASC; sin eventos internos, datos arbitrarios ni transiciones duplicadas. Offset máximo 2147483647.
+    description: Informante u OPERATOR/ADMIN activos y verificados. Proyección SQL de AuditEvent, orden histórico occurredAt
+      ASC,id ASC. CREATED/UPDATED, REVIEWED, INFORMATION_RESPONDED y PRIORITY_CHANGED, una vez por hecho; sin eventos de
+      Evidencias. Actor municipal omitido, motivos solo de rechazo/solicitud; prioridad pública sin justificación ni
+      decisor.
     operationId: getIncidentsIncidentIdHistory
     x-implementation: implemented
-    x-roles: [AUTHENTICATED]
+    x-roles:
+      - AUTHENTICATED
     parameters:
-      - $ref: '../components/parameters.yaml#/IncidentId'
-      - $ref: '../components/parameters.yaml#/Page'
-      - $ref: '../components/parameters.yaml#/PageSize'
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
     responses:
-      '200':
+      "200":
         description: Historial público paginado.
         headers:
-          Cache-Control: {$ref: '../components/headers.yaml#/PrivateCache'}
+          Cache-Control:
+            $ref: ../components/headers.yaml#/PrivateCache
         content:
           application/json:
-            schema: {$ref: '../components/schemas/incidencias.yaml#/HistoryPageDTO'}
-      '400': {$ref: '../components/responses.yaml#/BadRequest'}
-      '401': {$ref: '../components/responses.yaml#/Unauthorized'}
-      '403': {$ref: '../components/responses.yaml#/Forbidden'}
-      '404': {$ref: '../components/responses.yaml#/NotFound'}
-      '500': {$ref: '../components/responses.yaml#/InternalError'}
-      '503': {$ref: '../components/responses.yaml#/ServiceUnavailable'}
+            schema:
+              $ref: ../components/schemas/incidencias.yaml#/HistoryPageDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable

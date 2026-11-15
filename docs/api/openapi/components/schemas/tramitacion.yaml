@@ -1,30 +1,8 @@
 ReviewRequest:
-  type: object
-  properties:
-    decision:
-      type: string
-      enum:
-      - VALIDATE
-      - REJECT
-      - REQUEST_INFORMATION
-    reason:
-      type: string
-      description: Obligatorio en REJECT y REQUEST_INFORMATION; opcional en VALIDATE. Si se aporta, texto no blanco de 3–2000 puntos Unicode tras trim.
-      minLength: 3
-      maxLength: 2000
-    categoryId:
-      type: string
-      format: uuid
-  required:
-  - decision
   oneOf:
-  - properties:
-      decision: {enum: [VALIDATE]}
-  - properties:
-      decision: {enum: [REJECT, REQUEST_INFORMATION]}
-    required: [reason]
-  additionalProperties: false
-
+    - $ref: ./tramitacion.yaml#/ValidateReviewRequest
+    - $ref: ./tramitacion.yaml#/RejectReviewRequest
+    - $ref: ./tramitacion.yaml#/RequestInformationReviewRequest
 ReviewDTO:
   type: object
   properties:
@@ -37,47 +15,59 @@ ReviewDTO:
     decision:
       type: string
       enum:
-      - VALIDATE
-      - REJECT
-      - REQUEST_INFORMATION
+        - VALIDATE
+        - REJECT
+        - REQUEST_INFORMATION
     reason:
       type: string
+      nullable: true
+      description: null en VALIDATE nuevo. Los motivos históricos anteriores a V2 se conservan solo en esta vista interna.
     reviewedBy:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     reviewedAt:
       type: string
       format: date-time
-    resultingStatus:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+    resultingStatus: &a5
+      type: string
+      nullable: true
+      enum:
+        - VALIDATED
+        - REJECTED
+        - AWAITING_INFORMATION
+        - null
+      description: Snapshot persistido. null exclusivamente para revisiones anteriores a V2 sin evidencia del estado
+        resultante; nunca se deduce del estado actual.
   required:
-  - id
-  - incidentId
-  - decision
-  - reviewedBy
-  - reviewedAt
-  - resultingStatus
-
+    - id
+    - incidentId
+    - decision
+    - reviewedBy
+    - reviewedAt
+    - resultingStatus
+    - reason
+  additionalProperties: false
 PriorityRequest:
   type: object
   properties:
     priority:
-      $ref: "./incidencias.yaml#/IncidentPriority"
-    source:
+      $ref: ./incidencias.yaml#/IncidentPriority
+    justification: &a2
       type: string
-      enum:
-      - MANUAL
-      - ASSISTED
-    justification:
-      type: string
-      description: Texto no blanco de 3–2000 puntos Unicode tras trim; se conserva la justificación manual o asistida.
-      minLength: 3
-      maxLength: 2000
+      description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados.
+        Cuerpo bruto máximo 65536 bytes.
+      x-normalized-minLength: 3
+      x-normalized-maxLength: 2000
+    expectedIncidentVersion: &a1
+      type: integer
+      format: int64
+      minimum: 0
+      description: "Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409
+        PROCESSING_VERSION_MISMATCH."
   required:
-  - priority
-  - source
-  - justification
+    - priority
+    - justification
+    - expectedIncidentVersion
   additionalProperties: false
-
 PriorityDecisionDTO:
   type: object
   properties:
@@ -88,34 +78,35 @@ PriorityDecisionDTO:
       type: string
       format: uuid
     priority:
-      $ref: "./incidencias.yaml#/IncidentPriority"
+      $ref: ./incidencias.yaml#/IncidentPriority
     source:
       type: string
       enum:
-      - MANUAL
-      - ASSISTED
+        - MANUAL
+        - ASSISTED
+      description: La API solo crea MANUAL; ASSISTED permanece como valor de dominio histórico/futuro.
     justification:
       type: string
     decidedBy:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     decidedAt:
       type: string
       format: date-time
   required:
-  - id
-  - incidentId
-  - priority
-  - source
-  - justification
-  - decidedBy
-  - decidedAt
-
+    - id
+    - incidentId
+    - priority
+    - source
+    - justification
+    - decidedBy
+    - decidedAt
+  additionalProperties: false
 AssignmentRequest:
   oneOf:
-  - $ref: ./tramitacion.yaml#/TeamWorkAssignmentRequest
-  - $ref: ./tramitacion.yaml#/TechnicianWorkAssignmentRequest
-  description: 'ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId.
-    Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
+    - $ref: ./tramitacion.yaml#/TeamWorkAssignmentRequest
+    - $ref: ./tramitacion.yaml#/TechnicianWorkAssignmentRequest
+  description: "ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador
+    autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro."
 AssignmentDTO:
   type: object
   properties:
@@ -126,12 +117,12 @@ AssignmentDTO:
       type: string
       format: uuid
     technician:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     teamId:
       type: string
       format: uuid
     assignedBy:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     reason:
       type: string
     assignedAt:
@@ -146,37 +137,39 @@ AssignmentDTO:
       type: string
       format: date-time
   required:
-  - id
-  - incidentId
-  - assignedBy
-  - assignedAt
-
-  description: Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa 
-    como máximo (endedAt ausente).
+    - id
+    - incidentId
+    - assignedBy
+    - assignedAt
+  description: Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa como máximo
+    (endedAt ausente).
 StatusChangeRequest:
   type: object
   properties:
     toStatus:
       type: string
       enum:
-      - IN_PROGRESS
-      - RESOLVED
-      - ASSIGNED_TO_DEPARTMENT
-      - WORK_ASSIGNED
-      - CLOSED
-      description: Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con asignación válida, coherente y motivo obligatorio. CLOSED es definitivo. Validación, derivación ordinaria y designación de trabajo tienen sus propias operaciones.
+        - IN_PROGRESS
+        - RESOLVED
+        - ASSIGNED_TO_DEPARTMENT
+        - WORK_ASSIGNED
+        - CLOSED
+      description: Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o
+        WORK_ASSIGNED con asignación válida, coherente y motivo obligatorio. CLOSED es definitivo. Validación,
+        derivación ordinaria y designación de trabajo tienen sus propias operaciones.
     reason:
       type: string
-      description: El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura persistente solo limita a 2000 puntos Unicode y admite null/blancos.
+      description: El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura
+        persistente solo limita a 2000 puntos Unicode y admite null/blancos.
       maxLength: 2000
     resolutionNotes:
       type: string
-      description: El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a 5000 puntos Unicode y admite null/blancos.
+      description: El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a
+        5000 puntos Unicode y admite null/blancos.
       maxLength: 5000
   required:
-  - toStatus
+    - toStatus
   additionalProperties: false
-
 StatusChangeDTO:
   type: object
   properties:
@@ -187,25 +180,26 @@ StatusChangeDTO:
       type: string
       format: uuid
     fromStatus:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+      $ref: ./incidencias.yaml#/IncidentStatus
     toStatus:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+      $ref: ./incidencias.yaml#/IncidentStatus
     reason:
       type: string
     resolutionNotes:
       type: string
     changedBy:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     changedAt:
       type: string
       format: date-time
   required:
-  - id
-  - incidentId
-  - fromStatus
-  - toStatus
-  - changedAt
-  description: Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin StatusChange inicial. changedBy puede omitirse en futuros procesos internos. CLOSED no admite salida.
+    - id
+    - incidentId
+    - fromStatus
+    - toStatus
+    - changedAt
+  description: Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin
+    StatusChange inicial. changedBy puede omitirse en futuros procesos internos. CLOSED no admite salida.
 CommentRequest:
   type: object
   properties:
@@ -216,14 +210,13 @@ CommentRequest:
     visibility:
       type: string
       enum:
-      - PUBLIC
-      - INTERNAL
+        - PUBLIC
+        - INTERNAL
       description: INTERNAL solo para personal municipal.
   required:
-  - body
-  - visibility
+    - body
+    - visibility
   additionalProperties: false
-
 CommentDTO:
   type: object
   properties:
@@ -238,20 +231,20 @@ CommentDTO:
     visibility:
       type: string
       enum:
-      - PUBLIC
-      - INTERNAL
+        - PUBLIC
+        - INTERNAL
     author:
-      $ref: "./usuarios.yaml#/UserSummaryDTO"
+      $ref: ./usuarios.yaml#/UserSummaryDTO
     createdAt:
       type: string
       format: date-time
   required:
-  - id
-  - incidentId
-  - body
-  - visibility
-  - author
-  - createdAt
+    - id
+    - incidentId
+    - body
+    - visibility
+    - author
+    - createdAt
 DepartmentReferralRequest:
   type: object
   properties:
@@ -262,10 +255,9 @@ DepartmentReferralRequest:
       type: string
       description: Justificación opcional de la derivación o transferencia. El evento queda auditado.
   required:
-  - departmentId
+    - departmentId
   additionalProperties: false
-  description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de 
-    trabajo.
+  description: El OPERATOR deriva una incidencia validada al departamento, sin crear Assignment de trabajo.
 TeamWorkAssignmentRequest:
   type: object
   properties:
@@ -276,7 +268,7 @@ TeamWorkAssignmentRequest:
       type: string
       maxLength: 1000
   required:
-  - teamId
+    - teamId
   additionalProperties: false
 TechnicianWorkAssignmentRequest:
   type: object
@@ -288,5 +280,166 @@ TechnicianWorkAssignmentRequest:
       type: string
       maxLength: 1000
   required:
-  - technicianId
+    - technicianId
+  additionalProperties: false
+ValidateReviewRequest:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - VALIDATE
+    categoryId: &a3
+      type: string
+      format: uuid
+    expectedIncidentVersion: *a1
+  required:
+    - decision
+    - categoryId
+    - expectedIncidentVersion
+  additionalProperties: false
+RejectReviewRequest:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - REJECT
+    reason: *a2
+    expectedIncidentVersion: *a1
+  required:
+    - decision
+    - reason
+    - expectedIncidentVersion
+  additionalProperties: false
+RequestInformationReviewRequest:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - REQUEST_INFORMATION
+    reason: *a2
+    expectedIncidentVersion: *a1
+  required:
+    - decision
+    - reason
+    - expectedIncidentVersion
+  additionalProperties: false
+InformationResponseRequest:
+  type: object
+  properties:
+    message: *a2
+    expectedIncidentVersion: *a1
+  required:
+    - message
+    - expectedIncidentVersion
+  additionalProperties: false
+InformationResponseDTO:
+  type: object
+  properties:
+    id: *a3
+    incidentId: *a3
+    reviewId: *a3
+    message:
+      type: string
+    respondedBy:
+      $ref: ./usuarios.yaml#/UserSummaryDTO
+    respondedAt: &a4
+      type: string
+      format: date-time
+  required:
+    - id
+    - incidentId
+    - reviewId
+    - message
+    - respondedBy
+    - respondedAt
+  additionalProperties: false
+PublicReviewDTO:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - VALIDATE
+        - REJECT
+        - REQUEST_INFORMATION
+    reviewedAt: *a4
+    resultingStatus: *a5
+    reason:
+      type: string
+      nullable: true
+      description: Solo motivo de REJECT/REQUEST_INFORMATION. Siempre null en VALIDATE, incluso histórico.
+    responsible:
+      type: string
+      enum:
+        - Ayuntamiento
+  required:
+    - decision
+    - reviewedAt
+    - resultingStatus
+    - reason
+    - responsible
+  additionalProperties: false
+ReviewOutcomeDTO:
+  type: object
+  properties:
+    incidentId: *a3
+    status:
+      $ref: ./incidencias.yaml#/IncidentStatus
+    informationPending:
+      type: boolean
+      description: Solo true mientras el estado actual es AWAITING_INFORMATION.
+    latestReview:
+      oneOf:
+        - $ref: ./tramitacion.yaml#/PublicReviewDTO
+        - type: object
+          nullable: true
+          enum: [null]
+      description: null antes de la primera revisión; no identifica al empleado.
+  required:
+    - incidentId
+    - status
+    - informationPending
+    - latestReview
+  additionalProperties: false
+ReviewPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: ./tramitacion.yaml#/ReviewDTO
+    pagination:
+      $ref: ./comunes.yaml#/PageMetadata
+  required:
+    - data
+    - pagination
+  additionalProperties: false
+PriorityDecisionPageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: ./tramitacion.yaml#/PriorityDecisionDTO
+    pagination:
+      $ref: ./comunes.yaml#/PageMetadata
+  required:
+    - data
+    - pagination
+  additionalProperties: false
+InformationResponsePageDTO:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: ./tramitacion.yaml#/InformationResponseDTO
+    pagination:
+      $ref: ./comunes.yaml#/PageMetadata
+  required:
+    - data
+    - pagination
   additionalProperties: false

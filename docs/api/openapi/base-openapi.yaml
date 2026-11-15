@@ -1,13 +1,16 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.7.0
-  description:
-    Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
-    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas del API
-    mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
-    requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
-    por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.8.0
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
+    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por
+    invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis
+    operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco
+    operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas
+    del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también
+    EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+    Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo
+    admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -149,6 +152,16 @@ paths:
     $ref: ./paths/administracion.yaml#/~1external-sources~1{sourceId}
   /audit-events:
     $ref: ./paths/administracion.yaml#/~1audit-events
+  /incidents/{incidentId}/reviews/{reviewId}:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1reviews~1{reviewId}
+  /incidents/{incidentId}/priority-decisions/{decisionId}:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1priority-decisions~1{decisionId}
+  /incidents/{incidentId}/information-responses:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1information-responses
+  /incidents/{incidentId}/information-responses/{responseId}:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1information-responses~1{responseId}
+  /incidents/{incidentId}/review-outcome:
+    $ref: ./paths/tramitacion.yaml#/~1incidents~1{incidentId}~1review-outcome
 components:
   securitySchemes:
     BearerAuth:
@@ -320,6 +333,20 @@ components:
       $ref: ./components/schemas/administracion.yaml#/AuditEventDTO
     AuditPageDTO:
       $ref: ./components/schemas/administracion.yaml#/AuditPageDTO
+    InformationResponseRequest:
+      $ref: ./components/schemas/tramitacion.yaml#/InformationResponseRequest
+    InformationResponseDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/InformationResponseDTO
+    ReviewOutcomeDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/ReviewOutcomeDTO
+    PublicReviewDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/PublicReviewDTO
+    ReviewPageDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/ReviewPageDTO
+    PriorityDecisionPageDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/PriorityDecisionPageDTO
+    InformationResponsePageDTO:
+      $ref: ./components/schemas/tramitacion.yaml#/InformationResponsePageDTO
   parameters:
     IncidentId:
       $ref: ./components/parameters.yaml#/IncidentId
