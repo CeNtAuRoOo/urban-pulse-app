@@ -4,6 +4,10 @@ Las fuentes editables describen la V1 consolidada, incluidas Incidencias y Evide
 
 Los diagramas representan **el dominio lógico global**, cuya evolución se valida por tag. El esquema implementado comprende una sola V1 con 14 tablas y restricciones finales; las demás entidades, asociaciones y servicios que aparecen en el modelo siguen siendo **diseño** hasta que tengan migraciones, código y pruebas.
 
+## Variante de desarrollo local
+
+Los C4 de contexto y contenedores representan la arquitectura lógica y Neon PostgreSQL como proveedor del despliegue productivo. En desarrollo la aplicación usa exclusivamente Compose: backend `postgres:5432`, correo `mailpit:1025` y Neon Object Storage de desarrollo. Los accesos del navegador son backend `localhost:8080`, frontend `localhost:8888` y Mailpit `localhost:9999` (interno 8025). Cada integrante tiene su volumen SQL local, conservado al cambiar de rama. [ADR-0016](../adr/0016-ci-postgresql-local.md) y [Desarrollo](../development.md) definen esta variante, sin cambiar entidades ni relaciones ER ni acreditar producción. Los diagramas no fijan estos puertos; se conservan sus fuentes y exportaciones.
+
 ## Inventario verificable
 
 | Fuente editable                                            | Exportación                                                                   | Contenido                                                                                                                                                                                                                                |

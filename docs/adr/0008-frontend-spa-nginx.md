@@ -29,7 +29,7 @@ El frontend incluirá la URL pública de la API a través de `EXPO_PUBLIC_API_UR
 
 ## Evidencia y trabajo pendiente
 
-El 13/10/2026 se validó **la exportación web** a `dist/` y el desarrollo web tanto fuera como dentro de Docker Compose. **No se ha ejecutado todavía la imagen de producción con Nginx** ni elegido proveedor cloud, dominio o sistema CI/CD. Antes de desplegar: probar imagen Nginx, recarga de rutas profundas, URL HTTPS de la API y CORS, y revisar los límites del proveedor.
+El 13/10/2026 se validó **la exportación web** a `dist/` y el desarrollo web tanto fuera como dentro de Docker Compose. **No se ha ejecutado todavía la imagen de producción con Nginx** ni elegido proveedor cloud o dominio. La CI de [ADR-0016](0016-ci-postgresql-local.md) incorpora exportación web sin despliegue; CD sigue pendiente. Antes de desplegar: probar imagen Nginx, recarga de rutas profundas, URL HTTPS de la API y CORS, y revisar los límites del proveedor.
 
 ## Referencias
 

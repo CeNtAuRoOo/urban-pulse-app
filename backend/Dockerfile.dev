@@ -3,8 +3,8 @@ FROM maven:3.9.16-eclipse-temurin-25
 
 WORKDIR /app
 
-ENV SERVER_PORT=8888
+ENV SERVER_PORT=8080
 
-EXPOSE 8888
+EXPOSE 8080
 
 CMD ["mvn", "spring-boot:run"]

@@ -1,6 +1,6 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 11/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Evidencias están implementados; los demás tags de negocio siguen siendo diseño. Existe una única V1 consolidada antes de su primera aplicación y la verificación en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V1 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
+> **Estado a 14/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Evidencias están implementados; los demás tags de negocio siguen siendo diseño. Existe una única V1 consolidada antes de su primera aplicación y la verificación en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V1 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
 
 ## 1. Propósito y decisiones arquitectónicas
 
@@ -14,10 +14,10 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 | Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                                                                |
 | ----------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                                                                    |
+| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Panel conectado con autenticación, perfil, usuarios, invitaciones, catálogos y núcleo de incidencias; UI de evidencias pendiente.                                                                        |
 | Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                                                  |
 | API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 34 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo, seis de Incidencias y cinco de Evidencias. Tramitación y otros módulos avanzados pendientes. |
-| Datos relacionales                  | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                                                   |
+| Datos relacionales                  | PostgreSQL 18 local / Neon productivo / Testcontainers            | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                                                   |
 | Objetos privados                    | Neon Object Storage, S3                                           | Evidencias privadas implementadas y probadas con S3 simulado; conectividad histórica comprobada. Ciclo real Neon no ejecutado en esta revisión.                                                          |
 | Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                                          |
 | Mapas/contexto/otras notificaciones | Por seleccionar                                                   | Diseño, sin integración funcional.                                                                                                                                                                       |
@@ -109,6 +109,12 @@ La misma división se reproduce en `backend/src/test/java/es/grupo18/urbanpulse/
 
 La dirección típica dentro de un caso de uso es `Controller → Service → Repository → PostgreSQL`; las reglas del dominio y la persistencia no se trasladan al controlador. `StaffInvitationService` concentra las cinco operaciones y las transacciones necesarias, sin servicio delegador redundante. La configuración externa se inyecta en el inicio de Spring Boot.
 
+### Desarrollo local y CI
+
+El único Compose ejecuta la aplicación de desarrollo con PostgreSQL 18 persistente y Mailpit. Cada integrante dispone de su base local; cambiar de rama no cambia el volumen. El backend carga `backend/.env.development` con JDBC `postgres:5432` y SMTP `mailpit:1025`, sin overrides. Publica en loopback backend 8080, frontend 8888 y Mailpit web 9999 (interno 8025). El navegador usa la API `http://localhost:8080` y CORS autoriza `http://localhost:8888`. Neon PostgreSQL se reserva a producción; Neon Object Storage se mantiene en ambos entornos con recursos propios. [ADR-0016](adr/0016-ci-postgresql-local.md) y [procedimiento](development.md).
+
+GitHub Actions valida backend con PostgreSQL Testcontainers, frontend y configuración sin recursos productivos. Las vistas C4 anteriores describen contenedores lógicos y el proveedor gestionado; la variante local no cambia el dominio ni acredita el despliegue productivo.
+
 ## 4. Persistencia y transacciones
 
 Flyway gestiona migraciones en `backend/src/main/resources/db/migration/`:
@@ -145,7 +151,7 @@ Los módulos de auth e Invitaciones reutilizan `ProblemDetail`, protección HTTP
 
 ## 6. Frontend, almacenamiento y resiliencia
 
-`frontend/` contiene `src/app` de Expo Router, `components`, `config`, `constants`, `features`, `services` y `types`. `web.output="single"` genera SPA; `EXPO_PUBLIC_API_URL` es una variable pública, nunca un almacén de secretos. No hay todavía formulario de incidencias, integración real de API, login completo ni validación funcional Android/iOS. Ninguna ocultación de controles en UI sustituye la autorización servidor.
+`frontend/` contiene `src/app` de Expo Router, `components`, `config`, `constants`, `features`, `services` y `types`. `web.output="single"` genera SPA; `EXPO_PUBLIC_API_URL` es una variable pública, nunca un almacén de secretos. Hay cliente HTTP, formularios de incidencias y flujos de login/registro/verificación, perfil, usuarios, invitaciones y catálogos. La validación funcional Android/iOS y la interfaz de evidencias siguen pendientes. Ninguna ocultación de controles en UI sustituye la autorización servidor.
 
 El bucket `incident-evidence` es privado; los metadatos se almacenan en PostgreSQL y los binarios en S3. Subida/descarga, validación de tipo/tamaño, retirada de EXIF y autorización por incidencia están implementadas. Retención, purgado físico y reconciliación de huérfanos siguen futuros. Los datos de contexto urbano pueden enriquecer incidencias, pero su indisponibilidad no debería bloquear el alta; todavía no hay proveedores integrados.
 
@@ -155,7 +161,7 @@ Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, pol
 
 Las suites reproducibles de backend, las comprobaciones del frontend y sus límites se mantienen en [Desarrollo](development.md#verificación-del-backend). Las pruebas aisladas no acreditan despliegue en Neon ni entrega SMTP en Internet.
 
-Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, tramitación de incidencias, retención/purgado de objetos, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
+Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, tramitación de incidencias, retención/purgado de objetos, auditoría administrativa completa RF18, SMTP externo, despliegue y CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
 
 ## Incidencias: integración modular
 

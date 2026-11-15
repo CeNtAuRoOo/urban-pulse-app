@@ -19,6 +19,10 @@ Las incidencias admiten fotografías. Su contenido binario no debe guardarse en 
 
 Se adopta Neon Object Storage con el bucket **privado** `incident-evidence`. Spring Boot decidirá quién puede adjuntar o consultar fotografías y guardará en PostgreSQL la referencia estable al objeto y sus metadatos. No se almacenarán URLs públicas permanentes como único mecanismo de acceso. Inicialmente solo se admitirán imágenes.
 
+## Separación de entornos (14/11/2026)
+
+Neon Object Storage sigue utilizándose en desarrollo y producción con recursos y credenciales propios. Esta decisión es independiente de PostgreSQL: el desarrollo SQL se traslada al Docker local y Neon PostgreSQL queda reservado a producción, según [ADR-0016](0016-ci-postgresql-local.md). Ni el arranque Compose ni el CI necesitan ejecutar operaciones reales sobre objetos; los tests ordinarios usan dobles S3.
+
 ## Consecuencias
 
 **Positivas:** simplicidad administrativa, compatibilidad S3, separación de datos y binarios y entornos de prueba coherentes con ramas.

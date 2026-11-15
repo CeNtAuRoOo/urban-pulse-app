@@ -1,8 +1,12 @@
 # ADR-0002: Neon como proveedor de PostgreSQL
 
-- **Estado:** Aceptado
+- **Estado:** Aceptado para PostgreSQL de producción; política local evolucionada por [ADR-0016](0016-ci-postgresql-local.md)
 - **Fecha:** 2026-10-11
 - **Ámbito:** UrbanPulse
+
+## Evolución del desarrollo local (14/11/2026)
+
+[ADR-0016](0016-ci-postgresql-local.md) sustituye la política original de desarrollo: PostgreSQL 18 local en el único Docker Compose y Neon PostgreSQL exclusivamente para producción. Neon Object Storage mantiene recursos de desarrollo y producción como decisión independiente. CI usa PostgreSQL efímero sin credenciales remotas. Las secciones de contexto, decisión y aprovisionamiento siguientes conservan los hechos de octubre; no son instrucciones operativas actuales de desarrollo.
 
 ## Contexto
 
@@ -36,4 +40,4 @@ Utilizar un proyecto PostgreSQL administrado en Neon. Los clientes web y móvil 
 
 ## Consideraciones pendientes
 
-La V1 consolidada se prueba en PostgreSQL efímero (revisión 02/11/2026, ADR-0006); queda aplicarla controladamente en `development` antes de `production`; separar permisos de migración/ejecución cuando convenga; automatizar pruebas aisladas sin dependencias de la base compartida; preparar backups y recuperación. La protección automática de `production` no está disponible en el plan gratuito actual, por lo que la disciplina de despliegue es especialmente importante. Las cuotas y condiciones del plan se revisarán periódicamente.
+La V1 consolidada se valida en PostgreSQL local/efímero (ADR-0006). Su despliegue controlado en Neon pertenece a producción, con respaldo, revisión de historial y permisos; no se acredita por las pruebas locales. Quedan políticas de backups/recuperación y, cuando corresponda, separación de roles de migración/ejecución. Las cuotas y condiciones del proveedor se revisan al preparar el despliegue.

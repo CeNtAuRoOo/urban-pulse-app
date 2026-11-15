@@ -13,6 +13,8 @@
 | [`openapi.yaml`](openapi.yaml)                                           | Bundle monolítico con los `$ref` resueltos                                                                                                                | **Generado**: no editar a mano |
 | [`openapi.html`](openapi.html)                                           | Documentación HTML renderizada                                                                                                                            | **Generado**: no editar a mano |
 
+El servidor local del contrato es `http://localhost:8080/api/v1`, correspondiente al backend publicado por Compose.
+
 La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetail`. Los identificadores internos públicos apropiados se expresan como UUID; los IDs externos pueden ser cadenas. Los esquemas DTO **no** replican las tablas JPA y pueden tener campos opcionales omitidos (no equivale a `null`). `x-roles` explica la autorización prevista, pero el servidor aplica reglas reales y contextuales.
 
 ## 2. Historial de versiones del contrato
@@ -25,7 +27,7 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
 - **`0.7.0` (vigente)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
 
-La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El frontend aún no consume una API completa de negocio.
+La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni la interfaz de evidencias.
 
 ## 3. Convenciones y reglas generales
 
@@ -129,6 +131,8 @@ El listado usa `page=1`, `pageSize=20` (1–100), offset máximo `2147483647` y 
 5. Ejecutar lint, bundle y generación HTML, revisar diferencias y declarar qué se ha probado realmente.
 
 ## 7. Validación y visualización
+
+El [workflow CI](../../.github/workflows/ci.yml) ejecuta el lint de la fuente modular con Redocly 2.16.0 sin regenerar los artefactos. Bundle y HTML se actualizan solo al modificar el contrato, con los comandos siguientes.
 
 Desde la **raíz** del repositorio:
 

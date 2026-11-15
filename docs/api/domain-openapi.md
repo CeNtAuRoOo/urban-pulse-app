@@ -87,6 +87,8 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 ## 6. Validación del contrato
 
+La [CI](../../.github/workflows/ci.yml) valida la fuente modular con el comando lint siguiente; no regenera bundle/HTML ni acredita los endpoints marcados como futuros.
+
 Desde la raíz:
 
 ```bash

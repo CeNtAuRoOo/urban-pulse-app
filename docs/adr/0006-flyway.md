@@ -31,7 +31,13 @@ attachments nace con incident_id NOT NULL, autor obligatorio, FK RESTRICT, clave
 
 El perfil postgres-it aplica V1 en PostgreSQL 18 efímero con Testcontainers y Hibernate validate, comprueba historial de una migración, inventario, ausencia de semillas, índices, restricciones, relaciones y comportamiento de los módulos. Las pruebas históricas de actualización incremental se sustituyen por verificaciones del esquema final limpio; se conserva la cobertura de filas inválidas. [Comandos y resultados](../development.md#verificación-del-backend).
 
-Las comprobaciones históricas JDBC/HeadBucket de Neon no acreditan aplicación del esquema consolidado. No se han ejecutado migraciones remotas en esta revisión. Siguen fuera de este alcance CI/CD, rol migrador dedicado y políticas operativas de retención y backups.
+Las comprobaciones históricas JDBC/HeadBucket de Neon no acreditan aplicación del esquema consolidado. No se han ejecutado migraciones remotas en esta revisión. La CI aislada se incorpora mediante [ADR-0016](0016-ci-postgresql-local.md). Siguen fuera de alcance CD, rol migrador dedicado y políticas operativas de retención y backups.
+
+## Desarrollo paralelo y CI (14/11/2026)
+
+Cada desarrollador utiliza PostgreSQL 18 en su propio Docker, con persistencia local. Cambiar de rama conserva el mismo volumen y su historial: revisar compatibilidad antes de arrancar y conservar los datos si se necesita una base nueva de prueba. El aislamiento entre compañeros no resuelve colisiones de versiones al integrar. GitHub Actions ejecuta `mvn -B -ntp clean verify -Ppostgres-it`: Surefire y nueve suites Failsafe con PostgreSQL efímero, independiente de Compose. V1 permanece intacta.
+
+Coordinar versiones antes de integrar: una colisión V2/V2 solo se resuelve renumerando trabajo aún no publicado ni aplicado en bases compartidas y verificando el orden conjunto desde cero. Si una versión ya se aplicó en una base compartida, es inmutable: revisar los historiales y diseñar una reconciliación compatible con respaldo. No editar el historial, activar outOfOrder ni utilizar repair para ocultar conflictos. [Procedimiento completo y ciclo de vida](../development.md#3-ramas-y-migraciones-concurrentes).
 
 ## Antecedentes
 

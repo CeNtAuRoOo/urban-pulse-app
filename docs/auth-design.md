@@ -52,7 +52,7 @@ La ampliación de V1 para crear `email_verifications` se realizó **antes de su 
 
 ## 5. SMTP en desarrollo y fallos de entrega
 
-`shared/mail/EmailSender` abstrae el envío; `SmtpEmailSender` utiliza Spring Mail y configuración externa (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, opciones AUTH y STARTTLS). En Compose de desarrollo, Mailpit captura mensajes en SMTP `1025` con interfaz `http://localhost:8025`. No hay proveedor SMTP de Internet ni garantía de entrega; la falta de outbox significa que **fallo de envío después del commit no revierte los datos**. Para verificación existe reenvío manual; para invitaciones no existe y se usa revocación/nueva emisión.
+`shared/mail/EmailSender` abstrae el envío; `SmtpEmailSender` utiliza Spring Mail y configuración externa (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, opciones AUTH y STARTTLS). En Compose de desarrollo, Mailpit captura mensajes en `mailpit:1025` con interfaz pública `http://localhost:9999` (puerto interno 8025). No hay proveedor SMTP de Internet ni garantía de entrega; la falta de outbox significa que **fallo de envío después del commit no revierte los datos**. Para verificación existe reenvío manual; para invitaciones no existe y se usa revocación/nueva emisión.
 
 ## 6. Cuotas, validación, errores y privacidad
 

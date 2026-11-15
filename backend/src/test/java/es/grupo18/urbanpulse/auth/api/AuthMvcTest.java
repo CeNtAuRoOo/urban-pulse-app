@@ -250,10 +250,10 @@ class AuthMvcTest {
 
     @Test
     void corsAllowsOnlyConfiguredOrigin() throws Exception {
-        mvc.perform(options("/api/v1/auth/login").header("Origin", "http://localhost:7777")
+        mvc.perform(options("/api/v1/auth/login").header("Origin", "http://localhost:8888")
                 .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:7777"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8888"));
         mvc.perform(options("/api/v1/auth/login").header("Origin", "https://evil.example")
                 .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isForbidden())

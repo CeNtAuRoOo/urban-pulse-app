@@ -3,7 +3,7 @@ require("./load-source.cjs");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-process.env.EXPO_PUBLIC_API_URL = "http://127.0.0.1:8888";
+process.env.EXPO_PUBLIC_API_URL = "http://127.0.0.1:8080";
 const { request, ApiError } = require("../src/services/http.ts");
 const { incidentBody, incidentFields } = require("../src/features/incident-form.ts");
 const secret =
@@ -27,10 +27,10 @@ const fails = async (work, status) => {
 };
 async function emailCode(email, pattern) {
   for (let attempt = 0; attempt < 20; attempt++) {
-    const inbox = await (await fetch("http://127.0.0.1:8025/api/v1/messages")).json();
+    const inbox = await (await fetch("http://127.0.0.1:9999/api/v1/messages")).json();
     for (const entry of inbox.messages || []) {
       if (!entry.To?.some((to) => to.Address === email)) continue;
-      const message = await (await fetch(`http://127.0.0.1:8025/api/v1/message/${entry.ID}`)).json();
+      const message = await (await fetch(`http://127.0.0.1:9999/api/v1/message/${entry.ID}`)).json();
       const match = message.Text?.match(pattern);
       if (match) return match[0];
     }
@@ -58,18 +58,18 @@ async function main() {
   assert.equal((await o("/incidents")).status, 200);
   ok("Login y permisos globales frente a adscripciones departamentales");
   const preflight = await fetch(
-    "http://127.0.0.1:8888/api/v1/incidents/019a0000-0000-7000-8000-000000000001",
+    "http://127.0.0.1:8080/api/v1/incidents/019a0000-0000-7000-8000-000000000001",
     {
       method: "OPTIONS",
       headers: {
-        Origin: "http://localhost:7777",
+        Origin: "http://localhost:8888",
         "Access-Control-Request-Method": "PATCH",
         "Access-Control-Request-Headers": "authorization,content-type,if-match",
       },
     }
   );
   assert.equal(preflight.status, 200);
-  assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), "http://localhost:7777");
+  assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), "http://localhost:8888");
   assert.match(preflight.headers.get("Access-Control-Allow-Headers"), /if-match/i);
   ok("Preflight CORS de PATCH con If-Match");
   const category = await a("/categories", {

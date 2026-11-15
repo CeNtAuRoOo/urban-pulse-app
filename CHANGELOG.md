@@ -2,7 +2,17 @@
 
 Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
 
-## [Unreleased] — Evidencias privadas y esquema inicial consolidado (11/11/2026)
+## [Unreleased]
+
+### CI y PostgreSQL local (14/11/2026)
+
+- GitHub Actions para PR hacia main, push a main y ejecución manual: Maven/Surefire/Failsafe con nueve suites PostgreSQL aisladas, npm test/TypeScript/ESLint/Expo, OpenAPI y Compose. Sin secretos remotos ni CD.
+- PostgreSQL 18 Alpine persistente y saludable en el único Compose de desarrollo; backend 8080, frontend 8888 y Mailpit web 9999 en loopback. Neon PostgreSQL reservado a producción; Neon Object Storage se mantiene en ambos entornos.
+- Guía de desarrollo, seguridad, arquitectura y ADR alineados con Docker, archivos privados existentes, persistencia al cambiar de rama y coordinación de versiones Flyway. V1 conservada sin modificaciones. CI valida solo el Compose vigente; URL local OpenAPI y artefactos actualizados a 8080.
+- Reloj estable en DepartmentPostgresIT e IncidentPostgresIT para que las comprobaciones de permisos con JWT no dependan de ajustes de hora del host/VM.
+- Script npm test para las pruebas node:test existentes; documentación del frontend alineada con el panel conectado.
+
+### Evidencias privadas y esquema inicial consolidado (11/11/2026)
 
 - Cinco operaciones anidadas bajo incidencias con JWT real, visibilidad compartida, JPEG/PNG, 10 MiB, máximo cinco activas resistente a concurrencia y DELETE lógico auditado.
 - Recodificación sin EXIF/GPS, nombres seguros, límites de memoria y compensación S3 ante fallos SQL; objetos de bajas retenidos para futura política de purgado.
@@ -45,7 +55,7 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ### Pendientes actuales
 
-Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, API de retirada de permisos, equipos, tramitación, retención/purgado de fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Evidencias ya están implementados; sus pruebas aisladas no acreditan despliegue.
+Aplicación controlada de la única `V1__initial_schema.sql` consolidada durante la preparación del despliegue productivo en Neon (todavía no acreditado), primer administrador, API de retirada de permisos, equipos, tramitación, retención/purgado de fotografías, UI de evidencias, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Evidencias ya están implementados; sus pruebas aisladas no acreditan despliegue.
 
 ## 2026-11-03 — Categorías en el backend modular
 

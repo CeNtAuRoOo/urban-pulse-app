@@ -57,4 +57,4 @@ El perfil neon-storage tiene integration-test y verify. La prueba real exige `NE
 
 ## Consecuencias y evolución
 
-La retención y el purgado físico de objetos eliminados, la reconciliación de huérfanos, la anonimización adicional de personas y la autorización departamental de Tramitación son trabajo funcional futuro. No hay workflow CI/CD nuevo. La ausencia de transacción distribuida y el consumo acotado por petición siguen siendo límites operativos explícitos.
+La retención y el purgado físico de objetos eliminados, la reconciliación de huérfanos, la anonimización adicional de personas y la autorización departamental de Tramitación son trabajo funcional futuro. La CI incorporada en [ADR-0016](0016-ci-postgresql-local.md) ejecuta las pruebas aisladas; el perfil real `neon-storage` queda fuera. CD sigue pendiente. La ausencia de transacción distribuida y el consumo acotado por petición siguen siendo límites operativos explícitos.
