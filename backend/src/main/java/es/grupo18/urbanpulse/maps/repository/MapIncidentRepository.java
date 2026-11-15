@@ -43,12 +43,17 @@ public class MapIncidentRepository {
         }
         String exactScope = access.global() ? "true" : "i.reporter_user_id = :actor";
         String exact = branch("map_xy_v1(i.latitude, i.longitude)", exactScope, filters, true);
-        String visible = access.global() ? exact : exact + " UNION ALL " + branch(
-                "map_public_point_v1(i.latitude, i.longitude)",
-                "i.reporter_user_id <> :actor AND EXISTS (SELECT 1 FROM incident_reviews r "
-                        + "WHERE r.incident_id = i.id AND r.decision = 'VALIDATE')", filters, false);
+        String publicCtes = access.global() ? "" : publicCells(filters);
+        String visible = access.global() ? exact : exact + """
+                 UNION ALL
+                SELECT c.id, c.category_id, c.status, c.priority, c.created_at, false AS exact,
+                    NULL::float8 AS latitude, NULL::float8 AS longitude, cells.p
+                FROM public_candidates c
+                JOIN public_cells cells USING (privacy_x, privacy_y)
+                WHERE cells.p <@ box(map_xy_v1(:minLat, :minLon), map_xy_v1(:maxLat, :maxLon))
+                """;
         String sql = """
-                WITH visible AS MATERIALIZED (%s),
+                WITH %s visible AS MATERIALIZED (%s),
                 bucketed AS (
                     SELECT id, CASE WHEN :cell = 0 THEN 'i:' || id::text
                         ELSE 'g1:' || :zoom || ':' || floor(p[0] / NULLIF(:cell, 0))::bigint
@@ -66,13 +71,53 @@ public class MapIncidentRepository {
                 LEFT JOIN categories c ON c.id = v.category_id
                 ORDER BY g.bucket COLLATE "C"
                 LIMIT 1001
-                """.formatted(visible);
+                """.formatted(publicCtes, visible);
         return jdbc.query(sql, args, (rs, n) -> new Row(rs.getString("bucket"), rs.getLong("incident_count"),
                 rs.getObject("id", UUID.class), rs.getObject("category_id", UUID.class),
                 rs.getString("category_name"), IncidentStatus.valueOf(rs.getString("status")),
                 rs.getString("priority") == null ? null : IncidentPriority.valueOf(rs.getString("priority")),
                 rs.getTimestamp("created_at").toInstant(), rs.getBoolean("exact"),
                 rs.getDouble("latitude"), rs.getDouble("longitude")));
+    }
+
+    /**
+     * Bounds candidates conservatively, then evaluates the unchanged public-location
+     * function exactly once per privacy cell. Materialization keeps PostgreSQL from
+     * pushing that expensive expression back into a per-incident projection.
+     *
+     * A cell centre is at most 50*sqrt(2) metres from its original point. If the
+     * centre is outside the province, its nearest boundary is no farther than that
+     * original point inside the province. Hence the complete displacement is at
+     * most 100*sqrt(2) metres; 150 metres also accommodates numerical tolerance.
+     * The expanded exact bbox is ONLY a superset prefilter. Visibility in the
+     * response is decided exclusively by cells.p and the requested public bbox.
+     */
+    private static String publicCells(String filters) {
+        return """
+                public_candidates AS MATERIALIZED (
+                    SELECT i.id, i.category_id, i.status, i.priority, i.created_at,
+                        i.latitude, i.longitude,
+                        floor((map_xy_v1(i.latitude, i.longitude))[0] / 100)::bigint AS privacy_x,
+                        floor((map_xy_v1(i.latitude, i.longitude))[1] / 100)::bigint AS privacy_y
+                    FROM incidents i
+                    WHERE i.reporter_user_id <> :actor
+                        AND EXISTS (SELECT 1 FROM incident_reviews r
+                            WHERE r.incident_id = i.id AND r.decision = 'VALIDATE')
+                        AND map_in_malaga_v1(i.latitude, i.longitude)
+                        AND map_xy_v1(i.latitude, i.longitude) <@ box(
+                            map_xy_v1(:minLat, :minLon) - point(150, 150),
+                            map_xy_v1(:maxLat, :maxLon) + point(150, 150))
+                        %s
+                ), public_representatives AS MATERIALIZED (
+                    SELECT DISTINCT ON (privacy_x, privacy_y)
+                        privacy_x, privacy_y, latitude, longitude
+                    FROM public_candidates
+                    ORDER BY privacy_x, privacy_y, id
+                ), public_cells AS MATERIALIZED (
+                    SELECT privacy_x, privacy_y, map_public_point_v1(latitude, longitude) AS p
+                    FROM public_representatives
+                ),
+                """.formatted(filters);
     }
 
     private static String branch(String point, String scope, String filters, boolean exact) {

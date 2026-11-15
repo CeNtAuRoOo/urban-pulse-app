@@ -40,13 +40,32 @@ condición administrativa sobre la ubicación original.
 
 Los originales permanecen en `incidents`; no se añade ni sobrescribe ninguna
 coordenada ni columna de título. La rama pública filtra por el punto aproximado
-indexado y solo transporta esa ubicación a la proyección JDBC. Los grupos se
+y solo transporta esa ubicación a la proyección JDBC. Los grupos se
 construyen después de ese filtrado. No se registran coordenadas ni cuerpos en logs.
 
 No es anonimización: la celda, el historial, el contexto y las zonas costeras pueden
 reducir considerablemente el área plausible. Tampoco se garantiza una distancia
 mínima de 100 m entre punto original y público: 100 m es el lado de la celda. Los
 marcadores públicos pueden coincidir y no deben desplazarse usando datos privados.
+
+### Reutilización del punto público por celda (2026-11-15)
+
+La consulta materializa candidatos autorizados y filtrados por estado/categoría,
+selecciona un representante por celda de privacidad de 100 m y materializa su punto
+público. Evalúa `map_public_point_v1` una sola vez por celda candidata y reutiliza
+el resultado para todas sus incidencias. La función y la migración V5 permanecen
+intactas; no se añaden tablas persistentes ni cachés entre peticiones. La rama
+exacta de autores y usuarios globales conserva su comportamiento.
+
+Para acotar candidatos se usa el índice GiST de ubicación exacta con el bbox
+ampliado 150 m por eje en la proyección local. Es una preselección conservadora:
+original a centro de celda <= 50√2 m; si el centro está fuera, la frontera más
+próxima no está más lejos que el original interior. El desplazamiento completo
+es <= 100√2 m (141,43 m), con margen para tolerancias numéricas. La inclusión
+definitiva se decide **siempre por el punto público y el bbox solicitado**, antes
+de agrupar y contar. La preselección no excluye posiciones públicas visibles aunque
+su original esté fuera del viewport. Los CTE `MATERIALIZED` evitan reevaluaciones
+por incidencia. El índice público de V5 se conserva, incluido su coste de escritura.
 
 ## Agrupación y costes
 
@@ -89,10 +108,10 @@ de coordenadas, sin cambiar reglas del módulo Incidencias. Para grandes volúme
 se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
-La migración `V5__maps_geography.sql` usa numeración temporal para evitar
-colisiones con V4/V5 de compañeros. No edita V1–V3. Antes de desplegar ramas combinadas,
-coordinar el orden: Flyway no aplica por defecto versiones menores añadidas después
-de una versión temporal ya instalada. No se activa outOfOrder global ni se despliega
+La migración de Evidencias será V4 y la de Mapas es `V5__maps_geography.sql`.
+No se modifican migraciones publicadas. Antes de desplegar ramas combinadas,
+coordinar la incorporación de V4 antes de aplicar V5: Flyway no aplica por defecto
+versiones menores añadidas después. No se activa outOfOrder global ni se despliega
 esta migración sobre Neon en esta entrega.
 
 ## Contrato con Tramitación

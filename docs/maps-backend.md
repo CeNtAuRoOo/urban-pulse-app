@@ -119,6 +119,17 @@ parciales exacto/público y un índice parcial VALIDATE. No se requiere extensi�
 PostGIS ni nuevas dependencias. El [ADR-0015](adr/0015-mapas-provinciales-privacidad.md)
 documenta proyección, concurrencia, costes y alternativas.
 
+Desde la corrección del 15/11/2026, la rama pública reutiliza la ubicación por celda
+de privacidad de 100 m dentro de cada consulta. Los candidatos autorizados se
+preseleccionan mediante el índice exacto y un bbox ampliado 150 m por eje; después
+se materializa un representante por celda y se evalúa una sola vez la función
+original `map_public_point_v1`. El desplazamiento máximo teórico es 100√2 m, menor
+que ese margen. El filtro definitivo usa el punto público y el bbox solicitado;
+los conteos y clústeres se calculan después. Así se conserva la privacidad incluso
+cuando el original está fuera del viewport y su ubicación pública dentro.
+No cambian V5, la función geográfica, el contrato REST ni el timeout de 5 s.
+La rama exacta permanece igual. No hay almacenamiento adicional ni caché persistente.
+
 ## Integrar títulos aprobados de Tramitación
 
 Tramitación debe persistir VALIDATE de forma atómica con la validación y proporcionar
@@ -151,7 +162,9 @@ Rutas relativas a la raíz del repositorio:
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicyTest.java`              | Autorización                                                                    |
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryServiceTest.java`                  | Proyección, límites y errores                                                   |
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPostgresIT.java`                    | PostgreSQL y HTTP real de Spring Security/MVC                                   |
-| `backend/pom.xml`                                                                                    | Incluir MapPostgresIT en perfil aislado                                         |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPerformancePostgresIT.java`         | Regresión costera y comparación de planes con 1.000, 10.000 y 50.000 incidencias |
+| `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                               | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
+| `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                      |
 | `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
 | `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3                                 |
 | `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
@@ -178,8 +191,19 @@ npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-co
 git diff --check
 ```
 
-El perfil PostgreSQL incorpora MapPostgresIT y excluye NeonConnectivityIT. No usa
+El perfil PostgreSQL incorpora MapPostgresIT y MapPerformancePostgresIT y excluye NeonConnectivityIT. No usa
 credenciales, esquemas ni datos de Neon.
+
+La prueba de rendimiento compara filas completas con el SQL anterior y verifica
+en `pg_stat_xact_user_functions` una llamada por celda pública candidata. Cubre
+1.000 incidencias en una celda costera, bbox diminutos públicos/privados, permisos,
+historial VALIDATE, filtros, conteos, clústeres y el centinela de 1.001 elementos.
+La carga mixta de 1.000/10.000/50.000 registros incluye Málaga, Marbella, Ronda y
+puntos exteriores, autores distintos y estados/historiales diferentes.
+Por escenario guarda tres pares de `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING OFF)`
+alternando el orden, junto a los tiempos, en `target/maps-performance`.
+Solo el comparador del SQL antiguo permite 30 s para medir el caso que fallaba;
+las consultas del servicio se comprueban con su timeout original de 5 s.
 
 **Resultado del 10/11/2026:** `mvn -B -ntp clean verify -Ppostgres-it`, BUILD SUCCESS,
 **291 pruebas**: 175 unitarias/MVC y 116 de integración PostgreSQL, cero fallos,
@@ -196,12 +220,70 @@ los comandos oficiales. Respuestas HTTP capturadas verificadas frente a los esqu
 con AJV; el verificador también comprueba que se rechazan campos privados adicionales.
 Reproducción del recurso IGN y `git diff --check` correctos.
 
+### Medición de P1 (15/11/2026)
+
+`mvn -B -ntp clean verify -Ppostgres-it`: **BUILD SUCCESS, 295 pruebas**
+(175 unitarias/MVC y 120 de integración), sin fallos, errores ni omisiones.
+Las pruebas de Mapas también se ejecutaron por separado: 12 unitarias y 22 de
+integración, todas correctas. Compilación y empaquetado incluidos. Java 25.0.4.1,
+Maven 3.9.16, Spring Boot 4.1.2 y PostgreSQL 18.6; exclusivamente Testcontainers.
+El log y los informes Surefire/Failsafe de la suite completa están en
+`backend/target/maps-fix-full-verification`. No se modifica ni regenera OpenAPI
+en esta corrección porque el contrato no cambia.
+
+Comparación del SQL de `8704ac1` con la consulta por celdas sobre los mismos datos
+y servidor PostgreSQL 18.6 de Testcontainers. Medianas de tres ejecuciones de
+EXPLAIN por variante, con caché calentada por la comprobación previa de igualdad
+de filas. Son tiempos SQL, no latencias HTTP ni resultados de carga concurrente.
+
+| Datos / consulta | Antes (ms) | Después (ms) |
+| --- | ---: | ---: |
+| 1.000 en una celda costera, provincia | 4.728,402 | 9,460 |
+| 1.000 costeras, estado y categoría | 1.732,169 | 8,102 |
+| 1.000 mixtas, provincia | 21,870 | 29,988 |
+| 1.000 mixtas, ciudad | 12,578 | 17,249 |
+| 1.000 mixtas, estado y categoría | 1,773 | 2,315 |
+| 1.000 mixtas, zoom 18 | 5,431 | 4,166 |
+| 10.000 mixtas, provincia | 190,006 | 305,367 |
+| 10.000 mixtas, ciudad | 124,478 | 132,886 |
+| 10.000 mixtas, estado y categoría | 15,700 | 7,822 |
+| 10.000 mixtas, zoom 18 | 112,766 | 69,039 |
+| 50.000 mixtas, provincia | 946,278 | 139,488 |
+| 50.000 mixtas, ciudad | 618,497 | 87,060 |
+| 50.000 mixtas, estado y categoría | 86,938 | 31,270 |
+| 50.000 mixtas, zoom 18 | 171,555 | 29,140 |
+
+La celda costera mejora aproximadamente **500 veces**; las tres medidas anteriores
+fueron 5.350,517 / 4.728,402 / 4.713,056 ms y las nuevas 9,460 / 11,112 / 8,320 ms.
+La prueba confirma exactamente una llamada a `map_public_point_v1` para sus 1.000
+incidencias y conserva un clúster de 1.000, o 1.000 individuos al acercar el zoom.
+Con 50.000 registros, la vista provincial representa las mismas 33.000 incidencias
+autorizadas que antes y mejora unas 6,8 veces. Los zooms 18 de 10.000/50.000 superan
+el límite de elementos: ambas consultas producen el mismo centinela y el servicio
+responde MAP_RESULT_LIMIT, sin presentar ese límite como un total de incidencias.
+
+Los planes muestran `maps_exact_location_idx` en la preselección espacial y
+`maps_validated_review_idx` para VALIDATE; el índice público se conserva sin usarlo
+en la nueva rama pública. No hay mejora uniforme: la vista provincial de 10.000
+registros añade unos 115 ms. Las estimaciones bajas favorecen un nested loop entre
+563 celdas y 4.800 candidatos, con unos 2,7 millones de comparaciones descartadas.
+Es un sobrecoste medido de esta estrategia, aunque la consulta queda en unos 305 ms
+y no alcanza el timeout. No se fuerzan planes ni se aborda la refactorización P2.
+Las demás pruebas de carga mantienen resultados, privacidad y límite de 5 s.
+
+Los planes completos, incluidos BUFFERS, y los JSON de tiempos se conservan en
+`backend/target/maps-fix-full-verification/maps-performance`; la ejecución específica
+de Mapas queda separada en `backend/target/maps-fix-verification`. Son artefactos
+locales ignorados por Git y se regeneran con la prueba de rendimiento.
+
 ## Límites operativos pendientes
 
-No se ha desplegado a Neon ni publicado en GitHub. El rendimiento con volúmenes
-productivos aún requiere medición: contorno detallado, índices y ajuste costero
-añaden coste de escritura. La cuota es local por instancia. Actualizar el contorno
+Esta corrección no se ha desplegado a Neon ni publicado en GitHub. Las mediciones
+sintéticas no sustituyen una evaluación de carga concurrente representativa de
+producción. Contorno detallado, índices y ajuste costero añaden coste de escritura;
+esta optimización solo reduce cálculos durante la lectura. La cuota es local por instancia. Actualizar el contorno
 requiere nueva migración/funciones/índices, nunca modificar las funciones constantes
-ya utilizadas por índices. La numeración temporal evita colisiones de nombres,
-pero exige coordinar el orden de despliegue con migraciones de otras ramas: una V4
-añadida después de desplegar esta versión no se ejecuta por defecto en Flyway.
+ya utilizadas por índices. La migración de Evidencias será V4 y la de Mapas es V5.
+Debe coordinarse la incorporación de V4 antes del despliegue de V5: una versión
+menor añadida después no se ejecuta por defecto en Flyway. Las estimaciones de
+cardinalidad (P2) quedan fuera de esta corrección.

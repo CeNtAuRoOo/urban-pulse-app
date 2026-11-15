@@ -144,6 +144,7 @@
                                 <include>**/DepartmentMembershipPostgresIT.java</include>
                                 <include>**/IncidentPostgresIT.java</include>
                                 <include>**/MapPostgresIT.java</include>
+                                <include>**/MapPerformancePostgresIT.java</include>
                             </includes>
                         </configuration>
                         <executions>
