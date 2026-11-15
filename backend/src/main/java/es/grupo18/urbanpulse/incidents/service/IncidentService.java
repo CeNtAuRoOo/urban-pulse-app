@@ -38,6 +38,7 @@ import es.grupo18.urbanpulse.incidents.dto.IncidentSummaryDTO;
 import es.grupo18.urbanpulse.incidents.dto.LocationDTO;
 import es.grupo18.urbanpulse.incidents.dto.UpdateIncidentRequest;
 import es.grupo18.urbanpulse.incidents.model.Incident;
+import es.grupo18.urbanpulse.incidents.model.IncidentPriority;
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.incidents.model.Location;
 import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
@@ -56,7 +57,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class IncidentService {
 
     private static final String RESOURCE = "INCIDENT";
-    private static final List<String> PUBLIC_ACTIONS = List.of("INCIDENT_CREATED", "INCIDENT_UPDATED");
+    private static final List<String> PUBLIC_ACTIONS = List.of("INCIDENT_CREATED", "INCIDENT_UPDATED",
+            "INCIDENT_REVIEWED", "INCIDENT_INFORMATION_RESPONDED", "INCIDENT_PRIORITY_CHANGED");
     private final IncidentRepository incidents;
     private final IncidentAccess access;
     private final CategoryRepository categories;
@@ -125,7 +127,12 @@ public class IncidentService {
     public IncidentDTO patch(UUID actor, long tokenVersion, UUID id, String expectedTag,
             UpdateIncidentRequest request) {
         User user = account(actor, tokenVersion, true);
-        Incident incident = visible(user, id);
+        Incident incident;
+        try {
+            incident = access.visible(user, id, true);
+        } catch (ObjectOptimisticLockingFailureException exception) {
+            throw stale();
+        }
         if (expectedTag == null) {
             throw new ApiException(HttpStatus.PRECONDITION_REQUIRED, "IF_MATCH_REQUIRED", "Se requiere If-Match.");
         }
@@ -174,6 +181,28 @@ public class IncidentService {
     @Transactional(readOnly = true)
     public IncidentPageDTO list(UUID actor, long tokenVersion, int page, int pageSize, IncidentStatus status,
             UUID categoryId, Instant createdFrom, Instant createdTo) {
+        return list(actor, tokenVersion, page, pageSize, status, categoryId, createdFrom, createdTo, null, null);
+    }
+
+    /**
+     * Consulta administrativa con prioridad funcional y nulos siempre al final.
+     *
+     * @param actor        sujeto
+     * @param tokenVersion versión JWT
+     * @param page         página
+     * @param pageSize     tamaño
+     * @param status       estado
+     * @param categoryId   categoría
+     * @param createdFrom  inicio
+     * @param createdTo    fin
+     * @param priority     nivel exacto opcional
+     * @param sort         null, priority,asc o priority,desc
+     * @return página calculada en SQL, con desempate createdAt DESC e id DESC
+     * @throws ApiException 400 por orden no admitido, 403 sin rol global
+     */
+    @Transactional(readOnly = true)
+    public IncidentPageDTO list(UUID actor, long tokenVersion, int page, int pageSize, IncidentStatus status,
+            UUID categoryId, Instant createdFrom, Instant createdTo, IncidentPriority priority, String sort) {
         if (!isStaff(account(actor, tokenVersion, false))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Permisos insuficientes.");
         }
@@ -181,7 +210,10 @@ public class IncidentService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER",
                     "El intervalo de creación está invertido.");
         }
-        return search(null, page, pageSize, status, categoryId, createdFrom, createdTo);
+        if (sort != null && !List.of("priority,asc", "priority,desc").contains(sort)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Orden no admitido.");
+        }
+        return search(null, page, pageSize, status, categoryId, createdFrom, createdTo, priority, sort);
     }
 
     /**
@@ -196,7 +228,7 @@ public class IncidentService {
     @Transactional(readOnly = true)
     public IncidentPageDTO mine(UUID actor, long tokenVersion, int page, int pageSize) {
         account(actor, tokenVersion, false);
-        return search(actor, page, pageSize, null, null, null, null);
+        return search(actor, page, pageSize, null, null, null, null, null, null);
     }
 
     /**
@@ -212,12 +244,13 @@ public class IncidentService {
      */
     @Transactional(readOnly = true)
     public HistoryPageDTO history(UUID actor, long tokenVersion, UUID id, int page, int pageSize) {
-        visible(account(actor, tokenVersion, false), id);
+        UUID reporterId = visible(account(actor, tokenVersion, false), id).getReporter().getId();
         PageMetadata.validate(page, pageSize);
         Page<AuditEvent> events = audit.findByResourceTypeAndResourceIdAndActionIn(RESOURCE, id.toString(),
                 PUBLIC_ACTIONS,
                 PageRequest.of(page - 1, pageSize, Sort.by("occurredAt", "id")));
-        return new HistoryPageDTO(events.stream().map(this::historyEvent).toList(), metadata(events));
+        return new HistoryPageDTO(events.stream().map(event -> historyEvent(event, reporterId)).toList(),
+                metadata(events));
     }
 
     /**
@@ -283,11 +316,13 @@ public class IncidentService {
      * @param category categoría opcional, sin exigir actividad actual
      * @param from     inicio UTC inclusivo o null
      * @param to       fin UTC inclusivo o null
+     * @param priority nivel opcional
+     * @param sort     orden de prioridad previamente validado, o null
      * @return página con orden createdAt DESC, id DESC y totales filtrados
      * @throws ApiException 400 si la página, tamaño u offset no son válidos
      */
     private IncidentPageDTO search(UUID reporter, int page, int pageSize, IncidentStatus status, UUID category,
-            Instant from, Instant to) {
+            Instant from, Instant to, IncidentPriority priority, String sort) {
         PageMetadata.validate(page, pageSize);
         Specification<Incident> filter = (root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -306,10 +341,24 @@ public class IncidentService {
             if (to != null) {
                 predicates.add(builder.lessThanOrEqualTo(root.get("createdAt"), to));
             }
+            if (priority != null)
+                predicates.add(builder.equal(root.get("priority"), priority));
+            if (sort != null && query.getResultType() != Long.class && query.getResultType() != long.class) {
+                var rank = builder.<Integer>selectCase()
+                        .when(builder.equal(root.get("priority"), IncidentPriority.LOW), 1)
+                        .when(builder.equal(root.get("priority"), IncidentPriority.MEDIUM), 2)
+                        .when(builder.equal(root.get("priority"), IncidentPriority.HIGH), 3)
+                        .when(builder.equal(root.get("priority"), IncidentPriority.CRITICAL), 4).otherwise(0);
+                var absent = builder.<Integer>selectCase().when(builder.isNull(root.get("priority")), 1).otherwise(0);
+                query.orderBy(builder.asc(absent), "priority,asc".equals(sort) ? builder.asc(rank) : builder.desc(rank),
+                        builder.desc(root.get("createdAt")), builder.desc(root.get("id")));
+            }
             return builder.and(predicates.toArray(Predicate[]::new));
         };
         Page<Incident> result = incidents.findAll(filter,
-                PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt", "id")));
+                PageRequest.of(page - 1, pageSize, sort == null
+                        ? Sort.by(Sort.Direction.DESC, "createdAt", "id")
+                        : Sort.unsorted()));
         return new IncidentPageDTO(result.stream().map(i -> new IncidentSummaryDTO(i.getId(), i.getTitle(),
                 category(i.getCategory()), location(i), i.getStatus(), i.getPriority(), i.getCreatedAt(),
                 i.getUpdatedAt(), i.getVersion())).toList(), metadata(result));
@@ -332,18 +381,66 @@ public class IncidentService {
      * Construye un texto estable y una lista cerrada de detalles; nunca devuelve el
      * mapa de auditoría.
      *
-     * @param event evento filtrado previamente por recurso y lista permitida de
-     *              acciones
-     * @return proyección pública con versión opcional y actor mínimo
+     * @param event      evento filtrado previamente por recurso y lista permitida
+     *                   de
+     *                   acciones
+     * @param reporterId informante original obtenido una vez al autorizar la
+     *                   incidencia
+     * @return proyección pública con versión opcional e identidad solo del
+     *         informante;
+     *         no depende de roles, nombre ni actividad posteriores al evento
      */
-    private HistoryEventDTO historyEvent(AuditEvent event) {
+    private HistoryEventDTO historyEvent(AuditEvent event, UUID reporterId) {
+        if ("INCIDENT_REVIEWED".equals(event.getAction())) {
+            String decision = event.getDetails().get("decision");
+            String description = switch (decision == null ? "" : decision) {
+                case "VALIDATE" -> "Incidencia validada.";
+                case "REJECT" -> "Incidencia rechazada.";
+                case "REQUEST_INFORMATION" -> "Información adicional solicitada.";
+                default -> "Incidencia revisada.";
+            };
+            Map<String, String> details = new java.util.HashMap<>();
+            if (decision != null && List.of("VALIDATE", "REJECT", "REQUEST_INFORMATION").contains(decision)) {
+                details.put("decision", decision);
+                if (!"VALIDATE".equals(decision) && event.getDetails().get("reason") != null) {
+                    details.put("reason", event.getDetails().get("reason"));
+                }
+            }
+            return new HistoryEventDTO(event.getId(), "REVIEWED", event.getOccurredAt(), null, description, details);
+        }
+        if ("INCIDENT_PRIORITY_CHANGED".equals(event.getAction())) {
+            String priority = event.getDetails().get("priority");
+            Map<String, String> details = priority != null
+                    && List.of("LOW", "MEDIUM", "HIGH", "CRITICAL").contains(priority)
+                            ? Map.of("priority", priority)
+                            : Map.of();
+            return new HistoryEventDTO(event.getId(), "PRIORITY_CHANGED", event.getOccurredAt(), null,
+                    "Prioridad de la incidencia actualizada.", details);
+        }
+        if ("INCIDENT_INFORMATION_RESPONDED".equals(event.getAction())) {
+            return new HistoryEventDTO(event.getId(), "INFORMATION_RESPONDED", event.getOccurredAt(),
+                    reporterActor(event, reporterId), "Información adicional recibida.", Map.of());
+        }
         boolean created = "INCIDENT_CREATED".equals(event.getAction());
         String version = event.getDetails().get("version");
         Map<String, String> details = version != null && version.matches("[0-9]{1,19}") ? Map.of("version", version)
                 : Map.of();
         return new HistoryEventDTO(event.getId(), created ? "CREATED" : "UPDATED", event.getOccurredAt(),
-                UserSummaryDTO.from(event.getActor()), created ? "Incidencia registrada." : "Incidencia corregida.",
+                reporterActor(event, reporterId), created ? "Incidencia registrada." : "Incidencia corregida.",
                 details);
+    }
+
+    /**
+     * Expone exclusivamente al informante original en eventos ciudadanos. El actor
+     * real permanece en auditoría; su relación to-one ya se carga con la página.
+     *
+     * @param event      evento de auditoría autorizado
+     * @param reporterId identidad inmutable del informante
+     * @return identidad mínima propia, o null para cualquier otro actor o ausencia
+     */
+    private static UserSummaryDTO reporterActor(AuditEvent event, UUID reporterId) {
+        User actor = event.getActor();
+        return actor != null && reporterId.equals(actor.getId()) ? UserSummaryDTO.from(actor) : null;
     }
 
     /** Proyecta solo datos de negocio autorizados y reutiliza DTO de catálogos. */
@@ -369,11 +466,6 @@ public class IncidentService {
     /** @return metadatos compartidos con los totales de la consulta */
     private static PageMetadata metadata(Page<?> page) {
         return new PageMetadata(page.getNumber() + 1, page.getSize(), page.getTotalElements(), page.getTotalPages());
-    }
-
-    /** @return respuesta indistinguible para inexistencia y acceso ajeno */
-    private static ApiException notFound() {
-        return new ApiException(HttpStatus.NOT_FOUND, "INCIDENT_NOT_FOUND", "Incidencia no encontrada.");
     }
 
     /**
