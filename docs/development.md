@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. La única `V1__initial_schema.sql` crea 14 tablas funcionales y cinco roles, sin usuarios, ADMIN ni catálogos de demostración.
+El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. La única `V1__initial_schema.sql` crea 14 tablas funcionales y cinco roles, sin usuarios, ADMIN ni catálogos de demostración. La migración `V2__duplicate_links.sql` incorpora la persistencia de las relaciones de incidencias duplicadas. No se crean usuarios, ADMIN ni catálogos de demostración.
 
 ## 1. Configuración privada
 

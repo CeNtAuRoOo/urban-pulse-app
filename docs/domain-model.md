@@ -1,6 +1,6 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 11/11/2026:** la única V1 consolidada contiene 14 tablas de dominio, incluidas Incidencias, sus estructuras de tramitación y Evidencias; la tramitación operativa sigue futura. El [roadmap](incidents-implementation-roadmap.md) conserva el modelo objetivo, sus dependencias y la trazabilidad RF01–RF26 del enunciado.
+> **Estado a 15/11/2026:** V1 es la migración inicial consolidada y contiene 14 tablas funcionales, incluidas Incidencias, sus estructuras base de tramitación y Evidencias. V2 añade la persistencia de relaciones de incidencias duplicadas mediante `duplicate_links`. La tramitación operativa sigue futura. El [roadmap](incidents-implementation-roadmap.md) conserva el modelo objetivo, sus dependencias y la trazabilidad RF01–RF26 del enunciado.
 
 ## 1. Fuentes y criterio de interpretación
 
@@ -22,7 +22,9 @@ Las fuentes editables distinguen V1, el núcleo de Incidencias y las entidades c
 
 `Incident` es el reporte central. V1 implementa informante, texto, coordenadas, categoría, estado REPORTED, fechas y versión; prioridad y departamento quedan opcionales para tramitación. El objetivo completo conserva: informante, título y descripción, categoría opcional, coordenadas, dirección/barrio/distrito cuando se conozcan, estado, prioridad, departamento responsable e historial. Los datos geográficos/contextuales enriquecen el reporte sin impedir su creación si un proveedor falla. `Attachment` representa metadatos de fotografías, con binario fuera de PostgreSQL en un bucket S3 privado. Sus cinco rutas implementan autorización compartida con Incidencias, subida JPEG/PNG saneada, listado privado, detalle, descarga y baja lógica. Admite cinco activas por incidencia y 10 MiB por imagen; conserva objetos tras la baja.
 
-Las sugerencias de duplicados se calculan y no deben fusionar ni rechazar automáticamente incidencias. `DuplicateLink` solo se persistiría tras confirmación humana. Las prioridades propuestas son `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, con una `PriorityDecision` justificable y auditable. Los identificadores del proveedor externo de un activo urbano (`externalId`) no equivalen a las claves UUID internas.
+Detección de duplicados (RF16). El módulo `duplicates`, separado de `incidents`, calcula sugerencias de posibles incidencias duplicadas a partir de proximidad geográfica, diferencia temporal y categoría. Utiliza la fórmula Haversine para la distancia y una puntuación heurística entre 0 y 1: 60 % ubicación, 30 % tiempo y 10 % categoría. Cuando no se dispone de categoría en ambas incidencias, la ponderación se redistribuye entre ubicación y tiempo. La búsqueda aplica límites de 250 metros y 72 horas, examina hasta 100 candidatas, excluye la propia incidencia y las relaciones ya existentes, ordena por puntuación y devuelve como máximo 20 sugerencias. Cada sugerencia incluye el identificador de la candidata, la puntuación y los motivos de coincidencia.
+
+La detección no fusiona, elimina ni rechaza reportes y no confirma relaciones automáticamente. `DuplicateLink` representa exclusivamente una relación confirmada manualmente por un usuario autorizado con rol `OPERATOR` o `ADMIN`. La relación conserva las incidencias vinculadas, el usuario confirmador, la fecha y el motivo cuando se proporciona. Se impiden las autorrelaciones y la duplicación de relaciones, manteniendo intactos los reportes originales. Las prioridades propuestas son `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, con una `PriorityDecision` justificable y auditable. Los identificadores del proveedor externo de un activo urbano (`externalId`) no equivalen a las claves UUID internas.
 
 #### Catálogo Category
 
@@ -77,6 +79,8 @@ La política general es **UUIDv7** generados en Hibernate para identidades de en
 
 Los cinco códigos de rol son `CITIZEN`, `OPERATOR`, `ADMIN`, `TECHNICIAN` y `DEPARTMENT_COORDINATOR`. `RoleCode` determina ámbito global/departamental; no existe `RoleScope` persistido. Los permisos departamentales se consultarán siempre en el contexto del recurso. Un estado dibujado de incidencia **no** es una transición programada ni autoriza acciones por sí mismo.
 
+`DuplicateLink` utiliza identificadores UUID para las incidencias relacionadas y el usuario que confirma la relación. La base de datos impide la autorrelación y la repetición del mismo par mediante restricciones e índice único sobre el par canónico. La relación es una asociación entre reportes existentes: no sustituye la identidad de `Incident`, no altera sus datos originales y no representa una fusión. La detección de candidatas es una operación de consulta; la persistencia solo ocurre tras la confirmación autorizada.
+
 ## 6. Revisión obligatoria del dominio con cada tag OpenAPI
 
 1. Identificar casos de uso, requisitos, operaciones, roles, resultados y límites de alcance.
@@ -87,7 +91,7 @@ Los cinco códigos de rol son `CITIZEN`, `OPERATOR`, `ADMIN`, `TECHNICIAN` y `DE
 
 ## 7. Estado de los tags y próximas decisiones
 
-**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Incidencias** y **Evidencias** (OpenAPI `0.7.0`) cuentan con endpoints backend. La tramitación operativa, equipos, estadísticas, mapas e IA continúan en diseño; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
+**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Incidencias**, **Detección de duplicados** y **Evidencias** (OpenAPI `0.7.0`) cuentan con endpoints backend. La tramitación operativa, equipos, estadísticas, mapas e IA continúan en diseño; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
 
 - [Contrato dominio–API](api/domain-openapi.md) y [guía de la API](api/README.md).
 - [Arquitectura modular real](architecture.md), [diagramas actualizados](diagrams/README.md) y [ADR](adr/README.md).

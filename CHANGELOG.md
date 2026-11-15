@@ -156,3 +156,25 @@ Las entregas originales de Autenticación e Invitaciones no incluían administra
 - Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.
+
+## Detección de incidencias duplicadas — RF16 (14/11/2026)
+
+- Implementado el mecanismo de detección de posibles incidencias duplicadas. El sistema analiza incidencias candidatas teniendo en cuenta la proximidad geográfica, la diferencia temporal y la categoría.
+
+- Incorporado un algoritmo heurístico de puntuación de similitud entre 0 y 1, con ponderaciones del 60 % para ubicación, 30 % para tiempo y 10 % para coincidencia de categoría. Cuando no se dispone de categoría en ambas incidencias, se ajusta la ponderación entre ubicación y tiempo.
+
+- Cálculo de distancia geográfica mediante la fórmula Haversine y aplicación de límites de proximidad de 250 metros y ventana temporal de 72 horas.
+
+- Búsqueda de hasta 100 incidencias candidatas, exclusión de la propia incidencia y de relaciones ya existentes, ordenación por puntuación y devolución de un máximo de 20 sugerencias.
+
+- Cada sugerencia incluye el identificador de la incidencia candidata, la puntuación obtenida y los motivos de coincidencia, como proximidad geográfica, cercanía temporal o categoría compartida.
+
+- Incorporada la confirmación manual de relaciones de duplicidad por personal autorizado (OPERATOR o ADMIN). La detección genera sugerencias, pero no confirma duplicados automáticamente.
+
+- Persistencia de las relaciones confirmadas, incluyendo las incidencias relacionadas, el usuario que realiza la confirmación, la fecha y el motivo cuando se proporciona. Se conservan los reportes originales y se impiden las relaciones de una incidencia consigo misma y las duplicadas.
+
+- Expuestas las operaciones REST para consultar candidatos y confirmar relaciones bajo /api/v1/incidents/{incidentId}/duplicate-candidates y /api/v1/incidents/{incidentId}/duplicate-links.
+
+- Verificación satisfactoria de la implementación mediante la ejecución completa de la suite de pruebas, incluyendo las pruebas de integración con PostgreSQL. Todos los tests finalizaron correctamente.
+
+- Implementación y validación en el entorno local; esta entrega no acredita despliegue en Neon ni en producción.

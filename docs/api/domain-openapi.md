@@ -1,6 +1,6 @@
 # UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.7.0)
 
-> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias tienen API implementada. OpenAPI vigente 0.7.0; V1 consolida 14 tablas, incluidas incidencias, evidencias y persistencia base de tramitación sin operaciones. Los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias, Evidencias y Duplicados tienen API implementada. OpenAPI vigente 0.8.0; V1 consolida 14 tablas y V2 añade duplicate_links. Incidencias, Evidencias y Duplicados tienen API implementada; la tramitación operativa sigue futura. Los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
 
 ## 1. Referencia coherente y varias vistas
 
