@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: UrbanPulse API REST
-  version: 0.7.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Mapas implementa consulta provincial con privacidad y agrupaciones. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas.
+  version: 0.8.0
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas. Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados. Mapas implementa consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -984,7 +984,7 @@ paths:
       tags:
         - Incidencias
       summary: Listar incidencias administrativamente
-      description: Implementado. Solo OPERATOR/ADMIN globales verificados. Filtros SQL opcionales, fechas inclusivas y orden fijo createdAt DESC, id DESC. Parámetros desconocidos, sort y filtros futuros se rechazan con 400. Offset máximo 2147483647.
+      description: 'OPERATOR/ADMIN globales verificados. Filtros SQL, fechas inclusivas y orden predeterminado createdAt DESC,id DESC. priority filtra exactamente; sort solo admite priority,asc o priority,desc: rango LOW < MEDIUM < HIGH < CRITICAL, null siempre al final y desempate createdAt DESC,id DESC. Paginación y totales SQL. Parámetros desconocidos o valores no admitidos: 400.'
       operationId: getIncidents
       x-implementation: implemented
       x-roles:
@@ -1014,6 +1014,17 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/IncidentPriority'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - priority,asc
+              - priority,desc
       responses:
         '200':
           description: Página administrativa.
@@ -1162,7 +1173,7 @@ paths:
       tags:
         - Incidencias
       summary: Consultar historial
-      description: Implementado. Mismo acceso que detalle. Página SQL de AuditEvent con resourceType INCIDENT, identidad exacta y acciones INCIDENT_CREATED/INCIDENT_UPDATED. Orden occurredAt ASC, id ASC; sin eventos internos, datos arbitrarios ni transiciones duplicadas. Offset máximo 2147483647.
+      description: Informante u OPERATOR/ADMIN activos y verificados. Proyección SQL de AuditEvent, orden histórico occurredAt ASC,id ASC. CREATED/UPDATED, REVIEWED, INFORMATION_RESPONDED y PRIORITY_CHANGED, una vez por hecho; sin eventos de Evidencias. Actor municipal omitido, motivos solo de rechazo/solicitud; prioridad pública sin justificación ni decisor.
       operationId: getIncidentsIncidentIdHistory
       x-implementation: implemented
       x-roles:
@@ -1198,7 +1209,7 @@ paths:
       tags:
         - Evidencias
       summary: Adjuntar fotografía
-      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Máximo cinco evidencias activas en total por incidencia, resistente a concurrencia; la sexta devuelve 409 ATTACHMENT_LIMIT_REACHED. Firma y decodificación determinan el formato, no la extensión ni el MIME declarado. Recodifica sin EXIF/GPS antes de S3; compensa el objeto si falla la confirmación SQL.
+      description: 'Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Solo REPORTED y AWAITING_INFORMATION permiten escritura. Otros estados: 409 ATTACHMENTS_FROZEN, sin excepción para ADMIN. Se revalida bajo bloqueo al confirmar; una subida S3 intermedia se compensa si la incidencia quedó congelada. Las lecturas siguen permitidas con la autorización habitual. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Máximo cinco evidencias activas en total por incidencia, resistente a concurrencia; la sexta devuelve 409 ATTACHMENT_LIMIT_REACHED. Firma y decodificación determinan el formato, no la extensión ni el MIME declarado. Recodifica sin EXIF/GPS antes de S3; compensa el objeto si falla la confirmación SQL.'
       operationId: postIncidentsIncidentIdAttachments
       x-implementation: implemented
       x-roles:
@@ -1362,7 +1373,7 @@ paths:
       tags:
         - Evidencias
       summary: Eliminar lógicamente fotografía
-      description: Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Se permite cualquier estado sin modificarlo. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Establece deletedAt una sola vez, conserva fila y objeto privado S3 y libera una plaza. Repetir devuelve 404; no hay restauración HTTP. Registra auditoría interna atómica, sin ampliar el historial público de incidencias.
+      description: 'Cuenta activa y correo verificado. Informante de la incidencia u OPERATOR/ADMIN global; una pertenencia TECHNICIAN/DEPARTMENT_COORDINATOR no concede acceso transversal. Solo REPORTED y AWAITING_INFORMATION permiten escritura. Otros estados: 409 ATTACHMENTS_FROZEN, sin excepción para ADMIN. Se revalida bajo bloqueo al confirmar; una subida S3 intermedia se compensa si la incidencia quedó congelada. Las lecturas siguen permitidas con la autorización habitual. Incidencia ajena o inexistente devuelve 404 indistinguible; evidencia ajena, eliminada o pareja de IDs incorrecta también devuelve 404. Respuestas privadas con Cache-Control no-store. Establece deletedAt una sola vez, conserva fila y objeto privado S3 y libera una plaza. Repetir devuelve 404; no hay restauración HTTP. Registra auditoría interna atómica, sin ampliar el historial público de incidencias.'
       operationId: deleteIncidentsIncidentIdAttachmentsAttachmentId
       x-implementation: implemented
       x-roles:
@@ -1392,6 +1403,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -1459,68 +1472,77 @@ paths:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Validar, rechazar o pedir información'
-      description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
-      operationId: postIncidentsIncidentIdReviews
-      x-implementation: future
+      summary: Registrar revisión
+      description: OPERATOR/ADMIN global activo y verificado, nunca el informante, incluso ADMIN. REPORTED permite VALIDATE con categoría activa explícita, REJECT o REQUEST_INFORMATION con motivo obligatorio. AWAITING_INFORMATION solo permite REJECT. VALIDATE prohíbe reason; las otras variantes prohíben categoryId, incluso null. Categoría, estado, revisión, StatusChange y auditoría son atómicos. Sin rectificación posterior. Cuerpo JSON estricto máximo 64 KiB; versión esperada obligatoria bajo bloqueo usuario → incidencia.
+      operationId: postReviewCreate
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '201':
+          description: Recurso confirmado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+            Location:
+              description: Ruta relativa al GET individual implementado del recurso creado.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ReviewRequest'
-      responses:
-        '201':
-          description: Recurso creado.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReviewDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Consultar revisiones'
-      description: Historial de decisiones y motivos para trazabilidad.
-      operationId: getIncidentsIncidentIdReviews
-      x-implementation: future
+      summary: Consultar revisiones
+      description: Solo OPERATOR/ADMIN global; incluye actor y datos internos. La prohibición de autorrevisión afecta a crear decisiones, no a consultar el historial. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde. Orden fecha DESC, UUID DESC, page desde 1 y pageSize de 20 por defecto (máximo 100); rechaza parámetros desconocidos.
+      operationId: getIncidentReviews
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
-          description: Operación correcta.
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ReviewDTO'
+                $ref: '#/components/schemas/ReviewPageDTO'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1529,76 +1551,85 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/priority-decisions:
     post:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Establecer prioridad'
-      description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; siempre confirmada por personal autorizado.
-      operationId: postIncidentsIncidentIdPriorityDecisions
-      x-implementation: future
+      summary: Registrar decisión de prioridad
+      description: 'OPERATOR/ADMIN global activo y verificado. Solo VALIDATED sin departamento. Prioridad exclusivamente MANUAL fijada por el servidor: el cliente no puede enviar source. Mismo nivel produce 409 sin registrar decisión. Justificación interna obligatoria. Prioridad y auditoría atómicas; sin cambios después de derivar. Cuerpo JSON estricto máximo 64 KiB; versión esperada obligatoria bajo bloqueo usuario → incidencia.'
+      operationId: postPriorityDecisionCreate
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '201':
+          description: Recurso confirmado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+            Location:
+              description: Ruta relativa al GET individual implementado del recurso creado.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriorityDecisionDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/PriorityRequest'
-      responses:
-        '201':
-          description: Recurso creado.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PriorityDecisionDTO'
-          headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
-              schema:
-                type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '500':
-          $ref: '#/components/responses/InternalError'
     get:
       tags:
         - Tramitación
-      summary: 'Diseño futuro: Historial de prioridades'
-      description: Conserva todas las decisiones de prioridad y su fuente.
-      operationId: getIncidentsIncidentIdPriorityDecisions
-      x-implementation: future
+      summary: Consultar decisiones de prioridad
+      description: Solo OPERATOR/ADMIN global; justificaciones e identidad del decisor son internas. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde. Orden fecha DESC, UUID DESC, page desde 1 y pageSize de 20 por defecto (máximo 100); rechaza parámetros desconocidos.
+      operationId: getIncidentPriorityDecisions
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
       parameters:
         - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
-          description: Operación correcta.
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PriorityDecisionDTO'
+                $ref: '#/components/schemas/PriorityDecisionPageDTO'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1607,10 +1638,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /incidents/{incidentId}/department:
     put:
       tags:
@@ -3034,6 +3065,255 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /incidents/{incidentId}/reviews/{reviewId}:
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar una revisión
+      description: Solo OPERATOR/ADMIN global; incluye actor y datos internos. La prohibición de autorrevisión afecta a crear decisiones, no a consultar el historial. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde.
+      operationId: getReview
+      x-implementation: implemented
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /incidents/{incidentId}/priority-decisions/{decisionId}:
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar una decisión de prioridad
+      description: Solo OPERATOR/ADMIN global; justificaciones e identidad del decisor son internas. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde.
+      operationId: getPriorityDecision
+      x-implementation: implemented
+      x-roles:
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriorityDecisionDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /incidents/{incidentId}/information-responses:
+    post:
+      tags:
+        - Tramitación
+      summary: Registrar respuesta de información
+      description: Solo el informante original activo y verificado, incluso si el solicitante tiene rol municipal. Mensaje obligatorio a la solicitud vigente de AWAITING_INFORMATION; una respuesta por solicitud. Devuelve el agregado a REPORTED sin editar título, descripción, categoría ni coordenadas. Las fotos se gestionan mediante Evidencias; subirlas no responde. Sin caducidad ni correo automático. Cuerpo JSON estricto máximo 64 KiB; versión esperada obligatoria bajo bloqueo usuario → incidencia.
+      operationId: postInformationResponseCreate
+      x-implementation: implemented
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '201':
+          description: Recurso confirmado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+            Location:
+              description: Ruta relativa al GET individual implementado del recurso creado.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InformationResponseDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InformationResponseRequest'
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar respuestas de información
+      description: Informante original u OPERATOR/ADMIN global. Consultar respuestas no concede permiso para responder en nombre de otra persona. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde. Orden fecha DESC, UUID DESC, page desde 1 y pageSize de 20 por defecto (máximo 100); rechaza parámetros desconocidos.
+      operationId: getIncidentInformationResponses
+      x-implementation: implemented
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InformationResponsePageDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /incidents/{incidentId}/information-responses/{responseId}:
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar una respuesta de información
+      description: Informante original u OPERATOR/ADMIN global. Consultar respuestas no concede permiso para responder en nombre de otra persona. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde.
+      operationId: getInformationResponse
+      x-implementation: implemented
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+        - name: responseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InformationResponseDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /incidents/{incidentId}/review-outcome:
+    get:
+      tags:
+        - Tramitación
+      summary: Consultar resultado público de revisión
+      description: 'Informante u OPERATOR/ADMIN con cuenta activa y verificada. Siempre 200: latestReview:null antes de la primera revisión. Estado actual separado del snapshot histórico; informationPending evita confundir solicitudes respondidas. Identificación institucional Ayuntamiento, nunca UUID/nombre del empleado ni motivo histórico de VALIDATE.'
+      operationId: getReviewOutcome
+      x-implementation: implemented
+      x-roles:
+        - CITIZEN
+        - OPERATOR
+        - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/IncidentId'
+      responses:
+        '200':
+          description: Consulta autorizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateCache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOutcomeDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     BearerAuth:
@@ -3180,6 +3460,7 @@ components:
       type: string
       enum:
         - REPORTED
+        - AWAITING_INFORMATION
         - VALIDATED
         - REJECTED
         - ASSIGNED_TO_DEPARTMENT
@@ -3187,7 +3468,7 @@ components:
         - IN_PROGRESS
         - RESOLVED
         - CLOSED
-      description: La API actual solo crea REPORTED. Tramitación futura permitirá reabrir RESOLVED directamente a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con trabajo válido y motivo; CLOSED es terminal.
+      description: 'Primera fase: REPORTED → VALIDATED/REJECTED/AWAITING_INFORMATION; respuesta del informante AWAITING_INFORMATION → REPORTED o rechazo municipal → REJECTED. VALIDATED y REJECTED no se rectifican. Derivación, trabajo, resolución y cierre siguen futuros.'
     IncidentPriority:
       type: string
       enum:
@@ -3321,15 +3602,6 @@ components:
           format: int64
           minimum: 0
           description: Versión optimista JPA, distinta del JWT. Participa en la ETag junto al detalle completo; no permite reconstruir la etiqueta.
-        prioritySource:
-          type: string
-          enum:
-            - MANUAL
-            - ASSISTED
-          x-implementation: future
-        priorityJustification:
-          type: string
-          x-implementation: future
         urbanAsset:
           description: Futuro; asociación autorizada con activo urbano.
           x-implementation: future
@@ -3376,7 +3648,7 @@ components:
         - pagination
     HistoryEventDTO:
       type: object
-      description: Proyección pública de AuditEvent, no tabla. Solo CREATED y UPDATED están implementados; los demás tipos son diseño futuro y deberán evitar duplicar transiciones.
+      description: Proyección autorizada de AuditEvent. Implementados CREATED, UPDATED, REVIEWED, INFORMATION_RESPONDED y PRIORITY_CHANGED. Un evento por hecho. actor solo aparece para el informante original en CREATED, UPDATED o INFORMATION_RESPONDED, con independencia de roles, nombre o actividad posteriores. Se omite para otros autores y para REVIEWED/PRIORITY_CHANGED. Excluye datos internos y eventos de Evidencias.
       properties:
         id:
           type: string
@@ -3387,15 +3659,8 @@ components:
             - CREATED
             - UPDATED
             - REVIEWED
-            - PRIORITIZED
-            - DEPARTMENT_ASSIGNED
-            - DEPARTMENT_TRANSFERRED
-            - WORK_ASSIGNED
-            - WORK_REASSIGNED
-            - STATUS_CHANGED
-            - COMMENTED
-            - ATTACHMENT_ADDED
-            - ASSET_LINKED
+            - INFORMATION_RESPONDED
+            - PRIORITY_CHANGED
         occurredAt:
           type: string
           format: date-time
@@ -3411,6 +3676,17 @@ components:
             version:
               type: string
               pattern: ^[0-9]{1,19}$
+            decision:
+              type: string
+              enum:
+                - VALIDATE
+                - REJECT
+                - REQUEST_INFORMATION
+            reason:
+              type: string
+              description: Solo rechazo o solicitud de información.
+            priority:
+              $ref: '#/components/schemas/IncidentPriority'
           description: Lista permitida de datos públicos; no replica el JSONB de auditoría.
       required:
         - id
@@ -3931,37 +4207,10 @@ components:
       additionalProperties: false
       minProperties: 1
     ReviewRequest:
-      type: object
-      properties:
-        decision:
-          type: string
-          enum:
-            - VALIDATE
-            - REJECT
-            - REQUEST_INFORMATION
-        reason:
-          type: string
-          description: Obligatorio en REJECT y REQUEST_INFORMATION; opcional en VALIDATE. Si se aporta, texto no blanco de 3–2000 puntos Unicode tras trim.
-          minLength: 3
-          maxLength: 2000
-        categoryId:
-          type: string
-          format: uuid
-      required:
-        - decision
       oneOf:
-        - properties:
-            decision:
-              enum:
-                - VALIDATE
-        - properties:
-            decision:
-              enum:
-                - REJECT
-                - REQUEST_INFORMATION
-          required:
-            - reason
-      additionalProperties: false
+        - $ref: '#/components/schemas/ValidateReviewRequest'
+        - $ref: '#/components/schemas/RejectReviewRequest'
+        - $ref: '#/components/schemas/RequestInformationReviewRequest'
     ReviewDTO:
       type: object
       properties:
@@ -3979,13 +4228,22 @@ components:
             - REQUEST_INFORMATION
         reason:
           type: string
+          nullable: true
+          description: null en VALIDATE nuevo. Los motivos históricos anteriores a V2 se conservan solo en esta vista interna.
         reviewedBy:
           $ref: '#/components/schemas/UserSummaryDTO'
         reviewedAt:
           type: string
           format: date-time
         resultingStatus:
-          $ref: '#/components/schemas/IncidentStatus'
+          type: string
+          nullable: true
+          enum:
+            - VALIDATED
+            - REJECTED
+            - AWAITING_INFORMATION
+            - null
+          description: Snapshot persistido. null exclusivamente para revisiones anteriores a V2 sin evidencia del estado resultante; nunca se deduce del estado actual.
       required:
         - id
         - incidentId
@@ -3993,25 +4251,27 @@ components:
         - reviewedBy
         - reviewedAt
         - resultingStatus
+        - reason
+      additionalProperties: false
     PriorityRequest:
       type: object
       properties:
         priority:
           $ref: '#/components/schemas/IncidentPriority'
-        source:
-          type: string
-          enum:
-            - MANUAL
-            - ASSISTED
         justification:
           type: string
-          description: Texto no blanco de 3–2000 puntos Unicode tras trim; se conserva la justificación manual o asistida.
-          minLength: 3
-          maxLength: 2000
+          description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados. Cuerpo bruto máximo 65536 bytes.
+          x-normalized-minLength: 3
+          x-normalized-maxLength: 2000
+        expectedIncidentVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409 PROCESSING_VERSION_MISMATCH.'
       required:
         - priority
-        - source
         - justification
+        - expectedIncidentVersion
       additionalProperties: false
     PriorityDecisionDTO:
       type: object
@@ -4029,6 +4289,7 @@ components:
           enum:
             - MANUAL
             - ASSISTED
+          description: La API solo crea MANUAL; ASSISTED permanece como valor de dominio histórico/futuro.
         justification:
           type: string
         decidedBy:
@@ -4044,6 +4305,7 @@ components:
         - justification
         - decidedBy
         - decidedAt
+      additionalProperties: false
     AssignmentRequest:
       oneOf:
         - $ref: '#/components/schemas/TeamWorkAssignmentRequest'
@@ -4258,7 +4520,8 @@ components:
         uploadedBy:
           type: string
           format: uuid
-          description: UUID del autor, no una entidad User ni mecanismo de autorización exclusivo.
+          nullable: true
+          description: UUID del informante original si subió la fotografía; null para cualquier otro autor, con independencia de sus roles actuales. La autoría real se conserva internamente.
         createdAt:
           type: string
           format: date-time
@@ -4906,6 +5169,150 @@ components:
       required:
         - data
         - pagination
+    InformationResponseRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados. Cuerpo bruto máximo 65536 bytes.
+          x-normalized-minLength: 3
+          x-normalized-maxLength: 2000
+        expectedIncidentVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409 PROCESSING_VERSION_MISMATCH.'
+      required:
+        - message
+        - expectedIncidentVersion
+      additionalProperties: false
+    InformationResponseDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        incidentId:
+          type: string
+          format: uuid
+        reviewId:
+          type: string
+          format: uuid
+        message:
+          type: string
+        respondedBy:
+          $ref: '#/components/schemas/UserSummaryDTO'
+        respondedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - incidentId
+        - reviewId
+        - message
+        - respondedBy
+        - respondedAt
+      additionalProperties: false
+    ReviewOutcomeDTO:
+      type: object
+      properties:
+        incidentId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        informationPending:
+          type: boolean
+          description: Solo true mientras el estado actual es AWAITING_INFORMATION.
+        latestReview:
+          oneOf:
+            - $ref: '#/components/schemas/PublicReviewDTO'
+            - type: object
+              nullable: true
+              enum:
+                - null
+          description: null antes de la primera revisión; no identifica al empleado.
+      required:
+        - incidentId
+        - status
+        - informationPending
+        - latestReview
+      additionalProperties: false
+    PublicReviewDTO:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - VALIDATE
+            - REJECT
+            - REQUEST_INFORMATION
+        reviewedAt:
+          type: string
+          format: date-time
+        resultingStatus:
+          type: string
+          nullable: true
+          enum:
+            - VALIDATED
+            - REJECTED
+            - AWAITING_INFORMATION
+            - null
+          description: Snapshot persistido. null exclusivamente para revisiones anteriores a V2 sin evidencia del estado resultante; nunca se deduce del estado actual.
+        reason:
+          type: string
+          nullable: true
+          description: Solo motivo de REJECT/REQUEST_INFORMATION. Siempre null en VALIDATE, incluso histórico.
+        responsible:
+          type: string
+          enum:
+            - Ayuntamiento
+      required:
+        - decision
+        - reviewedAt
+        - resultingStatus
+        - reason
+        - responsible
+      additionalProperties: false
+    ReviewPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+      additionalProperties: false
+    PriorityDecisionPageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriorityDecisionDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+      additionalProperties: false
+    InformationResponsePageDTO:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/InformationResponseDTO'
+        pagination:
+          $ref: '#/components/schemas/PageMetadata'
+      required:
+        - data
+        - pagination
+      additionalProperties: false
     HistoryPageDTO:
       type: object
       properties:
@@ -4918,6 +5325,70 @@ components:
       required:
         - data
         - pagination
+    ValidateReviewRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - VALIDATE
+        categoryId:
+          type: string
+          format: uuid
+        expectedIncidentVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409 PROCESSING_VERSION_MISMATCH.'
+      required:
+        - decision
+        - categoryId
+        - expectedIncidentVersion
+      additionalProperties: false
+    RejectReviewRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - REJECT
+        reason:
+          type: string
+          description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados. Cuerpo bruto máximo 65536 bytes.
+          x-normalized-minLength: 3
+          x-normalized-maxLength: 2000
+        expectedIncidentVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409 PROCESSING_VERSION_MISMATCH.'
+      required:
+        - decision
+        - reason
+        - expectedIncidentVersion
+      additionalProperties: false
+    RequestInformationReviewRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - REQUEST_INFORMATION
+        reason:
+          type: string
+          description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados. Cuerpo bruto máximo 65536 bytes.
+          x-normalized-minLength: 3
+          x-normalized-maxLength: 2000
+        expectedIncidentVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409 PROCESSING_VERSION_MISMATCH.'
+      required:
+        - decision
+        - reason
+        - expectedIncidentVersion
+      additionalProperties: false
     MapCoordinatesDTO:
       type: object
       additionalProperties: false

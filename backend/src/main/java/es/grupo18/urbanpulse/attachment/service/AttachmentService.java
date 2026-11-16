@@ -51,11 +51,13 @@ public class AttachmentService {
      *
      * @param actor       sujeto JWT
      * @param version     versión JWT
-     * @param incidentId  incidencia visible, en cualquier estado
+     * @param incidentId  incidencia visible, solo REPORTED/AWAITING_INFORMATION
+     *                    para escritura
      * @param file        fotografía obligatoria, máximo 10 MiB
      * @param description texto nullable, máximo 300 puntos Unicode
      * @return metadatos confirmados, sin clave S3
-     * @throws ApiException 401/403/404 por acceso, 409 sin plaza, 413 por tamaño,
+     * @throws ApiException 401/403/404 por acceso, 409 sin plaza o con evidencias
+     *                      congeladas, 413 por tamaño,
      *                      422 por imagen/texto inválido o 503 por almacenamiento
      *                      no disponible
      */
@@ -63,7 +65,8 @@ public class AttachmentService {
     public AttachmentDTO attachPhoto(UUID actor, long version, UUID incidentId, MultipartFile file,
             String description) {
         transactionTemplate
-                .executeWithoutResult(tx -> access.visible(access.account(actor, version, false), incidentId, false));
+                .executeWithoutResult(
+                        tx -> writable(access.visible(access.account(actor, version, false), incidentId, false)));
         if (file == null)
             throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_ATTACHMENT", "Debe proporcionar una fotografía.");
         if (file.getSize() > ImageSanitizer.MAX_BYTES)
@@ -94,6 +97,7 @@ public class AttachmentService {
             return transactionTemplate.execute(tx -> {
                 User user = access.account(actor, version, true);
                 var incident = access.visible(user, incidentId, true);
+                writable(incident);
                 if (attachments.countByIncident_IdAndDeletedAtIsNull(incidentId) >= 5) {
                     throw new ApiException(HttpStatus.CONFLICT, "ATTACHMENT_LIMIT_REACHED",
                             "La incidencia ya tiene cinco evidencias activas.");
@@ -101,7 +105,7 @@ public class AttachmentService {
                 Attachment saved = attachments.saveAndFlush(Attachment.create(incident, user, filename, type,
                         key, sanitized.length, description));
                 record(user, saved, "ATTACHMENT_CREATED");
-                return mapper.toDTO(saved);
+                return mapper.toDTO(saved, incident.getReporter().getId());
             });
         } catch (RuntimeException failure) {
             try {
@@ -128,9 +132,10 @@ public class AttachmentService {
      */
     @Transactional(readOnly = true)
     public List<AttachmentDTO> getAttachments(UUID actor, long version, UUID incidentId) {
-        access.visible(access.account(actor, version, false), incidentId, false);
+        UUID reporterId = access.visible(access.account(actor, version, false), incidentId, false).getReporter()
+                .getId();
         return attachments.findByIncident_IdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(incidentId)
-                .stream().map(mapper::toDTO).toList();
+                .stream().map(attachment -> mapper.toDTO(attachment, reporterId)).toList();
     }
 
     /**
@@ -146,8 +151,9 @@ public class AttachmentService {
      */
     @Transactional(readOnly = true)
     public AttachmentDTO getAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
-        access.visible(access.account(actor, version, false), incidentId, false);
-        return mapper.toDTO(findActive(incidentId, attachmentId));
+        UUID reporterId = access.visible(access.account(actor, version, false), incidentId, false).getReporter()
+                .getId();
+        return mapper.toDTO(findActive(incidentId, attachmentId), reporterId);
     }
 
     /**
@@ -165,9 +171,10 @@ public class AttachmentService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AttachmentContent getAttachmentContent(UUID actor, long version, UUID incidentId, UUID attachmentId) {
         var download = transactionTemplate.execute(tx -> {
-            access.visible(access.account(actor, version, false), incidentId, false);
+            UUID reporterId = access.visible(access.account(actor, version, false), incidentId, false).getReporter()
+                    .getId();
             var attachment = findActive(incidentId, attachmentId);
-            return new Download(attachment.getStorageKey(), mapper.toDTO(attachment));
+            return new Download(attachment.getStorageKey(), mapper.toDTO(attachment, reporterId));
         });
         try {
             byte[] data = storage.download(download.key());
@@ -189,16 +196,33 @@ public class AttachmentService {
      * @param version      versión JWT
      * @param incidentId   incidencia visible
      * @param attachmentId evidencia activa de esa incidencia
-     * @throws ApiException 401/403/404 por acceso; repetir una baja devuelve 404
+     * @throws ApiException 401/403/404 por acceso; 409 por estado congelado;
+     *                      repetir una baja devuelve 404
      */
     @Transactional
     public void deleteAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
         User user = access.account(actor, version, true);
-        access.visible(user, incidentId, true);
+        var incident = access.visible(user, incidentId, true);
         Attachment attachment = findActive(incidentId, attachmentId);
+        writable(incident);
         attachment.markAsDeleted();
         attachments.flush();
         record(user, attachment, "ATTACHMENT_DELETED");
+    }
+
+    /**
+     * Congela las escrituras ordinarias después de revisión definitiva, sin
+     * excepción administrativa.
+     *
+     * @param incident incidencia previamente autorizada y bloqueada al confirmar
+     * @throws ApiException 409 si las evidencias están congeladas
+     */
+    private static void writable(es.grupo18.urbanpulse.incidents.model.Incident incident) {
+        var status = incident.getStatus();
+        if (status != es.grupo18.urbanpulse.incidents.model.IncidentStatus.REPORTED
+                && status != es.grupo18.urbanpulse.incidents.model.IncidentStatus.AWAITING_INFORMATION) {
+            throw new ApiException(HttpStatus.CONFLICT, "ATTACHMENTS_FROZEN", "Las evidencias están congeladas.");
+        }
     }
 
     /**

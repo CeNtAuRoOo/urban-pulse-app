@@ -146,6 +146,8 @@
                                 <include>**/MapPostgresIT.java</include>
                                 <include>**/MapPerformancePostgresIT.java</include>
                                 <include>**/AttachmentServicePostgresIT.java</include>
+                                <include>**/ProcessingPostgresIT.java</include>
+                                <include>**/ProcessingMigrationPostgresIT.java</include>
                             </includes>
                         </configuration>
                         <executions>

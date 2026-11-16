@@ -108,13 +108,13 @@ de coordenadas, sin cambiar reglas del módulo Incidencias. Para grandes volúme
 se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
-Tras integrar main (16/11/2026), Evidencias forma parte de la V1 consolidada y
-Mapas conserva `V5__maps_geography.sql` sin modificar su contenido. La secuencia
-vigente desde una base vacía es V1 → V5: no existen V2/V3 ejecutables ni se crea
-una V4 de Evidencias. La prueba de actualización aplica V5 sobre V1 con datos
-preexistentes y valida también un esquema distinto de public. No se activa
-outOfOrder, no se repara el historial y no se accede a Neon. Un destino con el
-antiguo historial incremental requiere una transición específica revisada.
+Tras integrar Tramitación de main (16/11/2026), la secuencia desde vacío es V1 → V2 → V5.
+V1 consolida Evidencias, V2__processing_phase_one.sql incorpora información adicional
+y restricciones de revisión; V5 conserva íntegramente la geografía. No se restauran
+las antiguas V2__incidents.sql/V3 ni se crea V4. Se prueba V5 sobre V1/V2 con datos.
+Para bases con V1/V5 ya aplicadas, Flyway rechaza V2 pendiente por defecto; véase
+el procedimiento excepcional de [ADR-0006](0006-flyway.md#v2-recibida-después-de-v5).
+No se cambia outOfOrder globalmente ni se accede a Neon.
 
 Este ADR pasa de 0015 a 0017 al integrar los ADR-0015 de Evidencias y ADR-0016 de CI.
 

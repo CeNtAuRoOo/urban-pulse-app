@@ -33,6 +33,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapQueryService;
+import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
+import es.grupo18.urbanpulse.processing.dto.InformationResponseRequest;
+import es.grupo18.urbanpulse.processing.dto.ReviewRequest;
+import es.grupo18.urbanpulse.processing.model.ReviewDecision;
+import es.grupo18.urbanpulse.processing.service.ProcessingService;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -71,6 +76,8 @@ class MapPostgresIT {
     @Autowired
     MapQueryService maps;
     @Autowired
+    ProcessingService processing;
+    @Autowired
     JsonMapper json;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}")
     int port;
@@ -82,7 +89,7 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute("truncate attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -113,6 +120,67 @@ class MapPostgresIT {
         assertThat(result.items()).extracting(i -> ((MapFeatureDTO.IncidentFeature) i).incidentId())
                 .containsExactlyInAnyOrder(own, published);
         assertThat(maps.find(operator, 0, CLOSE).totalIncidents()).isEqualTo(5);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "VALIDATE", "REJECT" })
+    void processingInformationCyclesPublishOnlyAfterValidation(String decision) throws Exception {
+        UUID author = account(null), reader = account(null), operator = account("OPERATOR"), admin = account("ADMIN");
+        UUID category = UUID.randomUUID();
+        jdbc.update("insert into categories(id,name) values(?,?)", category, "Map integration " + category);
+        UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
+        var exact = new MapFeatureDTO.Coordinates(36.7213, -4.4214);
+        assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
+        for (long cycle = 0; cycle < 2; cycle++) {
+            var request = new ReviewRequest();
+            request.setDecision(ReviewDecision.REQUEST_INFORMATION);
+            request.setReason("Motivo interno de integración");
+            request.setExpectedIncidentVersion(cycle * 2);
+            processing.review(operator, 0, id, request);
+            var awaiting = new MapQuery(CLOSE.minLat(), CLOSE.minLon(), CLOSE.maxLat(), CLOSE.maxLon(),
+                    CLOSE.zoom(), IncidentStatus.AWAITING_INFORMATION, null);
+            assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
+            for (UUID privileged : List.of(author, operator, admin)) {
+                var marker = (MapFeatureDTO.IncidentFeature) maps.find(privileged, 0, awaiting).items().getFirst();
+                assertThat(marker.coordinates()).isEqualTo(exact);
+                assertThat(marker.coordinatePrecision()).isEqualTo("EXACT");
+                assertThat(marker.canAccessPrivateDetail()).isTrue();
+            }
+            mvc.perform(request(CLOSE).param("status", "AWAITING_INFORMATION")
+                    .header("Authorization", bearer(author))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalIncidents").value(1));
+            processing.respond(author, 0, id,
+                    new InformationResponseRequest("Respuesta privada de integración", cycle * 2 + 1));
+            assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
+            assertThat(((MapFeatureDTO.IncidentFeature) maps.find(author, 0, CLOSE).items().getFirst()).status())
+                    .isEqualTo(IncidentStatus.REPORTED);
+        }
+        var finalReview = new ReviewRequest();
+        finalReview.setDecision(ReviewDecision.valueOf(decision));
+        finalReview.setExpectedIncidentVersion(4L);
+        if (decision.equals("VALIDATE")) finalReview.setCategoryId(category);
+        else finalReview.setReason("Motivo interno de rechazo");
+        processing.review(operator, 0, id, finalReview);
+        assertThat(jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Long.class, id))
+                .isEqualTo(3);
+        assertThat(jdbc.queryForObject("select count(*) from incident_information_responses where incident_id=?",
+                Long.class, id)).isEqualTo(2);
+        var publicResult = maps.find(reader, 0, CLOSE);
+        assertThat(publicResult.totalIncidents()).isEqualTo(decision.equals("VALIDATE") ? 1 : 0);
+        if (decision.equals("VALIDATE")) {
+            var marker = (MapFeatureDTO.IncidentFeature) publicResult.items().getFirst();
+            assertThat(marker.coordinates()).isNotEqualTo(exact);
+            assertThat(marker.coordinatePrecision()).isEqualTo("APPROXIMATE");
+            assertThat(marker.canAccessPrivateDetail()).isFalse();
+            assertThat(maps.find(reader, 0, PROVINCE).items()).containsExactly(marker);
+            assertThat(json.writeValueAsString(publicResult)).doesNotContain("Título privado", "Descripción privada",
+                    "Motivo interno", "Respuesta privada", "reviewedBy", "reporter");
+            for (String suffix : List.of("", "/attachments", "/review-outcome", "/information-responses")) {
+                mvc.perform(get("/api/v1/incidents/" + id + suffix).header("Authorization", bearer(reader)))
+                        .andExpect(status().isNotFound());
+            }
+        }
+        assertThat(maps.find(author, 0, CLOSE).items().getFirst().coordinates()).isEqualTo(exact);
     }
 
     @ParameterizedTest
@@ -354,8 +422,8 @@ class MapPostgresIT {
         UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
         var base = org.flywaydb.core.Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("map_upgrade").defaultSchema("map_upgrade").target("1").load();
-        assertThat(base.migrate().migrationsExecuted).isEqualTo(1);
+                .schemas("map_upgrade").defaultSchema("map_upgrade").target("2").load();
+        assertThat(base.migrate().migrationsExecuted).isEqualTo(2);
         try {
             jdbc.update("insert into map_upgrade.users select * from public.users where id=?", author);
             jdbc.update("insert into map_upgrade.incidents select * from public.incidents where id=?", id);
@@ -365,7 +433,7 @@ class MapPostgresIT {
             assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
             assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
                     + "where success and version is not null order by installed_rank", String.class))
-                    .containsExactly("1", "5");
+                    .containsExactly("1", "2", "5");
             assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
                     .isEqualTo(36.7213);
             assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))
@@ -446,8 +514,8 @@ class MapPostgresIT {
     }
 
     private void validate(UUID id, UUID operator) {
-        jdbc.update("insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at) "
-                + "values(?,?,?,'VALIDATE',now())", UUID.randomUUID(), id, operator);
+        jdbc.update("insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
+                + "values(?,?,?,'VALIDATE',now(),'VALIDATED')", UUID.randomUUID(), id, operator);
     }
 
     private String bearer(UUID id) {

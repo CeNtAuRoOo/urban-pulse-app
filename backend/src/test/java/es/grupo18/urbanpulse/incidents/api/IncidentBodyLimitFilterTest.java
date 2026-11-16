@@ -65,7 +65,7 @@ class IncidentBodyLimitFilterTest {
         for (var request : new MockHttpServletRequest[] {
                 new MockHttpServletRequest("POST", "/api/v1/auth/register"),
                 new MockHttpServletRequest("GET", "/api/v1/incidents"),
-                new MockHttpServletRequest("POST", "/api/v1/incidents/id/reviews"),
+                new MockHttpServletRequest("POST", "/api/v1/incidents/id/attachments"),
                 new MockHttpServletRequest("PATCH", "/api/v1/categories/id") }) {
             request.setContent(new byte[65_537]);
             filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> assertThat(req).isSameAs(request));

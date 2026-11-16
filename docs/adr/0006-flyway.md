@@ -23,22 +23,59 @@ Una migración ya aplicada **no se edita**, ni se repara su checksum para oculta
 
 Solo se siembran los cinco roles legítimos. No se crean usuarios, ADMIN, departamentos ni categorías ficticias. Se conservan UUIDv7, claves naturales/compuestas, fechas timestamptz, auditoría JSONB, índices normalizados y unicidad parcial de pertenencias activas. Las FK históricas no tienen cascadas de borrado.
 
-Las restricciones finales de revisión exigen motivo en REJECT y REQUEST_INFORMATION; VALIDATE lo permite opcional. Los motivos presentes y la justificación de prioridad tienen 3–2000 puntos Unicode normalizados y no blancos. StatusChange conserva null/blancos y límites 2000/5000; las reglas por transición pertenecen al futuro servicio de Tramitación.
+Las restricciones históricas de V1 exigen motivo en REJECT y REQUEST_INFORMATION; V1 permitía motivo opcional en VALIDATE, prohibido para nuevas filas desde V2. Los motivos presentes y la justificación de prioridad tienen 3–2000 puntos Unicode normalizados y no blancos. StatusChange conserva null/blancos y límites 2000/5000; las reglas de revisión pertenecen a ProcessingService; las de ejecución permanecen futuras.
 
 attachments nace con incident_id NOT NULL, autor obligatorio, FK RESTRICT, clave de objeto única, tamaños 1–10485760, JPEG/PNG, nombre saneado y fecha de baja posterior al alta. El índice parcial por incidencia/created_at DESC/id DESC respalda el listado de activas. El límite de cinco se coordina en el servicio mediante bloqueo pesimista del padre.
 
 ## Validación y evolución
 
-El perfil postgres-it aplica V1 y V5 en PostgreSQL 18 efímero con Testcontainers y Hibernate validate, comprueba el historial ordenado de ambas migraciones, inventario, ausencia de semillas, índices, restricciones, relaciones y comportamiento de los módulos. Las pruebas históricas de actualización incremental se sustituyen por verificaciones del esquema final limpio; se conserva la cobertura de filas inválidas. [Comandos y resultados](../development.md#verificación-del-backend).
+El perfil postgres-it aplica V1, V2 y V5 en PostgreSQL 18 efímero con Testcontainers y Hibernate validate, comprueba el historial ordenado de las tres migraciones, inventario, ausencia de semillas, índices, restricciones, relaciones y comportamiento de los módulos. Las pruebas históricas de actualización incremental se sustituyen por verificaciones del esquema final limpio; se conserva la cobertura de filas inválidas. [Comandos y resultados](../development.md#verificación-del-backend).
 
 Las comprobaciones históricas JDBC/HeadBucket de Neon no acreditan aplicación del esquema consolidado. No se han ejecutado migraciones remotas en esta revisión. La CI aislada se incorpora mediante [ADR-0016](0016-ci-postgresql-local.md). Siguen fuera de alcance CD, rol migrador dedicado y políticas operativas de retención y backups.
 
 ## Desarrollo paralelo y CI (14/11/2026)
 
-Cada desarrollador utiliza PostgreSQL 18 en su propio Docker, con persistencia local. Cambiar de rama conserva el mismo volumen y su historial: revisar compatibilidad antes de arrancar y conservar los datos si se necesita una base nueva de prueba. El aislamiento entre compañeros no resuelve colisiones de versiones al integrar. GitHub Actions ejecuta `mvn -B -ntp clean verify -Ppostgres-it`: Surefire y once suites Failsafe con PostgreSQL efímero, independiente de Compose. V1 permanece intacta. La integración de Mapas añade V5 sin modificarla y prueba su aplicación sobre V1 con datos. Evidencias ya está consolidada en V1; no se crea V4. Véase [ADR-0017](0017-mapas-provinciales-privacidad.md).
+Cada desarrollador utiliza PostgreSQL 18 en su propio Docker, con persistencia local. Cambiar de rama conserva el mismo volumen y su historial: revisar compatibilidad antes de arrancar y conservar los datos si se necesita una base nueva de prueba. El aislamiento entre compañeros no resuelve colisiones de versiones al integrar. GitHub Actions ejecuta `mvn -B -ntp clean verify -Ppostgres-it`: Surefire y trece suites Failsafe con PostgreSQL efímero, independiente de Compose. V1 permanece intacta. La secuencia vigente es V1 → V2 → V5. V5 permanece intacta y se prueba sobre V1/V2 con datos. No se crea V4 de Evidencias, ya consolidada en V1. Véase [ADR-0017](0017-mapas-provinciales-privacidad.md).
 
 Coordinar versiones antes de integrar: una colisión V2/V2 solo se resuelve renumerando trabajo aún no publicado ni aplicado en bases compartidas y verificando el orden conjunto desde cero. Si una versión ya se aplicó en una base compartida, es inmutable: revisar los historiales y diseñar una reconciliación compatible con respaldo. No editar el historial, activar outOfOrder ni utilizar repair para ocultar conflictos. [Procedimiento completo y ciclo de vida](../development.md#3-ramas-y-migraciones-concurrentes).
 
 ## Antecedentes
 
 Las entregas anteriores construyeron migraciones separadas para identidad/catálogos, Incidencias, restricciones correctivas y evidencias. Las consolidaciones previas de 02–03/11/2026 eliminaron semillas ficticias. La decisión de 11/11/2026 sustituye esa cadena antes de su primera aplicación y conserva las restricciones finales, no el mecanismo incremental histórico.
+
+## Evolución V2 (15/11/2026)
+
+V1 permanece intacta. V2\_\_processing_phase_one.sql incorpora estado de espera, snapshot de revisión y respuestas con FK compuesta/unicidad. Las filas históricas conservan snapshot desconocido (null); un CHECK NOT VALID exige valores coherentes en nuevas escrituras sin inventar historia ni eliminar motivos anteriores. ProcessingMigrationPostgresIT verifica V1 poblada con revisión y foto; las integraciones Spring verifican V1→V2→V5 y Hibernate validate. No se aplican migraciones remotas ni repair.
+
+## V2 recibida después de V5
+
+La secuencia nueva desde vacío es V1 → V2 → V5. Una base de la rama anterior puede
+contener únicamente V1 → V5: V2 es una migración resuelta pero no aplicada inferior
+a la versión actual. Con los valores por defecto, la validación y el arranque de
+Flyway fallan; no se instala V2 automáticamente. No se debe arrancar la nueva
+aplicación ignorando la validación: Hibernate y Tramitación necesitan el esquema V2.
+
+- Para desarrollo desechable, crear una base local nueva y ejecutar la cadena
+  completa; conservar la anterior si contiene datos necesarios. No borrar volúmenes
+  compartidos ni suponer que cualquier base local es desechable.
+- Para conservar datos de una base con **exactamente esta V1 consolidada y esta V5**,
+  revisar historial/checksums y probar primero una copia aislada con respaldo
+  recuperable. V2 no cambia coordenadas, funciones o índices geográficos; amplía
+  estados y revisiones y crea respuestas. La prueba de integración ensaya una
+  ejecución administrativa puntual de Flyway con `outOfOrder(true)` exclusivamente
+  en Testcontainers. Conserva incidencias, revisiones históricas, metadatos de fotos,
+  puntos públicos y checksums V1/V5. El historial instalado queda V1 → V5 → V2;
+  el número mayor no sustituye a la comprobación de las tres versiones aplicadas.
+- Cualquier aplicación a una base con datos conservables exige un procedimiento
+  operativo separado: detener escritores, respaldo y restauración ensayada, artefacto
+  revisado con solo las migraciones esperadas, ejecución única con esa opción local,
+  comprobar historial/checksums/datos/privacidad y volver a validar con los valores
+  por defecto antes de arrancar. No se añade la opción a Spring, Compose, CI, variables
+  permanentes o configuración global. En esta integración no se ejecuta ese proceso
+  sobre bases reales; únicamente se prueba el comportamiento en un contenedor.
+
+No se usa `repair`, no se edita el historial ni se renumera o modifica una migración
+aplicada. Un historial con las antiguas V2__incidents.sql/V3, V1 distinta o cualquier
+otra divergencia queda fuera de este procedimiento y requiere su propia transición.
+La prueba `ProcessingMigrationPostgresIT` verifica tanto el rechazo por defecto
+como el ensayo puntual y la validación posterior sin outOfOrder.

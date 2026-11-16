@@ -45,17 +45,17 @@ import es.grupo18.urbanpulse.incidents.dto.IncidentDTO;
 import es.grupo18.urbanpulse.incidents.dto.UpdateIncidentRequest;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 import es.grupo18.urbanpulse.incidents.model.IncidentPriority;
-import es.grupo18.urbanpulse.incidents.model.IncidentReview;
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
-import es.grupo18.urbanpulse.incidents.model.PriorityDecision;
-import es.grupo18.urbanpulse.incidents.model.PrioritySource;
-import es.grupo18.urbanpulse.incidents.model.ReviewDecision;
-import es.grupo18.urbanpulse.incidents.model.StatusChange;
 import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
-import es.grupo18.urbanpulse.incidents.repository.IncidentReviewRepository;
-import es.grupo18.urbanpulse.incidents.repository.PriorityDecisionRepository;
-import es.grupo18.urbanpulse.incidents.repository.StatusChangeRepository;
 import es.grupo18.urbanpulse.incidents.service.IncidentService;
+import es.grupo18.urbanpulse.processing.model.IncidentReview;
+import es.grupo18.urbanpulse.processing.model.PriorityDecision;
+import es.grupo18.urbanpulse.processing.model.PrioritySource;
+import es.grupo18.urbanpulse.processing.model.ReviewDecision;
+import es.grupo18.urbanpulse.processing.model.StatusChange;
+import es.grupo18.urbanpulse.processing.repository.IncidentReviewRepository;
+import es.grupo18.urbanpulse.processing.repository.PriorityDecisionRepository;
+import es.grupo18.urbanpulse.processing.repository.StatusChangeRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 
@@ -134,7 +134,7 @@ class IncidentPostgresIT {
         when(clock.instant()).thenReturn(Instant.now());
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
         jdbc.execute(
-                "truncate attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+                "truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -273,7 +273,7 @@ class IncidentPostgresIT {
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "5");
+                .containsExactly("1", "2", "5");
     }
 
     @Test
@@ -483,6 +483,97 @@ class IncidentPostgresIT {
         assertThat(List.of(page.data().getFirst().id(), next.data().getFirst().id())).containsExactlyElementsOf(ids);
     }
 
+    /**
+     * PATCH municipal conserva auditoría real y oculta al empleado incluso tras
+     * cambios de cuenta.
+     */
+    @Test
+    void municipalCorrectionsNeverExposeEmployeeInPublicHistory() throws Exception {
+        for (String role : List.of("OPERATOR", "ADMIN")) {
+            var owner = account(null);
+            var employee = account(role);
+            String employeeName = "Empleado " + role;
+            String renamed = "Nombre posterior " + role;
+            jdbc.update("update users set display_name=? where id=?", employeeName, employee.user().id());
+            var incident = create(owner);
+            String path = URL + "/" + incident.id();
+            String beforeTag = tag(employee, incident.id());
+            mvc.perform(patch(path).header("Authorization", bearer(employee)).header("If-Match", beforeTag)
+                    .contentType(APPLICATION_JSON).content("{\"title\":\"Corrección municipal\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+            mvc.perform(patch(path).header("Authorization", bearer(employee)).header("If-Match", beforeTag)
+                    .contentType(APPLICATION_JSON).content("{\"title\":\"Intento obsoleto\"}"))
+                    .andExpect(status().isPreconditionFailed());
+            assertThat(jdbc.queryForObject("select actor_user_id from audit_events where resource_id=? "
+                    + "and action='INCIDENT_UPDATED'", UUID.class, incident.id().toString()))
+                    .isEqualTo(employee.user().id());
+            for (boolean changed : List.of(false, true)) {
+                if (changed) {
+                    jdbc.update("update users set active=false,display_name=? where id=?", renamed,
+                            employee.user().id());
+                    jdbc.update("delete from user_roles where user_id=? and role_code=?", employee.user().id(), role);
+                }
+                var response = mvc.perform(get(path + "/history").header("Authorization", bearer(owner)))
+                        .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.data[0].actor.id").value(owner.user().id().toString()))
+                        .andExpect(jsonPath("$.data[1].eventType").value("UPDATED"))
+                        .andExpect(jsonPath("$.data[1].details.version").value("1"))
+                        .andReturn().getResponse();
+                assertThat(json.readTree(response.getContentAsString()).get("data").get(1).has("actor")).isFalse();
+                assertThat(response.getContentAsString()).doesNotContain(employee.user().id().toString(), employeeName,
+                        renamed);
+            }
+            mvc.perform(patch(path).header("Authorization", bearer(owner)).header("If-Match", tag(owner, incident.id()))
+                    .contentType(APPLICATION_JSON).content("{\"title\":\"Corrección del informante\"}"))
+                    .andExpect(status().isOk());
+            var own = mvc.perform(get(path + "/history?page=3&pageSize=1").header("Authorization", bearer(owner)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.pagination.totalItems").value(3))
+                    .andExpect(jsonPath("$.data[0].eventType").value("UPDATED"))
+                    .andExpect(jsonPath("$.data[0].actor.id").value(owner.user().id().toString()))
+                    .andExpect(jsonPath("$.data[0].details.version").value("2"))
+                    .andReturn().getResponse();
+            assertThat(Instant.parse(json.readTree(own.getContentAsString()).get("data").get(0)
+                    .get("occurredAt").asString()))
+                    .isEqualTo(service.get(owner.user().id(), 0, incident.id()).updatedAt());
+            var stranger = account(null);
+            for (UUID hidden : List.of(incident.id(), UUID.randomUUID())) {
+                mvc.perform(get(URL + "/" + hidden + "/history").header("Authorization", bearer(stranger)))
+                        .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("INCIDENT_NOT_FOUND"));
+            }
+        }
+    }
+
+    /**
+     * La proyección no consulta permisos ni carga al informante por cada fila de la
+     * página.
+     */
+    @Test
+    void publicHistoryQueryCountDoesNotGrowWithDistinctEmployeeActors() {
+        var owner = account(null);
+        var incident = create(owner);
+        for (int i = 0; i < 10; i++) {
+            var employee = account("OPERATOR");
+            new TransactionTemplate(transactions).executeWithoutResult(tx -> audit.saveAndFlush(new AuditEvent(
+                    em.getReference(User.class, employee.user().id()), "INCIDENT_UPDATED", "INCIDENT",
+                    incident.id().toString(), Map.of("version", "1"), incident.createdAt())));
+        }
+        var statistics = em.getEntityManagerFactory().unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        try {
+            statistics.clear();
+            assertThat(service.history(owner.user().id(), 0, incident.id(), 1, 1).data()).hasSize(1);
+            long single = statistics.getPrepareStatementCount();
+            statistics.clear();
+            var page = service.history(owner.user().id(), 0, incident.id(), 1, 10);
+            assertThat(page.data()).hasSize(10);
+            assertThat(page.pagination().totalItems()).isEqualTo(11);
+            assertThat(page.data().subList(1, 10)).allSatisfy(event -> assertThat(event.actor()).isNull());
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(single).isLessThanOrEqualTo(5);
+        } finally {
+            statistics.setStatisticsEnabled(false);
+        }
+    }
+
     @Test
     void auditFailureRollsBackCreateAndPatch() {
         var owner = account(null);
@@ -573,12 +664,12 @@ class IncidentPostgresIT {
     }
 
     @Test
-    void consolidatedSchemaAndMapsMigrationIndexFinalStructures() {
+    void schemaRecordsV1V2V5AndIndexesFinalStructures() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "5");
+                String.class)).containsExactly("1", "2", "5");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
-                .isEqualTo(14);
+                .isEqualTo(15);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
                         "attachments_incident_active_idx");
@@ -588,23 +679,25 @@ class IncidentPostgresIT {
     void reviewSqlEnforcesDecisionReasonsAndUnicodeBoundaries() {
         var owner = account(null);
         UUID id = create(owner).id();
-        String sql = "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reason,reviewed_at) "
-                + "values(uuidv7(),?,?,?,?,now())";
-        for (String decision : List.of("VALIDATE", "REJECT", "REQUEST_INFORMATION")) {
+        String sql = "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reason,reviewed_at,resulting_status) "
+                + "values(uuidv7(),?,?,?,?,now(),case ? when 'VALIDATE' then 'VALIDATED' when 'REJECT' then 'REJECTED' else 'AWAITING_INFORMATION' end)";
+        for (String decision : List.of("REJECT", "REQUEST_INFORMATION")) {
             for (String reason : List.of("abc", "🚦".repeat(2000))) {
-                assertThat(jdbc.update(sql, id, owner.user().id(), decision, reason)).isEqualTo(1);
+                assertThat(jdbc.update(sql, id, owner.user().id(), decision, reason, decision)).isEqualTo(1);
             }
             for (String reason : List.of("ab", " ", "\u2003".repeat(3), " abc", "abc\t", "🚦".repeat(2001))) {
-                assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, reason))
+                assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, reason, decision))
                         .isInstanceOf(DataIntegrityViolationException.class);
             }
         }
-        assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null)).isEqualTo(1);
+        assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null, "VALIDATE")).isEqualTo(1);
+        assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), "VALIDATE", "motivo", "VALIDATE"))
+                .isInstanceOf(DataIntegrityViolationException.class);
         for (String decision : List.of("REJECT", "REQUEST_INFORMATION")) {
-            assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, null))
+            assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, null, decision))
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
-        assertThatThrownBy(() -> jdbc.update(sql, id, null, "VALIDATE", null))
+        assertThatThrownBy(() -> jdbc.update(sql, id, null, "VALIDATE", null, "VALIDATE"))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

@@ -165,10 +165,10 @@ Rutas relativas a la raíz del repositorio:
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPerformancePostgresIT.java`         | Regresión costera y comparación de planes con 1.000, 10.000 y 50.000 incidencias |
 | `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                               | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
 | `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                      |
-| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar V1 consolidada y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar V1 consolidada y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar V1 consolidada y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar V1 consolidada y V5                               |
+| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar V1 consolidada, V2 de Tramitación y V5                               |
 | `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Verificar esquema final consolidado, índices e invariantes         |
 | `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.7.0                                                          |
 | `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                |
@@ -276,9 +276,9 @@ Los planes completos, incluidos BUFFERS, y los JSON de tiempos se conservan en
 de Mapas queda separada en `backend/target/maps-fix-verification`. Son artefactos
 locales ignorados por Git y se regeneran con la prueba de rendimiento.
 
-## Integración con main (16/11/2026)
+## Integración anterior de Evidencias y CI (16/11/2026)
 
-La base vigente combina V1 consolidada (incluidas Evidencias) con V5 de Mapas
+La integración anterior combinó V1 consolidada (incluidas Evidencias) con V5 de Mapas
 sin cambios. Las pruebas de Mapas limpian attachments junto con incidents y la
 prueba de construcción de índices parte de V1 con datos. ADR-0017 sustituye la
 numeración anterior de este módulo; ADR-0015 corresponde a Evidencias y ADR-0016 a CI.
@@ -292,6 +292,41 @@ SQL pasa de 6.826,626 ms con el SQL anterior a 11,264 ms con la consulta por cel
 sobre el esquema integrado. Los escenarios mixtos de 10.000 y 50.000 también pasan.
 Estas mediciones no sustituyen las de la corrección P1 fechadas arriba.
 
+## Compatibilidad con Tramitación fase 1
+
+V2 incorpora AWAITING_INFORMATION y exige resulting_status en revisiones nuevas.
+Mapas acepta el estado mediante el enum compartido, sin añadir rutas ni cambiar DTO.
+REPORTED, AWAITING_INFORMATION y REJECTED propios siguen visibles con precisión
+exacta; para terceros la publicación exige un VALIDATE histórico. REQUEST_INFORMATION,
+las respuestas del informante y REJECT no publican. Dos ciclos de solicitud/respuesta
+seguidos de VALIDATE generan un solo marcador aproximado, sin multiplicar el conteo.
+Las revisiones V1 con resulting_status desconocido conservan su valor histórico y
+la visibilidad por VALIDATE: el snapshot nuevo no se usa como criterio de publicación.
+
+OPERATOR/ADMIN global mantienen coordenadas exactas. Los demás permisos no se amplían.
+Que una incidencia aparezca en Mapas no permite acceder a su detalle privado,
+attachments, review-outcome ni information-responses. Los títulos siguen siendo
+etiquetas genéricas: esta fase de Tramitación aún no proporciona título aprobado.
+No se publica título original, motivo, mensaje ni identidad municipal en Mapas.
+Evidencias conserva la nueva regla de main: altas/bajas solo en REPORTED o
+AWAITING_INFORMATION y lecturas autorizadas también después de validar/rechazar.
+
+La secuencia desde vacío es V1 → V2 → V5, con las tres migraciones intactas. V5 se
+prueba sobre V1/V2 con datos; para una base anterior V1/V5 véase el procedimiento de
+[ADR-0006](adr/0006-flyway.md#v2-recibida-después-de-v5). No se activa outOfOrder global.
+
+### Verificación conjunta del 16/11/2026
+
+`mvn -B -ntp clean verify -Ppostgres-it`: **351 pruebas correctas**, 187 unitarias/MVC
+y 164 PostgreSQL, sin fallos, errores ni omisiones. Mapas conserva sus 12 unitarias,
+18 IT previas y 4 de rendimiento; añade 2 casos de integración con ciclos reales de
+Tramitación. Las 19 IT de Evidencias y las 21 de Tramitación/migraciones pasan juntas.
+La prueba de V2 tardía verifica rechazo por defecto y un ensayo explícito en una
+base desechable, sin cambiar configuración global ni checksums. Los logs, planes
+ y respuestas están en `backend/target/maps-processing-merge-verification`.
+Las mediciones se ejecutaron junto con comprobaciones frontend; sirven de regresión,
+no de comparación controlada con los tiempos de P1 anteriores. El timeout sigue en 5 s.
+
 ## Límites operativos pendientes
 
 Esta integración no se ha desplegado a Neon ni publicado en GitHub. Las mediciones
@@ -299,8 +334,8 @@ sintéticas no sustituyen una evaluación de carga concurrente representativa de
 producción. Contorno detallado, índices y ajuste costero añaden coste de escritura;
 esta optimización solo reduce cálculos durante la lectura. La cuota es local por instancia. Actualizar el contorno
 requiere nueva migración/funciones/índices, nunca modificar las funciones constantes
-ya utilizadas por índices. Tras integrar main, Evidencias está en la V1 consolidada
-y Mapas conserva V5 intacta. La secuencia desde cero es V1 → V5; no se restaura
-V2/V3 ni se inventa V4. Un historial anterior necesita una transición revisada,
+ya utilizadas por índices. Tras integrar Tramitación, la secuencia desde cero es V1 → V2 → V5.
+Evidencias está en V1; la V2 nueva es processing_phase_one, no la antigua de Incidencias.
+V5 permanece intacta y no se inventa V4. Un historial anterior necesita una transición revisada,
 no repair ni outOfOrder para ocultar diferencias. Las estimaciones de cardinalidad
 (P2) quedan fuera de esta integración.

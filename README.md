@@ -1,26 +1,26 @@
 # UrbanPulse
 
-**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección e historial y Evidencias cinco rutas privadas JPEG/PNG; Mapas consulta la provincia de Málaga con privacidad y agrupaciones; la tramitación operativa y las integraciones siguen en diseño.
+**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección e historial y Evidencias cinco rutas privadas JPEG/PNG; Mapas consulta la provincia con privacidad y agrupaciones; revisión, información adicional y prioridad manual están implementadas; derivación e integraciones siguen en diseño.
 
 ## Estado del proyecto (16/11/2026)
 
-| Área                 | Estado                                                                                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                               |
-| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                             |
-| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `maps`, `audit` y `shared`.                                |
-| Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                             |
-| Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                     |
-| Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                   |
-| Departamentos        | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                     |
-| Categorías           | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                       |
-| PostgreSQL           | V1 consolidada, 14 tablas de dominio y V5 geográfica; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
-| Object Storage       | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; fotografías privadas JPEG/PNG implementadas con cinco rutas, 10 MiB y máximo cinco activas por incidencia.                          |
-| Incidencias          | Seis endpoints backend con auditoría, titularidad y concurrencia optimista; Tramitación, equipos y analítica siguen en diseño.                                                                     |
+| Área                 | Estado                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                                           |
+| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                                         |
+| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `audit` y `shared`.                              |
+| Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                                         |
+| Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                                 |
+| Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                               |
+| Departamentos        | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                                 |
+| Categorías           | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                                   |
+| PostgreSQL           | V1 consolidada, V2 de Tramitación y V5 geográfica, 15 tablas de dominio; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
+| Object Storage       | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; fotografías privadas JPEG/PNG implementadas con cinco rutas, 10 MiB y máximo cinco activas por incidencia.                                      |
+| Incidencias          | Seis endpoints backend con auditoría, titularidad y concurrencia optimista; Tramitación fase 1 operativa; equipos y analítica siguen en diseño.                                                                |
+| CI / despliegue      | GitHub Actions verifica backend, frontend, OpenAPI y Compose. CD y despliegue productivo pendientes.                                                                                                           |
 | Mapas                | Consulta provincial con permisos vigentes, ubicaciones públicas aproximadas, filtros y clústeres por zoom; visor pendiente. |
-| CI / despliegue      | GitHub Actions verifica backend, frontend, OpenAPI y Compose. CD y despliegue productivo pendientes.                                                                                               |
 
-Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas históricas; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
+Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas regeneradas manualmente por el usuario; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
 
 ## Tecnologías
 
@@ -64,7 +64,7 @@ Frontend web: <http://localhost:8888>; backend: <http://localhost:8080>; Mailpit
 
 ## API REST disponible
 
-La fuente editable es el [OpenAPI modular 0.7.0](docs/api/openapi/base-openapi.yaml), con [bundle YAML](docs/api/openapi.yaml) y [HTML](docs/api/openapi.html) regenerados mediante Redocly. El prefijo de las rutas es `/api/v1`.
+La fuente editable es el [OpenAPI modular 0.8.0](docs/api/openapi/base-openapi.yaml), con [bundle YAML](docs/api/openapi.yaml) y [HTML](docs/api/openapi.html) regenerados mediante Redocly. El prefijo de las rutas es `/api/v1`.
 
 Autenticación implementa cinco POST:
 
@@ -131,3 +131,5 @@ Para modificar un tag, mantener coherentes OpenAPI, dominio, diagramas, migracio
 ## Licencia
 
 La licencia de distribución está pendiente de decisión; no inferir una licencia solo por el carácter público del repositorio.
+
+Tramitación añade diez operaciones backend de revisión, información adicional y prioridad MANUAL. Véanse [contrato REST](docs/api/README.md#api-de-tramitación-implementada-080) y [reglas de primera fase](docs/incidents-implementation-roadmap.md#tramitación-primera-fase-15112026). No incluye UI ni notificaciones. Las fotos solo admiten altas/bajas antes de validación o rechazo; lecturas autorizadas en todos los estados.

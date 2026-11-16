@@ -106,6 +106,8 @@ class AttachmentServicePostgresIT {
     @Autowired
     IncidentService incidents;
     @Autowired
+    es.grupo18.urbanpulse.processing.service.ProcessingService processing;
+    @Autowired
     AuthService auth;
     @Autowired
     es.grupo18.urbanpulse.auth.service.EmailVerificationCleanup cleanup;
@@ -130,8 +132,9 @@ class AttachmentServicePostgresIT {
 
     @BeforeEach
     void isolate() throws Exception {
-        jdbc.execute("truncate attachments,status_changes,incident_reviews,priority_decisions,incidents,audit_events,"
-                + "staff_invitations,department_memberships,email_verifications,user_roles,users,categories,departments");
+        jdbc.execute(
+                "truncate incident_information_responses, attachments,status_changes,incident_reviews,priority_decisions,incidents,audit_events,"
+                        + "staff_invitations,department_memberships,email_verifications,user_roles,users,categories,departments");
         objects.clear();
         jpeg = image("jpeg");
         doAnswer(i -> {
@@ -277,13 +280,28 @@ class AttachmentServicePostgresIT {
     }
 
     @Test
-    void allExistingIncidentStatesAllowUploadAndDeleteWithoutChangingState() throws Exception {
+    void writesOnlyBeforeDecisionButReadsRemainAvailableInEveryState() throws Exception {
         for (IncidentStatus state : IncidentStatus.values()) {
-            jdbc.update("update incidents set status=? where id=?", state.name(), incident);
+            jdbc.update("update incidents set status='REPORTED' where id=?", incident);
             var dto = upload(owner);
-            service.deleteAttachment(owner.user().id(), 0, incident, dto.id());
+            jdbc.update("update incidents set status=? where id=?", state.name(), incident);
+            assertThat(service.getAttachment(owner.user().id(), 0, incident, dto.id()).id()).isEqualTo(dto.id());
+            assertThat(service.getAttachments(owner.user().id(), 0, incident)).hasSize(1);
+            assertThat(service.getAttachmentContent(owner.user().id(), 0, incident, dto.id())).isNotNull();
+            if (state == IncidentStatus.REPORTED || state == IncidentStatus.AWAITING_INFORMATION) {
+                service.deleteAttachment(owner.user().id(), 0, incident, dto.id());
+                var extra = upload(owner);
+                service.deleteAttachment(owner.user().id(), 0, incident, extra.id());
+            } else {
+                assertStatus(() -> upload(owner), 409);
+                assertStatus(() -> service.deleteAttachment(owner.user().id(), 0, incident, dto.id()), 409);
+            }
             assertThat(jdbc.queryForObject("select status from incidents where id=?", String.class, incident))
                     .isEqualTo(state.name());
+            assertThat(jdbc.queryForObject("select version from incidents where id=?", Long.class, incident)).isZero();
+            jdbc.update("update incidents set status='REPORTED' where id=?", incident);
+            if (state != IncidentStatus.REPORTED && state != IncidentStatus.AWAITING_INFORMATION)
+                service.deleteAttachment(owner.user().id(), 0, incident, dto.id());
         }
     }
 
@@ -355,7 +373,7 @@ class AttachmentServicePostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from incidents where id=?", incident))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-                .containsExactly("1", "5");
+                .containsExactly("1", "2", "5");
         assertThat(jdbc.queryForObject("select incident_id from attachments where id=?", UUID.class, dto.id()))
                 .isEqualTo(incident);
     }
@@ -418,6 +436,35 @@ class AttachmentServicePostgresIT {
         assertStatus(() -> upload(owner), 401);
         assertThat(objects).isEmpty();
         assertThat(count()).isZero();
+    }
+
+    @Test
+    void reviewDuringObjectUploadFreezesMetadataAndCompensatesRemoteObject() throws Exception {
+        var operator = account("OPERATOR");
+        UUID category = UUID.randomUUID();
+        jdbc.update("insert into categories(id,name,active) values(?,?,true)",
+                category, "Categoría " + category);
+        for (var decision : List.of(es.grupo18.urbanpulse.processing.model.ReviewDecision.VALIDATE,
+                es.grupo18.urbanpulse.processing.model.ReviewDecision.REJECT)) {
+            incident = createIncident(owner);
+            doAnswer(i -> {
+                objects.put(i.getArgument(0), i.getArgument(1));
+                var request = new es.grupo18.urbanpulse.processing.dto.ReviewRequest();
+                request.setDecision(decision);
+                request.setExpectedIncidentVersion(0L);
+                if (decision == es.grupo18.urbanpulse.processing.model.ReviewDecision.VALIDATE)
+                    request.setCategoryId(category);
+                else
+                    request.setReason("No procede");
+                processing.review(operator.user().id(), 0, incident, request);
+                return null;
+            }).when(storage).upload(anyString(), any(byte[].class), anyString());
+            assertStatus(() -> upload(owner), 409);
+            assertThat(objects).isEmpty();
+            assertThat(count()).isZero();
+            assertThat(jdbc.queryForObject("select version from incidents where id=?", Long.class, incident))
+                    .isEqualTo(1);
+        }
     }
 
     @Test
@@ -512,6 +559,75 @@ class AttachmentServicePostgresIT {
         cleanup.clean();
         assertThat(jdbc.queryForObject("select count(*) from users where id=?", Integer.class, operator.user().id()))
                 .isEqualTo(1);
+    }
+
+    /**
+     * La identidad municipal no sale por alta, listado o detalle; permanece en SQL
+     * y auditoría.
+     */
+    @Test
+    void municipalUploadHidesUploaderButPreservesInternalAttribution() throws Exception {
+        for (String role : List.of("OPERATOR", "ADMIN")) {
+            var employee = account(role);
+            String name = "Empleado de fotografías " + role;
+            jdbc.update("update users set display_name=? where id=?", name, employee.user().id());
+            var response = mvc.perform(multipart(path()).file(file("municipal.jpg", "image/jpeg", jpeg))
+                    .header("Authorization", bearer(employee))).andExpect(status().isCreated())
+                    .andExpect(header().string("Cache-Control", "no-store")).andReturn().getResponse();
+            var node = json.readTree(response.getContentAsString());
+            assertThat(node.has("uploadedBy")).isTrue();
+            assertThat(node.get("uploadedBy").isNull()).isTrue();
+            assertThat(response.getContentAsString()).doesNotContain(employee.user().id().toString(), name);
+            UUID attachmentId = UUID.fromString(node.get("id").asString());
+            assertThat(jdbc.queryForObject("select uploaded_by from attachments where id=?", UUID.class, attachmentId))
+                    .isEqualTo(employee.user().id());
+            assertThat(jdbc.queryForObject("select actor_user_id from audit_events where resource_id=? "
+                    + "and action='ATTACHMENT_CREATED'", UUID.class, attachmentId.toString()))
+                    .isEqualTo(employee.user().id());
+            jdbc.update("update users set active=false,display_name=? where id=?", "Nombre cambiado",
+                    employee.user().id());
+            jdbc.update("delete from user_roles where user_id=? and role_code=?", employee.user().id(), role);
+            for (String url : List.of(path(), response.getHeader("Location"))) {
+                String body = mvc.perform(get(url).header("Authorization", bearer(owner)))
+                        .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn().getResponse().getContentAsString();
+                assertThat(body).doesNotContain(employee.user().id().toString(), name, "Nombre cambiado");
+            }
+            assertThat(service.getAttachment(owner.user().id(), 0, incident, attachmentId).uploadedBy()).isNull();
+        }
+        var own = upload(owner);
+        assertThat(own.uploadedBy()).isEqualTo(owner.user().id());
+        assertThat(service.getAttachments(owner.user().id(), 0, incident)).hasSize(3);
+    }
+
+    /**
+     * Documenta que la versión del reporte no representa el conjunto de fotografías
+     * consultado.
+     */
+    @Test
+    void evidenceChangesAfterOperatorReadDoNotInvalidateExpectedIncidentVersion() throws Exception {
+        var operator = account("OPERATOR");
+        var original = upload(owner);
+        var snapshot = incidents.get(operator.user().id(), 0, incident);
+        assertThat(service.getAttachments(operator.user().id(), 0, incident))
+                .singleElement()
+                .satisfies(a -> assertThat(a.id()).isEqualTo(original.id()));
+        service.deleteAttachment(owner.user().id(), 0, incident, original.id());
+        var replacement = upload(owner);
+        assertThat(incidents.get(operator.user().id(), 0, incident).version()).isEqualTo(snapshot.version());
+        UUID category = UUID.randomUUID();
+        jdbc.update("insert into categories(id,name,active) values(?,?,true)", category, "Categoría " + category);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                "/api/v1/incidents/" + incident + "/reviews").header("Authorization", bearer(operator))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"decision\":\"VALIDATE\",\"categoryId\":\"" + category
+                        + "\",\"expectedIncidentVersion\":" + snapshot.version() + "}"))
+                .andExpect(status().isCreated());
+        assertThat(service.getAttachments(owner.user().id(), 0, incident))
+                .singleElement()
+                .satisfies(a -> assertThat(a.id()).isEqualTo(replacement.id()));
+        assertThat(incidents.get(owner.user().id(), 0, incident).version()).isEqualTo(snapshot.version() + 1);
+        assertStatus(() -> service.deleteAttachment(owner.user().id(), 0, incident, replacement.id()), 409);
     }
 
     private AttachmentDTO upload(TokenDTO actor) {

@@ -77,7 +77,7 @@ class MapPerformancePostgresIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.execute("truncate attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
         reader = account(false);
         owner = account(false);
         operator = account(true);
@@ -114,8 +114,8 @@ class MapPerformancePostgresIT {
                 FROM generate_series(1,1000) g
                 """, owner, lat, number(coast, "alt_lat"), lon, number(coast, "alt_lon"), category);
         jdbc.update("""
-                INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at)
-                SELECT gen_random_uuid(),id,?,'VALIDATE',now() FROM incidents
+                INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status)
+                SELECT gen_random_uuid(),id,?,'VALIDATE',now(),'VALIDATED' FROM incidents
                 """, operator);
         analyze();
 
@@ -181,8 +181,8 @@ class MapPerformancePostgresIT {
                     CASE WHEN g%10=1 THEN ?::uuid ELSE NULL END,now(),now() FROM diagnostic_seed
                 """, reader, owner, category);
         jdbc.update("""
-                INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at)
-                SELECT gen_random_uuid(),id,?,'VALIDATE',now() FROM diagnostic_seed WHERE g%3<>0
+                INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status)
+                SELECT gen_random_uuid(),id,?,'VALIDATE',now(),'VALIDATED' FROM diagnostic_seed WHERE g%3<>0
                 """, operator);
         analyze();
         assertThat(maps.find(reader, 0, PROVINCE).totalIncidents()).isEqualTo(size * 66L / 100);
@@ -295,8 +295,8 @@ class MapPerformancePostgresIT {
                 INSERT INTO incidents(id,reporter_user_id,title,description,latitude,longitude,status,created_at,updated_at)
                 VALUES(?,?,'PRIVATE TITLE','PRIVATE DESCRIPTION',?,?,?,now(),now())
                 """, id, reporter, lat, lon, state);
-        if (validated) jdbc.update("INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at) "
-                + "VALUES(?,?,?,'VALIDATE',now())", UUID.randomUUID(), id, operator);
+        if (validated) jdbc.update("INSERT INTO incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
+                + "VALUES(?,?,?,'VALIDATE',now(),'VALIDATED')", UUID.randomUUID(), id, operator);
         return id;
     }
 

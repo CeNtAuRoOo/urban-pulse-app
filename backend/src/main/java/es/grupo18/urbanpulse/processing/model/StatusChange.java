@@ -1,4 +1,4 @@
-package es.grupo18.urbanpulse.incidents.model;
+package es.grupo18.urbanpulse.processing.model;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -22,44 +22,54 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
 import es.grupo18.urbanpulse.identity.model.User;
+import es.grupo18.urbanpulse.incidents.model.Incident;
+import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 
 /**
- * Persistencia de transiciones futuras. No representa el alta ni ejecuta una
- * transición.
+ * Historial de transiciones efectivas. No representa el alta; el servicio
+ * coordina el agregado.
  */
 @Entity
 @Table(name = "status_changes")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StatusChange {
+    /** Identificador histórico UUIDv7. */
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
+    /** Incidencia a la que pertenece el registro. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(nullable = false)
     private Incident incident;
+    /** Estado anterior a la transición. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private IncidentStatus fromStatus;
+    /** Estado resultante distinto del anterior. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private IncidentStatus toStatus;
+    /** Actor real; nullable para procesos futuros de sistema. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "changed_by_user_id")
     private User changedBy;
+    /** Motivo de la transición; el servicio determina cuándo es obligatorio. */
     @Column(length = 2000)
     private String reason;
+    /** Notas reservadas para la resolución futura; máximo 5000 puntos Unicode. */
     @Column(length = 5000)
     private String resolutionNotes;
+    /** Instante UTC de la transición. */
     @Column(nullable = false)
     private Instant changedAt;
 
     /**
-     * Registra datos ya autorizados por la futura tramitación; no modifica
+     * Registra datos ya autorizados por Tramitación; no modifica
      * Incident. Los textos opcionales conservan blancos y formato; exigir motivos
-     * según transición corresponde al futuro servicio de Tramitación.
-     * 
+     * según transición corresponde al servicio de Tramitación.
+     *
      * @param incident        incidencia existente
      * @param fromStatus      estado anterior obligatorio; CLOSED es terminal
      * @param toStatus        estado posterior distinto
@@ -67,9 +77,14 @@ public class StatusChange {
      * @param reason          motivo opcional, máximo 2000 puntos Unicode
      * @param resolutionNotes detalle opcional, máximo 5000 puntos Unicode
      * @param changedAt       instante de transición
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException texto no representable o demasiado largo (422)
-     * @throws NullPointerException referencia, estado o fecha obligatoria ausente
-     * @throws IllegalArgumentException si no existe cambio o el origen es terminal
+     * @throws es.grupo18.urbanpulse.shared.error.ApiException texto no
+     *                                                         representable o
+     *                                                         demasiado largo (422)
+     * @throws NullPointerException                            referencia, estado o
+     *                                                         fecha obligatoria
+     *                                                         ausente
+     * @throws IllegalArgumentException                        si no existe cambio o
+     *                                                         el origen es terminal
      */
     public StatusChange(Incident incident, IncidentStatus fromStatus, IncidentStatus toStatus, User changedBy,
             String reason, String resolutionNotes, Instant changedAt) {
@@ -89,9 +104,12 @@ public class StatusChange {
      * Conserva el texto opcional, comprobando capacidad SQL y representación UTF-8.
      *
      * @param value texto original, incluido null o blanco
-     * @param max máximo de puntos Unicode
+     * @param max   máximo de puntos Unicode
      * @return el mismo valor si puede persistirse
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si supera el límite o contiene NUL/sustitutos aislados
+     * @throws es.grupo18.urbanpulse.shared.error.ApiException si supera el límite o
+     *                                                         contiene
+     *                                                         NUL/sustitutos
+     *                                                         aislados
      */
     private static String optionalText(String value, int max) {
         if (value != null && (value.codePointCount(0, value.length()) > max

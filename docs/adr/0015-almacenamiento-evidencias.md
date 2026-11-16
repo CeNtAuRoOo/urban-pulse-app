@@ -12,11 +12,11 @@ Una incidencia urbana es el recurso central. Sus fotografías privadas se guarda
 
 Hay cinco operaciones bajo `/api/v1/incidents/{incidentId}/attachments`: POST, GET colección, GET `/{attachmentId}`, GET `/{attachmentId}/content` y DELETE `/{attachmentId}`. No existe colección global pública. POST devuelve 201 y Location relativa al recurso; DELETE devuelve 204 sin cuerpo. El listado no pagina y ordena `createdAt DESC, id DESC`.
 
-`IncidentAccess` comparte con `IncidentService` la política vigente: cuenta activa, tokenVersion actual, rol base CITIZEN y correo verificado; informante u OPERATOR/ADMIN global. TECHNICIAN/DEPARTMENT_COORDINATOR no conceden acceso transversal; conservan acceso como informantes. Todas las operaciones revalidan incidencia y, cuando procede, pareja incidencia/evidencia. Inexistencia y falta de acceso se ocultan con 404. Subir o borrar no modifica el estado de incidencia y funciona en todos sus estados, incluidos RESOLVED y CLOSED.
+`IncidentAccess` comparte con `IncidentService` la política vigente: cuenta activa, tokenVersion actual, rol base CITIZEN y correo verificado; informante u OPERATOR/ADMIN global. TECHNICIAN/DEPARTMENT_COORDINATOR no conceden acceso transversal; conservan acceso como informantes. Todas las operaciones revalidan incidencia y, cuando procede, pareja incidencia/evidencia. Inexistencia y falta de acceso se ocultan con 404. Revisión de 15/11/2026: subir o borrar no modifica estado ni versión, y solo se permite en REPORTED/AWAITING_INFORMATION. En VALIDATED/REJECTED y estados posteriores se devuelve 409 ATTACHMENTS_FROZEN, también para ADMIN. Las lecturas autorizadas permanecen en todos los estados.
 
 El principal autenticado es `Jwt`; el controlador extrae sujeto y versión mediante `DatabaseJwtAuthenticationConverter`, nunca recibe una entidad User. Las respuestas usan `Cache-Control: no-store`; la descarga usa MIME validado, longitud real y Content-Disposition attachment con nombre UTF-8 seguro.
 
-`AttachmentDTO` siempre contiene id, incidentId, originalFilename, contentType MIME, sizeBytes, uploadedBy UUID, createdAt y description (null si ausente). No expone storageKey ni URLs S3. UUIDv7 público y clave UUID aleatoria privada son independientes.
+`AttachmentDTO` siempre contiene id, incidentId, originalFilename, contentType MIME, sizeBytes, uploadedBy UUID del informante o null para otros autores, createdAt y description (null si ausente). No expone storageKey ni URLs S3. UUIDv7 público y clave UUID aleatoria privada son independientes.
 
 ## Validación y memoria
 
@@ -28,14 +28,14 @@ Se rechazan advertencias de decodificación, truncamientos, formatos incompatibl
 
 ## Persistencia y concurrencia
 
-La única migración [V1](../../backend/src/main/resources/db/migration/V1__initial_schema.sql) crea attachments con incident_id obligatorio, FK RESTRICT a incidencia/autor, storage_key única, checks de formato/tamaño/fechas/nombre e índice parcial de activas ordenadas. La consolidación está autorizada solo antes de la primera aplicación de Flyway, sobre bases vacías; no es una actualización de bases existentes.
+La migración inicial [V1](../../backend/src/main/resources/db/migration/V1__initial_schema.sql) crea attachments con incident_id obligatorio, FK RESTRICT a incidencia/autor, storage_key única, checks de formato/tamaño/fechas/nombre e índice parcial de activas ordenadas. La consolidación está autorizada solo antes de la primera aplicación de Flyway, sobre bases vacías; no es una actualización de bases existentes.
 
 Una incidencia admite **cinco evidencias activas en total**, sumando todos sus autores. Flujo de alta:
 
 1. Revalidar cuenta y visibilidad en una transacción corta.
 2. Leer, validar y sanear; subir al bucket fuera de SQL.
-3. En nueva transacción, revalidar cuenta bloqueando usuario y después incidencia con PESSIMISTIC_WRITE. Contar activas, rechazar la sexta con 409 ATTACHMENT_LIMIT_REACHED, insertar metadatos y auditoría.
-4. Esperar la confirmación SQL. Ante fallo de flush, commit, acceso o capacidad, intentar DELETE compensatorio del objeto.
+3. En nueva transacción, revalidar cuenta bloqueando usuario y después incidencia con PESSIMISTIC_WRITE. Revalidar estado de escritura; contar activas, rechazar la sexta con 409 ATTACHMENT_LIMIT_REACHED, insertar metadatos y auditoría.
+4. Esperar la confirmación SQL. Ante fallo de flush, commit, acceso, estado o capacidad, intentar DELETE compensatorio del objeto.
 
 El método suspende transacciones externas para que la confirmación termine antes de devolver éxito. El bloqueo de incidencia coordina instancias y también las bajas. Si falla la compensación, conserva la causa primaria y la excepción suprimida; registra un evento interno con clave opaca y tipos de error para reconciliación, nunca en respuestas públicas. No hay atomicidad distribuida: una caída de proceso o limpieza fallida puede dejar un objeto huérfano.
 
@@ -58,3 +58,13 @@ El perfil neon-storage tiene integration-test y verify. La prueba real exige `NE
 ## Consecuencias y evolución
 
 La retención y el purgado físico de objetos eliminados, la reconciliación de huérfanos, la anonimización adicional de personas y la autorización departamental de Tramitación son trabajo funcional futuro. La CI incorporada en [ADR-0016](0016-ci-postgresql-local.md) ejecuta las pruebas aisladas; el perfil real `neon-storage` queda fuera. CD sigue pendiente. La ausencia de transacción distribuida y el consumo acotado por petición siguen siendo límites operativos explícitos.
+
+## Evolución de privacidad y congelación (15/11/2026)
+
+La decisión definitiva congela también las fotografías. No existe moderación excepcional, rectificación ni borrado físico para datos erróneos o personales descubiertos después de validar/rechazar. El saneamiento elimina metadatos EXIF/GPS, no rostros ni matrículas. Una subida en curso se compensa si la revisión confirma primero. Responder una solicitud es una operación textual independiente; subir fotos no cambia AWAITING_INFORMATION ni consume la solicitud.
+
+## Corrección de privacidad y límite del snapshot (15/11/2026)
+
+Con autorización expresa, AttachmentDTO.uploadedBy conserva el UUID solo si el autor es el informante original; para cualquier otro autor devuelve null en POST, listado y detalle, también ante consultas municipales. El campo sigue presente y es nullable. La relación uploaded_by y AuditEvent conservan la autoría real. La proyección no depende de roles, nombre ni actividad actuales. No cambia la autorización, la versión del agregado ni el acceso al binario.
+
+La versión de Incident no representa un snapshot del conjunto de fotografías. Entre la consulta del operador y su POST de revisión pueden producirse altas o bajas de fotos sin cambiar expectedIncidentVersion; la validación puede aceptar esa misma versión y congelar un conjunto distinto al consultado. El bloqueo garantiza la política de estado al confirmar y la compensación de subidas que lleguen después, pero no prueba qué fotos vio el operador. No se añade versión/huella de evidencias ni se cambia el contrato de escritura: cualquier garantía adicional requiere una decisión de negocio posterior.
