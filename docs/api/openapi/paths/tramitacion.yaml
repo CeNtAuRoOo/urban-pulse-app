@@ -2,217 +2,239 @@
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Validar, rechazar o pedir información'
-    description: Solo un operador puede registrar decisiones. VALIDATE pasa a VALIDATED y REJECT a 
-      REJECTED; REQUEST_INFORMATION conserva REPORTED y registra motivo (propuesta).
-    operationId: postIncidentsIncidentIdReviews
-    x-implementation: future
+    summary: Registrar revisión
+    description: OPERATOR/ADMIN global activo y verificado, nunca el informante, incluso ADMIN. REPORTED permite VALIDATE
+      con categoría activa explícita, REJECT o REQUEST_INFORMATION con motivo obligatorio. AWAITING_INFORMATION solo
+      permite REJECT. VALIDATE prohíbe reason; las otras variantes prohíben categoryId, incluso null. Categoría, estado,
+      revisión, StatusChange y auditoría son atómicos. Sin rectificación posterior. Cuerpo JSON estricto máximo 64 KiB;
+      versión esperada obligatoria bajo bloqueo usuario → incidencia.
+    operationId: postReviewCreate
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
+    responses:
+      "201":
+        description: Recurso confirmado.
+        headers:
+          Cache-Control: &a1
+            $ref: ../components/headers.yaml#/PrivateCache
+          Location:
+            description: Ruta relativa al GET individual implementado del recurso creado.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/ReviewDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "409":
+        $ref: ../components/responses.yaml#/Conflict
+      "413":
+        $ref: ../components/responses.yaml#/PayloadTooLarge
+      "422":
+        $ref: ../components/responses.yaml#/ValidationError
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/tramitacion.yaml#/ReviewRequest"
-    responses:
-      "201":
-        description: Recurso creado.
-        content:
-          application/json:
-            schema:
-              $ref: "../components/schemas/tramitacion.yaml#/ReviewDTO"
-        headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
-            schema:
-              type: string
-      "400":
-        $ref: "../components/responses.yaml#/BadRequest"
-      "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
-      "403":
-        $ref: "../components/responses.yaml#/Forbidden"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
-      "422":
-        $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+            $ref: ../components/schemas/tramitacion.yaml#/ReviewRequest
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Consultar revisiones'
-    description: Historial de decisiones y motivos para trazabilidad.
-    operationId: getIncidentsIncidentIdReviews
-    x-implementation: future
+    summary: Consultar revisiones
+    description: Solo OPERATOR/ADMIN global; incluye actor y datos internos. La prohibición de autorrevisión afecta a crear
+      decisiones, no a consultar el historial. Cuenta activa y verificada, con permisos reales revalidados. Consulta
+      disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la
+      incidencia no es visible o la pareja de IDs no corresponde. Orden fecha DESC, UUID DESC, page desde 1 y pageSize
+      de 20 por defecto (máximo 100); rechaza parámetros desconocidos.
+    operationId: getIncidentReviews
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
     responses:
       "200":
-        description: Operación correcta.
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: "../components/schemas/tramitacion.yaml#/ReviewDTO"
+              $ref: ../components/schemas/tramitacion.yaml#/ReviewPageDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/NotFound
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
 /incidents/{incidentId}/priority-decisions:
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Establecer prioridad'
-    description: Prioridad manual o asistida con justificación y referencia opcional a evaluación; 
-      siempre confirmada por personal autorizado.
-    operationId: postIncidentsIncidentIdPriorityDecisions
-    x-implementation: future
+    summary: Registrar decisión de prioridad
+    description: "OPERATOR/ADMIN global activo y verificado. Solo VALIDATED sin departamento. Prioridad exclusivamente
+      MANUAL fijada por el servidor: el cliente no puede enviar source. Mismo nivel produce 409 sin registrar decisión.
+      Justificación interna obligatoria. Prioridad y auditoría atómicas; sin cambios después de derivar. Cuerpo JSON
+      estricto máximo 64 KiB; versión esperada obligatoria bajo bloqueo usuario → incidencia."
+    operationId: postPriorityDecisionCreate
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
+    responses:
+      "201":
+        description: Recurso confirmado.
+        headers:
+          Cache-Control: *a1
+          Location:
+            description: Ruta relativa al GET individual implementado del recurso creado.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/PriorityDecisionDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "409":
+        $ref: ../components/responses.yaml#/Conflict
+      "413":
+        $ref: ../components/responses.yaml#/PayloadTooLarge
+      "422":
+        $ref: ../components/responses.yaml#/ValidationError
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/tramitacion.yaml#/PriorityRequest"
-    responses:
-      "201":
-        description: Recurso creado.
-        content:
-          application/json:
-            schema:
-              $ref: "../components/schemas/tramitacion.yaml#/PriorityDecisionDTO"
-        headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
-            schema:
-              type: string
-      "400":
-        $ref: "../components/responses.yaml#/BadRequest"
-      "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
-      "403":
-        $ref: "../components/responses.yaml#/Forbidden"
-      "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
-      "422":
-        $ref: "../components/responses.yaml#/ValidationError"
-      "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+            $ref: ../components/schemas/tramitacion.yaml#/PriorityRequest
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Historial de prioridades'
-    description: Conserva todas las decisiones de prioridad y su fuente.
-    operationId: getIncidentsIncidentIdPriorityDecisions
-    x-implementation: future
+    summary: Consultar decisiones de prioridad
+    description: Solo OPERATOR/ADMIN global; justificaciones e identidad del decisor son internas. Cuenta activa y
+      verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita
+      al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde. Orden
+      fecha DESC, UUID DESC, page desde 1 y pageSize de 20 por defecto (máximo 100); rechaza parámetros desconocidos.
+    operationId: getIncidentPriorityDecisions
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
     responses:
       "200":
-        description: Operación correcta.
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: "../components/schemas/tramitacion.yaml#/PriorityDecisionDTO"
+              $ref: ../components/schemas/tramitacion.yaml#/PriorityDecisionPageDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
-      "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/NotFound
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
 /incidents/{incidentId}/assignments:
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Asignar o reasignar trabajo a equipo o técnico'
-    description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha
-      de estar derivada previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o 
-      Technician y una asignación activa por incidencia.
+    summary: "Diseño futuro: Asignar o reasignar trabajo a equipo o técnico"
+    description: Solo un coordinador del departamento responsable crea/reasigna trabajo. La incidencia ha de estar derivada
+      previamente; pasa a WORK_ASSIGNED cuando procede. Exactamente un Team o Technician y una asignación activa por
+      incidencia.
     operationId: postIncidentsIncidentIdAssignments
     x-implementation: future
     x-roles:
       - DEPARTMENT_COORDINATOR
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/tramitacion.yaml#/AssignmentRequest"
+            $ref: ../components/schemas/tramitacion.yaml#/AssignmentRequest
     responses:
       "201":
         description: Recurso creado.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/tramitacion.yaml#/AssignmentDTO"
+              $ref: ../components/schemas/tramitacion.yaml#/AssignmentDTO
         headers:
           Location:
             description: Ruta al nuevo recurso, cuando esté disponible.
             schema:
               type: string
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "422":
-        $ref: "../components/responses.yaml#/ValidationError"
+        $ref: ../components/responses.yaml#/ValidationError
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Consultar asignaciones'
-    description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; 
-      acceso restringido por departamento, asignación y permisos.
+    summary: "Diseño futuro: Consultar asignaciones"
+    description: Historial temporal de asignaciones concretas de trabajos, incluidas las terminadas; acceso restringido por
+      departamento, asignación y permisos.
     operationId: getIncidentsIncidentIdAssignments
     x-implementation: future
     x-roles:
@@ -221,7 +243,7 @@
       - TECHNICIAN
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     responses:
       "200":
         description: Operación correcta.
@@ -230,27 +252,26 @@
             schema:
               type: array
               items:
-                $ref: "../components/schemas/tramitacion.yaml#/AssignmentDTO"
+                $ref: ../components/schemas/tramitacion.yaml#/AssignmentDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
 /incidents/{incidentId}/status-changes:
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Registrar transición de estado'
-    description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y 
-      WORK_ASSIGNED se gestionan mediante sus operaciones específicas.
+    summary: "Diseño futuro: Registrar transición de estado"
+    description: Transiciones operativas auditadas. VALIDATED, REJECTED, ASSIGNED_TO_DEPARTMENT y WORK_ASSIGNED se gestionan
+      mediante sus operaciones específicas.
     operationId: postIncidentsIncidentIdStatusChanges
     x-implementation: future
     x-roles:
@@ -259,51 +280,50 @@
       - TECHNICIAN
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/tramitacion.yaml#/StatusChangeRequest"
+            $ref: ../components/schemas/tramitacion.yaml#/StatusChangeRequest
     responses:
       "201":
         description: Recurso creado.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/tramitacion.yaml#/StatusChangeDTO"
+              $ref: ../components/schemas/tramitacion.yaml#/StatusChangeDTO
         headers:
           Location:
             description: Ruta al nuevo recurso, cuando esté disponible.
             schema:
               type: string
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "422":
-        $ref: "../components/responses.yaml#/ValidationError"
+        $ref: ../components/responses.yaml#/ValidationError
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Consultar cambios de estado'
+    summary: "Diseño futuro: Consultar cambios de estado"
     description: Historial ordenado de transiciones, actores, motivos y fechas.
     operationId: getIncidentsIncidentIdStatusChanges
     x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     responses:
       "200":
         description: Operación correcta.
@@ -312,25 +332,24 @@
             schema:
               type: array
               items:
-                $ref: "../components/schemas/tramitacion.yaml#/StatusChangeDTO"
+                $ref: ../components/schemas/tramitacion.yaml#/StatusChangeDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
 /incidents/{incidentId}/comments:
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Añadir comentario'
+    summary: "Diseño futuro: Añadir comentario"
     description: Comentarios PUBLIC visibles según autorización; INTERNAL solo accesibles al personal.
     operationId: postIncidentsIncidentIdComments
     x-implementation: future
@@ -340,51 +359,50 @@
       - TECHNICIAN
       - ADMIN
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: "../components/schemas/tramitacion.yaml#/CommentRequest"
+            $ref: ../components/schemas/tramitacion.yaml#/CommentRequest
     responses:
       "201":
         description: Recurso creado.
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/tramitacion.yaml#/CommentDTO"
+              $ref: ../components/schemas/tramitacion.yaml#/CommentDTO
         headers:
           Location:
             description: Ruta al nuevo recurso, cuando esté disponible.
             schema:
               type: string
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "422":
-        $ref: "../components/responses.yaml#/ValidationError"
+        $ref: ../components/responses.yaml#/ValidationError
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Listar comentarios'
+    summary: "Diseño futuro: Listar comentarios"
     description: Filtra comentarios internos conforme al rol y la titularidad de la incidencia.
     operationId: getIncidentsIncidentIdComments
     x-implementation: future
     x-roles:
       - AUTHENTICATED
     parameters:
-      - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: ../components/parameters.yaml#/IncidentId
     responses:
       "200":
         description: Operación correcta.
@@ -393,39 +411,38 @@
             schema:
               type: array
               items:
-                $ref: "../components/schemas/tramitacion.yaml#/CommentDTO"
+                $ref: ../components/schemas/tramitacion.yaml#/CommentDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
-
+        $ref: ../components/responses.yaml#/InternalError
 /incidents/assigned-to-me:
   get:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Mi cola de trabajo'
-    description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento 
-      responsable. El servicio comprueba pertenencia y visibilidad.
+    summary: "Diseño futuro: Mi cola de trabajo"
+    description: Trabajos asignados al técnico o a un Team donde sea miembro activo del departamento responsable. El
+      servicio comprueba pertenencia y visibilidad.
     operationId: getIncidentsAssignedToMe
     x-implementation: future
     x-roles:
       - TECHNICIAN
     parameters:
-      - $ref: "../components/parameters.yaml#/Page"
-      - $ref: "../components/parameters.yaml#/PageSize"
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
       - name: status
         in: query
         required: false
         schema:
-          $ref: "../components/schemas/incidencias.yaml#/IncidentStatus"
+          $ref: ../components/schemas/incidencias.yaml#/IncidentStatus
         description: Estado del trabajo.
     responses:
       "200":
@@ -433,27 +450,27 @@
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/incidencias.yaml#/IncidentPageDTO"
+              $ref: ../components/schemas/incidencias.yaml#/IncidentPageDTO
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        $ref: ../components/responses.yaml#/BadRequest
       "401":
-        $ref: "../components/responses.yaml#/Unauthorized"
+        $ref: ../components/responses.yaml#/Unauthorized
       "403":
-        $ref: "../components/responses.yaml#/Forbidden"
+        $ref: ../components/responses.yaml#/Forbidden
       "404":
-        $ref: "../components/responses.yaml#/NotFound"
+        $ref: ../components/responses.yaml#/NotFound
       "409":
-        $ref: "../components/responses.yaml#/Conflict"
+        $ref: ../components/responses.yaml#/Conflict
       "500":
-        $ref: "../components/responses.yaml#/InternalError"
+        $ref: ../components/responses.yaml#/InternalError
 /incidents/{incidentId}/department:
   put:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Derivar o transferir incidencia a departamento'
-    description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. 
-      Una incidencia VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir 
-      trabajo activo requiere finalizar la asignación anterior.
+    summary: "Diseño futuro: Derivar o transferir incidencia a departamento"
+    description: Operador municipal global. Guarda Incident.assignedDepartment y audita origen/destino. Una incidencia
+      VALIDATED puede quedar sin departamento hasta realizar esta operación. Transferir trabajo activo requiere
+      finalizar la asignación anterior.
     operationId: putIncidentsIncidentIdDepartment
     x-implementation: future
     x-roles:
@@ -467,33 +484,33 @@
           schema:
             $ref: ../components/schemas/tramitacion.yaml#/DepartmentReferralRequest
     responses:
-      '200':
+      "200":
         description: Operación correcta.
         content:
           application/json:
             schema:
               $ref: ../components/schemas/incidencias.yaml#/IncidentDTO
-      '400':
+      "400":
         $ref: ../components/responses.yaml#/BadRequest
-      '401':
+      "401":
         $ref: ../components/responses.yaml#/Unauthorized
-      '403':
+      "403":
         $ref: ../components/responses.yaml#/Forbidden
-      '404':
+      "404":
         $ref: ../components/responses.yaml#/NotFound
-      '409':
+      "409":
         $ref: ../components/responses.yaml#/Conflict
-      '422':
+      "422":
         $ref: ../components/responses.yaml#/ValidationError
-      '500':
+      "500":
         $ref: ../components/responses.yaml#/InternalError
 /incidents/{incidentId}/assignments/{assignmentId}/acceptance:
   post:
     tags:
       - Tramitación
-    summary: 'Diseño futuro: Aceptar trabajo asignado'
-    description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra 
-      acceptedBy/acceptedAt sin pasar automáticamente a IN_PROGRESS.
+    summary: "Diseño futuro: Aceptar trabajo asignado"
+    description: Solo el técnico destinatario o un miembro válido del equipo asignado. Registra acceptedBy/acceptedAt sin
+      pasar automáticamente a IN_PROGRESS.
     operationId: postIncidentsIncidentIdAssignmentsAssignmentIdAcceptance
     x-implementation: future
     x-roles:
@@ -502,21 +519,279 @@
       - $ref: ../components/parameters.yaml#/IncidentId
       - $ref: ../components/parameters.yaml#/AssignmentId
     responses:
-      '200':
+      "200":
         description: Operación correcta.
         content:
           application/json:
             schema:
               $ref: ../components/schemas/tramitacion.yaml#/AssignmentDTO
-      '400':
+      "400":
         $ref: ../components/responses.yaml#/BadRequest
-      '401':
+      "401":
         $ref: ../components/responses.yaml#/Unauthorized
-      '403':
+      "403":
         $ref: ../components/responses.yaml#/Forbidden
-      '404':
+      "404":
         $ref: ../components/responses.yaml#/NotFound
-      '409':
+      "409":
         $ref: ../components/responses.yaml#/Conflict
-      '500':
+      "500":
         $ref: ../components/responses.yaml#/InternalError
+/incidents/{incidentId}/reviews/{reviewId}:
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar una revisión
+    description: Solo OPERATOR/ADMIN global; incluye actor y datos internos. La prohibición de autorrevisión afecta a crear
+      decisiones, no a consultar el historial. Cuenta activa y verificada, con permisos reales revalidados. Consulta
+      disponible en cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la
+      incidencia no es visible o la pareja de IDs no corresponde.
+    operationId: getReview
+    x-implementation: implemented
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - name: reviewId
+        in: path
+        required: true
+        schema: &a2
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/ReviewDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
+/incidents/{incidentId}/priority-decisions/{decisionId}:
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar una decisión de prioridad
+    description: Solo OPERATOR/ADMIN global; justificaciones e identidad del decisor son internas. Cuenta activa y
+      verificada, con permisos reales revalidados. Consulta disponible en cualquier estado de la incidencia. Se limita
+      al padre autorizado; 404 indistinguible si la incidencia no es visible o la pareja de IDs no corresponde.
+    operationId: getPriorityDecision
+    x-implementation: implemented
+    x-roles:
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - name: decisionId
+        in: path
+        required: true
+        schema: *a2
+    responses:
+      "200":
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/PriorityDecisionDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
+/incidents/{incidentId}/information-responses:
+  post:
+    tags:
+      - Tramitación
+    summary: Registrar respuesta de información
+    description: Solo el informante original activo y verificado, incluso si el solicitante tiene rol municipal. Mensaje
+      obligatorio a la solicitud vigente de AWAITING_INFORMATION; una respuesta por solicitud. Devuelve el agregado a
+      REPORTED sin editar título, descripción, categoría ni coordenadas. Las fotos se gestionan mediante Evidencias;
+      subirlas no responde. Sin caducidad ni correo automático. Cuerpo JSON estricto máximo 64 KiB; versión esperada
+      obligatoria bajo bloqueo usuario → incidencia.
+    operationId: postInformationResponseCreate
+    x-implementation: implemented
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+    responses:
+      "201":
+        description: Recurso confirmado.
+        headers:
+          Cache-Control: *a1
+          Location:
+            description: Ruta relativa al GET individual implementado del recurso creado.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/InformationResponseDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "409":
+        $ref: ../components/responses.yaml#/Conflict
+      "413":
+        $ref: ../components/responses.yaml#/PayloadTooLarge
+      "422":
+        $ref: ../components/responses.yaml#/ValidationError
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/tramitacion.yaml#/InformationResponseRequest
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar respuestas de información
+    description: Informante original u OPERATOR/ADMIN global. Consultar respuestas no concede permiso para responder en
+      nombre de otra persona. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en
+      cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es
+      visible o la pareja de IDs no corresponde. Orden fecha DESC, UUID DESC, page desde 1 y pageSize de 20 por defecto
+      (máximo 100); rechaza parámetros desconocidos.
+    operationId: getIncidentInformationResponses
+    x-implementation: implemented
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - $ref: ../components/parameters.yaml#/Page
+      - $ref: ../components/parameters.yaml#/PageSize
+    responses:
+      "200":
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/InformationResponsePageDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
+/incidents/{incidentId}/information-responses/{responseId}:
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar una respuesta de información
+    description: Informante original u OPERATOR/ADMIN global. Consultar respuestas no concede permiso para responder en
+      nombre de otra persona. Cuenta activa y verificada, con permisos reales revalidados. Consulta disponible en
+      cualquier estado de la incidencia. Se limita al padre autorizado; 404 indistinguible si la incidencia no es
+      visible o la pareja de IDs no corresponde.
+    operationId: getInformationResponse
+    x-implementation: implemented
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+      - name: responseId
+        in: path
+        required: true
+        schema: *a2
+    responses:
+      "200":
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/InformationResponseDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable
+/incidents/{incidentId}/review-outcome:
+  get:
+    tags:
+      - Tramitación
+    summary: Consultar resultado público de revisión
+    description: "Informante u OPERATOR/ADMIN con cuenta activa y verificada. Siempre 200: latestReview:null antes de la
+      primera revisión. Estado actual separado del snapshot histórico; informationPending evita confundir solicitudes
+      respondidas. Identificación institucional Ayuntamiento, nunca UUID/nombre del empleado ni motivo histórico de
+      VALIDATE."
+    operationId: getReviewOutcome
+    x-implementation: implemented
+    x-roles:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+    parameters:
+      - $ref: ../components/parameters.yaml#/IncidentId
+    responses:
+      "200":
+        description: Consulta autorizada.
+        headers:
+          Cache-Control: *a1
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas/tramitacion.yaml#/ReviewOutcomeDTO
+      "400":
+        $ref: ../components/responses.yaml#/BadRequest
+      "401":
+        $ref: ../components/responses.yaml#/Unauthorized
+      "403":
+        $ref: ../components/responses.yaml#/Forbidden
+      "404":
+        $ref: ../components/responses.yaml#/NotFound
+      "500":
+        $ref: ../components/responses.yaml#/InternalError
+      "503":
+        $ref: ../components/responses.yaml#/ServiceUnavailable

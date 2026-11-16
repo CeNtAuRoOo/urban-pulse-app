@@ -28,7 +28,9 @@ AttachmentDTO:
     uploadedBy:
       type: string
       format: uuid
-      description: UUID del autor, no una entidad User ni mecanismo de autorización exclusivo.
+      nullable: true
+      description: UUID del informante original si subió la fotografía; null para cualquier otro autor,
+        con independencia de sus roles actuales. La autoría real se conserva internamente.
     createdAt:
       type: string
       format: date-time

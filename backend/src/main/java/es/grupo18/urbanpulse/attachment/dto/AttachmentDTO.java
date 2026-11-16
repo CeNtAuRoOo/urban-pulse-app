@@ -16,7 +16,10 @@ import java.util.UUID;
  * @param originalFilename nombre original del archivo
  * @param contentType      tipo MIME de la fotografía
  * @param sizeBytes        tamaño del archivo en bytes
- * @param uploadedBy       UUID del usuario que subió la fotografía
+ * @param uploadedBy       UUID del informante si subió la fotografía; null para
+ *                         cualquier
+ *                         otro autor, cuya identidad se conserva solo
+ *                         internamente
  * @param createdAt        fecha de creación de la evidencia
  * @param description      descripción opcional; se serializa null si está
  *                         ausente

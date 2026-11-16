@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. La única `V1__initial_schema.sql` crea 14 tablas funcionales y cinco roles, sin usuarios, ADMIN ni catálogos de demostración.
+El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. `V1__initial_schema.sql` crea 14 tablas funcionales y cinco roles; V2 añade respuestas y restricciones de Tramitación, sin usuarios, ADMIN ni catálogos de demostración.
 
 ## 1. Configuración privada
 
@@ -57,7 +57,7 @@ docker compose logs -f backend
 
 Todos los puertos publicados se vinculan a `127.0.0.1`. Los clientes móviles requieren una configuración de acceso explícita y no forman parte de este procedimiento web.
 
-El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica V1 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
+El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica V1 y V2 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
 
 ```bash
 docker compose up -d --wait postgres
@@ -114,7 +114,7 @@ El comando del job, desde `backend/`, es:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para nueve suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT y AttachmentServicePostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
+Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para once suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT y ProcessingMigrationPostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
 
 Para repetirlo sin instalar Java/Maven en Windows, desde la raíz con Docker Desktop (PowerShell):
 
@@ -160,11 +160,91 @@ El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontain
 
 ## 6. Límites y evidencias históricas
 
-Las pruebas aisladas y el arranque Compose no acreditan despliegue productivo ni operaciones reales S3. Siguen fuera de alcance CD, hosting/TLS, SMTP productivo, bootstrap del primer ADMIN, retención/purgado, tramitación y validación móvil completa.
+Las pruebas aisladas y el arranque Compose no acreditan despliegue productivo ni operaciones reales S3. Siguen fuera de alcance CD, hosting/TLS, SMTP productivo, bootstrap del primer ADMIN, retención/purgado, las fases posteriores de Tramitación y validación móvil completa.
 
 Los resultados siguientes conservan sus fechas y configuraciones originales. Las menciones a Neon PostgreSQL de desarrollo, V2/V3 y puertos anteriores son históricas. El recorrido HTTP de Invitaciones utilizó archivos que no están en el repositorio (`compose.test.yaml`, `backend/Dockerfile.test` y `backend/scripts/invitations_http_test.py`); se conserva su resultado sin presentarlo como un procedimiento reproducible actual.
 
 ## Verificación del backend
+
+### Revisión correctiva de Tramitación: privacidad, contrato y SVG (15/11/2026)
+
+Esta verificación es posterior a la implementación inicial y a la regeneración manual de SVG realizada por el usuario. La rama sigue siendo `codex/tramitacion-fase-1`, sin upstream, con HEAD `63f34b23ae07e20d78383d179bf195f16e98d8f4`; no se hicieron commits, push, merge, rebase, PR ni ejecuciones remotas. Se releyó el workflow vigente y se ejecutaron localmente sus tres grupos de comprobaciones.
+
+H1 corrige la proyección del historial: solo identifica al informante original en registro, corrección y respuesta; cualquier otro autor queda omitido, con independencia de su rol, nombre o actividad actuales. La auditoría conserva el actor real y PATCH mantiene autorización y ETag/412. La revisión adicional detectó `AttachmentDTO.uploadedBy`; con autorización expresa del usuario ahora devuelve null para autores distintos del informante, conservando la relación SQL y auditoría. Revisiones y prioridades internas mantienen sus datos y permisos.
+
+H3 reproduce mediante una prueba HTTP que cambiar fotografías tras la consulta municipal no incrementa la versión de Incident: VALIDATE puede confirmar la versión anterior y congelar las fotos vigentes al confirmar. Es una limitación deliberada, no una garantía de snapshot fotográfico. No se modifican la versión por fotos, las migraciones ni el contrato de escritura. Véanse [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [ADR-0015](adr/0015-almacenamiento-evidencias.md).
+
+Entorno comprobado: Maven 3.9.16, Temurin 25.0.4.1, Docker Engine 29.9.3, PostgreSQL 18.7 efímero/Testcontainers y Node 24.15.0. Maven se ejecutó en una copia interna de `src/` y `pom.xml` desde un montaje de solo lectura; el comando Docker de la sección Backend reproduce ese aislamiento. S3 usa dobles, sin credenciales reales ni operaciones Neon. Frontend usa `CI=true`, `EXPO_NO_TELEMETRY=1` y `EXPO_PUBLIC_API_URL=http://localhost:8080`.
+
+| Comprobación ejecutada                                                                                                                      | Resultado                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `mvn -B -ntp verify -Ppostgres-it -Dtest=IncidentServiceTest -Dit.test=IncidentPostgresIT,ProcessingPostgresIT,AttachmentServicePostgresIT` | PASS: 5 unitarias y 58 IT dirigidas                                                 |
+| `mvn -B -ntp clean verify -Ppostgres-it`                                                                                                    | **PASS: 314 pruebas**, 175 Surefire en 28 suites y 139 Failsafe en 11 suites        |
+| `mvn -B -ntp javadoc:javadoc -Ddoclint=all`                                                                                                 | PASS: cero errores y 66 avisos de completitud documental                            |
+| `npm ci`                                                                                                                                    | PASS: 840 paquetes instalados, lockfile sin cambios                                 |
+| `npm test`                                                                                                                                  | PASS: cinco pruebas frontend                                                        |
+| `npx tsc --noEmit` y `npm run lint`                                                                                                         | PASS                                                                                |
+| `npx expo export --platform web`                                                                                                            | PASS: 805 módulos, exportación local sin despliegue                                 |
+| Redocly 2.16.0: lint modular, bundle, build-docs y lint del bundle                                                                          | PASS; fuente y artefactos regenerados, sin edición manual de YAML/HTML consolidados |
+| `docker compose config --quiet`                                                                                                             | PASS con los archivos privados existentes, sin sobrescribirlos ni mostrarlos        |
+| `git diff --check`, enlaces/anclas Markdown, XML y huellas de diagramas/migraciones                                                         | PASS                                                                                |
+
+Los XML finales registran cero fallos, errores, omisiones o flakes. Failsafe ejecutó AuthenticationPostgresIT **8**, EmailVerificationPostgresIT **12**, StaffInvitationPostgresIT **24**, UserRepositoryPostgresIT **15**, DepartmentPostgresIT **6**, CategoryPostgresIT **6**, DepartmentMembershipPostgresIT **9**, IncidentPostgresIT **20**, AttachmentServicePostgresIT **19**, ProcessingPostgresIT **19** y ProcessingMigrationPostgresIT **1**. No se añadieron suites ni se modificó la selección cerrada de Failsafe; las dirigidas no se suman otra vez al total. Los informes y logs de esta ejecución quedan en `backend/target/corrective-final/`, ignorado por Git.
+
+Las regresiones HTTP usan JWT firmado y comprueban PATCH por OPERATOR/ADMIN ajenos, actor omitido en todo el cuerpo, auditoría real, cambios posteriores de cuenta, corrección propia con fecha/tipo/versión, no-store, paginación y 404 indistinguible. El recuento SQL del historial permanece igual con páginas de una y diez filas de autores distintos, y no supera cinco consultas. Se mantienen los motivos públicos de rechazo/solicitud, se ocultan justificaciones e identidades municipales y se comprueba el acceso interno legítimo. Evidencias verifica uploadedBy null en alta/listado/detalle municipal y UUID propio para el informante.
+
+Se reprodujo que el antiguo nullable exterior con allOf rechazaba null en AJV. La representación OAS 3.0.3 se corrigió a oneOf entre PublicReviewDTO y una rama limitada a null, sin modificar el JSON del backend. La especificación resultante se valida estructuralmente mediante Redocly. Las comprobaciones específicas de nulabilidad y propiedades requeridas no quedan cubiertas por esa validación estática. Un bundle independiente coincide byte a byte con el final: SHA-256 `0877fb7d127bba9e506afae94745f9f1ea6a0dd3f62ae528a9abb891273fbaed`. Comandos y fundamento en [API](api/README.md#correcciones-de-privacidad-y-nulabilidad-15112026).
+
+H2 confirma **tres fuentes con ocho páginas y ocho SVG**, incluido `relacional-05.svg`. Los ocho SVG y las tres fuentes `.drawio`, junto con V1/V2, conservan exactamente sus SHA-256 del inicio de esta revisión. Se verificaron XML, IDs y referencias de conexiones de las fuentes, inventario, previsualizaciones enlazadas y enlaces/anclas de 21 Markdown modificados; no se realizó una nueva inspección visual ni se atribuye a Codex la exportación manual del usuario. [Inventario actual](diagrams/README.md).
+
+Avisos: Redocly conserva dos advertencias de licencia/localhost y tres componentes sin uso adicionales en el bundle. Javadoc mantiene 66 avisos del backend/constructores generados, sin errores. npm informa de las mismas 21 vulnerabilidades del árbol de dependencias (1 baja, 14 moderadas, 6 altas), deprecaciones y script bloqueado de unrs-resolver; no se aplicó audit fix ni se alteraron dependencias. Expo avisa de precedencia de FORCE_COLOR sobre NO_COLOR. Ninguno de estos avisos impidió las verificaciones. No hay cambios de frontend/workflow, secretos, `.env` privados ni artefactos target/dist destinados a Git.
+
+### Tramitación fase 1: verificación del 15/11/2026
+
+Se ejecutaron localmente todos los pasos verificables de los tres jobs de `.github/workflows/ci.yml`, además de las comprobaciones documentales. No se disparó GitHub Actions, no se desplegó y no se accedió a Neon para pruebas mutativas. Entorno: Windows/WSL2, Docker Engine 29.9.3, imagen `maven:3.9.16-eclipse-temurin-25` con Maven 3.9.16 y Temurin 25.0.4.1, Spring Boot 4.1.2, PostgreSQL **18.7** (`postgres:18-alpine`, Testcontainers) y Node **24.15.0**. `mvn --version` y `docker info` correctos.
+
+| Comprobación ejecutada                                              | Resultado                                                                     |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `mvn -B -ntp clean verify -Ppostgres-it`                            | **PASS: 308 pruebas**, 174 Surefire + 134 Failsafe; 28 + 11 suites            |
+| `mvn -B -ntp test`                                                  | PASS: 174 pruebas, sin sumar esta repetición al total anterior                |
+| `mvn -B -ntp javadoc:javadoc -Ddoclint=all`                         | PASS desde copia limpia: cero errores, 66 avisos de completitud documental    |
+| `npm ci`                                                            | PASS; instalación desde el lockfile existente, sin modificar dependencias     |
+| `npm test`                                                          | PASS: cinco pruebas frontend                                                  |
+| `npx tsc --noEmit`                                                  | PASS                                                                          |
+| `npm run lint`                                                      | PASS                                                                          |
+| `npx expo export --platform web`                                    | PASS: exportación web, 805 módulos                                            |
+| Redocly 2.16.0: lint modular, bundle, build-docs y lint del bundle  | PASS; contrato 0.8.0, 44 operaciones implemented y 33 future                  |
+| `docker compose config --quiet`                                     | PASS con los archivos privados existentes, sin sobrescribirlos ni imprimirlos |
+| `git diff --check`, enlaces/anclas Markdown y estructura XML drawio | PASS                                                                          |
+
+Los XML finales de Surefire/Failsafe acreditan **cero fallos, errores, omisiones o flakes**. Las once suites de integración efectivamente ejecutadas son:
+
+| Suite Failsafe                 | Pruebas |
+| ------------------------------ | ------: |
+| AuthenticationPostgresIT       |       8 |
+| EmailVerificationPostgresIT    |      12 |
+| StaffInvitationPostgresIT      |      24 |
+| UserRepositoryPostgresIT       |      15 |
+| DepartmentPostgresIT           |       6 |
+| CategoryPostgresIT             |       6 |
+| DepartmentMembershipPostgresIT |       9 |
+| IncidentPostgresIT             |      18 |
+| AttachmentServicePostgresIT    |      17 |
+| ProcessingPostgresIT           |      18 |
+| ProcessingMigrationPostgresIT  |       1 |
+| **Total integración**          | **134** |
+
+Processing cubre HTTP con JWT firmado, variantes y límites Unicode/JSON, roles reales y autorrevisión, categoría activa bajo bloqueo, información secuencial, prioridad manual, SQL paginado/ordenado, privacidad, ETag, carreras y rollback de auditoría/commit. La migración se prueba tanto desde vacío como sobre V1 con datos y fotografías: conserva el historial, deja `resultingStatus` histórico desconocido en null y exige integridad a las nuevas escrituras. Evidencias comprueba todos los estados y compensa S3 si una revisión congela la incidencia durante la subida. S3 usa dobles aislados; no se habilitó `NEON_STORAGE_TEST_AUTHORIZED`.
+
+Las primeras ejecuciones detectaron fixtures de categorías/departamentos no conformes al esquema, limpiezas y expectativas antiguas de Flyway, una excepción optimista de PATCH al adquirir el bloqueo y una opción trasladada en Jackson 3. Se corrigieron y se repitió la regresión completa. Las expectativas de dos migraciones y 15 tablas sustituyen legítimamente las de V1; no se eliminaron tests. La ejecución final terminó en BUILD SUCCESS. Después solo se completaron comentarios Java y se regeneró Javadoc desde una copia limpia.
+
+Para evitar la lentitud de `target` sobre el montaje Windows, Maven ejecutó una copia interna de `src/` y `pom.xml`, con el montaje de origen de solo lectura. El comando reproducible de la sección Backend utiliza el mismo procedimiento. Se conservaron localmente los XML y el log final en `backend/target/processing-final/`, ignorado por Git. Las pruebas unitarias adicionales y Javadoc se ejecutaron en copias independientes con los comandos de la tabla. Frontend utilizó `CI=true`, `EXPO_NO_TELEMETRY=1` y `EXPO_PUBLIC_API_URL=http://localhost:8080` como el workflow.
+
+Los artefactos OpenAPI se generaron con los comandos de [API](api/README.md#7-validación-y-visualización), incluida la plantilla versionada `redoc-template.hbs`. Un segundo bundle independiente produjo exactamente el mismo SHA-256 que `docs/api/openapi.yaml`: `20e83e70efb3dd14b5d509adb0f54b74a14db03fc7b247a0d3956b122e9f679a`. El lint modular conserva dos avisos de licencia/localhost; el bundle añade tres parámetros preexistentes sin uso (AssessmentId, TrainingId y DocumentId). Javadoc conserva avisos del backend y constructores Lombok; no hay errores. Maven también muestra avisos de instrumentación Mockito/Byte Buddy y APIs Java de dependencias.
+
+`npm ci` informó de 21 vulnerabilidades en el árbol existente (1 baja, 14 moderadas y 6 altas), deprecaciones y un script de instalación bloqueado de `unrs-resolver`; los cinco pasos frontend pasaron. Su actualización requiere una revisión de dependencias aparte: no se aplicó `npm audit fix` ni se cambió el lockfile. Los intentos inicialmente restringidos por permisos/red del entorno se repitieron con autorización.
+
+La revisión funcional/seguridad contrasta matriz de estados, permisos, privacidad y transacciones; la revisión técnica/documental contrasta módulos, SQL, pruebas incluidas, contrato y referencias. Las tres fuentes drawio tienen XML y referencias válidos: conservan todos los IDs, estilos, geometrías y conexiones previos; ER incorpora una quinta página. **En esa ejecución Codex dejó V1 y todos los SVG intactos**. Posteriormente, el usuario regeneró manualmente los SVG e incorporó `relacional-05.svg`; la revisión correctiva distingue ese trabajo de la verificación inicial y conserva las exportaciones. La rama local `codex/tramitacion-fase-1` parte de `63f34b23ae07e20d78383d179bf195f16e98d8f4`, contrastado con `origin/main`, sin upstream, commits nuevos, push ni PR.
 
 ### Evidencias y V1 consolidada: verificación del 11/11/2026
 

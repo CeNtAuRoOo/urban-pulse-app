@@ -1,13 +1,13 @@
-# UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.7.0)
+# UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.8.0)
 
-> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias tienen API implementada. OpenAPI vigente 0.7.0; V1 consolida 14 tablas, incluidas incidencias, evidencias y persistencia base de tramitación sin operaciones. Los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias tienen API implementada. OpenAPI vigente 0.8.0; V1 conserva 14 tablas y V2 añade la respuesta de información. Revisión, respuestas y prioridad MANUAL tienen diez operaciones. Las fases posteriores y los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
 
 ## 1. Referencia coherente y varias vistas
 
 El proyecto aplica un flujo _design-first_ con fuentes complementarias:
 
 - **Requisitos del caso de estudio y ADR**: determinan el alcance, prioridades, roles, invariantes y decisiones arquitectónicas; las funcionalidades opcionales siguen aplazadas.
-- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cuatro páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto). Es una combinación de **esquema V1 implementado** y diseño aún no persistido.
+- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cinco páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto, y Tramitación V2). Combina **esquemas V1 y V2 implementados** con elementos de diseño futuro aún no persistidos.
 - **Clases simplificadas**: [`../diagrams/clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (una página), con atributos Java/DTO/enums/embebidos; **sin líneas UML intencionadamente**, ya que las relaciones están en el ER.
 - **Contrato OpenAPI fuente**: [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml), rutas en `openapi/paths/` y esquemas en `openapi/components/`.
 - **Salidas derivadas**: [`openapi.yaml`](openapi.yaml) y [`openapi.html`](openapi.html), regeneradas con Redocly y **nunca editadas a mano**.
@@ -16,22 +16,22 @@ DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-rol
 
 ## 2. Acuerdos vigentes del dominio y su traducción a la API
 
-| Tema                      | Regla de negocio/almacenamiento                                                                  | Contrato HTTP y estado                                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Identificadores           | UUIDv7 desde Hibernate donde corresponda; algunas claves compuestas/naturales y externas         | `string` + `format: uuid` para IDs internos, sin imponer versión UUID en OpenAPI                                                   |
-| Identidad                 | `User` único por email normalizado, `CITIZEN` siempre presente, preferencias y correo verificado | Registro público sin selección de roles; `UserDTO` no expone hash ni `tokenVersion`                                                |
-| Roles globales            | `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y se consultan vigentes en PostgreSQL        | JWT Bearer, `UserDTO.roles`; no hay permisos permanentes confiados a claims                                                        |
-| Roles departamentales     | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial             | Pertenencias activas e históricas en `UserDTO`; el canje devuelve DTO propio                                                       |
-| Operador                  | Puede actuar transversalmente al revisar/derivar, sin pertenecer a departamento                  | Lectura/corrección REPORTED del núcleo implementadas; revisión/derivación futuras con `x-roles` como metadato                      |
-| Catálogo de departamentos | Nombre/código únicos, estado y fechas; entidad compartida con pertenencias/invitaciones          | GET colección/detalle, POST y PATCH implementados; [contrato de Departamentos](README.md#51-departamentos-implementados-catálogos) |
-| Catálogo de categorías    | UUIDv7, nombre único de 2–100 puntos Unicode, descripción opcional y active; V1 sin semillas     | GET colección/detalle, POST y PATCH implementados; [contrato](README.md#contrato-de-categorías)                                    |
-| Departamento responsable  | `Incident.assignedDepartment` opcional, diferente de asignar trabajo                             | `IncidentDTO.assignedDepartment`, futuro `PUT /incidents/{incidentId}/department`                                                  |
-| Trabajo                   | `Assignment` temporal a **equipo XOR técnico**, con como máximo una activa                       | Futura petición `AssignmentRequest` con `teamId` o `technicianId`, no ambos                                                        |
-| Aceptación                | `acceptedBy`/`acceptedAt` no inicia automáticamente el trabajo                                   | Respuesta futura `AssignmentDTO`                                                                                                   |
-| Ciclo de vida             | `VALIDATED` puede existir sin departamento; derivación y trabajo son fases distintas             | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`, no un único `ASSIGNED`                                                                 |
-| Invitaciones              | Temporal, correo obligatorio, rol/ámbito fijados y canje sobre cuenta verificada                 | `InvitationRequest` `oneOf`; cinco rutas **implementadas**; contrato `0.5.0`                                                       |
-| Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | DTO de sugerencias y enlaces **de diseño**                                                                                         |
-| Contexto urbano           | Localización y fuentes con IDs externos separados de los internos                                | DTO de coordenadas y contexto, sin proveedores elegidos                                                                            |
+| Tema                      | Regla de negocio/almacenamiento                                                                  | Contrato HTTP y estado                                                                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identificadores           | UUIDv7 desde Hibernate donde corresponda; algunas claves compuestas/naturales y externas         | `string` + `format: uuid` para IDs internos, sin imponer versión UUID en OpenAPI                                                                              |
+| Identidad                 | `User` único por email normalizado, `CITIZEN` siempre presente, preferencias y correo verificado | Registro público sin selección de roles; `UserDTO` no expone hash ni `tokenVersion`                                                                           |
+| Roles globales            | `CITIZEN`, `OPERATOR`, `ADMIN` mediante `UserRole`, y se consultan vigentes en PostgreSQL        | JWT Bearer, `UserDTO.roles`; no hay permisos permanentes confiados a claims                                                                                   |
+| Roles departamentales     | `TECHNICIAN` y `DEPARTMENT_COORDINATOR` mediante pertenencias con ámbito e historial             | Pertenencias activas e históricas en `UserDTO`; el canje devuelve DTO propio                                                                                  |
+| Operador                  | Puede actuar transversalmente al revisar/derivar, sin pertenecer a departamento                  | Lectura/corrección de incidencias en REPORTED, revisión y prioridad manual implementadas; derivación departamental futura (`x-roles` es metadato orientativo) |
+| Catálogo de departamentos | Nombre/código únicos, estado y fechas; entidad compartida con pertenencias/invitaciones          | GET colección/detalle, POST y PATCH implementados; [contrato de Departamentos](README.md#51-departamentos-implementados-catálogos)                            |
+| Catálogo de categorías    | UUIDv7, nombre único de 2–100 puntos Unicode, descripción opcional y active; V1 sin semillas     | GET colección/detalle, POST y PATCH implementados; [contrato](README.md#contrato-de-categorías)                                                               |
+| Departamento responsable  | `Incident.assignedDepartment` opcional, diferente de asignar trabajo                             | `IncidentDTO.assignedDepartment`, futuro `PUT /incidents/{incidentId}/department`                                                                             |
+| Trabajo                   | `Assignment` temporal a **equipo XOR técnico**, con como máximo una activa                       | Futura petición `AssignmentRequest` con `teamId` o `technicianId`, no ambos                                                                                   |
+| Aceptación                | `acceptedBy`/`acceptedAt` no inicia automáticamente el trabajo                                   | Respuesta futura `AssignmentDTO`                                                                                                                              |
+| Ciclo de vida             | `VALIDATED` puede existir sin departamento; derivación y trabajo son fases distintas             | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`, no un único `ASSIGNED`                                                                                            |
+| Invitaciones              | Temporal, correo obligatorio, rol/ámbito fijados y canje sobre cuenta verificada                 | `InvitationRequest` `oneOf`; cinco rutas **implementadas**; contrato `0.5.0`                                                                                  |
+| Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | DTO de sugerencias y enlaces **de diseño**                                                                                                                    |
+| Contexto urbano           | Localización y fuentes con IDs externos separados de los internos                                | DTO de coordenadas y contexto, sin proveedores elegidos                                                                                                       |
 
 ### 2.1. Revisión histórica de Autenticación (0.3.0 y 0.4.0)
 
@@ -74,14 +74,14 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 `UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. `StatusChangeDTO.fromStatus` siempre corresponde a una transición real; no existe evento inicial de transición. El alta se registra en AuditEvent. El actor puede faltar en un futuro evento de sistema. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales activas e históricas ya están implementadas en UserDTO y en los servicios internos de organization (ADR-0013).
 
-**Pendiente de implementar:** equipos, API de retirada de permisos, tramitación operativa de incidencias, notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
+**Pendiente de implementar:** equipos, API de retirada de permisos, fases posteriores de Tramitación (derivación departamental, asignaciones y ejecución), notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias, la primera fase de Tramitación y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 
 ## 5. Proceso dominio–API por tag
 
 1. Revisar casos de uso, requisitos, prioridades y ADR acordados.
 2. Contrastar juntos paths/DTO de OpenAPI, ER y catálogo de clases (tipos, cardinalidad, PK/FK, nulabilidad, estados, errores y permisos).
 3. Acordar qué parte queda implementada y qué parte sigue como propuesta; evitar crear tablas/endpoints solo por estar dibujados.
-4. Aplicar cambios en el mismo PR a fuentes OpenAPI, modelos `.drawio`, exportaciones SVG, texto/ADR y tests. Distinguir en las fuentes el esquema implementado y el objetivo conceptual; las exportaciones tienen su propia evidencia de revisión.
+4. Aplicar cambios en el mismo PR a fuentes OpenAPI, modelos `.drawio`, texto/ADR y tests; las exportaciones SVG las actualiza manualmente el responsable. Distinguir en las fuentes el esquema implementado y el objetivo conceptual; las exportaciones tienen su propia evidencia de revisión.
 5. Implementar JPA/Flyway/servicios/HTTP de forma incremental, con tests de seguridad e integración aislados.
 6. Regenerar bundle y HTML **desde el YAML modular**, revisar diff y registrar resultados efectivamente ejecutados.
 
@@ -94,7 +94,7 @@ Desde la raíz:
 ```bash
 npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
 npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
 ```
 
 **Validaciones completadas (30/10/2026):** contrato OpenAPI `0.5.0` sin errores de lint (dos avisos conocidos: licencia por decidir y servidor localhost), **90 pruebas de backend superadas** y un recorrido HTTP aislado con PostgreSQL/Mailpit satisfactorio. El historial Git sitúa la reorganización de paquetes antes de los commits de Invitaciones y pruebas. Resultados, alcance y comandos: [Guía de desarrollo](../development.md).
@@ -109,12 +109,18 @@ npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/opena
 
 Las cinco operaciones cubren perfil propio y administración global con correo verificado. Los DTO admiten solo `displayName` o `active` según la ruta; la normalización de nombre se valida en puntos Unicode. `LAST_ACTIVE_ADMIN` protege la disponibilidad administrativa con estado 409. El listado pagina en SQL y carga roles y pertenencias en lote; el filtro departamental excluye historia, aunque el DTO la incluye. La baja y reentrada departamental son servicios internos sin nuevas rutas. Véanse [Usuarios](README.md#usuarios-implementados), [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).
 
-## Núcleo de Incidencias y contrato 0.7.0
+## Núcleo de Incidencias y contrato 0.8.0
 
 V1 y el módulo incidents implementan seis operaciones de alta, listados, detalle, corrección e historial. Los DTO efectivos contienen datos respaldados por persistencia; el diseño de geocodificación, contexto y trabajo permanece opcional y explícitamente futuro. [Definición exacta de campos, permisos, errores y evolución](../incidents-implementation-roadmap.md).
 
-El alta solo produce REPORTED y AuditEvent INCIDENT_CREATED; correcciones reales generan INCIDENT_UPDATED. StatusChange/IncidentReview/PriorityDecision tienen persistencia base sin operaciones. Se elimina el estado persistente intermedio de reapertura: RESOLVED podrá volver directamente a derivación o trabajo válido, con motivo; CLOSED es definitivo. Historial es proyección paginada, no tabla.
+El alta solo produce REPORTED y AuditEvent INCIDENT_CREATED; correcciones reales generan INCIDENT_UPDATED. StatusChange/IncidentReview/PriorityDecision pertenecen a processing y participan en revisión/respuesta/prioridad atómicas. Se elimina el estado persistente intermedio de reapertura: RESOLVED podrá volver directamente a derivación o trabajo válido, con motivo; CLOSED es definitivo. Historial es proyección paginada, no tabla.
 
 @Version e If-Match obligatorio evitan correcciones sobre versiones obsoletas (428/412); ETag se devuelve en alta/detalle/corrección. Solo el titular u OPERATOR/ADMIN globales pueden corregir REPORTED; permisos sobre terceros provisionales y sujetos a revisión. Un rol departamental no concede acceso global ni modifica la semántica de mine. Datos ajenos sin autorización responden como inexistentes.
 
-La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V1 incorpora los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la máquina de estados sigue aplazada.
+La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V1 incorpora los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la matriz de revisión/información está implementada en V2; ejecución y cierre siguen aplazados.
+
+## Correspondencia de Tramitación (0.8.0)
+
+Diez operaciones implementadas: revisiones, resultado público, respuestas de información y prioridades. ReviewRequest tiene variantes disjuntas; PriorityRequest no acepta source; todos los POST incluyen expectedIncidentVersion. Historial interno y resultado institucional tienen DTO separados. IncidentDTO solo publica el nivel vigente, nunca fuente ni justificación. V2 conserva snapshot null para revisiones antiguas no reconstruibles.
+
+[Contrato REST y ejemplos](README.md#api-de-tramitación-implementada-080), [matriz y SQL](../incidents-implementation-roadmap.md#tramitación-primera-fase-15112026). Derivación, asignación, ejecución, comentarios y asistencia siguen future.

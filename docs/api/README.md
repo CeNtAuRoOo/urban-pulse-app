@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.7.0`**. Los tags **Autenticación**, **Usuarios** e **Invitaciones**, y **Departamentos y Categorías** dentro de Catálogos, además de **Incidencias** y **Evidencias**, tienen endpoints backend implementados; las operaciones de los restantes tags describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias** y **Tramitación** (primera fase) tienen endpoints backend implementados; las operaciones de los restantes tags, así como las fases posteriores de Tramitación, describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada o V2 en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -23,11 +23,11 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.3.0`**: definición del núcleo de autenticación, registro con JWT, cambio de contraseña, invalidación por `tokenVersion` y permisos actuales desde PostgreSQL.
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
 - **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
-
 - **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
-- **`0.7.0` (vigente)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
+- **`0.7.0` (histórica)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
+- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual.
 
-La existencia de versiones históricas no implica que los 16 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni la interfaz de evidencias.
+La existencia de versiones históricas no implica que los 14 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni las interfaces específicas de Evidencias y Tramitación.
 
 ## 3. Convenciones y reglas generales
 
@@ -126,7 +126,7 @@ El listado usa `page=1`, `pageSize=20` (1–100), offset máximo `2147483647` y 
 
 1. Elegir los casos de uso y contrastar el enunciado, roles y [ADR](../adr/README.md).
 2. Estudiar conjuntamente path/DTO del tag y ambos [diagramas existentes](../diagrams/README.md), comprobando tipos, cardinalidad, nulabilidad, PK/FK, estados y autorización.
-3. Resolver divergencias antes de implementar; actualizar modelo, OpenAPI **modular**, fuentes `.drawio`, exportaciones y ADR cuando corresponda.
+3. Resolver divergencias antes de implementar; actualizar modelo, OpenAPI **modular**, fuentes `.drawio` y ADR cuando corresponda; las exportaciones SVG se actualizan manualmente.
 4. Implementar **solo el alcance del tag**, con Flyway/JPA, servicios, HTTP, tests y revisiones de seguridad. Las páginas de diseño no obligan a crear toda la base de datos anticipadamente.
 5. Ejecutar lint, bundle y generación HTML, revisar diferencias y declarar qué se ha probado realmente.
 
@@ -139,8 +139,10 @@ Desde la **raíz** del repositorio:
 ```bash
 npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
 npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html
+npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
 ```
+
+La plantilla [redoc-template.hbs](redoc-template.hbs) conserva el visor Redoc y evita espacios sobrantes del envoltorio predeterminado; el HTML se genera siempre por CLI, sin edición manual.
 
 **Validación histórica del 04/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las 23 operaciones implementadas comprenden cinco de Usuarios, cinco de Autenticación, cinco de Invitaciones y cuatro de cada catálogo; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
 
@@ -159,7 +161,7 @@ Alta REPORTED, prioridad no asignada, sin StatusChange inicial; creación y corr
 
 POST/GET detalle/PATCH devuelven ETag fuerte opaca del JSON completo. PATCH exige If-Match: 428 si falta, 412 si es obsoleta o hay carrera optimista; formato no admitido 400. El formato y el límite de cuerpo se detallan al final de esta sección. Un no-op conserva versión, fecha y auditoría. CORS permite If-Match y expone ETag; respuestas privadas con no-store. El permiso de OPERATOR/ADMIN sobre terceros es provisional y requiere revisión futura por ámbito/campo.
 
-Paginación compartida page=1/pageSize=20 (máximo 100), offset máximo 2147483647. Listados createdAt DESC,id DESC; filtros administrativos status/categoryId/createdFrom/createdTo, fechas inclusivas. Historial occurredAt ASC,id ASC, solo CREATED/UPDATED; datos y totales filtrados antes de paginar. No se aceptan userId en mine ni sort/filtros futuros. Los opcionales sin valor se omiten, salvo description:null del CategoryDTO existente. No se emiten geocodificación, contexto o contadores ficticios.
+Paginación compartida page=1/pageSize=20 (máximo 100), offset máximo 2147483647. Listados createdAt DESC,id DESC; filtros administrativos status/categoryId/createdFrom/createdTo, fechas inclusivas. Historial occurredAt ASC,id ASC, con CREATED/UPDATED y los hechos de revisión/respuesta/prioridad; datos y totales filtrados antes de paginar. No se acepta userId en mine; el listado administrativo admite prioridad y los dos órdenes de prioridad definidos. Los opcionales sin valor se omiten, salvo description:null del CategoryDTO existente. No se emiten geocodificación, contexto o contadores ficticios.
 
 El [roadmap técnico](../incidents-implementation-roadmap.md) detalla columnas, errores, DTO, modelo futuro, dependencias y trazabilidad RF. Las rutas de otros tags identificadas como «Diseño futuro» no están implementadas.
 
@@ -171,11 +173,11 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
-Todas las operaciones referenciadas tienen x-implementation explícito: 34 implemented y 37 future (71 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+Todas las operaciones referenciadas tienen x-implementation explícito: 44 implemented y 33 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
 
 ## Evidencias implementadas
 
-El contrato implementa cinco operaciones sobre fotografías privadas. Todas exigen cuenta activa/verificada y visibilidad vigente de Incidencias: informante u OPERATOR/ADMIN global. Los roles departamentales solo permiten actuar como informante propio. Se admiten todos los estados sin modificarlos.
+El contrato implementa cinco operaciones sobre fotografías privadas. Todas exigen cuenta activa/verificada y visibilidad vigente de Incidencias: informante u OPERATOR/ADMIN global. Los roles departamentales solo permiten actuar como informante propio. Las lecturas se admiten en todos los estados; POST/DELETE solo en REPORTED y AWAITING_INFORMATION, sin cambiar estado ni versión.
 
 | Método | Ruta relativa a /api/v1                                    | Éxito                                   |
 | ------ | ---------------------------------------------------------- | --------------------------------------- |
@@ -187,8 +189,61 @@ El contrato implementa cinco operaciones sobre fotografías privadas. Todas exig
 
 Solo JPEG (.jpg/.jpeg) y PNG, por firma y decodificación real; máximo 10 MiB de entrada/salida, 16 millones de píxeles y 8192 por lado. Multipart permite 11 MiB por petición. Recodifica sin EXIF/GPS conservando alfa PNG. Descripción nullable de 300 puntos Unicode y nombre saneado de 128.
 
-AttachmentDTO siempre devuelve id, incidentId, originalFilename, contentType (image/jpeg o image/png), sizeBytes, uploadedBy UUID, createdAt y description, incluso null. No expone claves S3. Lista en createdAt DESC/id DESC; todas las respuestas privadas incluyen no-store. Descarga con Content-Disposition attachment UTF-8, MIME y longitud reales.
+AttachmentDTO siempre devuelve id, incidentId, originalFilename, contentType (image/jpeg o image/png), sizeBytes, uploadedBy UUID propio o null si el autor no es el informante original, createdAt y description, incluso null. No expone claves S3. Lista en createdAt DESC/id DESC; todas las respuestas privadas incluyen no-store. Descarga con Content-Disposition attachment UTF-8, MIME y longitud reales.
 
 Máximo cinco activas en total por incidencia, protegido por bloqueo SQL. La sexta responde 409 ATTACHMENT_LIMIT_REACHED y compensa cualquier objeto subido. DELETE conserva fila y binario; repetir devuelve 404 y libera plaza solo la primera vez. No hay restauración. Los eventos internos no alteran el historial público de Incidencias.
 
-Errores: 400 por parámetros/multipart ausente, 401 por identidad inválida, 403 sin verificar, 404 indistinguible por incidencia ajena/inexistente o evidencia eliminada/pareja incorrecta, 409 por capacidad, 413 ATTACHMENT_TOO_LARGE incluso antes del controlador, 422 por contenido/descripción y 500/503 saneados. No existe API global de adjuntos. [Decisiones completas](../adr/0015-almacenamiento-evidencias.md).
+Errores: 400 por parámetros/multipart ausente, 401 por identidad inválida, 403 sin verificar, 404 indistinguible por incidencia ajena/inexistente o evidencia eliminada/pareja incorrecta, 409 por capacidad o ATTACHMENTS_FROZEN, 413 ATTACHMENT_TOO_LARGE incluso antes del controlador, 422 por contenido/descripción y 500/503 saneados. No existe API global de adjuntos. [Decisiones completas](../adr/0015-almacenamiento-evidencias.md).
+
+## API de Tramitación implementada (0.8.0)
+
+Todas las rutas siguientes están bajo `/api/v1/incidents/{incidentId}`. Cuenta activa y verificada, con permisos vigentes en PostgreSQL. Las respuestas privadas usan `Cache-Control: no-store`.
+
+| Método     | Ruta                                  | Acceso                                          |
+| ---------- | ------------------------------------- | ----------------------------------------------- |
+| POST / GET | `/reviews`                            | OPERATOR/ADMIN; historial interno               |
+| GET        | `/reviews/{reviewId}`                 | OPERATOR/ADMIN                                  |
+| GET        | `/review-outcome`                     | Informante u OPERATOR/ADMIN; proyección saneada |
+| POST       | `/information-responses`              | Solo informante original                        |
+| GET        | `/information-responses`              | Informante u OPERATOR/ADMIN                     |
+| GET        | `/information-responses/{responseId}` | Informante u OPERATOR/ADMIN                     |
+| POST / GET | `/priority-decisions`                 | OPERATOR/ADMIN; justificaciones internas        |
+| GET        | `/priority-decisions/{decisionId}`    | OPERATOR/ADMIN                                  |
+
+Son diez operaciones. POST devuelve 201, DTO y Location relativa resoluble mediante el GET individual. Colecciones `{data, pagination}` con PageMetadata, page desde 1, pageSize 20 por defecto y máximo 100; orden fecha DESC, UUID DESC, filtro por padre y totales en SQL. Parejas anidadas ajenas y recursos no visibles: 404 indistinguible. Las colecciones rechazan parámetros desconocidos.
+
+```json
+{ "decision": "VALIDATE", "categoryId": "019a6fb0-1234-7000-8000-000000000001", "expectedIncidentVersion": 0 }
+```
+
+```json
+{
+  "decision": "REQUEST_INFORMATION",
+  "reason": "Indique el punto exacto junto al parque",
+  "expectedIncidentVersion": 0
+}
+```
+
+```json
+{ "message": "Está junto a la entrada norte", "expectedIncidentVersion": 1 }
+```
+
+```json
+{ "priority": "HIGH", "justification": "Riesgo de caída en zona de paso", "expectedIncidentVersion": 3 }
+```
+
+REJECT usa la misma estructura de motivo que REQUEST_INFORMATION. VALIDATE no admite reason, ni null; las otras decisiones no admiten categoryId, ni null. `source` no pertenece a PriorityRequest. JSON estricto y máximo bruto 65536 bytes en los tres POST, sin interceptar multipart. Errores compartidos: 400 JSON/UUID/parámetros mal formados, 401/403 identidad/permisos, 404 recurso oculto, 409 estado/nivel/versión, 413 cuerpo excesivo, 422 validación semántica/propiedades no admitidas, 500/503 saneados.
+
+GET review-outcome devuelve 200 con latestReview:null antes de cualquier revisión. Después incluye estado actual, informationPending y último resultado público: decisión, fecha, snapshot nullable solo para historia V1, motivo exclusivamente de rechazo/solicitud e identificación institucional Ayuntamiento.
+
+GET `/api/v1/incidents` admite `priority=HIGH` y `sort=priority,asc` o `sort=priority,desc`. El rango es LOW < MEDIUM < HIGH < CRITICAL, null siempre al final; desempate createdAt DESC,id DESC. Sin sort se mantiene el orden anterior. No admite orden arbitrario. La prioridad/decisión cambia Incident.version y la ETag; PATCH sigue exigiendo If-Match y solo funciona en REPORTED.
+
+## Correcciones de privacidad y nulabilidad (15/11/2026)
+
+La proyección del historial identifica únicamente al informante original en CREATED, UPDATED e INFORMATION_RESPONDED. Cualquier otro actor se omite, también en correcciones municipales por PATCH; REVIEWED/PRIORITY_CHANGED siguen sin actor. Se compara la identidad con el informante inmutable obtenido al autorizar la incidencia, sin consultar roles por evento. Cambiar roles, nombre o actividad después del hecho no revela al empleado. AuditEvent conserva siempre al actor real y PATCH conserva su permiso provisional y If-Match/412.
+
+AttachmentDTO mantiene uploadedBy como propiedad requerida, pero nullable: identifica solo al informante original cuando es el autor. La corrección autorizada se aplica a todas sus representaciones públicas; el actor real queda en persistencia y auditoría.
+
+ReviewOutcomeDTO siempre serializa latestReview, incluso null. El contrato OAS 3.0.3 usa oneOf entre PublicReviewDTO y una rama limitada a null (type object, nullable true, enum [null]); evita allOf con un objeto no nullable, que seguiría rechazando null. La semántica está definida en [Schema Object de OAS 3.0.3](https://spec.openapis.org/oas/v3.0.3.html#schema-object). HistoryEventDTO usa NON_NULL: actor se omite cuando no corresponde, por lo que no es requerido ni se anuncia como null explícito.
+
+La especificación OpenAPI se valida mediante Redocly, siguiendo los comandos de la sección «Validación y visualización». Esta comprobación verifica la estructura y las referencias del contrato, pero no sustituye las pruebas de comportamiento del backend ni valida individualmente todos los casos de nulabilidad y serialización.
