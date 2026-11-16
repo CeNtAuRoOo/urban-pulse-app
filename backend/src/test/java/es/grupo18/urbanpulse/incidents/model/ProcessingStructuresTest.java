@@ -6,6 +6,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import es.grupo18.urbanpulse.identity.model.User;
+import es.grupo18.urbanpulse.processing.model.IncidentReview;
+import es.grupo18.urbanpulse.processing.model.PriorityDecision;
+import es.grupo18.urbanpulse.processing.model.PrioritySource;
+import es.grupo18.urbanpulse.processing.model.ReviewDecision;
+import es.grupo18.urbanpulse.processing.model.StatusChange;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +24,7 @@ class ProcessingStructuresTest {
 
     @Test
     void reviewsRequireReasonForRejectionAndInformationAndValidateOptionalReason() {
-        for (ReviewDecision decision : ReviewDecision.values()) {
+        for (ReviewDecision decision : List.of(ReviewDecision.REJECT, ReviewDecision.REQUEST_INFORMATION)) {
             for (String text : List.of("ab", " ", "\u2003".repeat(3), "🚦".repeat(2001))) {
                 assertThatThrownBy(() -> new IncidentReview(incident, actor, decision, text, now))
                         .isInstanceOf(ApiException.class);
@@ -33,6 +38,12 @@ class ProcessingStructuresTest {
                     .isInstanceOf(ApiException.class);
         }
         assertThat(new IncidentReview(incident, actor, ReviewDecision.VALIDATE, null, now).getReason()).isNull();
+        for (String reason : List.of("abc", " ", "🚦".repeat(2000))) {
+            assertThatThrownBy(() -> new IncidentReview(incident, actor, ReviewDecision.VALIDATE, reason, now))
+                    .isInstanceOf(ApiException.class);
+        }
+        assertThat(new IncidentReview(incident, actor, ReviewDecision.REQUEST_INFORMATION, "motivo", now)
+                .getResultingStatus()).isEqualTo(IncidentStatus.AWAITING_INFORMATION);
     }
 
     @Test

@@ -170,6 +170,10 @@ public class SecurityConfig {
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+                .withCoercionConfig(LogicalType.Enum, config -> config
+                        .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+                        .setCoercion(CoercionInputShape.Float, CoercionAction.Fail))
                 .withCoercionConfig(LogicalType.Textual, config -> config
                         .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
                         .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)

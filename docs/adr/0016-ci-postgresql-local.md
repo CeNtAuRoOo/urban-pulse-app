@@ -28,3 +28,7 @@ GitHub Actions verifica PR hacia main, push a main y ejecución manual mediante 
 Mantener SQL remoto compartido conserva la interferencia entre desarrolladores. Testcontainers resuelve el aislamiento automatizado, pero no sustituye la base persistente de la aplicación. PostgreSQL local añade consumo de disco y exige revisar el historial al cambiar de rama; simplifica el trabajo cotidiano sin administrar modos de conexión alternativos.
 
 Las pruebas de arranque Compose complementan Testcontainers porque comprueban imágenes, puertos, DNS, entorno y correo. Se mantienen como verificación local reproducible, sin un cuarto job que levante toda la aplicación y requiera configuración S3 privada. Las pruebas aisladas no acreditan producción ni operaciones reales en Neon Object Storage.
+
+## Ampliación de Tramitación (15/11/2026)
+
+El perfil postgres-it incorpora explícitamente ProcessingPostgresIT y ProcessingMigrationPostgresIT. Conserva las nueve suites anteriores; Evidencias usa dobles S3. La equivalencia local del workflow no dispara ejecuciones remotas. Resultados y entorno en [Desarrollo](../development.md).

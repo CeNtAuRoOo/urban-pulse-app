@@ -1,6 +1,8 @@
 package es.grupo18.urbanpulse.incidents.integration;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,17 +45,17 @@ import es.grupo18.urbanpulse.incidents.dto.IncidentDTO;
 import es.grupo18.urbanpulse.incidents.dto.UpdateIncidentRequest;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 import es.grupo18.urbanpulse.incidents.model.IncidentPriority;
-import es.grupo18.urbanpulse.incidents.model.IncidentReview;
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
-import es.grupo18.urbanpulse.incidents.model.PriorityDecision;
-import es.grupo18.urbanpulse.incidents.model.PrioritySource;
-import es.grupo18.urbanpulse.incidents.model.ReviewDecision;
-import es.grupo18.urbanpulse.incidents.model.StatusChange;
 import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
-import es.grupo18.urbanpulse.incidents.repository.IncidentReviewRepository;
-import es.grupo18.urbanpulse.incidents.repository.PriorityDecisionRepository;
-import es.grupo18.urbanpulse.incidents.repository.StatusChangeRepository;
 import es.grupo18.urbanpulse.incidents.service.IncidentService;
+import es.grupo18.urbanpulse.processing.model.IncidentReview;
+import es.grupo18.urbanpulse.processing.model.PriorityDecision;
+import es.grupo18.urbanpulse.processing.model.PrioritySource;
+import es.grupo18.urbanpulse.processing.model.ReviewDecision;
+import es.grupo18.urbanpulse.processing.model.StatusChange;
+import es.grupo18.urbanpulse.processing.repository.IncidentReviewRepository;
+import es.grupo18.urbanpulse.processing.repository.PriorityDecisionRepository;
+import es.grupo18.urbanpulse.processing.repository.StatusChangeRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 
@@ -76,6 +78,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource("classpath:auth-test.properties")
 @Testcontainers
 class IncidentPostgresIT {
+
         @Container
         static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
 
@@ -88,35 +91,51 @@ class IncidentPostgresIT {
 
         @org.springframework.beans.factory.annotation.Value("${local.server.port}")
         int port;
+
         @Autowired
         IncidentService service;
+
         @Autowired
         IncidentRepository incidents;
+
         @Autowired
         StatusChangeRepository transitions;
+
         @Autowired
         IncidentReviewRepository reviews;
+
         @Autowired
         PriorityDecisionRepository priorities;
+
         @Autowired
         AuditEventRepository audit;
+
         @Autowired
         AuthService auth;
+
         @Autowired
         JdbcTemplate jdbc;
+
         @Autowired
         MockMvc mvc;
+
         @Autowired
         JsonMapper json;
+
         @Autowired
         EntityManager em;
+
         @Autowired
         PlatformTransactionManager transactions;
+
         @Autowired
         EmailVerificationCleanup cleanup;
+
         @MockitoBean
         EmailSender emailSender;
+
         private static final String URL = "/api/v1/incidents";
+
         private static final String BODY = """
                         {"title":"  Bache grande  ","description":"  Pavimento deteriorado  ",
                          "coordinates":{"latitude":36.7,"longitude":-4.4}}
@@ -124,8 +143,17 @@ class IncidentPostgresIT {
 
         @BeforeEach
         void isolateIncidentFixtures() {
-                jdbc.execute(
-                                "truncate duplicate_links, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+                jdbc.execute("""
+                                TRUNCATE TABLE
+                                    duplicate_links,
+                                    incident_information_responses,
+                                    attachments,
+                                    status_changes,
+                                    incident_reviews,
+                                    priority_decisions,
+                                    incidents,
+                                    audit_events
+                                """);
         }
 
         @Test
@@ -284,7 +312,7 @@ class IncidentPostgresIT {
                 assertThat(jdbc.queryForList(
                                 "select version from flyway_schema_history where success order by installed_rank",
                                 String.class))
-                                .containsExactly("1", "2");
+                                .containsExactly("1", "2", "3");
         }
 
         @Test
@@ -445,7 +473,6 @@ class IncidentPostgresIT {
                                 "update incidents set created_at=TIMESTAMPTZ '2026-01-02 00:00:00+00', " +
                                                 "updated_at=TIMESTAMPTZ '2026-01-02 00:00:00+00' where id=?",
                                 control.id());
-
                 jdbc.update(
                                 "update incidents set created_at=TIMESTAMPTZ '2026-01-01 00:00:00+00', " +
                                                 "updated_at=TIMESTAMPTZ '2026-01-01 00:00:00+00' where reporter_user_id=?",
@@ -623,12 +650,12 @@ class IncidentPostgresIT {
         void initialSchemaRecordsOnlyV1AndIndexesFinalStructures() {
                 assertThat(jdbc.queryForList(
                                 "select version from flyway_schema_history where success order by installed_rank",
-                                String.class)).containsExactly("1", "2");
+                                String.class)).containsExactly("1", "2", "3");
                 assertThat(jdbc.queryForObject(
                                 "select count(*) from information_schema.tables where table_schema='public' "
                                                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'",
                                 Integer.class))
-                                .isEqualTo(15);
+                                .isEqualTo(16);
                 assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'",
                                 String.class))
                                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
@@ -639,24 +666,42 @@ class IncidentPostgresIT {
         void reviewSqlEnforcesDecisionReasonsAndUnicodeBoundaries() {
                 var owner = account(null);
                 UUID id = create(owner).id();
-                String sql = "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reason,reviewed_at) "
-                                + "values(uuidv7(),?,?,?,?,now())";
+                String sql = "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reason,resulting_status,reviewed_at) "
+                                + "values(uuidv7(),?,?,?,?,?,now())";
                 for (String decision : List.of("VALIDATE", "REJECT", "REQUEST_INFORMATION")) {
-                        for (String reason : List.of("abc", "🚦".repeat(2000))) {
-                                assertThat(jdbc.update(sql, id, owner.user().id(), decision, reason)).isEqualTo(1);
+                        String resultingStatus = switch (decision) {
+                                case "VALIDATE" -> "VALIDATED";
+                                case "REJECT" -> "REJECTED";
+                                case "REQUEST_INFORMATION" -> "AWAITING_INFORMATION";
+                                default -> throw new IllegalArgumentException("Unexpected decision: " + decision);
+                        };
+
+                        List<String> validReasons = switch (decision) {
+                                case "VALIDATE" -> Collections.singletonList(null); // singletonList admite null
+                                case "REJECT", "REQUEST_INFORMATION" -> List.of("abc", "🚦".repeat(2000));
+                                default -> List.of();
+                        };
+
+                        List<String> invalidReasons = switch (decision) {
+                                case "VALIDATE" -> List.of("abc", " ", "\u2003".repeat(3), " abc", "abc\t",
+                                                "🚦".repeat(2001));
+                                case "REJECT", "REQUEST_INFORMATION" -> Arrays.asList("ab", " ", "\u2003".repeat(3),
+                                                " abc", "abc\t", "🚦".repeat(2001), null); // ← Arrays.asList, no
+                                                                                           // List.of
+                                default -> List.of();
+                        };
+
+                        for (String reason : validReasons) {
+                                assertThat(jdbc.update(sql, id, owner.user().id(), decision, reason, resultingStatus))
+                                                .isEqualTo(1);
                         }
-                        for (String reason : List.of("ab", " ", "\u2003".repeat(3), " abc", "abc\t",
-                                        "🚦".repeat(2001))) {
-                                assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, reason))
-                                                .isInstanceOf(DataIntegrityViolationException.class);
+
+                        for (String reason : invalidReasons) {
+                                assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, reason,
+                                                resultingStatus)).isInstanceOf(DataIntegrityViolationException.class);
                         }
                 }
-                assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null)).isEqualTo(1);
-                for (String decision : List.of("REJECT", "REQUEST_INFORMATION")) {
-                        assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, null))
-                                        .isInstanceOf(DataIntegrityViolationException.class);
-                }
-                assertThatThrownBy(() -> jdbc.update(sql, id, null, "VALIDATE", null))
+                assertThatThrownBy(() -> jdbc.update(sql, id, null, "VALIDATE", null, "VALIDATED"))
                                 .isInstanceOf(DataIntegrityViolationException.class);
         }
 

@@ -23,7 +23,7 @@ Una migración ya aplicada **no se edita**, ni se repara su checksum para oculta
 
 Solo se siembran los cinco roles legítimos. No se crean usuarios, ADMIN, departamentos ni categorías ficticias. Se conservan UUIDv7, claves naturales/compuestas, fechas timestamptz, auditoría JSONB, índices normalizados y unicidad parcial de pertenencias activas. Las FK históricas no tienen cascadas de borrado.
 
-Las restricciones finales de revisión exigen motivo en REJECT y REQUEST_INFORMATION; VALIDATE lo permite opcional. Los motivos presentes y la justificación de prioridad tienen 3–2000 puntos Unicode normalizados y no blancos. StatusChange conserva null/blancos y límites 2000/5000; las reglas por transición pertenecen al futuro servicio de Tramitación.
+Las restricciones históricas de V1 exigen motivo en REJECT y REQUEST_INFORMATION; V1 permitía motivo opcional en VALIDATE, prohibido para nuevas filas desde V2. Los motivos presentes y la justificación de prioridad tienen 3–2000 puntos Unicode normalizados y no blancos. StatusChange conserva null/blancos y límites 2000/5000; las reglas de revisión pertenecen a ProcessingService; las de ejecución permanecen futuras.
 
 attachments nace con incident_id NOT NULL, autor obligatorio, FK RESTRICT, clave de objeto única, tamaños 1–10485760, JPEG/PNG, nombre saneado y fecha de baja posterior al alta. El índice parcial por incidencia/created_at DESC/id DESC respalda el listado de activas. El límite de cinco se coordina en el servicio mediante bloqueo pesimista del padre.
 
@@ -35,10 +35,14 @@ Las comprobaciones históricas JDBC/HeadBucket de Neon no acreditan aplicación 
 
 ## Desarrollo paralelo y CI (14/11/2026)
 
-Cada desarrollador utiliza PostgreSQL 18 en su propio Docker, con persistencia local. Cambiar de rama conserva el mismo volumen y su historial: revisar compatibilidad antes de arrancar y conservar los datos si se necesita una base nueva de prueba. El aislamiento entre compañeros no resuelve colisiones de versiones al integrar. GitHub Actions ejecuta `mvn -B -ntp clean verify -Ppostgres-it`: Surefire y nueve suites Failsafe con PostgreSQL efímero, independiente de Compose. V1 permanece intacta.
+Cada desarrollador utiliza PostgreSQL 18 en su propio Docker, con persistencia local. Cambiar de rama conserva el mismo volumen y su historial: revisar compatibilidad antes de arrancar y conservar los datos si se necesita una base nueva de prueba. El aislamiento entre compañeros no resuelve colisiones de versiones al integrar. GitHub Actions ejecuta `mvn -B -ntp clean verify -Ppostgres-it`: Surefire y once suites Failsafe con PostgreSQL efímero, independiente de Compose. V1 permanece intacta.
 
 Coordinar versiones antes de integrar: una colisión V2/V2 solo se resuelve renumerando trabajo aún no publicado ni aplicado en bases compartidas y verificando el orden conjunto desde cero. Si una versión ya se aplicó en una base compartida, es inmutable: revisar los historiales y diseñar una reconciliación compatible con respaldo. No editar el historial, activar outOfOrder ni utilizar repair para ocultar conflictos. [Procedimiento completo y ciclo de vida](../development.md#3-ramas-y-migraciones-concurrentes).
 
 ## Antecedentes
 
 Las entregas anteriores construyeron migraciones separadas para identidad/catálogos, Incidencias, restricciones correctivas y evidencias. Las consolidaciones previas de 02–03/11/2026 eliminaron semillas ficticias. La decisión de 11/11/2026 sustituye esa cadena antes de su primera aplicación y conserva las restricciones finales, no el mecanismo incremental histórico.
+
+## Evolución V2 (15/11/2026)
+
+V1 permanece intacta. V2\_\_processing_phase_one.sql incorpora estado de espera, snapshot de revisión y respuestas con FK compuesta/unicidad. Las filas históricas conservan snapshot desconocido (null); un CHECK NOT VALID exige valores coherentes en nuevas escrituras sin inventar historia ni eliminar motivos anteriores. ProcessingMigrationPostgresIT verifica V1 poblada con revisión y foto; las integraciones Spring verifican V1→V2 y Hibernate validate. No se aplican migraciones remotas ni repair.

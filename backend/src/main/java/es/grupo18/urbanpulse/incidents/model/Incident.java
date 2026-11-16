@@ -32,7 +32,8 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
  * Reporte con titular inmutable, corrección limitada a REPORTED y versión
- * optimista. Las fechas del núcleo se truncan a microsegundos antes de persistir
+ * optimista. Las fechas del núcleo se truncan a microsegundos antes de
+ * persistir
  * para que POST/PATCH y la lectura PostgreSQL representen los mismos instantes.
  */
 @Entity
@@ -75,7 +76,7 @@ public class Incident {
 
     /**
      * Construye un reporte; no crea revisión, prioridad ni transición inicial.
-     * 
+     *
      * @param reporter    titular autenticado
      * @param title       título que se normaliza y valida
      * @param description descripción que se normaliza y valida
@@ -98,7 +99,7 @@ public class Incident {
     /**
      * Corrige los valores efectivos; el servicio ya resolvió campos omitidos y
      * permisos.
-     * 
+     *
      * @param title       título efectivo
      * @param description descripción efectiva
      * @param category    clasificación efectiva, que puede ser null
@@ -128,6 +129,61 @@ public class Incident {
         return true;
     }
 
+    /**
+     * Aplica una transición autorizada por Tramitación sin alterar el reporte.
+     * 
+     * @param target            destino de esta fase
+     * @param confirmedCategory categoría activa obligatoria al validar
+     * @param now               instante de la operación
+     * @throws ApiException si la transición no está permitida
+     */
+    public void transition(IncidentStatus target, Category confirmedCategory, Instant now) {
+        boolean allowed = status == IncidentStatus.REPORTED
+                && (target == IncidentStatus.VALIDATED || target == IncidentStatus.REJECTED
+                        || target == IncidentStatus.AWAITING_INFORMATION)
+                || status == IncidentStatus.AWAITING_INFORMATION
+                        && (target == IncidentStatus.REPORTED || target == IncidentStatus.REJECTED);
+        if (!allowed) {
+            throw new ApiException(HttpStatus.CONFLICT, "INVALID_INCIDENT_STATE", "Transición no permitida.");
+        }
+        if (target == IncidentStatus.VALIDATED) {
+            if (confirmedCategory == null || !confirmedCategory.isActive()) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
+                        "Categoría activa obligatoria.");
+            }
+            category = confirmedCategory;
+        }
+        status = target;
+        touch(now);
+    }
+
+    /**
+     * Cambia el nivel antes de derivar; la decisión histórica la guarda
+     * Tramitación.
+     * 
+     * @param next nivel obligatorio distinto del vigente
+     * @param now  instante de decisión
+     * @throws ApiException estado no válido o mismo nivel (409)
+     */
+    public void prioritize(IncidentPriority next, Instant now) {
+        Objects.requireNonNull(next);
+        if (status != IncidentStatus.VALIDATED || assignedDepartment != null || priority == next) {
+            throw new ApiException(HttpStatus.CONFLICT, "PRIORITY_CONFLICT", "No se puede aplicar esa prioridad.");
+        }
+        priority = next;
+        touch(now);
+    }
+
+    /**
+     * Actualiza la fecha sin retroceder respecto a la última modificación.
+     * 
+     * @param now instante UTC de negocio
+     */
+    private void touch(Instant now) {
+        Instant instant = Objects.requireNonNull(now).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        updatedAt = instant.isBefore(updatedAt) ? updatedAt : instant;
+    }
+
     /** @return identidad del catálogo sin inicializar sus relaciones */
     private static UUID categoryId(Category category) {
         return category == null ? null : category.getId();
@@ -137,7 +193,7 @@ public class Incident {
      * Aplica trim de Java y cuenta puntos Unicode; conserva formato interior y
      * acentos.
      * Rechaza NUL y sustitutos aislados, que PostgreSQL UTF-8 no puede representar.
-     * 
+     *
      * @param value texto recibido
      * @param min   mínimo normalizado
      * @param max   máximo normalizado

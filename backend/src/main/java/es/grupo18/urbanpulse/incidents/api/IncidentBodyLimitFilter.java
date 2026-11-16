@@ -16,8 +16,10 @@ import es.grupo18.urbanpulse.shared.error.ProblemDetailFactory;
 import es.grupo18.urbanpulse.shared.security.CachedBodyRequest;
 
 /**
- * Acota la memoria antes de deserializar altas y correcciones. No consume cuotas
- * ni depende de Content-Length: también limita cuerpos transferidos por bloques.
+ * Acota la memoria antes de deserializar altas y correcciones. No consume
+ * cuotas
+ * ni depende de Content-Length: también limita cuerpos transferidos por
+ * bloques.
  */
 @RequiredArgsConstructor
 public class IncidentBodyLimitFilter extends OncePerRequestFilter {
@@ -26,7 +28,8 @@ public class IncidentBodyLimitFilter extends OncePerRequestFilter {
     private final ProblemDetailFactory problems;
 
     /**
-     * Selecciona las dos rutas de escritura del núcleo sin alcanzar Tramitación.
+     * Selecciona las escrituras JSON del núcleo y de Tramitación, excluyendo
+     * multipart.
      *
      * @param request petición recibida, con posible context path
      * @return true para cualquier otra combinación de método y ruta
@@ -35,16 +38,18 @@ public class IncidentBodyLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return !("POST".equals(request.getMethod()) && path.equals("/api/v1/incidents"))
+                && !("POST".equals(request.getMethod())
+                        && path.matches("/api/v1/incidents/[^/]+/(reviews|information-responses|priority-decisions)"))
                 && !("PATCH".equals(request.getMethod()) && path.matches("/api/v1/incidents/[^/]+"));
     }
 
     /**
      * Lee como máximo límite + 1 bytes y conserva solo las peticiones admitidas.
      *
-     * @param request petición antes de MVC
+     * @param request  petición antes de MVC
      * @param response respuesta ProblemDetail 413 si se supera el límite
-     * @param chain cadena de seguridad/controlador
-     * @throws IOException si falla el transporte
+     * @param chain    cadena de seguridad/controlador
+     * @throws IOException      si falla el transporte
      * @throws ServletException si falla la cadena posterior
      */
     @Override

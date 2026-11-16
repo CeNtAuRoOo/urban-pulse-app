@@ -4,6 +4,17 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Tramitación, primera fase — contrato 0.8.0 (15/11/2026)
+
+- Revisión correctiva: historial sin identidad de autores distintos del informante, también en PATCH municipal; auditoría real conservada. uploadedBy de Evidencias pasa a null para otros autores, con autorización expresa.
+- Contrato latestReview nullable corregido y limitación de snapshot fotográfico documentada; sin alterar Incident.version por fotos.
+
+- Diez operaciones de revisión, solicitudes/respuestas y prioridad MANUAL; clasificación activa obligatoria al validar y prohibición de autorrevisión.
+- AWAITING_INFORMATION, snapshot histórico y respuestas únicas en V2 aditiva; traslado de persistencia histórica a processing.
+- Versión esperada, bloqueos coordinados, auditoría atómica, proyección institucional y consulta SQL por prioridad.
+- Evidencias congeladas después de validar/rechazar, con compensación de subidas concurrentes; lecturas conservadas.
+- OpenAPI 0.8.0 y documentación actualizada. Sin frontend, correo ni fases posteriores. SVG regenerados manualmente por el usuario después de la implementación, incluida ER05; conservados por la revisión correctiva.
+
 ### CI y PostgreSQL local (14/11/2026)
 
 - GitHub Actions para PR hacia main, push a main y ejecución manual: Maven/Surefire/Failsafe con nueve suites PostgreSQL aisladas, npm test/TypeScript/ESLint/Expo, OpenAPI y Compose. Sin secretos remotos ni CD.

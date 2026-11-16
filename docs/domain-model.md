@@ -1,20 +1,20 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 15/11/2026:** V1 es la migración inicial consolidada y contiene 14 tablas funcionales, incluidas Incidencias, sus estructuras base de tramitación y Evidencias. V2 añade la persistencia de relaciones de incidencias duplicadas mediante `duplicate_links`. La tramitación operativa sigue futura. El [roadmap](incidents-implementation-roadmap.md) conserva el modelo objetivo, sus dependencias y la trazabilidad RF01–RF26 del enunciado.
+> **Estado a 15/11/2026:** V1 es la migración inicial consolidada y contiene 14 tablas funcionales, incluidas Incidencias, sus estructuras base de tramitación y Evidencias. V3 incorpora cambios aditivos, entre ellos la persistencia de relaciones de incidencias duplicadas mediante `duplicate_links` y las estructuras necesarias para las respuestas de información. La revisión y la prioridad manual están implementadas en el módulo `processing`; el resto de la tramitación operativa, como la derivación y asignación, continúa pendiente según su alcance. El [roadmap](incidents-implementation-roadmap.md) conserva el modelo objetivo, sus dependencias y la trazabilidad RF01–RF26 del enunciado.
 
 ## 1. Fuentes y criterio de interpretación
 
-El dominio de UrbanPulse parte del [enunciado](../README.md), los [ADR](adr/README.md), el [diseño OpenAPI modular](api/README.md), las entidades JPA realmente presentes y sus migraciones SQL. El contrato actual de la API es `0.7.0`; `0.2.0` fue una versión inicial de diseño, no la versión vigente. Los modelos se mantienen de forma incremental, con un alcance deliberadamente reducido en cada tag.
+El dominio de UrbanPulse parte del [enunciado](../README.md), los [ADR](adr/README.md), el [diseño OpenAPI modular](api/README.md), las entidades JPA realmente presentes y sus migraciones SQL. El contrato actual de la API es `0.8.0`; `0.2.0` fue una versión inicial de diseño, no la versión vigente. Los modelos se mantienen de forma incremental, con un alcance deliberadamente reducido en cada tag.
 
 Una **entidad de dominio** expresa identidad y reglas de negocio; una **entidad JPA** representa persistencia efectivamente implementada y un **DTO** representa datos intercambiables de la API. No se deben confundir. Una clase puede figurar en el diagrama sin código Java ni tabla; el YAML puede definir rutas de diseño que todavía no responden en la aplicación.
 
 ## 2. Los diagramas y sus funciones
 
-- [Modelo relacional, cuatro páginas](diagrams/relacional.drawio): **ER01** Incidencias, **ER02** tramitación y auditoría, **ER03** identidad, invitaciones, departamentos y organización, **ER04** territorio/contexto. Las exportaciones [`relacional-01.svg`](diagrams/relacional-01.svg) a [`relacional-04.svg`](diagrams/relacional-04.svg) se encuentran en el mismo directorio.
+- [Modelo relacional, cinco páginas](diagrams/relacional.drawio): **ER01** Incidencias, **ER02** tramitación y auditoría, **ER03** identidad, invitaciones, departamentos y organización, **ER04** territorio/contexto; **ER05** ampliación de Tramitación V2. Las exportaciones [`relacional-01.svg`](diagrams/relacional-01.svg) a [`relacional-05.svg`](diagrams/relacional-05.svg) se encuentran en el mismo directorio.
 - [Catálogo de clases simplificadas](diagrams/clases-simplificado.drawio): una página de clases, enums, embebidos y DTO, **sin líneas de relación UML por decisión de diseño**. Relaciones y claves se estudian en el ER; [SVG exportado](diagrams/clases-simplificado.svg).
 - [C4 contexto y contenedores](diagrams/README.md): arquitectura exterior y almacenamiento. Reflejan correo SMTP/Mailpit y solo fotografías en el alcance inicial.
 
-Las fuentes editables distinguen V1, el núcleo de Incidencias y las entidades conceptuales. El [inventario](diagrams/README.md) identifica las exportaciones históricas y la validación de fuentes. Siguen siendo futuros los diagramas de despliegue y de la matriz completa de tramitación.
+Las fuentes editables distinguen V1 + V2 + V3, el núcleo de Incidencias y las entidades conceptuales. El [inventario](diagrams/README.md) identifica las exportaciones regeneradas manualmente por el usuario y la validación de fuentes. Siguen siendo futuros los diagramas de despliegue y de la matriz completa de tramitación.
 
 ## 3. Conceptos principales y estado
 
@@ -49,13 +49,13 @@ La relación implementada es **Category 0..N Incident; cada Incident tiene 0..1 
 | `Team`/`TeamMembership`        | Equipos estables e historial de pertenencias/adscripciones                                                                                | Solo diseño, sin tabla                                         |
 | `AuditEvent`                   | Evento administrativo con actor, recurso, instante, detalles y correlación opcional                                                       | JPA y V1, sin endpoint público                                 |
 
-**Ámbitos y autorización:** `OPERATOR` actúa transversalmente en operaciones futuras de tramitación; `ADMIN` es global. Técnicos y coordinadores solo dispondrán de permisos en departamentos con pertenencia activa. Un usuario puede conservar `CITIZEN` y sumar permisos. Los roles globales vigentes se leen desde PostgreSQL en cada petición con JWT, que por sí solo **no** incorpora los permisos como fuente de verdad.
+**Ámbitos y autorización:** `OPERATOR` actúa transversalmente en operaciones globales de revisión y prioridad; `ADMIN` es global. Técnicos y coordinadores solo dispondrán de permisos en departamentos con pertenencia activa. Un usuario puede conservar `CITIZEN` y sumar permisos. Los roles globales vigentes se leen desde PostgreSQL en cada petición con JWT, que por sí solo **no** incorpora los permisos como fuente de verdad.
 
-### 3.3. Tramitación — estructuras base; operaciones futuras
+### 3.3. Tramitación — primera fase operativa y evolución futura
 
-El ciclo de vida propuesto es `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`, con rechazo justificado y reapertura directa desde RESOLVED a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con trabajo válido. CLOSED es terminal. La **matriz exhaustiva** de transiciones, actores, precondiciones y motivos sigue por diseñar/validar. Se puede pasar a `VALIDATED` sin tener departamento. Derivar a un departamento modifica `Incident.assignedDepartment` y puede producir auditoría sin generar una `Assignment`.
+El ciclo de vida propuesto es `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT → WORK_ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`, con rechazo justificado y reapertura directa desde RESOLVED a ASSIGNED_TO_DEPARTMENT o WORK_ASSIGNED con trabajo válido. CLOSED es terminal. La matriz de revisión e información está implementada; la de ejecución, resolución y cierre sigue futura. Se puede pasar a `VALIDATED` sin tener departamento. Derivar a un departamento modifica `Incident.assignedDepartment` y puede producir auditoría sin generar una `Assignment`.
 
-Una `Assignment` representa **trabajo** concedido temporalmente a un equipo **o** técnico (exclusión XOR), con aceptación `acceptedBy`/`acceptedAt`, histórico y como máximo una asignación vigente. Reasignar cierra el vínculo activo anterior y crea otro; aceptar no implica comenzar automáticamente en `IN_PROGRESS`. `StatusChange` registra transiciones; `AuditEvent` registra decisiones relevantes también sin cambio de estado. Las operaciones de Tramitación no están implementadas. StatusChange, IncidentReview y PriorityDecision tienen tabla/JPA/repositorio; alta y corrección solo crean AuditEvent INCIDENT_CREATED/INCIDENT_UPDATED. El historial público es una proyección, no una tabla.
+Una `Assignment` representa **trabajo** concedido temporalmente a un equipo **o** técnico (exclusión XOR), con aceptación `acceptedBy`/`acceptedAt`, histórico y como máximo una asignación vigente. Reasignar cierra el vínculo activo anterior y crea otro; aceptar no implica comenzar automáticamente en `IN_PROGRESS`. `StatusChange` registra transiciones; `AuditEvent` registra decisiones relevantes también sin cambio de estado. Tramitación implementa revisión, respuestas y prioridad manual con StatusChange, IncidentReview, IncidentInformationResponse y PriorityDecision. Alta y corrección siguen creando solo sus respectivos AuditEvent. El historial público es una proyección, no una tabla.
 
 ### 3.4. Territorio y contexto urbano — diseño provisional
 
@@ -91,7 +91,7 @@ Los cinco códigos de rol son `CITIZEN`, `OPERATOR`, `ADMIN`, `TECHNICIAN` y `DE
 
 ## 7. Estado de los tags y próximas decisiones
 
-**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Incidencias**, **Detección de duplicados** y **Evidencias** (OpenAPI `0.7.0`) cuentan con endpoints backend. La tramitación operativa, equipos, estadísticas, mapas e IA continúan en diseño; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
+**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Detección de duplicados**, **Incidencias** y **Evidencias** (OpenAPI `0.8.0`) cuentan con endpoints backend. Tramitación fase 1 añade diez operaciones; la detección y gestión de duplicados se implementa mediante el módulo duplicates, con sugerencias y confirmación manual. Derivación, equipos, estadísticas, mapas e IA continúan en diseño; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
 
 - [Contrato dominio–API](api/domain-openapi.md) y [guía de la API](api/README.md).
 - [Arquitectura modular real](architecture.md), [diagramas actualizados](diagrams/README.md) y [ADR](adr/README.md).
@@ -103,4 +103,10 @@ El módulo `identity` implementa perfil propio y administración de usuarios. `U
 
 `displayName` utiliza 2–120 puntos Unicode después de recortar espacios de borde y rechaza controles interiores. Actividad y perfil se modifican bajo bloqueo del usuario; la administración protege al último ADMIN activo y verificado, incluida la autodesactivación. La limpieza de cuentas caducadas excluye referencias históricas antes de paginar el lote. Detalles en [ADR-0012](adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](adr/0013-pertenencias-usuarios-departamentos.md).
 
-La persistencia base de revisión exige motivo en REJECT y REQUEST_INFORMATION; en VALIDATE es opcional. Cuando existe, se normaliza y valida a 3–2000 puntos Unicode. PriorityDecision exige justificación con la misma regla. StatusChange conserva textos opcionales (2000/5000), incluso blancos; exigirlos por transición y sincronizar estado/asignación es responsabilidad del futuro servicio. V1 incorpora estas restricciones finales directamente en sus CREATE TABLE.
+La revisión exige motivo de 3–2000 puntos Unicode en REJECT y REQUEST_INFORMATION; VALIDATE lo prohíbe y exige categoría activa. V2 conserva los motivos históricos V1 exclusivamente en vistas internas. PriorityDecision exige justificación con la misma regla. StatusChange conserva textos opcionales (2000/5000), incluso blancos; exigirlos por transición y sincronizar estado/asignación es responsabilidad de ProcessingService para revisión y de fases futuras para ejecución. V1 mantiene sus restricciones originales y V2 aplica las nuevas.
+
+## Tramitación: primera fase (15/11/2026)
+
+IncidentInformationResponse vincula una solicitud REQUEST_INFORMATION exacta con su informante, mensaje normalizado e instante. Una respuesta como máximo por solicitud, sin relación persistente con fotos. IncidentReview conserva resultingStatus de cada decisión; null solo para filas V1 sin evidencia. Los tres historiales anteriores se trasladan a processing sin duplicar tablas.
+
+AWAITING_INFORMATION permite respuesta del informante o rechazo municipal. VALIDATE exige categoría activa explícita; VALIDATED/REJECTED no se rectifican. Prioridad manual solo VALIDATED sin departamento, null hasta decisión real. [Matriz, invariantes y límites](incidents-implementation-roadmap.md#tramitación-primera-fase-15112026).

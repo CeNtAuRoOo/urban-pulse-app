@@ -65,3 +65,7 @@ Departamentos y Categorías permiten consultar a cuentas activas con correo veri
 Department es la entidad compartida por administración, Invitaciones y pertenencias. Su desactivación impide emitir y canjear invitaciones departamentales; no retira pertenencias. Category mantiene su módulo; V1 incorpora su relación opcional con Incident. La auditoría específica de las escrituras de catálogos (RF18) requiere definir acciones, actor, contenido y política; `AuditEvent` y la auditoría de Invitaciones no la completan.
 
 [Contrato HTTP](../api/README.md), [persistencia vigente](0006-flyway.md#esquema-inicial-vigente) y [reglas de Invitaciones](0007-invitaciones-personal.md).
+
+## Revisión de primera fase (15/11/2026)
+
+OPERATOR/ADMIN globales activos y verificados revisan y priorizan. Ninguna pertenencia departamental concede esos permisos. Se prohíbe autorrevisión incluso ADMIN y rechazo de la propia solicitud pendiente. Solo el informante original responde; el personal no actúa en su nombre. Historial interno de revisiones/prioridades reservado al personal; resultado público institucional sin identidad del revisor. Evidencias no tiene excepción ADMIN al congelarse.

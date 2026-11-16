@@ -1,6 +1,6 @@
 # Guía de despliegue de UrbanPulse
 
-> **Estado a 14/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases describen los módulos implementados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
+> **Estado a 15/11/2026:** se ha comprobado el arranque conjunto de frontend y backend en Docker Compose de **desarrollo**, la conectividad histórica con Neon PostgreSQL y Object Storage, y un flujo HTTP aislado de Invitaciones con PostgreSQL/Mailpit. **No se ha acreditado ningún despliegue de producción ni la aplicación de Flyway V1 consolidada en Neon `development`**. Las fuentes C4/ER/clases describen los módulos implementados; el **nuevo diagrama C4 Deployment**, dependiente de la infraestructura finalmente elegida, continúa pendiente.
 
 ## 1. Objetivo y separación de entornos
 
@@ -12,18 +12,18 @@ UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS E
 
 ## 2. Componentes y responsabilidades
 
-| Componente        | Implementado/configurado                                                                                                                                      | Pendiente de validar o entregar                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Frontend Expo Web | Panel web conectado a auth, usuarios, invitaciones, catálogos e incidencias; exportación SPA                                                                  | Imagen multietapa Nginx desplegada y validación productiva               |
-| Android/iOS       | Base de código compartida Expo/React Native                                                                                                                   | Ejecución funcional completa y distribución en dispositivos              |
-| API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `audit`, `shared`; puerto 8080 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen |
-| PostgreSQL        | PostgreSQL 18 local persistente y V1 consolidada; JDBC Neon comprobado históricamente                                                                         | Aplicación controlada de V1 en producción y gestión de backups           |
-| Object Storage    | Cliente S3 privado, cinco rutas de evidencias JPEG/PNG y baja lógica                                                                                          | Retención, purgado físico y reconciliación de huérfanos                  |
-| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                                                         | Proveedor SMTP real, entregabilidad y recuperación/reintentos            |
+| Componente        | Implementado/configurado                                                                                                                                      | Pendiente de validar o entregar                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Frontend Expo Web | Panel web conectado a auth, usuarios, invitaciones, catálogos e incidencias; exportación SPA                                                                  | Imagen multietapa Nginx desplegada y validación productiva                  |
+| Android/iOS       | Base de código compartida Expo/React Native                                                                                                                   | Ejecución funcional completa y distribución en dispositivos                 |
+| API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `audit`, `shared`; puerto 8080 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen    |
+| PostgreSQL        | PostgreSQL 18 local persistente y migraciones V1 + V2; JDBC Neon comprobado históricamente                                                                    | Aplicación controlada de las migraciones en producción y gestión de backups |
+| Object Storage    | Cliente S3 privado, cinco rutas de evidencias JPEG/PNG y baja lógica                                                                                          | Retención, purgado físico y reconciliación de huérfanos                     |
+| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                                                         | Proveedor SMTP real, entregabilidad y recuperación/reintentos               |
 
 ## 3. Diagramas arquitectónicos
 
-Las fuentes [C4 de contexto y contenedores](diagrams/README.md) actualizan el alcance V1 en [`c4.drawio`](diagrams/c4.drawio); incluyen el transporte de correo y el alcance inicial de fotografías. Las fuentes ER y de clases incorporan V1 y distinguen el modelo futuro; las exportaciones SVG fueron actualizadas manualmente con posterioridad a la revisión de Codex, siguiendo el procedimiento del inventario. La comprobación estructural está descrita en el [inventario](diagrams/README.md#criterios-de-sincronización).
+Las fuentes [C4 de contexto y contenedores](diagrams/README.md) actualizan el alcance V1 + V2 en [`c4.drawio`](diagrams/c4.drawio); incluyen el transporte de correo y el alcance inicial de fotografías. Las fuentes ER y de clases incorporan V1 + V2 y distinguen el modelo futuro; las ocho exportaciones SVG fueron regeneradas manualmente por el usuario después de la implementación, incluida ER05; esta revisión conserva los archivos y no acredita inspección visual. La comprobación estructural está descrita en el [inventario](diagrams/README.md#criterios-de-sincronización).
 
 **[Pendiente: nuevo C4 Deployment]**. Cuando se decidan hosting, dominios, TLS, redes, topología y estrategia de operación, documentarlos en un diagrama de despliegue adicional (por ejemplo, `docs/diagrams/deployment.drawio`). Esto **no** es una tarea pendiente de corrección de los gráficos C4/ER/clases existentes.
 
@@ -43,7 +43,7 @@ La exportación `npx expo export --platform web` genera `frontend/dist/`; por s�
 
 `backend/Dockerfile` es la imagen multietapa prevista para ejecutar el JAR, distinta de `backend/Dockerfile.dev` para desarrollo. El informe histórico menciona un `backend/Dockerfile.test` de pruebas, **no incluido en el repositorio**. El servicio arranca por el puerto 8080, configurable con `SERVER_PORT`; usa Spring Security, JPA/Hibernate, Flyway, HikariCP y un cliente S3. Las variables se suministran externamente y no se versionan secretos.
 
-El código Java está ordenado por funcionalidades, no en paquetes globales `controller/entity/service`. [Arquitectura](architecture.md) y [desarrollo](development.md) describen su estructura exacta. `V1__initial_schema.sql` crea identidad/verificación, departamentos, pertenencias, invitaciones, auditoría, categorías, incidencias, estructuras de tramitación y evidencias. `spring.jpa.hibernate.ddl-auto=validate` comprueba el esquema; **Flyway puede modificarlo al iniciar** si las migraciones aún no figuran aplicadas.
+El código Java está ordenado por funcionalidades, no en paquetes globales `controller/entity/service`. [Arquitectura](architecture.md) y [desarrollo](development.md) describen su estructura exacta. `V1__initial_schema.sql` crea identidad/verificación, departamentos, pertenencias, invitaciones, auditoría, categorías, incidencias, estructuras de tramitación y evidencias. V2 añade respuestas, el estado AWAITING_INFORMATION y restricciones de revisión. `spring.jpa.hibernate.ddl-auto=validate` comprueba el esquema; **Flyway puede modificarlo al iniciar** si las migraciones aún no figuran aplicadas.
 
 Antes de desplegar una versión productiva conectada a Neon PostgreSQL:
 
@@ -85,7 +85,7 @@ Desde `backend/`, con Java 25, Maven y Docker:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-El perfil incorpora nueve suites aisladas de autenticación, correo, invitaciones, departamentos, categorías, usuarios, pertenencias, incidencias y evidencias con PostgreSQL 18 de Testcontainers y **no** ejecuta `NeonConnectivityIT`. En el informe histórico fechado el **30/10/2026** constan **90 pruebas superadas** y un flujo HTTP adicional del JAR con PostgreSQL `tmpfs` (sin puerto publicado), Mailpit, y fixtures sintéticos: rutas, autorización, permisos, auditoría, cuotas, limpieza y entrega local. El servicio de pruebas utilizaba `127.0.0.1:18888` y Mailpit `127.0.0.1:18025`; el cron y las cuotas de fixtures estaban ajustados exclusivamente para tests.
+El perfil incorpora once suites aisladas de autenticación, correo, invitaciones, departamentos, categorías, usuarios, pertenencias, incidencias, evidencias y Tramitación/migración con PostgreSQL 18 de Testcontainers y **no** ejecuta `NeonConnectivityIT`. En el informe histórico fechado el **30/10/2026** constan **90 pruebas superadas** y un flujo HTTP adicional del JAR con PostgreSQL `tmpfs` (sin puerto publicado), Mailpit, y fixtures sintéticos: rutas, autorización, permisos, auditoría, cuotas, limpieza y entrega local. El servicio de pruebas utilizaba `127.0.0.1:18888` y Mailpit `127.0.0.1:18025`; el cron y las cuotas de fixtures estaban ajustados exclusivamente para tests.
 
 **Pruebas superadas y reproducibilidad:** la entrega de Invitaciones registró **90 pruebas exitosas** mediante Maven/Testcontainers y un recorrido HTTP aislado con resultado satisfactorio. El perfil `-Ppostgres-it` sigue configurado en `pom.xml`. El repositorio no contiene `compose.test.yaml`, `backend/Dockerfile.test` ni `backend/scripts/invitations_http_test.py`; por ello, el recorrido HTTP ejecutado no es reproducible **con este árbol de archivos**, aunque su resultado ya quedó documentado. [Guía de desarrollo](development.md).
 
@@ -93,7 +93,7 @@ El perfil incorpora nueve suites aisladas de autenticación, correo, invitacione
 
 El [workflow CI](../.github/workflows/ci.yml) valida PR hacia main, push a main y ejecución manual mediante jobs independientes de backend, frontend y OpenAPI/Compose. Usa PostgreSQL Testcontainers y no accede a Neon ni a secretos productivos. No publica imágenes ni despliega. La [guía de desarrollo](development.md#5-ci-y-comprobaciones-locales) detalla los comandos y exclusiones.
 
-Quedan para una **fase posterior de despliegue y producto** la automatización CD, el análisis periódico de dependencias y secretos, el control de migraciones, backups/restauración, observabilidad, imágenes productivas endurecidas, dominios/TLS, entrega SMTP externa, procedimiento del **primer ADMIN**, retirada de permisos y política de conservación de invitaciones/auditoría (RGPD). La tramitación y las integraciones avanzadas de incidencias pertenecen a entregas futuras; no se deben implementar tablas por aparecer en el diseño sin revisar el tag.
+Quedan para una **fase posterior de despliegue y producto** la automatización CD, el análisis periódico de dependencias y secretos, el control de migraciones, backups/restauración, observabilidad, imágenes productivas endurecidas, dominios/TLS, entrega SMTP externa, procedimiento del **primer ADMIN**, retirada de permisos y política de conservación de invitaciones/auditoría (RGPD). Derivación, ejecución e integraciones avanzadas de incidencias pertenecen a entregas futuras; revisión/respuestas/prioridad manual están implementadas; no se deben implementar tablas por aparecer en el diseño sin revisar el tag.
 
 ## 10. Referencias
 
