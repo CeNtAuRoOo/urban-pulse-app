@@ -38,7 +38,7 @@ class DuplicatePostgresIT {
     @Test
     void flywayV2PersistsCanonicalPairsAndRejectsRepeatedOrSelfLinks() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2");
+                String.class)).containsExactly("1", "2", "3");
         UUID user = UUID.fromString("00000000-0000-7000-8000-000000000003");
         UUID first = UUID.fromString("00000000-0000-7000-8000-000000000001");
         UUID second = UUID.fromString("00000000-0000-7000-8000-000000000002");

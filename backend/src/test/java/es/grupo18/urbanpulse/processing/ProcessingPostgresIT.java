@@ -94,7 +94,7 @@ class ProcessingPostgresIT {
     @BeforeEach
     void fixture() {
         jdbc.execute(
-                "truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+                "truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
         owner = account(null);
         operator = account("OPERATOR");
         category = UUID.randomUUID();
