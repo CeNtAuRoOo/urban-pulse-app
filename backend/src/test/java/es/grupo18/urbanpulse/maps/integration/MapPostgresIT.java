@@ -82,7 +82,7 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute("truncate status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -354,19 +354,18 @@ class MapPostgresIT {
         UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
         var base = org.flywaydb.core.Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("map_upgrade").defaultSchema("map_upgrade").target("3").load();
-        base.migrate();
+                .schemas("map_upgrade").defaultSchema("map_upgrade").target("1").load();
+        assertThat(base.migrate().migrationsExecuted).isEqualTo(1);
         try {
             jdbc.update("insert into map_upgrade.users select * from public.users where id=?", author);
             jdbc.update("insert into map_upgrade.incidents select * from public.incidents where id=?", id);
             var upgrade = org.flywaydb.core.Flyway.configure()
                     .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                     .schemas("map_upgrade").defaultSchema("map_upgrade").load();
-            upgrade.migrate();
-            assertThat(jdbc.queryForObject(
-                    "select count(*) from map_upgrade.flyway_schema_history "
-                            + "where success and version='5'",
-                    Integer.class)).isEqualTo(1);
+            assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
+                    + "where success and version is not null order by installed_rank", String.class))
+                    .containsExactly("1", "5");
             assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
                     .isEqualTo(36.7213);
             assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))

@@ -4,6 +4,24 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### CI y PostgreSQL local (14/11/2026)
+
+- GitHub Actions para PR hacia main, push a main y ejecución manual: Maven/Surefire/Failsafe con nueve suites PostgreSQL aisladas, npm test/TypeScript/ESLint/Expo, OpenAPI y Compose. Sin secretos remotos ni CD.
+- PostgreSQL 18 Alpine persistente y saludable en el único Compose de desarrollo; backend 8080, frontend 8888 y Mailpit web 9999 en loopback. Neon PostgreSQL reservado a producción; Neon Object Storage se mantiene en ambos entornos.
+- Guía de desarrollo, seguridad, arquitectura y ADR alineados con Docker, archivos privados existentes, persistencia al cambiar de rama y coordinación de versiones Flyway. V1 conservada sin modificaciones. CI valida solo el Compose vigente; URL local OpenAPI y artefactos actualizados a 8080.
+- Reloj estable en DepartmentPostgresIT e IncidentPostgresIT para que las comprobaciones de permisos con JWT no dependan de ajustes de hora del host/VM.
+- Script npm test para las pruebas node:test existentes; documentación del frontend alineada con el panel conectado.
+
+### Evidencias privadas y esquema inicial consolidado (11/11/2026)
+
+- Cinco operaciones anidadas bajo incidencias con JWT real, visibilidad compartida, JPEG/PNG, 10 MiB, máximo cinco activas resistente a concurrencia y DELETE lógico auditado.
+- Recodificación sin EXIF/GPS, nombres seguros, límites de memoria y compensación S3 ante fallos SQL; objetos de bajas retenidos para futura política de purgado.
+- Una única V1 con 14 tablas y restricciones finales, por decisión previa a la primera aplicación de Flyway sobre destinos vacíos. Las menciones de V2–V5 en entradas anteriores son históricas y no describen migraciones ejecutables actuales.
+- OpenAPI 0.7.0 mantiene /api/v1: 34 operaciones implementadas y 37 futuras. Documentación y fuentes drawio alineadas; SVG históricos preservados.
+- Verificación aislada: 285 pruebas correctas (171 unitarias/MVC y 114 IT PostgreSQL), sin fallos ni omisiones. Neon real no ejecutado.
+
+## Revisión histórica del 04–05/11/2026
+
 - Revisión correctiva de Incidencias: fixture propio de paginación restaurado y aislado; ETag fuerte opaca del detalle completo (cambio aprobado del formato decimal), precisión temporal estable y precondiciones sobre datos relacionados.
 - Límite bruto de 64 KiB en POST/PATCH de Incidencias, con 413; reutilización del cuerpo almacenado sin cambiar las cuotas de Autenticación/Invitaciones.
 - V3 aditiva para invariantes de revisión/prioridad, límites Java de StatusChange y regresiones SQL/HTTP; sin reescribir V1/V2 ni habilitar Tramitación.
@@ -37,7 +55,7 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ### Pendientes actuales
 
-Aplicación controlada de la única `V1__initial_schema.sql` consolidada a Neon `development` (todavía no acreditada), despliegue productivo, primer administrador, API de retirada de permisos, equipos, tramitación/fotografías, frontend conectado, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CI/CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones y la administración de Departamentos y Categorías ya están implementadas; sus pruebas aisladas no acreditan despliegue.
+Aplicación controlada de la única `V1__initial_schema.sql` consolidada durante la preparación del despliegue productivo en Neon (todavía no acreditado), primer administrador, API de retirada de permisos, equipos, tramitación, retención/purgado de fotografías, UI de evidencias, auditoría administrativa completa RF18, SMTP fiable, políticas de retención, claves rotables, CD, imágenes de producción y pruebas móviles/end-to-end. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Evidencias ya están implementados; sus pruebas aisladas no acreditan despliegue.
 
 ## 2026-11-03 — Categorías en el backend modular
 

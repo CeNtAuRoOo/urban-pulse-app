@@ -21,9 +21,9 @@ WORKDIR /app
 
 COPY --from=build /app/target/*.jar /app/app.jar
 
-ENV SERVER_PORT=8888
+ENV SERVER_PORT=8080
 
-EXPOSE 8888
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 

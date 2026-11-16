@@ -4,7 +4,7 @@
 
 ## 1. Referencias, alcance y responsabilidades
 
-El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.6.0` incluye cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Incidencias añade seis operaciones que reutilizan identidad y seguridad compartidas; la tramitación y los restantes recursos siguen en diseño.
+El registro ciudadano y la verificación de correo resuelven **identidad**; las invitaciones posteriores resuelven **concesión de permisos municipales** a una cuenta ya existente. No hay registro público privilegiado ni dos tipos de cuentas; toda persona conserva `CITIZEN` y el backend decide autorizaciones según permisos vigentes en PostgreSQL. El contrato OpenAPI `0.7.0` incluye cinco operaciones de auth, cinco de Usuarios, cinco de Invitaciones y cuatro por catálogo implementado (Departamentos y Categorías). Incidencias añade seis operaciones que reutilizan identidad y seguridad compartidas; Evidencias añade cinco rutas con la misma política de acceso por incidencia. La tramitación y los restantes recursos siguen en diseño.
 
 La organización de paquetes es **por funcionalidad**:
 
@@ -52,7 +52,7 @@ La ampliación de V1 para crear `email_verifications` se realizó **antes de su 
 
 ## 5. SMTP en desarrollo y fallos de entrega
 
-`shared/mail/EmailSender` abstrae el envío; `SmtpEmailSender` utiliza Spring Mail y configuración externa (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, opciones AUTH y STARTTLS). En Compose de desarrollo, Mailpit captura mensajes en SMTP `1025` con interfaz `http://localhost:8025`. No hay proveedor SMTP de Internet ni garantía de entrega; la falta de outbox significa que **fallo de envío después del commit no revierte los datos**. Para verificación existe reenvío manual; para invitaciones no existe y se usa revocación/nueva emisión.
+`shared/mail/EmailSender` abstrae el envío; `SmtpEmailSender` utiliza Spring Mail y configuración externa (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, opciones AUTH y STARTTLS). En Compose de desarrollo, Mailpit captura mensajes en `mailpit:1025` con interfaz pública `http://localhost:9999` (puerto interno 8025). No hay proveedor SMTP de Internet ni garantía de entrega; la falta de outbox significa que **fallo de envío después del commit no revierte los datos**. Para verificación existe reenvío manual; para invitaciones no existe y se usa revocación/nueva emisión.
 
 ## 6. Cuotas, validación, errores y privacidad
 

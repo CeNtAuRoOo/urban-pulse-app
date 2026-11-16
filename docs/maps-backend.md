@@ -116,7 +116,7 @@ flowchart LR
 El repositorio JDBC devuelve como máximo 1001 proyecciones mínimas; no carga entidades
 JPA ni hace N+1. PostgreSQL ejecuta el trabajo espacial y agregado con índices GiST
 parciales exacto/público y un índice parcial VALIDATE. No se requiere extensión
-PostGIS ni nuevas dependencias. El [ADR-0015](adr/0015-mapas-provinciales-privacidad.md)
+PostGIS ni nuevas dependencias. El [ADR-0017](adr/0017-mapas-provinciales-privacidad.md)
 documenta proyección, concurrencia, costes y alternativas.
 
 Desde la corrección del 15/11/2026, la rama pública reutiliza la ubicación por celda
@@ -165,15 +165,15 @@ Rutas relativas a la raíz del repositorio:
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPerformancePostgresIT.java`         | Regresión costera y comparación de planes con 1.000, 10.000 y 50.000 incidencias |
 | `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                               | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
 | `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                      |
-| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Acotar comprobación de migraciones base a V1–V3                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Acotar comprobación de migraciones base a V1–V3                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Acotar comprobaciones de migraciones base a V1–V3                               |
-| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Acotar V1–V3 y mantener la prueba de actualización V2 a V3 en su ámbito         |
+| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar V1 consolidada y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar V1 consolidada y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar V1 consolidada y V5                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar V1 consolidada y V5                               |
+| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Verificar esquema final consolidado, índices e invariantes         |
 | `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.7.0                                                          |
 | `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                |
 | `docs/api/examples/maps-incident.json`, `maps-cluster.json`                                          | Respuestas capturadas con datos sintéticos                                      |
-| `docs/adr/0015-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                               |
+| `docs/adr/0017-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                               |
 | `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md`          | Integración y verificación                                                      |
 
 ## Verificación reproducible
@@ -276,14 +276,31 @@ Los planes completos, incluidos BUFFERS, y los JSON de tiempos se conservan en
 de Mapas queda separada en `backend/target/maps-fix-verification`. Son artefactos
 locales ignorados por Git y se regeneran con la prueba de rendimiento.
 
+## Integración con main (16/11/2026)
+
+La base vigente combina V1 consolidada (incluidas Evidencias) con V5 de Mapas
+sin cambios. Las pruebas de Mapas limpian attachments junto con incidents y la
+prueba de construcción de índices parte de V1 con datos. ADR-0017 sustituye la
+numeración anterior de este módulo; ADR-0015 corresponde a Evidencias y ADR-0016 a CI.
+
+Suite completa `mvn -B -ntp clean verify -Ppostgres-it`: **319 pruebas correctas**
+(183 unitarias/MVC + 136 PostgreSQL), incluidas las 34 de Mapas, las 16 IT de Evidencias
+y las 8 de imágenes. No se omiten pruebas del perfil. Los planes de rendimiento y
+los informes de esta integración están en `backend/target/maps-merge-verification`.
+La celda costera sigue evaluándose una sola vez para 1.000 incidencias; la mediana
+SQL pasa de 6.826,626 ms con el SQL anterior a 11,264 ms con la consulta por celdas
+sobre el esquema integrado. Los escenarios mixtos de 10.000 y 50.000 también pasan.
+Estas mediciones no sustituyen las de la corrección P1 fechadas arriba.
+
 ## Límites operativos pendientes
 
-Esta corrección no se ha desplegado a Neon ni publicado en GitHub. Las mediciones
+Esta integración no se ha desplegado a Neon ni publicado en GitHub. Las mediciones
 sintéticas no sustituyen una evaluación de carga concurrente representativa de
 producción. Contorno detallado, índices y ajuste costero añaden coste de escritura;
 esta optimización solo reduce cálculos durante la lectura. La cuota es local por instancia. Actualizar el contorno
 requiere nueva migración/funciones/índices, nunca modificar las funciones constantes
-ya utilizadas por índices. La migración de Evidencias será V4 y la de Mapas es V5.
-Debe coordinarse la incorporación de V4 antes del despliegue de V5: una versión
-menor añadida después no se ejecuta por defecto en Flyway. Las estimaciones de
-cardinalidad (P2) quedan fuera de esta corrección.
+ya utilizadas por índices. Tras integrar main, Evidencias está en la V1 consolidada
+y Mapas conserva V5 intacta. La secuencia desde cero es V1 → V5; no se restaura
+V2/V3 ni se inventa V4. Un historial anterior necesita una transición revisada,
+no repair ni outOfOrder para ocultar diferencias. Las estimaciones de cardinalidad
+(P2) quedan fuera de esta integración.

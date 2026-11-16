@@ -1,234 +1,221 @@
 # Guía de desarrollo de UrbanPulse
 
-> **Estado a 05/11/2026:** la estructura Java es modular (`auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `audit`, `shared`). Incidencias añade V2 y seis operaciones al núcleo anterior de V1. La conectividad Neon `development` verificada el 15/10 es anterior a las migraciones de auth; **no consta V1 consolidada aplicada ni probada allí**.
+El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. `V1__initial_schema.sql` consolida 14 tablas funcionales y cinco roles, sin usuarios, ADMIN ni catálogos de demostración; V5 añade las funciones e índices geográficos de Mapas.
 
-## 1. Requisitos y clonación
+## 1. Configuración privada
 
-- Git, VS Code u otro editor, Docker Engine/Desktop y Docker Compose v2.
-- Backend en el host: **JDK 25**, Maven 3.9.16 o compatible y Docker para Testcontainers.
-- Frontend en el host: Node.js compatible con **Expo SDK 57** y npm; las imágenes usan Node.js 24.
-- Secretos privados de Neon `development` solo para conectar a ese servicio. Las suites Maven `-Ppostgres-it` usan PostgreSQL efímero y **no** necesitan credenciales de Neon. El informe histórico menciona un `compose.test.yaml` para HTTP, que no aparece en el repositorio.
+Se necesita Docker Engine/Desktop en ejecución y Docker Compose con `up --wait`. No hace falta instalar Java, Maven o Node en el host para arrancar la aplicación. El único archivo Compose es `compose.yaml`, exclusivamente de desarrollo, con el proyecto `urban-pulse-app`.
 
-```bash
-git clone https://github.com/CeNtAuRoOo/urban-pulse-app.git
-cd urban-pulse-app
-```
-
-La lectura del repositorio público no requiere autenticación; el push sí requiere permisos. Se aplican `.editorconfig`, `.prettierrc.json` y ajustes de `.vscode/` para mantener coherencia entre Java, TypeScript y Markdown.
-
-## 2. Estructura actual
-
-```text
-urban-pulse-app/
-├── .github/                         # Plantillas; CI/CD pendiente
-├── .vscode/
-├── backend/
-│   ├── src/main/java/es/grupo18/urbanpulse/
-│   │   ├── BackendApplication.java
-│   │   ├── auth/{api,config,dto,mail,model,repository,security,service}/
-│   │   ├── identity/{api,dto,model,repository,service}/
-│   │   ├── invitations/{api,config,dto,mail,model,repository,security,service}/
-│   │   ├── organization/{api,dto,model,repository,service}/
-│   │   ├── categories/{api,dto,model,repository,service}/
-│   │   ├── incidents/{api,dto,model,repository,service}/
-│   │   ├── audit/{model,repository}/
-│   │   ├── incidents/{api,integration,model,service}/
-│   │   └── shared/{error,mail,pagination,ratelimit,security,storage}/
-│   ├── src/main/resources/
-│   │   ├── application.properties
-│   │   └── db/migration/
-│   │       ├── V1__initial_schema.sql
-│   │       └── V2__incidents.sql
-│   ├── src/test/java/es/grupo18/urbanpulse/
-│   │   ├── auth/{api,integration,service}/
-│   │   ├── identity/{api,dto,integration,service}/
-│   │   ├── invitations/{api,integration,service}/
-│   │   ├── organization/{api,integration,model,service}/
-│   │   ├── categories/{api,integration,service}/
-│   │   ├── incidents/{api,integration,model,service}/
-│   │   └── shared/
-│   │       ├── error/, mail/, ratelimit/, security/
-│   │       └── storage/integration/NeonConnectivityIT.java
-│   ├── Dockerfile, Dockerfile.dev
-│   ├── .env.example, .env.development (local, ignorado)
-│   └── pom.xml
-├── frontend/
-│   ├── assets/
-│   ├── src/app/{_layout.tsx,index.tsx}
-│   ├── src/{components,config,constants,features,services,types}/
-│   ├── app.json, package.json, package-lock.json, tsconfig.json
-│   ├── eslint.config.js, nginx.conf, Dockerfile, Dockerfile.dev
-│   └── .env.example, .env (local, ignorado)
-├── docs/
-│   ├── api/{README.md,domain-openapi.md,openapi.yaml,openapi.html,openapi/}
-│   ├── adr/, diagrams/, architecture.md, development.md
-│   ├── deployment.md, domain-model.md, auth-design.md
-│   └── README.md
-├── compose.yaml                     # Neon development + Mailpit local
-├── README.md, CONTRIBUTING.md, CHANGELOG.md, SECURITY.md
-└── .editorconfig
-```
-
-Los tests de integración PostgreSQL están en `auth/integration`, `identity/integration`, `invitations/integration`, `organization/integration`, `categories/integration` e `incidents/integration`. No situar `NeonConnectivityIT` en la raíz del árbol de pruebas ni inferir que `mvn test` ejecuta suites `*IT` automáticamente. El proyecto sigue siendo **un solo backend Spring Boot**, con ocho módulos funcionales y transversales. Consultar [Arquitectura](architecture.md) para las responsabilidades de cada módulo.
-
-## 3. Configuración y secretos
-
-Los `.env.example` versionados documentan variables pero no contienen secretos reales. Copiar los ejemplos a archivos privados desde la raíz (PowerShell):
+Copiar las plantillas **solo si no existen los archivos privados**. Desde la raíz, en PowerShell:
 
 ```powershell
-Copy-Item frontend/.env.example frontend/.env
-Copy-Item backend/.env.example backend/.env.development
+if (!(Test-Path backend/.env.development)) { Copy-Item backend/.env.example backend/.env.development }
+if (!(Test-Path frontend/.env)) { Copy-Item frontend/.env.example frontend/.env }
 ```
 
-En Bash usar `cp`. **Spring Boot ejecutado por Maven fuera de Compose no carga automáticamente estos `.env`**: exportar las variables en el entorno o iniciar con Docker Compose.
+Completar los valores antes de arrancar. No se utiliza un `.env` en la raíz. `backend/.env.production` pertenece al futuro despliegue y Compose no lo carga; sus marcadores `#####` se completarán al preparar producción.
+
+| Archivo                                   | Configuración                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `backend/.env.example`                    | Plantilla versionada de nombres y comentarios para ambos entornos; no contiene secretos.                     |
+| `backend/.env.development`                | JDBC local, Neon Object Storage de desarrollo, JWT/HMAC, CORS y Mailpit. Privado, cargado por Compose.       |
+| `backend/.env.production`                 | Neon PostgreSQL, Object Storage y SMTP productivos, con sus secretos propios. Privado, fuera de Compose.     |
+| `frontend/.env.example` / `frontend/.env` | Plantilla versionada / configuración privada local del cliente. `EXPO_PUBLIC_API_URL=http://localhost:8080`. |
+
+Para desarrollo, configurar `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/urban-pulse`, `SPRING_DATASOURCE_USERNAME=urbanpulse` y la contraseña local indicada en `POSTGRES_PASSWORD` de Compose. `postgres` es el DNS interno del servicio; `localhost` dentro del backend identificaría al propio contenedor. Compose carga estas variables desde el archivo privado **sin sobrescribirlas**: no colocar una URL remota en el archivo de desarrollo.
+
+Configurar `MAIL_HOST=mailpit`, `MAIL_PORT=1025`, `MAIL_SMTP_AUTH=false`, `MAIL_STARTTLS=false`, usuario/contraseña SMTP vacíos y un remitente de desarrollo. `CORS_ALLOWED_ORIGINS=http://localhost:8888` autoriza el origen del navegador. La URL pública del frontend apunta al backend publicado, nunca a `http://backend:8080`; `localhost` y `127.0.0.1` son orígenes distintos.
+
+Generar **tres claves Base64 independientes**, de al menos 32 bytes aleatorios, para `JWT_SECRET`, `EMAIL_VERIFICATION_SECRET` y `STAFF_INVITATION_SECRET`. Ejecutar tres veces y guardar cada resultado únicamente en el archivo privado:
+
+```bash
+docker run --rm node:24-bookworm-slim node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Completar también `JWT_ISSUER`. No reutilizar claves de tests ni productivas. Neon Object Storage requiere `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `STORAGE_BUCKET` del recurso de desarrollo autorizado. La base SQL local no aísla el bucket: no hacer pruebas mutativas compartidas sin un escenario preparado y autorización. El CI usa dobles S3 y no necesita esas credenciales.
+
+## 2. Arranque y persistencia
+
+Desde la raíz:
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs -f backend
+```
+
+`config --quiet` comprueba la configuración sin imprimir secretos; no prueba conexiones ni valida por sí solo los valores privados. Para completar la comprobación, esperar el arranque del backend y abrir frontend y Mailpit.
+
+| Servicio     | Acceso desde el host  | Dirección interna |
+| ------------ | --------------------- | ----------------- |
+| Backend      | http://localhost:8080 | `backend:8080`    |
+| Frontend web | http://localhost:8888 | `frontend:8888`   |
+| PostgreSQL   | `127.0.0.1:5432`      | `postgres:5432`   |
+| Mailpit SMTP | `127.0.0.1:1025`      | `mailpit:1025`    |
+| Mailpit web  | http://localhost:9999 | `mailpit:8025`    |
+
+Todos los puertos publicados se vinculan a `127.0.0.1`. Los clientes móviles requieren una configuración de acceso explícita y no forman parte de este procedimiento web.
+
+El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica V1 y V5 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
+
+```bash
+docker compose up -d --wait postgres
+docker compose exec postgres pg_isready -U urbanpulse -d urban-pulse
+docker compose exec postgres psql -U urbanpulse -d urban-pulse -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank"
+docker compose restart postgres
+docker compose up -d --wait postgres
+docker compose down
+docker compose up -d
+```
+
+El volumen `urban-pulse-app_postgres-data` se monta en `/var/lib/postgresql`, como requiere la imagen PostgreSQL 18. `down` elimina contenedores y red, **conservando los volúmenes**; `up` reutiliza los datos. `stop`/`start` conserva también los contenedores. Cambiar las variables iniciales de PostgreSQL no modifica usuarios ni contraseñas de un clúster ya creado.
+
+`down -v` **borra los volúmenes del proyecto**, incluida la base y las cachés Maven/npm. No es un paso habitual de mantenimiento ni una solución a fallos Flyway. Solo se utiliza sobre recursos propios descartables después de comprobar el proyecto y respaldar los datos necesarios.
+
+Para comprobar el correo, registrar una cuenta sintética desde el frontend y revisar su mensaje de verificación en Mailpit (`http://localhost:9999`); confirmar el código desde el cliente. Esto comprueba backend → `mailpit:1025`, no entrega en Internet. El envío ocurre después del commit SQL; un fallo SMTP no revierte el registro. No hay outbox ni reintentos automáticos.
+
+## 3. Ramas y migraciones concurrentes
+
+Cada integrante dispone de su propio Docker y su base local; las migraciones de una persona no se aplican sobre las bases de sus compañeros. **Cambiar de rama Git no reinicia ni separa el volumen local**: se conserva el historial Flyway anterior.
+
+Antes de arrancar una rama diferente, revisar sus migraciones frente al historial local. Si son compatibles, continuar normalmente. Si el historial difiere, detener el entorno y conservar sus datos; para una comprobación desde cero puede usarse temporalmente otro proyecto, por ejemplo `docker compose -p urbanpulse-migracion-prueba up -d --build`, con el entorno habitual detenido para liberar sus puertos. Al terminar, detener ese proyecto y volver al habitual. No es necesario ejecutar worktrees simultáneos ni personalizar puertos. Eliminar volúmenes solo si pertenecen a esa prueba y sus datos son descartables.
+
+El aislamiento entre equipos **no resuelve colisiones al integrar ramas**:
+
+1. Coordinar la siguiente versión libre y revisar las migraciones de `origin/main` antes de integrar; en esta integración existen V1 y V5; coordinar la siguiente versión posterior a V5, sin rellenar huecos históricos ni duplicar versiones.
+2. Si dos ramas introducen distintas V2, acordar el orden según sus dependencias. Solo el trabajo no publicado ni aplicado en bases compartidas puede renumerarse antes de integrar.
+3. Validar la secuencia conjunta sobre una base nueva y, cuando haya cambios incrementales, también desde el esquema compartido anterior. No reutilizar un historial local incompatible ni editarlo a mano.
+4. Una migración aplicada en una base compartida es inmutable. Si hay historiales compartidos en conflicto, detener la integración y preparar una reconciliación revisada, con respaldo y migraciones compatibles.
+5. No usar `flyway repair`, `outOfOrder` ni `ddl-auto=update` para ocultar discrepancias.
+
+[ADR-0006](adr/0006-flyway.md) conserva la historia de consolidación; [ADR-0016](adr/0016-ci-postgresql-local.md) define los entornos actuales.
+
+## 4. Desarrollo y producción
+
+| Entorno    | Aplicación               | PostgreSQL          | Objetos                           | Correo              |
+| ---------- | ------------------------ | ------------------- | --------------------------------- | ------------------- |
+| Desarrollo | Docker Compose           | PostgreSQL 18 local | Neon Object Storage de desarrollo | Mailpit             |
+| Producción | Despliegue independiente | Neon PostgreSQL     | Neon Object Storage de producción | Proveedor SMTP real |
+
+No existe una modalidad de desarrollo contra Neon PostgreSQL ni un Compose productivo. El despliegue requiere endpoints, secretos y políticas propios; los marcadores productivos sin completar no afectan al entorno local. Ver [Despliegue](deployment.md).
+
+## 5. CI y comprobaciones locales
+
+El [workflow CI](../.github/workflows/ci.yml) se ejecuta en **PR hacia main**, **push a main** y **workflow_dispatch**. Las ramas de desarrollo se validan al abrir/actualizar su PR o mediante ejecución manual, evitando duplicar cada actualización. La ejecución manual desde GitHub requiere que el workflow exista en la rama por defecto.
+
+Tres jobs independientes, permisos `contents: read`, cachés Maven/npm, límites de tiempo y cancelación de ejecuciones obsoletas por evento/referencia. No despliega ni utiliza credenciales privadas.
+
+### Backend: unitarias/MVC e integración PostgreSQL
+
+El comando del job, desde `backend/`, es:
+
+```bash
+mvn -B -ntp clean verify -Ppostgres-it
+```
+
+Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para once suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, MapPostgresIT y MapPerformancePostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
+
+Para repetirlo sin instalar Java/Maven en Windows, desde la raíz con Docker Desktop (PowerShell):
+
+```powershell
+docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=/src,readonly" --mount type=volume,source=urbanpulse-auth-maven,target=/root/.m2 --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal maven:3.9.16-eclipse-temurin-25 sh -c 'mkdir -p /tmp/check; cp -a /src/pom.xml /src/src /tmp/check/; cd /tmp/check; mvn -B -ntp clean verify -Ppostgres-it'
+```
+
+La copia interna evita que `clean` compita con el backend de desarrollo sobre `target`. Este contenedor es un ejecutor de tests, no otra modalidad de ejecución de la aplicación. No necesita los archivos privados ni iniciar Compose.
 
 ### Frontend
 
-```dotenv
-EXPO_PUBLIC_API_URL=http://localhost:8888
-```
-
-`EXPO_PUBLIC_*` se incluye en el JavaScript del navegador; no puede contener tokens privados, passwords ni claves Neon. Aún no hay un cliente HTTP funcional. Desde un móvil, `localhost` se refiere al dispositivo; usar una IP LAN accesible o URL HTTPS. El emulador Android suele utilizar `10.0.2.2` para acceder al host, según la configuración.
-
-### Backend y Neon
-
-```dotenv
-SPRING_DATASOURCE_URL=jdbc:postgresql://HOST-DEVELOPMENT:5432/urban-pulse?sslmode=require
-SPRING_DATASOURCE_USERNAME=backend
-SPRING_DATASOURCE_PASSWORD=PASSWORD_DEVELOPMENT
-AWS_ENDPOINT_URL_S3=https://BRANCH-DEVELOPMENT.storage.c-7.eu-central-1.aws.neon.tech
-AWS_REGION=eu-central-1
-STORAGE_BUCKET=incident-evidence
-AWS_ACCESS_KEY_ID=ACCESS_KEY_DEVELOPMENT
-AWS_SECRET_ACCESS_KEY=SECRET_KEY_DEVELOPMENT
-JWT_ISSUER=urbanpulse-development
-JWT_SECRET=BASE64_OF_32_OR_MORE_RANDOM_BYTES
-EMAIL_VERIFICATION_SECRET=DIFFERENT_BASE64_OF_32_OR_MORE_RANDOM_BYTES
-STAFF_INVITATION_SECRET=ANOTHER_DIFFERENT_BASE64_OF_32_OR_MORE_RANDOM_BYTES
-CORS_ALLOWED_ORIGINS=http://localhost:7777
-```
-
-Son **marcadores ficticios**: no copiar valores reales a Git. La BD histórica se llama `urban-pulse`, el rol es `backend` y el bucket S3 privado es `incident-evidence`. La rama Neon debe confirmarse **por los endpoints efectivos** y no solo por nombres de base/rol/bucket. `compose.yaml` carga `backend/.env.development`; `StorageProperties` y `StorageConfig` configuran S3 con credenciales AWS estándar y direccionamiento path-style. La configuración de producción debe ser distinta y suministrarse externamente.
-
-`application.properties` mantiene los ajustes comunes: puerto **8888**, HikariCP, `spring.jpa.open-in-view=false`, `ddl-auto=validate`, Flyway, caducidades y cuotas; Hibernate **no** genera tablas. El token HS256 dura **7200 s** y las invitaciones **7 días**. Los `.env` contienen conexiones, credenciales, emisor JWT, orígenes CORS y transporte SMTP de cada entorno; los secretos JWT/HMAC deben ser distintos. El archivo de propiedades de tests (`auth-test.properties`) nunca se utilizará como configuración productiva.
-
-### Correo local
-
-`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` y `MAIL_FROM` configuran el transporte. En Compose, Mailpit usa SMTP `mailpit:1025` dentro de la red y publica en el host `127.0.0.1:1025`; su bandeja web está en <http://localhost:8025>. Un ejemplo local usa `MAIL_FROM=no-reply@urbanpulse.test`, sin autenticación ni STARTTLS. No se necesita contratar un proveedor externo para esta fase. La captura en Mailpit **no** equivale a entrega real. Ambos eventos de correo de auth/Invitaciones usan listener `AFTER_COMMIT`.
-
-## 4. Frontend: ejecutar y verificar
-
-En `frontend/`:
+El job usa Node.js 24 y ejecuta desde `frontend/`:
 
 ```bash
 npm ci
-npx expo start --web --port 7777
-```
-
-Acceder a <http://localhost:7777>. La pantalla de arranque está en `src/app/index.tsx` y el layout en `_layout.tsx`. También se dispone de `npm start`, `npm run web`, `npm run android`, `npm run ios` y `npm run lint`. `npm run web` no garantiza por sí solo el puerto 7777.
-
-Desde la raíz, Docker usa `frontend/Dockerfile.dev` y mantiene las dependencias Linux en volumen propio:
-
-```bash
-docker compose up --build frontend
-docker compose logs -f frontend
-docker compose down
-```
-
-Cambios de dependencias pueden requerir `docker compose exec frontend npm ci` y reinicio. El 13/10/2026 se documentó ejecución/exportación web correcta; el 15/10/2026, arranque de frontend y backend en Compose **antes de las migraciones actuales**.
-
-Para calidad:
-
-```bash
-cd frontend
-npx expo install --check
-npx expo-doctor
+npm test
 npx tsc --noEmit
 npm run lint
 npx expo export --platform web
 ```
 
-**Evidencias del 13/10/2026:** Expo Doctor 21/21, TypeScript/ESLint sin errores y exportación SPA correcta a `dist/` (ignorado). No prueba Nginx productivo, Android/iOS completo ni rutas de negocio. Si npm informa de vulnerabilidades, revisar `npm audit` y `npm audit --omit=dev`; no usar `npm audit fix --force` sin verificar compatibilidad Expo.
+También se pueden ejecutar con `docker compose exec frontend <comando>`; detener/recrear el frontend si se reinstalan dependencias mientras Expo está activo. `npm test` usa `node:test` con fetch simulado para formularios, Unicode, cliente HTTP, ETag y errores. `dist/` está ignorado y exportarlo no despliega Nginx.
 
-## 5. Backend: ejecución y migraciones
+`npx expo install --check` es mantenimiento opcional: consulta recomendaciones cambiantes y no bloquea CI. `scripts/integration.cjs` queda excluido: modifica datos HTTP y requiere cuentas, contraseña y fixtures específicos; no debe dirigirse a recursos compartidos. La validación funcional móvil y la UI de evidencias siguen pendientes.
 
-V1 crea nueve tablas funcionales y cinco roles; V2 añade cuatro tablas de Incidencias y estructuras base. No se precargan cuentas ADMIN, departamentos ni categorías. Está destinada a una base vacía; el historial y las decisiones de consolidación se recogen en [ADR-0006](adr/0006-flyway.md).
+### OpenAPI y Compose
 
-**Precaución:** el Compose principal conecta con Neon **development** y un backend nuevo puede ejecutar **Flyway V1, V2 y V3** al arrancar. No iniciar a ciegas con secretos de producción ni sobre bases de datos compartidas. Hacer backup/plan de migración y verificar `SPRING_DATASOURCE_URL`.
-
-```bash
-# Desde la raíz, con backend/.env.development correctamente configurado:
-docker compose up --build
-# O únicamente el servicio de backend:
-docker compose up --build backend
-```
-
-No consta una ejecución de ese Compose con la migración V1 consolidada actual en Neon. `backend/Dockerfile.dev` está orientado al desarrollo, y `backend/Dockerfile`/`frontend/Dockerfile` no constituyen despliegues de producción verificados.
-
-Para conectividad **solo de lectura** histórica con Neon `development`, desde la raíz:
+Desde la raíz:
 
 ```bash
-docker compose run --rm backend mvn -B -Dtest=NeonConnectivityIT test
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+docker compose config --quiet
+git diff --check
 ```
 
-`NeonConnectivityIT` está bajo `shared/storage/integration`, pero Maven lo selecciona por nombre; la ejecución de 15/10/2026 comprobó JDBC (`current_database()='urban-pulse'` y `current_user='backend'`) y `HeadBucket` sobre el bucket privado. Para ese contexto desactiva Flyway y validación Hibernate; no prueba migraciones, escritura, fotos completas ni que el endpoint pertenezca a la rama adecuada sin comprobar su URL.
+El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.env.example` a `frontend/.env` únicamente en su checkout temporal. Valida solo `compose.yaml`, sin arrancar servicios ni conectar a Neon. Las plantillas vacías bastan para resolver `env_file`, pero el arranque real requiere completar la configuración. No regenerar artefactos en CI; cuando cambie la fuente OpenAPI, seguir [API](api/README.md#7-validación-y-visualización).
 
-## 6. Pruebas automáticas aisladas
+### Pruebas externas
 
-Desde `backend/`, con Java 25, Maven y Docker:
+`NeonConnectivityIT` es una comprobación histórica explícita de JDBC y `HeadBucket`, fuera de Surefire ordinario y de `postgres-it`. Espera el usuario SQL remoto histórico; no representa el desarrollo local actual ni debe apuntarse a producción para validar esta rama.
 
-```bash
-mvn -B -ntp test                       # Surefire: pruebas unitarias y MVC
-mvn -B -ntp clean verify -Ppostgres-it # Surefire + Failsafe: IT con PostgreSQL efímero
-```
+El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontainers. Exige `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración S3 de un recurso de pruebas no productivo autorizado; disponer de credenciales de desarrollo no constituye autorización para ejecutarlo. Tampoco pertenece al CI ordinario. Una prueba omitida no acredita conectividad.
 
-El perfil `postgres-it` incluye explícitamente `AuthenticationPostgresIT`, `EmailVerificationPostgresIT`, `StaffInvitationPostgresIT`, `UserRepositoryPostgresIT`, `DepartmentPostgresIT`, `CategoryPostgresIT`, `DepartmentMembershipPostgresIT` e `IncidentPostgresIT`, cada una con PostgreSQL 18 de Testcontainers. **No ejecuta** `NeonConnectivityIT`. Las invocaciones normales `mvn test`, `mvn package`, `mvn verify` no ejecutan `*IT` por defecto; `mvn spring-boot:run` y `docker compose up --build` con `Dockerfile.dev` tampoco lanzan las suites automáticamente.
+## 6. Límites y evidencias históricas
 
-### 6.1. Evidencia histórica de SMTP
+Las pruebas aisladas y el arranque Compose no acreditan despliegue productivo ni operaciones reales S3. Siguen fuera de alcance CD, hosting/TLS, SMTP productivo, bootstrap del primer ADMIN, retención/purgado, tramitación y validación móvil completa.
 
-La entrega de Invitaciones verificó un recorrido HTTP con JAR real, PostgreSQL en tmpfs y Mailpit: registro/verificación, emisión y canje global/departamental, revocación, filtros, cuotas, limpieza de cuenta pendiente y ausencia de secretos en respuestas. El resultado fue satisfactorio y solo acredita captura SMTP local. Los archivos de aquel runner no están versionados; la comprobación reproducible del árbol actual es Maven/Testcontainers. No acredita entrega en Internet ni despliegue en Neon.
-
-### 6.2. Validación del contrato OpenAPI
-
-Editar únicamente la fuente modular y regenerar bundle/HTML siguiendo los [comandos de OpenAPI](api/README.md#7-validación-y-visualización).
-
-## 7. Flujos de auth, Invitaciones y catálogos
-
-Category dispone de su módulo independiente y cuatro operaciones; véase [contrato de categorías](api/README.md#contrato-de-categorías).
-
-El catálogo de departamentos se administra mediante cuatro operaciones de `organization`, con las reglas de [contrato de Departamentos](api/README.md#51-departamentos-implementados-catálogos). Ya permite crear unidades reales para emitir invitaciones, sin SQL manual. La auditoría específica de escrituras de Departamentos queda pendiente de especificación (RF18).
-
-Las cinco rutas `POST` de auth bajo `/api/v1` son registro, login, cambio de contraseña, confirmación de correo y reenvío. El registro emite JWT limitado hasta verificar correo. El mismo JWT funciona después de confirmar y, si se canjea una invitación global, puede reconocer los nuevos roles consultados en PostgreSQL. La limpieza horaria de `EmailVerificationCleanup` elimina cuentas aún sin verificar después de 24 horas; `EMAIL_VERIFICATION_CLEANUP_CRON` se puede configurar (`-` desactiva el job en tests).
-
-Invitaciones añade **cinco rutas** administrativas/de canje, sin crear cuentas al emitir. `STAFF_INVITATION_SECRET` protege HMAC-SHA256 de 256 bits, independiente de JWT y verificación. La caducidad son siete días por defecto y las cuotas de canje utilizan buckets independientes. La estructura Java está bajo `invitations/`, `identity/`, `organization/` y `audit/`; el correo SMTP y la seguridad comunes están en `shared/`. Las decisiones de seguridad, códigos y concurrencia están en [ADR-0007](adr/0007-invitaciones-personal.md); las rutas, DTO, filtros y errores, en [API](api/README.md). Esta guía conserva las evidencias históricas y los comandos de verificación.
-
-## 8. Imagen web productiva prevista (sin ejecución acreditada)
-
-`frontend/Dockerfile` exporta la SPA y copia `dist/` a Nginx (`frontend/nginx.conf`, puerto 7777 y fallback a `index.html`). Para una comprobación **futura**, desde la raíz:
-
-```bash
-docker build -f frontend/Dockerfile --build-arg EXPO_PUBLIC_API_URL=http://localhost:8888 -t urbanpulse-frontend:local frontend
-docker run --rm -p 7777:7777 urbanpulse-frontend:local
-```
-
-No está documentada una ejecución de esta imagen. En producción `EXPO_PUBLIC_API_URL` debe ser HTTPS y CORS debe permitir el origen específico. Antes de desplegar también faltan dominio/TLS, SMTP real, rotación y custodia de secretos, administración inicial, retención y respaldo de datos, y CI/CD.
-
-## 9. Colaboración, problemas habituales y referencias
-
-Para cada tag, revisar como una unidad el OpenAPI modular, ambas vistas de dominio y los ADR, implementar el subconjunto necesario y regenerar diagramas/exports si cambian. Consultar [CONTRIBUTING](../CONTRIBUTING.md), [Modelo de dominio](domain-model.md) y [Contrato dominio–API](api/domain-openapi.md). Comprobar `git diff --check`, secretos, rutas relativas y cambios en artefactos derivados antes del PR.
-
-- Si fallan tipos Expo/JSX, ejecutar `npm ci`, revisar `expo/tsconfig.base` y reiniciar el servidor de TypeScript.
-- Si `localhost` no funciona en el móvil, usar IP de host/HTTPS y comprobar firewall.
-- Si Docker no refleja nuevas dependencias, actualizar el volumen de `node_modules` con `npm ci`.
-- Si falla backend por credenciales, comprobar JDBC/TLS, variables S3, permisos y destino de Flyway; no confundir con error de frontend.
-- Si `NeonConnectivityIT` no aparece con `mvn test`, es normal: invocarlo expresamente, **solo** con Neon `development` autorizado.
-- `HeadBucket` correcto no garantiza subida/descarga/borrado; esas pruebas corresponden al futuro módulo de evidencias.
-
-Pendientes funcionales: tramitación de incidencias, fotografías reales, equipos, API de retirada de permisos, móvil en dispositivos, Nginx, proveedor SMTP real, migración Neon de V1 consolidada y workflows de CI/CD. Referencias: [Arquitectura](architecture.md), [Despliegue](deployment.md), [API](api/README.md), [ADR-0007 (Invitaciones)](adr/0007-invitaciones-personal.md).
+Los resultados siguientes conservan sus fechas y configuraciones originales. Las menciones a Neon PostgreSQL de desarrollo, V2/V3 y puertos anteriores son históricas. El recorrido HTTP de Invitaciones utilizó archivos que no están en el repositorio (`compose.test.yaml`, `backend/Dockerfile.test` y `backend/scripts/invitations_http_test.py`); se conserva su resultado sin presentarlo como un procedimiento reproducible actual.
 
 ## Verificación del backend
 
-### Incidencias: revisión correctiva del 05/11/2026
+### Integración Mapas, Evidencias y CI (16/11/2026)
+
+`mvn -B -ntp clean verify -Ppostgres-it`: **BUILD SUCCESS, 319 pruebas**
+(183 unitarias/MVC y 136 de integración PostgreSQL), cero fallos, errores u omisiones.
+Las once suites Failsafe incluyen Mapas (18 funcionales + 4 de rendimiento) y
+Evidencias (16); Surefire conserva las 12 unitarias de Mapas y 8 de imágenes.
+Se ejecutó desde backend dentro de una copia Docker con Java 25.0.4.1, Maven 3.9.16,
+Spring Boot 4.1.2 y PostgreSQL 18.6 efímero mediante Testcontainers. S3 simulado;
+NeonConnectivityIT y NeonAttachmentStorageIT no se ejecutan. No se accede a Neon.
+
+Cada base vacía aplica V1 consolidada y V5 intactas. Las expectativas de Flyway
+y los TRUNCATE incluyen el esquema de Evidencias; la actualización de Mapas se
+prueba sobre V1 con datos y un search_path distinto. No se recuperan V2/V3 ni se
+añade V4. Código de producción de Mapas idéntico a la rama previa; Evidencias y
+workflow CI idénticos a main. Informes y planes en `backend/target/maps-merge-verification`.
+
+Recurso IGN reproducible: correcto (12.339 vértices). Redocly 2.16.0: fuente modular
+válida, bundle y HTML regenerados y validados; se conservan los contratos de ambos módulos.
+Cero errores: dos avisos conocidos en la fuente (licencia/localhost) y cinco en el
+bundle (los anteriores más AssessmentId, TrainingId y DocumentId sin uso).
+El contrato contiene 35 operaciones implementadas y 36 futuras.
+Los ejemplos HTTP recién capturados de Mapas pasan el verificador AJV del repositorio.
+Los resultados históricos siguientes conservan su fecha y no se suman a esta ejecución.
+
+### Evidencias y V1 consolidada: verificación del 11/11/2026
+
+Entorno aislado: Maven 3.9.16, Java 25.0.4.1, Spring Boot 4.1.2, Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6. Se ejecutó Maven en `maven:3.9.16-eclipse-temurin-25`, montando backend y la caché Maven; las IT accedieron al socket Docker con `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`. No se usaron bases compartidas, archivos privados de entorno ni credenciales Neon.
+
+| Comando desde backend                       | Resultado                                                                        |
+| ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `mvn -B -ntp test`                          | PASS: 171 pruebas unitarias/MVC, 27 suites                                       |
+| `mvn -B -ntp clean verify -Ppostgres-it`    | PASS: 171 Surefire + 114 Failsafe = **285 pruebas**, 36 suites                   |
+| `mvn -B -ntp failsafe:verify -Ppostgres-it` | PASS: comprobación adicional de los informes finales, sin repetir ni sumar tests |
+| `mvn -B -ntp javadoc:javadoc -Ddoclint=all` | PASS: cero errores; 64 avisos de completitud documental                          |
+
+Javadoc se regeneró sin reutilizar su marcador de caché tras completar las descripciones del módulo. Permanecen avisos sobre constructores implícitos/Lombok y comentarios del resto del backend; no se amplía esta entrega a un barrido documental general. Los últimos cambios Java son exclusivamente comentarios.
+
+Los informes XML de la ejecución limpia registran cero fallos, errores, omisiones o flakes. Failsafe contiene AttachmentServicePostgresIT 16, AuthenticationPostgresIT 8, EmailVerificationPostgresIT 12, CategoryPostgresIT 6, UserRepositoryPostgresIT 15, IncidentPostgresIT 18, StaffInvitationPostgresIT 24, DepartmentMembershipPostgresIT 9 y DepartmentPostgresIT 6. Cada contexto aplica solo V1 desde PostgreSQL vacío y Hibernate valida las entidades; se comprueban 14 tablas funcionales, cinco roles y restricciones finales. No se suman pruebas dirigidas ni ejecuciones históricas.
+
+La suite de Evidencias comprueba las cinco rutas con JWT firmado, DTO y cabeceras, visibilidad y pareja de IDs, todos los estados, límite conjunto y carreras con una/cero plazas, bajas lógicas, auditoría atómica, lectura fallida, tamaño declarado falso, rechazo multipart previo al controlador y errores PUT/GET/commit/compensación. El almacenamiento es un doble aislado; las transferencias se comprueban fuera de transacción SQL. Las ocho pruebas de imágenes usan muestras sintéticas JPEG con EXIF/GPS y PNG con texto/eXIf, alfa, corrupción, dimensiones, límites exactos de entrada y expansión excesiva de salida.
+
+La primera ejecución dirigida detectó una consulta derivada que interpretaba incidentId como atributo persistente: se corrigió el recorrido explícito `Incident_Id`. La repetición dirigida pasó con 12 unitarias y 13 IT; la ejecución completa posterior incluye las tres IT adicionales de lectura, rollback de auditoría y conservación del autor histórico. La comprobación previa del esquema con CategoryServiceTest/CategoryPostgresIT también pasó (7 + 6); estas ejecuciones no aumentan el total de 285.
+
+OpenAPI 3.0.3 / contrato 0.7.0: Redocly 2.16.0 validó la fuente modular, regeneró bundle YAML y HTML y validó de nuevo el bundle. Cero errores; la fuente presenta los dos avisos conocidos de licencia/localhost y el bundle añade tres componentes preexistentes sin uso (AssessmentId, TrainingId y DocumentId). Recuento verificado: **34 operaciones implemented, 37 future, 71 totales**. Enlaces/anclas Markdown locales y `git diff --check` correctos; las tres fuentes drawio conservan páginas, IDs, geometría, estilos y conexiones. Codex no modificó los SVG; sus exportaciones se actualizaron manualmente con posterioridad.
+
+`verify -Pneon-storage` no se ejecutó: no se utilizó un entorno S3 de pruebas explícitamente autorizado. El perfil requiere `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración de pruebas; no acredita un ciclo PUT/GET/DELETE en Neon. Tampoco se repitieron frontend, SMTP externo ni despliegue.
+
+### Incidencias: revisión correctiva del 05/11/2026 (histórica)
+
+Este registro conserva los resultados y migraciones de aquella fecha. La entrega vigente usa V1 consolidada más V5 de Mapas; estas referencias a V2/V3 no son instrucciones de ejecución actuales.
 
 Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6 efímero. No se ejecutó NeonConnectivityIT ni se utilizaron credenciales de Neon. El inventario Docker no ofrecía una base PostgreSQL persistente local. El historial remoto de Neon no se ha consultado; V1/V2 se conservan y V3 es aditiva.
 
@@ -247,7 +234,7 @@ Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.F
 | IncidentPostgresIT             |      18 |
 | **Total**                      | **261** |
 
-La cifra anterior de 248 no era reproducible con el árbol recibido para esta revisión: `sqlPaginationFiltersStableOrderAndUnknownQueries` no creaba las incidencias del titular y falló con **esperado 2, obtenido 0**. Se restauró la preparación explícita, con control de otro titular, fechas fijas y limpieza independiente. No se modificó autorización para satisfacer el test. Esta medición sustituye aquella cifra como evidencia vigente.
+La cifra anterior de 248 no era reproducible con el árbol recibido para esta revisión: `sqlPaginationFiltersStableOrderAndUnknownQueries` no creaba las incidencias del titular y falló con **esperado 2, obtenido 0**. Se restauró la preparación explícita, con control de otro titular, fechas fijas y limpieza independiente. No se modificó autorización para satisfacer el test. Esa medición sustituyó la cifra anterior en la revisión del 05/11/2026.
 
 También se reprodujeron: cambios de perfil/categoría por sus APIs que alteraban el JSON conservando ETag `"0"`; aceptación con 201 de un cuerpo de 65537 bytes; y dos fallos unitarios por motivos/límites estructurales no comprobados. La revisión incorpora ETag opaca de la representación, 64 KiB con 413 y reglas Java/SQL coherentes mediante V3. Las fechas se truncan a microsegundos para conservar el JSON al releer PostgreSQL.
 
@@ -311,12 +298,13 @@ En frontend, `npm run lint` y `npx tsc --noEmit` finalizaron correctamente el mi
 
 ## Verificación de Mapas (10/11/2026)
 
-El perfil `postgres-it` incorpora `MapPostgresIT` con PostgreSQL 18 efímero y mantiene
-excluido `NeonConnectivityIT`. No se usan secretos ni bases compartidas. Las cinco
-suites antiguas que enumeraban todas las versiones Flyway se acotan a sus versiones
-base V1–V3; la prueba de actualización de Incidencias apunta expresamente a V3.
-Mapas comprueba por separado la nueva migración, incluidos datos preexistentes en
-un esquema distinto de public y construcción de índices con search_path restringido.
+El perfil `postgres-it` incluye `MapPostgresIT`, `MapPerformancePostgresIT` y
+`AttachmentServicePostgresIT`, además de las suites anteriores, con PostgreSQL 18
+efímero. No incluye NeonConnectivityIT ni NeonAttachmentStorageIT. Tras la integración
+del 16/11/2026, las pruebas verifican V1 consolidada y V5, inventario de 14 tablas y
+limpieza de attachments junto con incidents. Mapas aplica V5 sobre V1 con datos
+preexistentes en otro esquema, incluida la construcción de índices con search_path
+restringido. Las cifras fechadas a continuación corresponden a ejecuciones históricas.
 
 La ejecución de esta entrega usa una copia del backend en Docker, Java 25 y Maven
 3.9.16. El intento inicial con Maven/JDK del host Windows no completó la compilación
@@ -333,7 +321,7 @@ docker run --rm --mount "type=bind,source=$mapsSource,target=/src,readonly" --mo
 
 En la ejecución de la entrega también se copian los informes Surefire/Failsafe y los
 ejemplos capturados a `backend/target`. [Guía de Mapas](maps-backend.md),
-[ADR-0015](adr/0015-mapas-provinciales-privacidad.md) y
+[ADR-0017](adr/0017-mapas-provinciales-privacidad.md) y
 [recurso oficial reproducible](../backend/src/main/resources/maps/README.md).
 
 Resultado final: **BUILD SUCCESS**, 291 pruebas (175 Surefire y 116 Failsafe), cero

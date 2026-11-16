@@ -1,10 +1,10 @@
 # Arquitectura de UrbanPulse
 
-> **Estado a 10/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `maps`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias y Mapas están implementados; los demás tags de negocio siguen siendo diseño. Existen V1, V2, V3 y V5 de Mapas y la ejecución actual en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V2 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
+> **Estado a 16/11/2026:** backend Spring Boot organizado como **monolito modular** en `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `attachment`, `maps`, `audit` y `shared`. Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias, Evidencias y Mapas están implementados; los demás tags de negocio siguen siendo diseño. Existen la V1 consolidada y la V5 geográfica de Mapas y la verificación en PostgreSQL 18 aislado está documentada en [Desarrollo](development.md#verificación-del-backend); **no se acredita** haber desplegado estas migraciones sobre Neon `development`. Las fuentes C4, ER y clases distinguen V1 y diseño futuro; el [inventario](diagrams/README.md) diferencia validación estructural actual y exportaciones históricas.
 
 ## 1. Propósito y decisiones arquitectónicas
 
-UrbanPulse está planteado para registrar incidencias con localización y fotografías, validarlas, priorizarlas, asignarlas y enriquecerlas gradualmente con contexto urbano. El núcleo implementa alta, consulta, corrección e historial. La tramitación municipal, fotografías completas, analítica y proveedores externos **no están implementados**. Los clientes web y móviles podrán compartir código Expo/React Native; todas las decisiones de autorización se aplicarán en el servidor.
+UrbanPulse está planteado para registrar incidencias con localización y fotografías, validarlas, priorizarlas, asignarlas y enriquecerlas gradualmente con contexto urbano. El núcleo implementa alta, consulta, corrección e historial. La tramitación municipal, analítica y proveedores externos **no están implementados**. Los clientes web y móviles podrán compartir código Expo/React Native; todas las decisiones de autorización se aplicarán en el servidor.
 
 Se adopta **un único proceso Spring Boot** con módulos organizados por responsabilidad de negocio, en lugar de los antiguos paquetes globales `controller`, `entity`, `service`, `repository`, `dto` y `config`. Dentro de cada módulo siguen existiendo capas técnicas (`api`, `dto`, `model`, `repository`, `service`, etc.) cuando son necesarias. Por tanto, hay separación de capas _dentro de módulos_, pero **no** un «monolito organizado globalmente por capas». No se incorporan microservicios, colas ni cachés distribuidas sin una necesidad verificable; las transacciones de identidad, permisos y auditoría se benefician de una misma base PostgreSQL.
 
@@ -12,14 +12,14 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 ## 2. Contenedores C4 y tecnologías
 
-| Contenedor lógico                 | Tecnología                                                        | Situación                                                                                                                                                                                         |
-| --------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web                               | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Pantalla inicial, ejecución/exportación web de desarrollo verificadas; sin cliente de incidencias ni login conectado.                                                                             |
-| Android/iOS                       | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                                           |
-| API REST                          | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 30 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo, seis de Incidencias y una de Mapas. Tramitación y otros módulos avanzados pendientes. |
-| Datos relacionales                | PostgreSQL 18 en Neon / Testcontainers para pruebas               | JDBC Neon comprobado históricamente; V1 consolidada; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                                            |
-| Objetos privados                  | Neon Object Storage, S3                                           | Bucket privado y `HeadBucket` comprobados; subida, descarga, borrado y ciclo completo de evidencias pendientes.                                                                                   |
-| Transporte SMTP                   | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                                   |
+| Contenedor lógico                   | Tecnología                                                        | Situación                                                                                                                                                                                                |
+| ----------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web                                 | Expo SDK 57, React Native Web, TypeScript, Expo Router            | Panel conectado con autenticación, perfil, usuarios, invitaciones, catálogos y núcleo de incidencias; UI de evidencias pendiente.                                                                        |
+| Android/iOS                         | Expo/React Native                                                 | Código compartido; prueba funcional completa en dispositivos pendiente.                                                                                                                                  |
+| API REST                            | Java 25, Spring Boot 4.1.2, Spring Security, JPA/Hibernate, Maven | 35 operaciones implementadas: cinco de auth, cinco de Usuarios, cinco de Invitaciones, cuatro por catálogo, seis de Incidencias, cinco de Evidencias y una de Mapas. Tramitación y otros módulos avanzados pendientes. |
+| Datos relacionales                  | PostgreSQL 18 local / Neon productivo / Testcontainers            | JDBC Neon comprobado históricamente; V1 consolidada más V5 de Mapas; validación actual en Desarrollo, aplicación a Neon no acreditada.                                                                                   |
+| Objetos privados                    | Neon Object Storage, S3                                           | Evidencias privadas implementadas y probadas con S3 simulado; conectividad histórica comprobada. Ciclo real Neon no ejecutado en esta revisión.                                                          |
+| Transporte SMTP                     | Spring Mail / Mailpit local                                       | Emisión tras commit implementada; no se ha probado entrega en Internet ni proveedor productivo.                                                                                                          |
 | Mapas / contexto / notificaciones | PostgreSQL nativo para Mapas                                      | Mapas backend implementado; visor, contexto y notificaciones pendientes.                                                                                                                          |
 
 ### Contexto y contenedores
@@ -28,7 +28,7 @@ Los principales criterios son integridad, trazabilidad, seguridad por rol y cont
 
 ![C4: contenedores](diagrams/c4-containers.svg)
 
-La fuente editable de ambas vistas es [`diagrams/c4.drawio`](diagrams/c4.drawio). Los contenedores C4 representan unidades lógicas desplegables o almacenes y **no** implican que cada uno sea un contenedor Docker. El C4 de contenedores refleja el alcance inicial de **fotografías** (ADR-0004) y los componentes SMTP/Mailpit conforme a la versión gráfica actual.
+La fuente editable de ambas vistas es [`diagrams/c4.drawio`](diagrams/c4.drawio). Los contenedores C4 representan unidades lógicas desplegables o almacenes y **no** implican que cada uno sea un contenedor Docker. El C4 de contenedores refleja el alcance inicial de **fotografías** (ADR-0004) y los componentes SMTP/Mailpit en la fuente editable; los SVG son exportaciones históricas.
 
 ### Vistas del dominio
 
@@ -81,7 +81,8 @@ urbanpulse/
 │   ├── model/            # Category
 │   ├── repository/       # Catálogo y bloqueo de fila
 │   └── service/          # CategoryService y excepciones
-├── incidents/           # API, DTO, modelo, repositorios y servicios del núcleo V2
+├── attachment/          # Evidencias privadas, validación de imágenes y S3
+├── incidents/           # API, DTO, modelo, repositorios y servicios del núcleo V1
 ├── maps/                # API, DTO, políticas y consulta JDBC espacial agregada
 ├── audit/
 │   ├── model/            # AuditEvent
@@ -109,15 +110,20 @@ La misma división se reproduce en `backend/src/test/java/es/grupo18/urbanpulse/
 
 La dirección típica dentro de un caso de uso es `Controller → Service → Repository → PostgreSQL`; las reglas del dominio y la persistencia no se trasladan al controlador. `StaffInvitationService` concentra las cinco operaciones y las transacciones necesarias, sin servicio delegador redundante. La configuración externa se inyecta en el inicio de Spring Boot.
 
+### Desarrollo local y CI
+
+El único Compose ejecuta la aplicación de desarrollo con PostgreSQL 18 persistente y Mailpit. Cada integrante dispone de su base local; cambiar de rama no cambia el volumen. El backend carga `backend/.env.development` con JDBC `postgres:5432` y SMTP `mailpit:1025`, sin overrides. Publica en loopback backend 8080, frontend 8888 y Mailpit web 9999 (interno 8025). El navegador usa la API `http://localhost:8080` y CORS autoriza `http://localhost:8888`. Neon PostgreSQL se reserva a producción; Neon Object Storage se mantiene en ambos entornos con recursos propios. [ADR-0016](adr/0016-ci-postgresql-local.md) y [procedimiento](development.md).
+
+GitHub Actions valida backend con PostgreSQL Testcontainers, frontend y configuración sin recursos productivos. Las vistas C4 anteriores describen contenedores lógicos y el proveedor gestionado; la variante local no cambia el dominio ni acredita el despliegue productivo.
+
 ## 4. Persistencia y transacciones
 
 Flyway gestiona migraciones en `backend/src/main/resources/db/migration/`:
 
-| Migración                                 | Alcance                                                                                                                                                                                                                                                                                      |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `V3__processing_structure_invariants.sql` | Restricciones coherentes de motivos de revisión y justificaciones; conserva V1/V2 y no añade tablas ni operaciones.                                                                                                                                                                          |
-| `V2__incidents.sql`                       | Incidencias y estructuras base de transición, revisión y prioridad; sin operaciones de Tramitación.                                                                                                                                                                                          |
-| `V1__initial_schema.sql`                  | `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events`, `categories`; cinco roles, restricciones e índices de los módulos implementados, FK históricas `RESTRICT`, sin departamentos ni categorías precargados. |
+| Migración                | Alcance                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `V1__initial_schema.sql` | `users`, `roles`, `user_roles`, `email_verifications`, `departments`, `department_memberships`, `staff_invitations`, `audit_events`, `categories`, `incidents`, `status_changes`, `incident_reviews`, `priority_decisions`, `attachments`; cinco roles, restricciones e índices de los módulos implementados, FK históricas `RESTRICT`, sin departamentos ni categorías precargados. |
+| `V5__maps_geography.sql` | Funciones versionadas del contorno provincial y privacidad; índices GiST exacto/público e índice parcial VALIDATE. Sin nuevas tablas ni cambios en V1. |
 
 `spring.jpa.hibernate.ddl-auto=validate` comprueba los mapeos, no crea ni migra tablas. Se generan UUIDv7 desde Hibernate en las entidades apropiadas. La consolidación se autoriza únicamente bajo la premisa de destino vacío y ninguna migración previa aplicada en bases que deban conservarse; después de aplicar V1 no debe reescribirse. Se ha comprobado JDBC y el bucket privados en Neon `development` en una **prueba histórica de conectividad**, distinta de las pruebas V1 consolidada con PostgreSQL efímero. No ejecutar tests de escritura ni migraciones experimentales contra Neon `production`.
 
@@ -125,7 +131,7 @@ Invitaciones utiliza bloqueos pesimistas de PostgreSQL en el orden **usuario →
 
 PATCH de Departamentos adquiere un bloqueo pesimista sobre la misma fila que Invitaciones. Su repositorio mantiene las consultas de ambos casos de uso. Los índices únicos de nombre/código resuelven carreras de alta, y solo sus infracciones 23505 se traducen a duplicado. Fechas JPA y UUIDv7 conservados; [contrato detallado](api/README.md#51-departamentos-implementados-catálogos).
 
-Category tiene su entidad y repositorio exclusivos en `categories`, sin dependencia de `organization`. PATCH bloquea la fila con `PESSIMISTIC_WRITE` antes de modificar; el índice único y `saveAndFlush` resuelven altas y renombrados concurrentes. Solo SQLSTATE 23505 del índice `uk_categories_name_normalized` se traduce a `CATEGORY_DUPLICATE`; otras infracciones conservan el tratamiento común. La transacción revierte todos los cambios del perdedor. V2 incorpora la FK opcional desde Incident; la desactivación conserva referencias y consultas históricas.
+Category tiene su entidad y repositorio exclusivos en `categories`, sin dependencia de `organization`. PATCH bloquea la fila con `PESSIMISTIC_WRITE` antes de modificar; el índice único y `saveAndFlush` resuelven altas y renombrados concurrentes. Solo SQLSTATE 23505 del índice `uk_categories_name_normalized` se traduce a `CATEGORY_DUPLICATE`; otras infracciones conservan el tratamiento común. La transacción revierte todos los cambios del perdedor. V1 incorpora la FK opcional desde Incident; la desactivación conserva referencias y consultas históricas.
 
 Usuarios bloquea la fila antes de cambiar perfil o actividad, coordinándose con contraseña, verificación y canje. Las bajas administrativas adquieren primero un bloqueo transaccional común en PostgreSQL y comprueban que quede un ADMIN activo y verificado. El listado pagina usuarios en SQL y carga roles y pertenencias en lote (sin fetch paginado de colecciones). La baja interna de pertenencias bloquea usuario y después pertenencia, sin cargar previamente estado mutable.
 
@@ -147,9 +153,9 @@ Los módulos de auth e Invitaciones reutilizan `ProblemDetail`, protección HTTP
 
 ## 6. Frontend, almacenamiento y resiliencia
 
-`frontend/` contiene `src/app` de Expo Router, `components`, `config`, `constants`, `features`, `services` y `types`. `web.output="single"` genera SPA; `EXPO_PUBLIC_API_URL` es una variable pública, nunca un almacén de secretos. No hay todavía formulario de incidencias, integración real de API, login completo ni validación funcional Android/iOS. Ninguna ocultación de controles en UI sustituye la autorización servidor.
+`frontend/` contiene `src/app` de Expo Router, `components`, `config`, `constants`, `features`, `services` y `types`. `web.output="single"` genera SPA; `EXPO_PUBLIC_API_URL` es una variable pública, nunca un almacén de secretos. Hay cliente HTTP, formularios de incidencias y flujos de login/registro/verificación, perfil, usuarios, invitaciones y catálogos. La validación funcional Android/iOS y la interfaz de evidencias siguen pendientes. Ninguna ocultación de controles en UI sustituye la autorización servidor.
 
-El bucket `incident-evidence` es privado; los metadatos previstos se almacenarán en PostgreSQL y los binarios en S3. Faltan flujos de subida/descarga, validación de tipos y tamaños, eliminación de EXIF, autorización por fotografía, retención y limpieza de huérfanos. Los datos de contexto urbano pueden enriquecer incidencias, pero su indisponibilidad no debería bloquear el alta; todavía no hay proveedores integrados.
+El bucket `incident-evidence` es privado; los metadatos se almacenan en PostgreSQL y los binarios en S3. Subida/descarga, validación de tipo/tamaño, retirada de EXIF y autorización por incidencia están implementadas. Retención, purgado físico y reconciliación de huérfanos siguen futuros. Los datos de contexto urbano pueden enriquecer incidencias, pero su indisponibilidad no debería bloquear el alta; todavía no hay proveedores integrados.
 
 Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, política de claves/rotación, correos reales, retención de datos, observabilidad, coordinación de rate limiting entre réplicas, gestión de backups y procedimientos de migración. No se debe presentar el Compose de test como imagen productiva.
 
@@ -157,17 +163,21 @@ Antes del despliegue son necesarios HTTPS, CORS revisado, transporte de JWT, pol
 
 Las suites reproducibles de backend, las comprobaciones del frontend y sus límites se mantienen en [Desarrollo](development.md#verificación-del-backend). Las pruebas aisladas no acreditan despliegue en Neon ni entrega SMTP en Internet.
 
-Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, tramitación de incidencias, flujos S3 reales, auditoría administrativa completa RF18, SMTP externo, despliegue y CI/CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
+Siguen pendientes bootstrap productivo de ADMIN, API de retirada de permisos, equipos, tramitación de incidencias, retención/purgado de objetos, auditoría administrativa completa RF18, SMTP externo, despliegue y CD. Las reglas de Invitaciones están en [ADR-0007](adr/0007-invitaciones-personal.md); el contrato, en [API](api/README.md); y el diseño incremental, en [Modelo de dominio](domain-model.md).
 
 ## Incidencias: integración modular
 
-`incidents/{api,dto,model,repository,service}` depende de identity, categories, organization, audit y shared; no de servicios externos. V2 añade incidents y las estructuras base status_changes, incident_reviews y priority_decisions. Se reutilizan User, Category, Department, AuditEvent, DTO de catálogos, UserSummaryDTO de identity, ProblemDetail y PageMetadata. No hay entidades duplicadas, estado de sesión ni nuevos clientes S3.
+`incidents/{api,dto,model,repository,service}` depende de identity, categories, organization, audit y shared; no de servicios externos. V1 contiene incidents y las estructuras base status_changes, incident_reviews y priority_decisions. Se reutilizan User, Category, Department, AuditEvent, DTO de catálogos, UserSummaryDTO de identity, ProblemDetail y PageMetadata. No hay entidades duplicadas, estado de sesión ni nuevos clientes S3.
 
 Las transacciones pertenecen a IncidentService. La escritura revalida cuenta bajo el bloqueo compartido de identidad, comprueba titularidad/rol global, estado y precondición, y usa @Version/flush sobre Incident. Alta/corrección y AuditEvent confirman o revierten conjuntamente. La categoría usa el bloqueo de su catálogo para coordinar desactivaciones. La limpieza de cuentas reconoce las cuatro nuevas FK a User, sin borrar historia. Los entity graphs solo cargan relaciones to-one necesarias y los filtros/paginación se ejecutan en SQL.
 
-La API no implementa tramitación, evidencias, geocodificación ni notificaciones de negocio; Mapas se implementa en su propio módulo. Las cuotas específicas de alta/corrección siguen como propuesta proporcional sobre el limitador compartido; no se afirma protección distribuida ni se reutiliza un máximo de 16 KiB incompatible con descripciones Unicode válidas. [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [roadmap](incidents-implementation-roadmap.md).
+La API no implementa tramitación ni geocodificación ni notificaciones de negocio. Las cuotas específicas de alta/corrección siguen como propuesta proporcional sobre el limitador compartido; no se afirma protección distribuida ni se reutiliza un máximo de 16 KiB incompatible con descripciones Unicode válidas. [ADR-0014](adr/0014-incidencias-concurrencia-historial.md) y [roadmap](incidents-implementation-roadmap.md).
 
 El detalle de Incidencias usa ETag fuerte SHA-256 del JSON completo (incluidos recursos proyectados y version), junto a @Version para carreras de escritura. POST/PATCH tienen un límite bruto de 64 KiB antes de Jackson y responden 413 al excederlo; no incorporan cuotas funcionales nuevas. Se reutiliza CachedBodyRequest con Autenticación, que conserva su límite de 16 KiB. Véase [ADR-0014](adr/0014-incidencias-concurrencia-historial.md).
+
+## Evidencias privadas
+
+`attachment` reutiliza IncidentAccess y AuditEvent, mantiene binarios en S3 y metadatos en la única V1. Máximo cinco activas por incidencia, 10 MiB de entrada/salida, JPEG/PNG recodificadas sin EXIF/GPS, 16 MP y 8192 por lado. Usuario e incidencia se bloquean solo al confirmar metadatos o baja lógica; las transferencias S3 quedan fuera de SQL. Un fallo de confirmación intenta compensar el objeto. DELETE conserva binario e historia; retención y purgado son futuros. [ADR-0015](adr/0015-almacenamiento-evidencias.md).
 
 ## Mapas provinciales (10/11/2026)
 
@@ -176,5 +186,5 @@ versionado. PostgreSQL filtra ubicaciones autorizadas, historial VALIDATE y view
 antes de agrupar; JDBC devuelve proyecciones acotadas y DTO propios. No altera el
 flujo de Incidencias ni la autorización del detalle privado. Aproximación pública
 de unos 100 m, política de títulos separada y agrupación por zoom. Véanse la
-[guía de Mapas](maps-backend.md) y el [ADR-0015](adr/0015-mapas-provinciales-privacidad.md),
+[guía de Mapas](maps-backend.md) y el [ADR-0017](adr/0017-mapas-provinciales-privacidad.md),
 que incluyen el diagrama específico del módulo y el contrato pendiente con Tramitación.

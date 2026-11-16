@@ -6,32 +6,30 @@ import org.springframework.context.annotation.Configuration;
 
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 
 /**
- * Configura el cliente de almacenamiento de objetos compatible con Amazon S3,
- * utilizado para acceder al servicio de almacenamiento de Neon.
+ * Cliente S3-compatible privado, con credenciales estándar AWS y tiempos
+ * acotados.
  */
 @Configuration
 @EnableConfigurationProperties(StorageProperties.class)
 public class StorageConfig {
 
     /**
-     * Crea el cliente S3 utilizando el endpoint y la región configurados.
-     * Habilita el acceso a los buckets mediante rutas (path-style).
+     * Configura el cliente privado con endpoint externo y tiempos acotados.
      *
-     * @param properties configuración del servicio de almacenamiento
-     * @return cliente S3 configurado
+     * @param properties configuración externa
+     * @return cliente path-style sin credenciales embebidas
      */
     @Bean
-    public S3Client s3Client(StorageProperties properties) {
+    S3Client s3Client(StorageProperties properties) {
         return S3Client.builder()
                 .endpointOverride(properties.endpoint())
                 .region(Region.of(properties.region()))
-                .serviceConfiguration(
-                        S3Configuration.builder()
-                                .pathStyleAccessEnabled(true)
-                                .build())
+                .forcePathStyle(true)
+                .overrideConfiguration(c -> c.apiCallTimeout(java.time.Duration.ofSeconds(60))
+                        .apiCallAttemptTimeout(java.time.Duration.ofSeconds(30)))
                 .build();
+
     }
 }

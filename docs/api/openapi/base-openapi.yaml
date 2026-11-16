@@ -4,14 +4,14 @@ info:
   version: 0.7.0
   description:
     Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
-    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Mapas implementa consulta provincial con privacidad y agrupaciones. Las restantes áreas del API
+    cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Mapas implementa consulta provincial con privacidad y agrupaciones. Las restantes áreas del API
     mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida
     requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación
     por tag. Funciones avanzadas opcionales aplazadas.
   contact:
     name: Equipo UrbanPulse
 servers:
-  - url: http://localhost:8888/api/v1
+  - url: http://localhost:8080/api/v1
     description: Backend local en desarrollo (prefijo /api/v1 implementado).
 tags:
   - name: Autenticación

@@ -1,27 +1,41 @@
 package es.grupo18.urbanpulse.shared.security;
 
-import java.time.*;
-import java.util.*;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwtException;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Test;
 
 import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.shared.error.AuthenticationBackendException;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class JwtSecurityTest {
     private final Instant now = Instant.parse("2026-01-01T00:00:00Z");
     private final UUID id = UUID.randomUUID();
     private final SecurityConfig config = new SecurityConfig();
     private final JwtProperties properties = new JwtProperties("test-issuer",
-            Base64.getEncoder().encodeToString(new byte[32]), 7200, List.of("http://localhost:7777"));
+            Base64.getEncoder().encodeToString(new byte[32]), 7200, List.of("http://localhost:8888"));
     private final JwtEncoder encoder = config.jwtEncoder(config.jwtKey(properties));
     private final JwtDecoder decoder = config.jwtDecoder(config.jwtKey(properties), properties,
             Clock.fixed(now, ZoneOffset.UTC));

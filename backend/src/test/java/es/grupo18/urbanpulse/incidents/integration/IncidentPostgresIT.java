@@ -1,6 +1,8 @@
 package es.grupo18.urbanpulse.incidents.integration;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -62,6 +64,7 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -116,6 +119,8 @@ class IncidentPostgresIT {
     EmailVerificationCleanup cleanup;
     @MockitoBean
     EmailSender emailSender;
+    @MockitoBean
+    Clock clock;
     private static final String URL = "/api/v1/incidents";
     private static final String BODY = """
             {"title":"  Bache grande  ","description":"  Pavimento deteriorado  ",
@@ -124,7 +129,12 @@ class IncidentPostgresIT {
 
     @BeforeEach
     void isolateIncidentFixtures() {
-        jdbc.execute("truncate status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        // A stable instant keeps JWT and audit assertions independent of
+        // host/VM clock corrections while retaining current-date SQL fixtures.
+        when(clock.instant()).thenReturn(Instant.now());
+        when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+        jdbc.execute(
+                "truncate attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -261,10 +271,9 @@ class IncidentPostgresIT {
         assertThat(count("status_changes", "incident_id", id)).isZero();
         assertThat(count("incident_reviews", "incident_id", id)).isZero();
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success "
-                + "and version in ('1','2','3') order by installed_rank",
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "2", "3");
+                .containsExactly("1", "5");
     }
 
     @Test
@@ -564,36 +573,15 @@ class IncidentPostgresIT {
     }
 
     @Test
-    void additiveMigrationValidatesExistingV2DataWithoutRewritingHistory() {
-        var owner = account(null);
-        UUID id = create(owner).id();
-        var config = org.flywaydb.core.Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("review_upgrade").defaultSchema("review_upgrade");
-        config.target("2").load().migrate();
-        try {
-            jdbc.update("insert into review_upgrade.users select * from public.users where id=?", owner.user().id());
-            jdbc.update("insert into review_upgrade.incidents select * from public.incidents where id=?", id);
-            jdbc.update("insert into review_upgrade.incident_reviews "
-                    + "(id,incident_id,reviewed_by_user_id,decision,reason,reviewed_at) "
-                    + "values(uuidv7(),?,?,'REQUEST_INFORMATION',null,now())", id, owner.user().id());
-            var upgrade = org.flywaydb.core.Flyway.configure()
-                    .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                    .schemas("review_upgrade").defaultSchema("review_upgrade").target("3").load();
-            assertThatThrownBy(upgrade::migrate).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
-            assertThat(jdbc.queryForObject(
-                    "select count(*) from review_upgrade.flyway_schema_history where success and version is not null",
-                    Integer.class)).isEqualTo(2);
-            jdbc.update("update review_upgrade.incident_reviews set reason='Información necesaria'");
-            assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
-            assertThat(jdbc.queryForObject("select count(*) from review_upgrade.incident_reviews", Integer.class))
-                    .isEqualTo(1);
-            assertThat(jdbc.queryForList("select version from review_upgrade.flyway_schema_history "
-                    + "where success and version is not null order by installed_rank", String.class))
-                    .containsExactly("1", "2", "3");
-        } finally {
-            jdbc.execute("drop schema review_upgrade cascade");
-        }
+    void consolidatedSchemaAndMapsMigrationIndexFinalStructures() {
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+                String.class)).containsExactly("1", "5");
+        assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
+                + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
+                .isEqualTo(14);
+        assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
+                .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
+                        "attachments_incident_active_idx");
     }
 
     @Test
@@ -674,7 +662,7 @@ class IncidentPostgresIT {
                 owner.user().id());
         cleanup.clean();
         assertThat(count("users", "id", owner.user().id())).isEqualTo(1);
-        mvc.perform(options(URL + "/" + UUID.randomUUID()).header("Origin", "http://localhost:7777")
+        mvc.perform(options(URL + "/" + UUID.randomUUID()).header("Origin", "http://localhost:8888")
                 .header("Access-Control-Request-Method", "PATCH")
                 .header("Access-Control-Request-Headers", "authorization,content-type,if-match"))
                 .andExpect(status().isOk())

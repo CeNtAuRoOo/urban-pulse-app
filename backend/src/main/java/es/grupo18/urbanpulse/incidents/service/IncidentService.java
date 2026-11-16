@@ -2,8 +2,6 @@ package es.grupo18.urbanpulse.incidents.service;
 
 import java.time.Clock;
 import java.time.Instant;
-import es.grupo18.urbanpulse.incidents.api.IncidentETags;
-import tools.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,9 +26,8 @@ import es.grupo18.urbanpulse.categories.dto.CategoryResponse;
 import es.grupo18.urbanpulse.categories.model.Category;
 import es.grupo18.urbanpulse.categories.repository.CategoryRepository;
 import es.grupo18.urbanpulse.identity.dto.UserSummaryDTO;
-import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.model.User;
-import es.grupo18.urbanpulse.identity.repository.UserRepository;
+import es.grupo18.urbanpulse.incidents.api.IncidentETags;
 import es.grupo18.urbanpulse.incidents.dto.CoordinatesDTO;
 import es.grupo18.urbanpulse.incidents.dto.CreateIncidentRequest;
 import es.grupo18.urbanpulse.incidents.dto.HistoryEventDTO;
@@ -48,6 +45,8 @@ import es.grupo18.urbanpulse.organization.dto.DepartmentResponse;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
 
+import tools.jackson.databind.json.JsonMapper;
+
 /**
  * Casos de uso del núcleo; permisos, cambios y auditoría se resuelven en la
  * transacción.
@@ -55,10 +54,11 @@ import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
 @Service
 @RequiredArgsConstructor
 public class IncidentService {
+
     private static final String RESOURCE = "INCIDENT";
     private static final List<String> PUBLIC_ACTIONS = List.of("INCIDENT_CREATED", "INCIDENT_UPDATED");
     private final IncidentRepository incidents;
-    private final UserRepository users;
+    private final IncidentAccess access;
     private final CategoryRepository categories;
     private final AuditEventRepository audit;
     private final Clock clock;
@@ -66,7 +66,7 @@ public class IncidentService {
 
     /**
      * Registra exclusivamente en nombre del actor y audita en la misma transacción.
-     * 
+     *
      * @param actor        sujeto obtenido del JWT validado
      * @param tokenVersion versión de seguridad del JWT
      * @param request      campos admitidos para alta
@@ -88,7 +88,7 @@ public class IncidentService {
 
     /**
      * Consulta solo tras revalidar cuenta y visibilidad.
-     * 
+     *
      * @param actor        sujeto autenticado
      * @param tokenVersion versión JWT
      * @param id           incidencia
@@ -104,17 +104,19 @@ public class IncidentService {
     /**
      * Corrige solo REPORTED con precondición obligatoria y bloqueo optimista JPA.
      * La precondición se evalúa sobre el detalle actual antes de modificarlo; un
-     * cambio relacionado posterior es otra operación y tendrá otra ETag al consultarlo.
-     * {@code @Version} protege además las escrituras concurrentes de la propia incidencia.
+     * cambio relacionado posterior es otra operación y tendrá otra ETag al
+     * consultarlo.
+     * {@code @Version} protege además las escrituras concurrentes de la propia
+     * incidencia.
      * El permiso transversal de OPERATOR/ADMIN es provisional y requiere revisión
      * futura.
-     * 
-     * @param actor           sujeto JWT
-     * @param tokenVersion    versión de seguridad
-     * @param id              incidencia
-     * @param expectedTag ETag fuerte interpretada por HTTP; null si no existe
-     * @param request         campos presentes, con null de categoría distinto de
-     *                        omisión
+     *
+     * @param actor        sujeto JWT
+     * @param tokenVersion versión de seguridad
+     * @param id           incidencia
+     * @param expectedTag  ETag fuerte interpretada por HTTP; null si no existe
+     * @param request      campos presentes, con null de categoría distinto de
+     *                     omisión
      * @return detalle; un no-op conserva versión y no produce auditoría
      * @throws ApiException 404 sin acceso, 428 sin precondición, 412 obsoleta, 409
      *                      estado o 422 datos
@@ -156,7 +158,7 @@ public class IncidentService {
 
     /**
      * Lista administrativamente mediante filtros tipados y parámetros enlazados.
-     * 
+     *
      * @param actor        sujeto JWT
      * @param tokenVersion versión JWT
      * @param page         página desde 1
@@ -184,7 +186,7 @@ public class IncidentService {
 
     /**
      * Lista desde SQL por titular; los roles departamentales no amplían el ámbito.
-     * 
+     *
      * @param actor        sujeto JWT, nunca un userId proporcionado en query
      * @param tokenVersion versión JWT
      * @param page         página desde 1
@@ -199,7 +201,7 @@ public class IncidentService {
 
     /**
      * Proyecta únicamente eventos públicos del recurso exacto, paginados en SQL.
-     * 
+     *
      * @param actor        sujeto JWT
      * @param tokenVersion versión JWT
      * @param id           incidencia autorizada
@@ -222,23 +224,14 @@ public class IncidentService {
      * Revalida seguridad en base de datos; las escrituras coordinan el bloqueo con
      * identidad.
      *
-     * @param id sujeto autenticado
+     * @param id           sujeto autenticado
      * @param tokenVersion versión de seguridad que debe seguir vigente
-     * @param writing true para bloquear el actor hasta terminar la escritura
+     * @param writing      true para bloquear el actor hasta terminar la escritura
      * @return cuenta con roles cargados
      * @throws ApiException 401 por cuenta inválida/inactiva o 403 sin verificar
      */
     private User account(UUID id, long tokenVersion, boolean writing) {
-        User user = (writing ? users.findForEmailVerification(id) : users.findUserWithRolesById(id))
-                .orElseThrow(ApiException::unauthorized);
-        if (!user.isActive() || user.getTokenVersion() != tokenVersion
-                || !user.globalRoles().contains(RoleCode.CITIZEN)) {
-            throw ApiException.unauthorized();
-        }
-        if (!user.isEmailVerified()) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED", "Debes verificar tu correo.");
-        }
-        return user;
+        return access.account(id, tokenVersion, writing);
     }
 
     /**
@@ -246,22 +239,17 @@ public class IncidentService {
      * rol global.
      *
      * @param actor cuenta previamente revalidada
-     * @param id identidad del recurso
+     * @param id    identidad del recurso
      * @return incidencia con relaciones to-one necesarias para el detalle
      * @throws ApiException 404 si no existe o no es visible
      */
     private Incident visible(User actor, UUID id) {
-        Incident incident = incidents.findById(id).orElseThrow(IncidentService::notFound);
-        if (!actor.getId().equals(incident.getReporter().getId()) && !isStaff(actor)) {
-            throw notFound();
-        }
-        return incident;
+        return access.visible(actor, id, false);
     }
 
     /** Solo UserRole otorga acceso transversal; nunca DepartmentMembership. */
     private static boolean isStaff(User user) {
-        var roles = user.globalRoles();
-        return roles.contains(RoleCode.ADMIN) || roles.contains(RoleCode.OPERATOR);
+        return IncidentAccess.isStaff(user);
     }
 
     /**
@@ -287,13 +275,14 @@ public class IncidentService {
     /**
      * Combina filtros mediante AND y pagina en SQL antes de proyectar los DTO.
      *
-     * @param reporter titular obligatorio para mine; null en consulta administrativa
-     * @param page página desde 1
+     * @param reporter titular obligatorio para mine; null en consulta
+     *                 administrativa
+     * @param page     página desde 1
      * @param pageSize tamaño entre 1 y 100
-     * @param status estado opcional
+     * @param status   estado opcional
      * @param category categoría opcional, sin exigir actividad actual
-     * @param from inicio UTC inclusivo o null
-     * @param to fin UTC inclusivo o null
+     * @param from     inicio UTC inclusivo o null
+     * @param to       fin UTC inclusivo o null
      * @return página con orden createdAt DESC, id DESC y totales filtrados
      * @throws ApiException 400 si la página, tamaño u offset no son válidos
      */
@@ -330,9 +319,9 @@ public class IncidentService {
      * Fuerza también el evento dentro de la transacción; cualquier fallo revierte
      * ambos cambios.
      *
-     * @param actor autor vigente
+     * @param actor    autor vigente
      * @param incident incidencia ya insertada o actualizada
-     * @param action acción interna CREATED/UPDATED prefijada por INCIDENT_
+     * @param action   acción interna CREATED/UPDATED prefijada por INCIDENT_
      */
     private void record(User actor, Incident incident, String action) {
         audit.saveAndFlush(new AuditEvent(actor, action, RESOURCE, incident.getId().toString(),
@@ -343,7 +332,8 @@ public class IncidentService {
      * Construye un texto estable y una lista cerrada de detalles; nunca devuelve el
      * mapa de auditoría.
      *
-     * @param event evento filtrado previamente por recurso y lista permitida de acciones
+     * @param event evento filtrado previamente por recurso y lista permitida de
+     *              acciones
      * @return proyección pública con versión opcional y actor mínimo
      */
     private HistoryEventDTO historyEvent(AuditEvent event) {
