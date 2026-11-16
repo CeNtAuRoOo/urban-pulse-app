@@ -2,11 +2,11 @@
   get:
     tags:
       - Duplicados
-    summary: 'Diseño futuro: Sugerir incidencias duplicadas'
+    summary: 'Obtener candidatos a incidencia duplicada'
     description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría 
       si está disponible). La confirmación siempre corresponde al personal municipal.
     operationId: getIncidentsIncidentIdDuplicateCandidates
-    x-implementation: future
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
@@ -38,10 +38,10 @@
   post:
     tags:
       - Duplicados
-    summary: 'Diseño futuro: Vincular duplicado confirmado'
-    description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
+    summary: 'Confirmar relación de duplicidad'
+    description: manual, simétrica, única, conserva reportes/evidencias/historiales, auditoría
     operationId: postIncidentsIncidentIdDuplicateLinks
-    x-implementation: future
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN

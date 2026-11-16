@@ -44,7 +44,7 @@ class ProcessingMigrationPostgresIT {
                 incident, user);
         Flyway.configure().dataSource(source).load().migrate();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2");
+                String.class)).containsExactly("1", "2", "3");
         assertThat(jdbc.queryForObject("select reason from incident_reviews where id=?", String.class, legacy))
                 .isEqualTo("Motivo histórico");
         assertThat(

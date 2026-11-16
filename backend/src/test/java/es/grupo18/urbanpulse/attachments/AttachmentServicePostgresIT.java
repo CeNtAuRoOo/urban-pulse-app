@@ -132,9 +132,24 @@ class AttachmentServicePostgresIT {
 
     @BeforeEach
     void isolate() throws Exception {
-        jdbc.execute(
-                "truncate incident_information_responses, attachments,status_changes,incident_reviews,priority_decisions,incidents,audit_events,"
-                        + "staff_invitations,department_memberships,email_verifications,user_roles,users,categories,departments");
+        jdbc.execute("""
+                TRUNCATE TABLE
+                    duplicate_links,
+                    incident_information_responses,
+                    attachments,
+                    status_changes,
+                    incident_reviews,
+                    priority_decisions,
+                    incidents,
+                    audit_events,
+                    staff_invitations,
+                    department_memberships,
+                    email_verifications,
+                    user_roles,
+                    users,
+                    categories,
+                    departments
+                """);
         objects.clear();
         jpeg = image("jpeg");
         doAnswer(i -> {
@@ -373,7 +388,7 @@ class AttachmentServicePostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from incidents where id=?", incident))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class))
-                .containsExactly("1", "2");
+                .containsExactly("1", "2", "3");
         assertThat(jdbc.queryForObject("select incident_id from attachments where id=?", UUID.class, dto.id()))
                 .isEqualTo(incident);
     }

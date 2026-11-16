@@ -143,6 +143,7 @@
                                 <include>**/CategoryPostgresIT.java</include>
                                 <include>**/DepartmentMembershipPostgresIT.java</include>
                                 <include>**/IncidentPostgresIT.java</include>
+                                <include>**/DuplicatePostgresIT.java</include>
                                 <include>**/AttachmentServicePostgresIT.java</include>
                                 <include>**/ProcessingPostgresIT.java</include>
                                 <include>**/ProcessingMigrationPostgresIT.java</include>

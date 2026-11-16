@@ -25,7 +25,7 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
 - **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
 - **`0.7.0` (histórica)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
-- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual.
+- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual, incorpora consulta heurística de candidatos a duplicado y confirmación humana de relaciones simétricas, persistidas y auditadas.
 
 La existencia de versiones históricas no implica que los 14 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni las interfaces específicas de Evidencias y Tramitación.
 
@@ -173,7 +173,7 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
-Todas las operaciones referenciadas tienen x-implementation explícito: 44 implemented y 33 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+Todas las operaciones referenciadas tienen x-implementation explícito: 46 implemented y 31 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
 
 ## Evidencias implementadas
 
@@ -237,6 +237,17 @@ REJECT usa la misma estructura de motivo que REQUEST_INFORMATION. VALIDATE no ad
 GET review-outcome devuelve 200 con latestReview:null antes de cualquier revisión. Después incluye estado actual, informationPending y último resultado público: decisión, fecha, snapshot nullable solo para historia V1, motivo exclusivamente de rechazo/solicitud e identificación institucional Ayuntamiento.
 
 GET `/api/v1/incidents` admite `priority=HIGH` y `sort=priority,asc` o `sort=priority,desc`. El rango es LOW < MEDIUM < HIGH < CRITICAL, null siempre al final; desempate createdAt DESC,id DESC. Sin sort se mantiene el orden anterior. No admite orden arbitrario. La prioridad/decisión cambia Incident.version y la ETag; PATCH sigue exigiendo If-Match y solo funciona en REPORTED.
+
+## Duplicados implementados
+
+| Método | Ruta bajo `/api/v1` | Autorización | Respuesta |
+|---|---|---|---|
+| `GET` | `/incidents/{incidentId}/duplicate-candidates` | `OPERATOR` o `ADMIN`, cuenta verificada | `200 DuplicateSuggestionDTO[]` |
+| `POST` | `/incidents/{incidentId}/duplicate-links` | `OPERATOR` o `ADMIN`, cuenta verificada | `201 DuplicateLinkDTO` |
+
+La detección consulta como máximo 100 reportes distintos del original creados en la ventana de 72 horas, calcula distancia Haversine (máximo 250 m), proximidad temporal y coincidencia de categoría cuando ambas categorías existen, y devuelve como máximo 20 candidatos con mayor puntuación. La puntuación está entre 0 y 1, es heurística y **no es una probabilidad**. Las sugerencias no se almacenan ni fusionan reportes.
+
+La confirmación humana crea `DuplicateLink`; el par se almacena en orden UUID canónico para que A-B y B-A sean la misma relación. PostgreSQL impone unicidad, no autoenlace y claves foráneas restrictivas. La operación genera `DUPLICATE_LINK_CONFIRMED` en `AuditEvent`. Una relación existente responde `409 DUPLICATE_LINK_EXISTS`; el autoenlace responde `422 DUPLICATE_SELF_LINK`; incidencias inexistentes responden `404 INCIDENT_NOT_FOUND`. Ninguna operación borra ni altera las incidencias originales.
 
 ## Correcciones de privacidad y nulabilidad (15/11/2026)
 

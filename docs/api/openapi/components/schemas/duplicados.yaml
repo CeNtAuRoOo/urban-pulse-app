@@ -11,7 +11,7 @@ DuplicateSuggestionDTO:
       type: array
       items:
         type: string
-      description: Proximidad, tiempo y/o semántica.
+      description: Proximidad espacial, cercanía temporal y coincidencia de categoría.
     candidateIncidentId:
       type: string
       format: uuid
@@ -29,6 +29,7 @@ DuplicateLinkRequest:
       format: uuid
     reason:
       type: string
+      maxLength: 2000
   required:
     - candidateIncidentId
   additionalProperties: false
