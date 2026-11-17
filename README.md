@@ -8,7 +8,7 @@
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                                           |
 | Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                                         |
-| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `audit` y `shared`.                              |
+| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `urban_context`, `audit` y `shared`.                              |
 | Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                                         |
 | Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                                 |
 | Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                               |
@@ -90,7 +90,7 @@ Incidencias implementa `POST/GET /incidents`, `GET /incidents/mine`, `GET/PATCH 
 
 Evidencias implementa cinco operaciones privadas de fotografía; Tramitación diez de revisión, información adicional y prioridad manual; Mapas `GET /map/incidents`; Duplicados `GET /incidents/{incidentId}/duplicate-candidates` y `POST /incidents/{incidentId}/duplicate-links`.
 
-El contrato combinado contiene **57 rutas, 77 operaciones: 47 implementadas y 30 futuras**. Duplicados ofrece las veinte mejores sugerencias heurísticas de ±72 h y 250 m, confirmación humana y auditoría; no fusión, desvinculación ni prevención de ciclos arbitrarios. RF08 y RF16 son parciales: faltan visor/capas y semántica textual. Las UI de Mapas, Duplicados, Evidencias y Tramitación siguen pendientes. [Matriz verificable por módulo](docs/integration-reconciliation.md).
+El contrato combinado contiene **57 rutas, 77 operaciones: 48 implementadas y 29 futuras**. Contexto urbano implementa la consulta de activos sobre PostGIS; la guía de [PostGIS y contexto urbano](docs/postgis-urban-context.md) documenta V2 y las tareas pendientes de configuración. Duplicados ofrece las veinte mejores sugerencias heurísticas de ±72 h y 250 m, confirmación humana y auditoría; no fusión, desvinculación ni prevención de ciclos arbitrarios. RF08 y RF16 son parciales: faltan visor/capas y semántica textual. Las UI de Mapas, Duplicados, Evidencias y Tramitación siguen pendientes. [Matriz verificable por módulo](docs/integration-reconciliation.md).
 
 ## Pruebas y validación
 

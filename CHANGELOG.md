@@ -202,3 +202,10 @@ Las entregas originales de Autenticación e Invitaciones no incluían administra
 - Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.
+
+## 2026-11-17 — Documentación PostGIS y contexto urbano
+
+- Se documenta la migración V2, el catálogo `cartografia.contexto_urbano`, SRID 25830, índices espaciales y consulta de activos por proximidad.
+- Se alinea OpenAPI con el endpoint Java `GET /api/v1/urban-assets` y su DTO real WKT.
+- Se registran los bloqueos de configuración detectados: Compose PostgreSQL estándar, resolución del esquema en SQL nativo, dependencia Hibernate Spatial y cobertura del test de integración.
+- El contrato conserva 57 rutas y 77 operaciones; el inventario actual pasa a 48 implementadas y 29 futuras.

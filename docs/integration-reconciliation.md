@@ -23,7 +23,8 @@ La consolidación V1 se basa en la premisa del responsable de que las migracione
 | A | V1 + V2 Tramitación | 15 | 44/33 en ambos |
 | B | V1 + V2 Tramitación + V3 Duplicados | 16 | 46/31 modular; 44/33 bundle desactualizado |
 | C | V1 + V2 Tramitación + V5 Mapas | 15 | 45/32 en ambos |
-| Integración | Solo V1 consolidada | 16 | 47/30 en ambos |
+| Integración Mapas/Duplicados (fotografía histórica) | Solo V1 consolidada | 16 | 47/30 |
+| Árbol auditado 17/11/2026 | V1 + V2 PostGIS | 16 + `cartografia.contexto_urbano` | 48/29 |
 
 Las tres bases conservan 57 rutas y 77 operaciones. La funcionalidad de A no se sustituye por versiones antiguas: el código de producción de C fuera de Duplicados y la protección adicional de limpieza de usuarios permanece intacto; no hay cambios en frontend. El bloque generado de Mapas coincide byte a byte con V5 de C. Los casos de test desaparecidos al comparar nombres son únicamente los renombrados/adaptados de instalación; el resto de métodos se conserva, incluidas las dos regresiones eliminadas en B.
 
@@ -31,7 +32,7 @@ Fuentes SQL históricas, fuera de la instalación actual: [V1 de A](https://gith
 
 ## Matriz de cobertura
 
-Los endpoints de la tabla son relativos a `/api/v1`; el inventario exacto por método figura al final. Hay **12 paquetes superiores de producción**, incluidos `audit` y `shared`, **14 tags**, **57 rutas y 77 operaciones: 47 implementadas y 30 futuras**. Tags, paquetes y rutas son conceptos distintos.
+Los endpoints de la tabla son relativos a `/api/v1`; el inventario exacto por método figura al final. Hay **13 paquetes superiores de producción**, incluidos `audit` y `shared`, **14 tags**, **57 rutas y 77 operaciones: 48 implementadas y 29 futuras**. Tags, paquetes y rutas son conceptos distintos.
 
 | Módulo | Casos de uso | Endpoints implementados | Endpoints futuros | Backend | Frontend | Persistencia | Restricciones | Pruebas | ADR | Fuente de diagrama | Pendientes | Evidencia |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -43,12 +44,12 @@ Los endpoints de la tabla son relativos a `/api/v1`; el inventario exacto por m�
 | Tramitación | Revisión, información adicional, prioridad e historiales | 10 | 9 | processing, fase 1 | Pendiente | incident_reviews, incident_information_responses, priority_decisions, status_changes | Snapshot obligatorio; FK compuesta; transición, rol, autor, versión y auditoría | ProcessingPostgresIT, ProcessingMigrationPostgresIT, IncidentPostgresIT | 0010, 0014 | ER02/05, clases | Derivación, equipos, trabajo y comentarios | Reglas de A conservadas en V1 |
 | Duplicados | Sugerencia y confirmación manual | 2 | 0 en el contrato actual | duplicates | Pendiente | duplicate_links; sugerencias sin persistencia | ±72 h/250 m inclusivos, top 20 global, timeout 5 s/503, par UUID único, FK RESTRICT | DuplicatePostgresIT y tres clases unitarias | Decisión del responsable en este informe | C4, ER01, clases | RF16 parcial: semántica textual | HTTP real, ranking, límites, concurrencia, rollback y timeout |
 | Mapas | Consulta provincial, viewport, filtros y clustering | 1 | 0 en el tag | maps; consulta JDBC | Visor pendiente | Sin tabla Map; siete funciones y tres índices | WGS84, IGN, VALIDATE histórico, punto público 100 m, 1000 representaciones, cuota local, timeout | MapPostgresIT, MapPerformancePostgresIT y unitarias | 0017 | C4, nota de DTO en clases | RF08 parcial: visor, capas, títulos aprobados | Consulta y matemáticas conservadas de C |
-| Contexto, Notificaciones, Analítica, Informes, Administración | Diseño de funciones avanzadas | 0 | 21 | Futuros salvo infraestructura audit/shared | Pendiente | Modelo conceptual | Requieren política/implementación antes de exposición | No se presentan como ejecutados | ADR de cada área | ER y clases conceptuales | Implementación de esos tags | x-implementation: future |
+| Contexto urbano | Consulta de catálogo de activos por tipo/proximidad | 1 (`GET /urban-assets`) | 5 | `cartografia.contexto_urbano` (V2/PostGIS) | Backend de solo lectura; sin UI | `UrbanAsset` / `UrbanAssetRepository` | SRID 25830; `ST_DWithin`; límites del servicio | `UrbanAssetControllerIT` existe, pero no está incluido en `postgres-it`; unitarias de service/mapper | ADR-0001 + guía PostGIS | ER04 / clases | Alinear Compose, Hibernate Spatial y SQL schema-qualified; asociaciones/proveedores futuros | Código presente; ejecución de V2 pendiente de acreditar |
 | CI / Despliegue | Verificar código, contrato y configuración | No aplica | No aplica | Tres jobs CI | Test, tipos, lint y export | Testcontainers PostgreSQL 18 | Sin credenciales ni base persistente | 14 suites Failsafe, Surefire y scripts | 0016 | C4 | Despliegue y carga productiva | Resultados de esta ejecución abajo |
 
 ## Esquema y generación
 
-Solo es ejecutable `backend/src/main/resources/db/migration/V1__initial_schema.sql`. Las 16 tablas de dominio son: users, roles, user_roles, email_verifications, departments, department_memberships, staff_invitations, audit_events, categories, incidents, status_changes, incident_reviews, incident_information_responses, priority_decisions, attachments y duplicate_links. Flyway crea aparte flyway_schema_history. Los únicos datos iniciales son los cinco roles legítimos.
+En la fotografía de la integración Mapas/Duplicados solo se había consolidado V1. En el árbol auditado el 17/11/2026 también está versionada V2 (`V2__create_cartografia.sql`), que habilita PostGIS y crea `cartografia.contexto_urbano` e índices. V1 contiene las 16 tablas de dominio: users, roles, user_roles, email_verifications, departments, department_memberships, staff_invitations, audit_events, categories, incidents, status_changes, incident_reviews, incident_information_responses, priority_decisions, attachments y duplicate_links. Flyway crea aparte flyway_schema_history. Los únicos datos iniciales son los cinco roles legítimos.
 
 V1 incorpora directamente AWAITING_INFORMATION, resulting_status obligatorio, CHECK validado de decisión/snapshot/motivo y la FK compuesta de respuestas. Los índices y restricciones anteriores permanecen. DuplicateLink conserva sus FK restrictivas, par canónico único, autor, fecha y motivo opcional. El orden canónico usa UUID como PostgreSQL, sin la comparación Java con signo.
 
@@ -112,7 +113,7 @@ Auditoría y decisión iniciadas el 16/11; cierre y repetición final el 17/11/2
 | `npx expo export --platform web` | API sintética localhost; EXPO_NO_DOTENV=1 | PASS: dist generado, sin desplegar | frontend-export.log |
 | Redocly 2.16.0 `lint` modular y bundle | Node 24; versión fijada | PASS sin errores; 2 avisos de fuente y 5 de bundle (licencia/localhost y componentes futuros sin uso) | openapi-source-lint.log, openapi-bundle-lint.log |
 | Redocly `bundle` + `build-docs --template docs/api/redoc-template.hbs`, repetidos | Misma fuente conjunta | PASS: SHA-256 idénticos entre generaciones | openapi-reproduce.log/exit |
-| `validate-openapi.cjs` y `node --test ...validate-openapi.test.cjs` mediante npx Redocly | Parser YAML de paths/métodos y referencias | PASS: 57 rutas, 77 operaciones, 47/30; 5 tests de paridad/Unicode | openapi-parity.log |
+| `validate-openapi.cjs` y `node --test ...validate-openapi.test.cjs` mediante npx Redocly | Parser YAML de paths/métodos y referencias | PASS histórico: 57 rutas, 77 operaciones, 47/30; 5 tests de paridad/Unicode (antes de añadir GET /urban-assets al estado implementado) | openapi-parity.log |
 | `node backend/scripts/generate-map-boundary.mjs --check` | Node, fuente IGN local | PASS: 12.339 vértices y región exacta de V1 | Salida del comando y checksum |
 | `node --test backend/scripts/generate-map-boundary.test.mjs` | Copias temporales aisladas | PASS: 3 tests | Salida TAP; sin modificar la V1 real |
 | `validate-map-contract.cjs` | Respuestas HTTP de la ejecución final | PASS: respuestas INCIDENT/CLUSTER conformes; ambos rechazan campos privados añadidos | map-contract.log |
@@ -230,7 +231,7 @@ Quedan fuera de esta integración la UI de Evidencias/Tramitación/Mapas/Duplica
 | Contexto urbano | GET /incidents/{incidentId}/urban-context | future |
 | Contexto urbano | GET /incidents/{incidentId}/asset-candidates | future |
 | Contexto urbano | PUT /incidents/{incidentId}/asset-association | future |
-| Contexto urbano | GET /urban-assets | future |
+| Contexto urbano | GET /urban-assets | implemented (consulta de catálogo) |
 | Contexto urbano | GET /urban-assets/{assetId} | future |
 | Contexto urbano | GET /external-observations | future |
 | Mapas | GET /map/incidents | implemented |
@@ -255,3 +256,12 @@ Quedan fuera de esta integración la UI de Evidencias/Tramitación/Mapas/Duplica
 | Tramitación | GET /incidents/{incidentId}/information-responses | implemented |
 | Tramitación | GET /incidents/{incidentId}/information-responses/{responseId} | implemented |
 | Tramitación | GET /incidents/{incidentId}/review-outcome | implemented |
+
+
+## Actualización documental: PostGIS y Contexto urbano (17/11/2026)
+
+La matriz anterior se elaboró para la integración de Mapas/Duplicados y no reflejaba el módulo `urban_context` incorporado posteriormente en el árbol auditado. La inspección de los fuentes actuales confirma que `V2__create_cartografia.sql` está versionada y que existen `UrbanAsset`, `UrbanAssetRepository`, `UrbanAssetService`, `UrbanAssetController` y `UrbanAssetControllerIT`. Por tanto, `GET /api/v1/urban-assets` deja de clasificarse como futuro: consulta el catálogo unificado por `source_table` o proximidad PostGIS.
+
+Esta actualización **no** convierte en implementadas las asociaciones a incidencias, las observaciones externas ni el contexto agregado. Tampoco acredita ejecución de V2 en Neon o Compose. Se detectan discrepancias operativas que se documentan en [PostGIS y contexto urbano](postgis-urban-context.md): Compose usa `postgres:18-alpine` sin PostGIS; el SQL nativo de proximidad no califica `cartografia.contexto_urbano`; el test `UrbanAssetControllerIT` no está incluido en el perfil `postgres-it`; y `hibernate-spatial` no aparece como dependencia explícita en `backend/pom.xml`.
+
+La matriz de migraciones de la sección histórica («solo V1 ejecutable») debe leerse como fotografía de la integración de Mapas/Duplicados, no como inventario del árbol actual. En el árbol actual hay V1 y V2. Antes de afirmar que el esquema completo arranca, hay que validar ambas migraciones sobre una base PostgreSQL 18 con PostGIS y reconciliar la configuración de Compose/Neon.

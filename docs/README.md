@@ -1,14 +1,15 @@
 # Documentación de UrbanPulse
 
-La documentación separa **funcionalidades implementadas**, **decisiones de diseño** y **validaciones ejecutadas**. El backend es un **monolito modular**: Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, el núcleo de Incidencias, Evidencias, Mapas, Duplicados y la primera fase de Tramitación están implementados. Las fases posteriores de Tramitación y las integraciones avanzadas siguen siendo diseño.
+La documentación separa **funcionalidades implementadas**, **decisiones de diseño** y **validaciones ejecutadas**. El backend es un **monolito modular**: Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, el núcleo de Incidencias, Evidencias, Mapas, Duplicados, la primera fase de Tramitación y la consulta de activos urbanos están implementados. Las fases posteriores de Tramitación, las asociaciones de activos y las integraciones externas siguen siendo diseño.
 
 | Documento                                     | Propósito                                                                                                                                                                             |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Arquitectura](architecture.md)               | Contenedores C4, arquitectura modular `auth`/`identity`/`invitations`/`organization`/`categories`/`incidents`/`processing`/`attachment`/`maps`/`duplicates`/`audit`/`shared`, dependencias y estado real. |
+| [Arquitectura](architecture.md)               | Contenedores C4, arquitectura modular `auth`/`identity`/`invitations`/`organization`/`categories`/`incidents`/`processing`/`attachment`/`maps`/`duplicates`/`urban_context`/`audit`/`shared`, dependencias y estado real. |
 | [Desarrollo](development.md)                  | Desarrollo con Compose, PostgreSQL local, Mailpit, Object Storage de desarrollo, Flyway y CI.                                                                                         |
 | [Despliegue](deployment.md)                   | Entornos Neon, preparación de producción y límites acreditados.                                                                                                                       |
 | [Diseño de autenticación](auth-design.md)     | JWT, identidad, correo, controles de abuso, limpieza y decisiones de seguridad.                                                                                                       |
-| [Modelo de dominio](domain-model.md)          | Entidades y reglas de negocio; V1 consolidada implementada frente al modelo objetivo y sus funciones futuras.                                                                         |
+| [Modelo de dominio](domain-model.md)          | Entidades y reglas de negocio; V1 consolidada, módulos implementados y modelo objetivo.                                                                                                 |
+| [PostGIS y contexto urbano](postgis-urban-context.md) | Migración V2, esquema `cartografia`, tabla `contexto_urbano`, SRID 25830, consultas espaciales, API real y bloqueos de despliegue. |
 | [Diagramas](diagrams/README.md)               | Inventario de fuentes `.drawio` actuales y ocho exportaciones SVG manuales de C4, ER01–ER05 y clases.                                                                                 |
 | [Contrato dominio–API](api/domain-openapi.md) | Alineación de modelo lógico, rutas/DTO y contrato vigente OpenAPI `0.8.0`.                                                                                                            |
 | [Diseño de API](api/README.md)                | Fuentes YAML modulares, regeneración Redocly y tags implementados frente a los todavía diseñados.                                                                                     |
@@ -18,7 +19,7 @@ La [CI](../.github/workflows/ci.yml) verifica backend, frontend, OpenAPI y Compo
 
 ## Estado actual
 
-Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias, Evidencias, Mapas, Duplicados y Tramitación fase 1 están implementados. OpenAPI `0.8.0` conserva `/api/v1`. V1 consolida dieciséis tablas funcionales, cinco roles, restricciones de Tramitación, Duplicados y funciones/índices de Mapas; sin usuarios ni catálogos precargados.
+Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias, Evidencias, Mapas, Duplicados y Tramitación fase 1 están implementados. OpenAPI `0.8.0` conserva `/api/v1`. V1 consolida dieciséis tablas funcionales, cinco roles, restricciones de Tramitación, Duplicados y funciones/índices de Mapas; V2 añade PostGIS y `cartografia.contexto_urbano`. No hay usuarios ni catálogos precargados. La configuración Compose actual aún debe alinearse con PostGIS; véase [guía PostGIS](postgis-urban-context.md).
 
 El [informe de integración](integration-reconciliation.md#validación-de-esta-integración) reúne los resultados actuales y la guía de desarrollo conserva los procedimientos e historia. Los catálogos requieren correo verificado para consultar y ADMIN global para escribir. Invitaciones conserva la concesión transaccional de roles y pertenencias, con auditoría propia.
 

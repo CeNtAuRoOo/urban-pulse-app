@@ -3,6 +3,12 @@
 Entrega de 2026-11-10 en `feature/implementacion-mapas`. Endpoint implementado:
 `GET /api/v1/map/incidents`. No hay cambios en frontend, Tramitación o Evidencias.
 
+**Separación respecto a PostGIS:** el endpoint de Mapas usa los tipos nativos `point`,
+`polygon`, `lseg`, `box`, funciones SQL versionadas e índices GiST nativos. No invoca
+funciones PostGIS ni utiliza la tabla `cartografia.contexto_urbano`. La extensión
+PostGIS y el catálogo de activos pertenecen al módulo independiente `urban_context`;
+véase [PostGIS y contexto urbano](postgis-urban-context.md).
+
 ## Uso
 
 ```http
