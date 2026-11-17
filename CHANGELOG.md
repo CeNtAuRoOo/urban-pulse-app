@@ -2,6 +2,13 @@
 
 Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
 
+
+## 2026-11-17 — Catálogo consultable de Contexto Urbano
+
+- V1 instala PostGIS y el catálogo vacío en `cartografia`. Compose y Testcontainers utilizan la misma imagen PostgreSQL 18/PostGIS 3.6.
+- `GET /api/v1/urban-assets` limita ambos modos de consulta a 500 filas. La respuesta conserva el ID numérico y WKT métrico y oculta los contactos de origen. La adquisición de datos municipales queda fuera de esta fase.
+- Integración HTTP con Flyway, Hibernate Spatial y JWT, regresiones del inventario OpenAPI y conservación de las pruebas offline de k6. [Decisión del catálogo](docs/adr/0018-catalogo-espacial.md).
+
 ## [Unreleased]
 
 ### Pruebas Grafana k6 (17/11/2026)

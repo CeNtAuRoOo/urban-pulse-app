@@ -60,3 +60,5 @@ Antes de conservar cada snapshot, comprobar los recuentos en la BD de pruebas y 
 Las lecturas no modifican negocio. El smoke de escritura deja una incidencia REPORTED y eventos CREATED/UPDATED; no hay DELETE de incidencias. Identificarla por el título `Prueba k6 <RUN_ID>-1-0` y consultarla con `/incidents/mine` o la BD local. Incluso si el HTTP falla tras el commit, puede existir un alta: no reintentar ciegamente.
 
 Conservar o restaurar el snapshot de **la base exclusiva de pruebas**, después de detener su backend y comprobar nombre del proyecto, volumen y conexión. No se incluye un `TRUNCATE` general ni un `down -v` rutinario; evitar borrar filas por un prefijo sin revisar sus FK/auditoría o eliminar volúmenes ajenos. No hay limpieza S3 porque esta batería no sube objetos. Copias, manifiestos, credenciales e informes son privados y locales; [guía de ejecución](../README.md).
+
+El catálogo de activos urbanos se instala vacío. Los fixtures espaciales de Contexto Urbano pertenecen a las pruebas de integración Java en PostgreSQL efímero.

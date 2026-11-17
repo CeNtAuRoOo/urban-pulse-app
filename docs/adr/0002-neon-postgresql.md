@@ -40,4 +40,6 @@ Utilizar un proyecto PostgreSQL administrado en Neon. Los clientes web y móvil 
 
 ## Consideraciones pendientes
 
+La V1 con Contexto Urbano requiere PostGIS. En un destino nuevo hay que comprobar que la extensión esté disponible y que Flyway pueda instalarla o utilizarla ya instalada. La conectividad histórica de Neon no acredita el despliegue de V1. [ADR-0018](0018-catalogo-espacial.md).
+
 La V1 consolidada se valida en PostgreSQL local/efímero (ADR-0006). Su despliegue controlado en Neon pertenece a producción, con respaldo, revisión de historial y permisos; no se acredita por las pruebas locales. Quedan políticas de backups/recuperación y, cuando corresponda, separación de roles de migración/ejecución. Las cuotas y condiciones del proveedor se revisan al preparar el despliegue.

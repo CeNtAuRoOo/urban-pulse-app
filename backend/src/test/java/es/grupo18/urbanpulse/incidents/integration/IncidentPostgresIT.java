@@ -31,6 +31,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import es.grupo18.urbanpulse.audit.model.AuditEvent;
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
@@ -80,7 +82,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class IncidentPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -668,7 +670,7 @@ class IncidentPostgresIT {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class)).containsExactly("1");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
-                + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
+                + "and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')", Integer.class))
                 .isEqualTo(16);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",

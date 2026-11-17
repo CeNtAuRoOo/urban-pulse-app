@@ -27,6 +27,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
 import es.grupo18.urbanpulse.categories.dto.CategoryResponse;
@@ -51,7 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class CategoryPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -77,7 +79,8 @@ class CategoryPostgresIT {
     static void initialSchemaContainsAllModulesWithoutCatalogSeeds(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
                 String.class))
-                .containsExactlyInAnyOrder("flyway_schema_history", "users", "roles", "user_roles",
+                .containsExactlyInAnyOrder("geography_columns", "geometry_columns", "spatial_ref_sys",
+                        "flyway_schema_history", "users", "roles", "user_roles",
                         "email_verifications", "departments", "department_memberships", "staff_invitations",
                         "audit_events", "categories", "incidents", "status_changes", "incident_reviews",
                         "priority_decisions", "incident_information_responses", "attachments", "duplicate_links");

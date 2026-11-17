@@ -47,6 +47,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import es.grupo18.urbanpulse.attachment.dto.AttachmentDTO;
 import es.grupo18.urbanpulse.attachment.service.AttachmentService;
 import es.grupo18.urbanpulse.attachment.service.ImageSanitizer;
@@ -92,7 +94,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class AttachmentServicePostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {

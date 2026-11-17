@@ -2,7 +2,8 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.8.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
+  description:
+    Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
     cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por
     invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis
     operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco
@@ -12,6 +13,7 @@ info:
     Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo
     admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados.
     Mapas implementa consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
+    Contexto urbano ofrece un catálogo de lectura con hasta 500 activos, ID numérico y geometría WKT en EPSG:25830.
     Duplicados implementa consulta heurística y confirmación manual auditada; no fusiona ni elimina reportes.
   contact:
     name: Equipo UrbanPulse
@@ -287,6 +289,18 @@ components:
       $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkRequest
     DuplicateLinkDTO:
       $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkDTO
+    AIAssessmentRequest:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIAssessmentRequest
+    AIRecommendationDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIRecommendationDTO
+    AIAssessmentDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIAssessmentDTO
+    TrainingRequest:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/TrainingRequest
+    TrainingJobDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/TrainingJobDTO
+    UrbanAssetRecordDTO:
+      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetRecordDTO
     UrbanAssetDTO:
       $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetDTO
     UrbanAssetCandidateDTO:

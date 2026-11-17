@@ -12,6 +12,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 class ProcessingMigrationPostgresIT {
     @Container
-    final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @Test
     void installsFinalV1AndPreservesReviewsPhotosAndResponseInvariants() {
@@ -91,7 +93,7 @@ class ProcessingMigrationPostgresIT {
         var flyway = Flyway.configure().dataSource(source).load();
         assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
         var jdbc = new JdbcTemplate(source);
-        assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class)).isEqualTo(16);
+        assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')", Integer.class)).isEqualTo(16);
         assertThat(jdbc.queryForObject("select count(*) from pg_constraint where connamespace='public'::regnamespace and not convalidated", Integer.class)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class)).containsExactly("1");
         assertThat(jdbc.queryForList("select proname from pg_proc where pronamespace='public'::regnamespace and proname like 'map_%'", String.class))

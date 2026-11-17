@@ -1,6 +1,6 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 16/11/2026:** V1 inicial consolidada con 16 tablas, respuestas de información y duplicate_links, más funciones/índices de Mapas. Tramitación fase 1, Duplicados y Mapas tienen backend; derivación/asignación, visor/capas y semántica textual siguen pendientes. El [roadmap](incidents-implementation-roadmap.md) conserva RF01–RF26.
+> **Estado a 17/11/2026:** V1 inicial consolidada con 16 tablas, respuestas de información y duplicate_links, más funciones/índices nativos de Mapas; la propia V1 añade PostGIS y el catálogo `cartografia.contexto_urbano`. Tramitación fase 1, Duplicados y Mapas tienen backend; derivación/asignación, visor/capas y semántica textual siguen pendientes. El [roadmap](incidents-implementation-roadmap.md) conserva RF01–RF26.
 
 ## 1. Fuentes y criterio de interpretación
 
@@ -57,9 +57,13 @@ El ciclo de vida propuesto es `REPORTED → VALIDATED → ASSIGNED_TO_DEPARTMENT
 
 Una `Assignment` representa **trabajo** concedido temporalmente a un equipo **o** técnico (exclusión XOR), con aceptación `acceptedBy`/`acceptedAt`, histórico y como máximo una asignación vigente. Reasignar cierra el vínculo activo anterior y crea otro; aceptar no implica comenzar automáticamente en `IN_PROGRESS`. `StatusChange` registra transiciones; `AuditEvent` registra decisiones relevantes también sin cambio de estado. Tramitación implementa revisión, respuestas y prioridad manual con StatusChange, IncidentReview, IncidentInformationResponse y PriorityDecision. Alta y corrección siguen creando solo sus respectivos AuditEvent. El historial público es una proyección, no una tabla.
 
-### 3.4. Territorio y contexto urbano — diseño provisional
+### 3.4. Territorio y contexto urbano — persistencia parcial
 
-`UrbanAsset`, `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` y `UrbanContextViewDTO` representan propuestas para vincular activos, fuentes y datos contextuales con incidencias o zonas. `UrbanContextViewDTO` es una **vista**, no una tabla. Proveedores, geometrías y posibles componentes PostGIS/analíticos no están elegidos ni implementados. Los ámbitos IA, clasificación, predicción, hotspots y RAG son mejoras futuras y no se deben documentar como ejecución actual.
+La migración `V1__initial_schema.sql` habilita PostGIS, crea el esquema `cartografia`, la tabla `contexto_urbano` y sus índices GiST/B-tree. `UrbanAsset` es una entidad JPA implementada que representa filas de esa tabla. El módulo `urban_context` dispone de `GET /api/v1/urban-assets`, búsqueda opcional por `source_table` y búsqueda por proximidad con `ST_DWithin`/`ST_Distance`; la geometría se serializa como WKT en SRID 25830. Véase [PostGIS y contexto urbano](postgis-urban-context.md).
+
+Esta implementación es un catálogo unificado que se instala vacío: no es todavía una integración con proveedores. `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` y `UrbanContextViewDTO` continúan siendo conceptos de diseño para vincular activos, fuentes y datos contextuales con incidencias o zonas. `UrbanContextViewDTO` es una **vista**, no una tabla. No hay endpoints implementados de asociación, observaciones externas ni contexto agregado por incidencia. Los ámbitos IA, clasificación, predicción, hotspots y RAG siguen siendo mejoras futuras.
+
+Compose y Testcontainers utilizan PostgreSQL 18 con PostGIS 3.6. La suite `UrbanAssetControllerIT` recorre HTTP, seguridad, Hibernate Spatial y la tabla calificada en `cartografia` con datos sintéticos.
 
 ## 4. Modelo implementado de Invitaciones (Flyway V1)
 

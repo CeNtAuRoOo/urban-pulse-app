@@ -89,11 +89,17 @@ El viewport debe tener amplitud por eje <= `min(360,1440/2^zoom)` grados. Se per
 vistas amplias a zoom bajo, incluso el mundo, pero solo se consideran incidencias
 provinciales. La cuadrícula y los límites evitan una respuesta individual ilimitada.
 
-## PostgreSQL sin extensión geográfica
+## PostgreSQL nativo en Mapas (independiente de PostGIS)
 
 Los tipos nativos point, polygon, lseg y box permiten contención y proyección a la
 frontera, y GiST sobre point permite filtrar tanto ubicaciones exactas como públicas.
-No se añade PostGIS, JTS ni otra dependencia de ejecución. Los índices parciales
+**Este módulo `maps` no depende de PostGIS ni de JTS**: sus funciones e índices se
+implementan con PostgreSQL nativo.
+
+La base de datos del proyecto incorpora PostGIS por una decisión separada del módulo
+`urban_context`, mediante `V1__initial_schema.sql` para el catálogo
+`cartografia.contexto_urbano`. Esa extensión no se usa en el endpoint `/map/incidents`;
+véase [PostGIS y contexto urbano](../postgis-urban-context.md). Los índices parciales
 solo incluyen ubicaciones dentro de Málaga. Un índice parcial de incident_reviews
 acelera EXISTS VALIDATE. Las funciones son IMMUTABLE y versionadas porque su contorno
 y proyección son constantes. No acceden a tablas externas ni redes.
@@ -104,7 +110,9 @@ el search_path del proceso, y cuando se instalan en un esquema distinto de publi
 Costes: 12.339 vértices; comprobar contención y aproximar celdas costeras cuesta más
 que un simple bounding box. Los índices trasladan parte del cálculo a la escritura
 de coordenadas, sin cambiar reglas del módulo Incidencias. Para grandes volúmenes
-se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
+se debe medir rendimiento y considerar optimizaciones del polígono; PostGIS no se
+introduce como dependencia de este módulo aunque esté habilitado en otra parte del
+proyecto; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
 **Antecedente histórico de C `50d7ed7`, sustituido por V1 única:** tras integrar Tramitación de main (16/11/2026), la secuencia desde vacío es V1 → V2 → V5.
@@ -156,6 +164,8 @@ Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funcio
 | Cálculo por consulta frente a caché persistente           | Instantánea coherente y permisos actuales; materialización solo dentro de SQL | Recalcula entre peticiones; cachear exigiría invalidación, ámbito de autorización y pruebas de privacidad              |
 | Cuadrícula pública fija frente a desplazamiento aleatorio | Estabilidad y ausencia de filtración por promediar consultas repetidas        | Reduce precisión, no anonimiza; conserva el ajuste del centro de celda en costa/frontera                               |
 
+La incorporación de PostGIS a Contexto Urbano no migra las funciones ni índices nativos de Mapas. Las alternativas anteriores se conservan para futuras decisiones basadas en mediciones.
+
 Pendientes previos a producción: carga concurrente representativa, p95/p99, errores, coste de escritura/índices y cuotas distribuidas si hay varias instancias. No son resultados acreditados por pruebas sintéticas aisladas. La retirada de publicación y los títulos aprobados requieren decisiones y contratos propios; se mantiene VALIDATE histórico.
 
-**Validación preparada (17/11/2026):** la [batería k6](../../k6/README.md) dispone de scripts de lectura de Mapas con cuota delimitada y checks de privacidad. Están implementados y aún sin ejecutar con k6 real; las mediciones anteriores siguen pendientes. No cambia la decisión arquitectónica ni acredita capacidad concurrente.
+**Validación preparada (17/11/2026):** la [batería k6](../../k6/README.md) dispone de scripts de lectura de Mapas con cuota delimitada y checks de privacidad. Están implementados y validados offline en esta integración; las mediciones anteriores siguen pendientes. No cambia la decisión arquitectónica ni acredita capacidad concurrente.

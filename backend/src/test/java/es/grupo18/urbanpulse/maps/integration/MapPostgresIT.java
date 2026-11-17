@@ -30,6 +30,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapQueryService;
@@ -58,7 +60,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class MapPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -434,32 +436,33 @@ class MapPostgresIT {
 
     @Test
     void consolidatedSchemaRebuildsIndexesOverImportedDataAndWorksOutsideItsSchemaSearchPath() {
-        UUID author = account(null);
-        UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
-        var base = org.flywaydb.core.Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("map_upgrade").defaultSchema("map_upgrade").target("1").load();
-        assertThat(base.migrate().migrationsExecuted).isEqualTo(1);
+        // Una segunda instalación completa necesita otra base: cartografia tiene nombre fijo.
+        jdbc.execute("create database maps_schema_regression");
+        String url = POSTGRES.getJdbcUrl().replace("/" + POSTGRES.getDatabaseName(), "/maps_schema_regression");
+        var isolated = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                url, POSTGRES.getUsername(), POSTGRES.getPassword()));
         try {
-            jdbc.update("insert into map_upgrade.users select * from public.users where id=?", author);
-            jdbc.update("insert into map_upgrade.incidents select * from public.incidents where id=?", id);
-            var upgrade = org.flywaydb.core.Flyway.configure()
-                    .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+            var migration = org.flywaydb.core.Flyway.configure()
+                    .dataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword())
                     .schemas("map_upgrade").defaultSchema("map_upgrade").load();
-            assertThat(upgrade.migrate().migrationsExecuted).isZero();
-            jdbc.execute("reindex index map_upgrade.maps_exact_location_idx");
-            jdbc.execute("reindex index map_upgrade.maps_public_location_idx");
-            assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
-                    + "where success and version is not null order by installed_rank", String.class))
-                    .containsExactly("1");
-            assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
-                    .isEqualTo(36.7213);
-            assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))
-                    .isTrue();
-            assertThat(jdbc.queryForObject("select map_upgrade.map_public_point_v1(36.7213,-4.4214) "
+            assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
+            UUID author = UUID.randomUUID(), id = UUID.randomUUID();
+            isolated.update("insert into map_upgrade.users(id,display_name,email,password_hash,created_at,updated_at) "
+                    + "values (?,'Usuario sintético','map-schema@example.test',repeat('x',60),now(),now())", author);
+            isolated.update("insert into map_upgrade.incidents(id,reporter_user_id,title,description,latitude,longitude,status,created_at,updated_at) "
+                    + "values (?,?,'Aviso sintético','Descripción suficiente',36.7213,-4.4214,'REPORTED',now(),now())", id, author);
+            assertThat(migration.migrate().migrationsExecuted).isZero();
+            migration.validate();
+            isolated.execute("reindex index map_upgrade.maps_exact_location_idx");
+            isolated.execute("reindex index map_upgrade.maps_public_location_idx");
+            assertThat(isolated.queryForList("select version from map_upgrade.flyway_schema_history "
+                    + "where success and version is not null order by installed_rank", String.class)).containsExactly("1");
+            assertThat(isolated.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id)).isEqualTo(36.7213);
+            assertThat(isolated.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class)).isTrue();
+            assertThat(isolated.queryForObject("select map_upgrade.map_public_point_v1(36.7213,-4.4214) "
                     + "<@ map_upgrade.map_outline_v1()", Boolean.class)).isTrue();
         } finally {
-            jdbc.execute("drop schema map_upgrade cascade");
+            jdbc.execute("drop database maps_schema_regression with (force)");
         }
     }
 

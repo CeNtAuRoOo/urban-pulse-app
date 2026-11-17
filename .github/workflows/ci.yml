@@ -45,6 +45,9 @@ jobs:
       - name: Validate real map HTTP responses against OpenAPI
         working-directory: .
         run: npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-contract.cjs"
+      - name: Validar respuesta HTTP de activos urbanos contra OpenAPI
+        working-directory: .
+        run: npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-urban-assets-contract.cjs"
       - name: Javadoc
         run: mvn -B -ntp javadoc:javadoc -Ddoclint=all
 

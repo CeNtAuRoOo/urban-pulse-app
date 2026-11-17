@@ -83,7 +83,7 @@ El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backe
 
 ## Mantenimiento de k6
 
-La [batería k6](k6/README.md) contiene scripts implementados y aún no ejecutados con k6 real; mantener ese estado separado de resultados reales posteriores. Al ampliar un escenario, contrastar ruta, método, roles, DTO, fixtures y errores con código, OpenAPI `implemented` y tests Java. Mantener nombres de métrica estables, evitar UUID/tokens en tags y aislar preparación, negativas y mutaciones. Actualizar matriz y guía de fixtures junto al script.
+La [batería k6](k6/README.md) se verifica offline. Las mediciones de carga requieren registrar por separado el entorno, los fixtures y la versión ejecutada. Al ampliar un escenario, contrastar ruta, método, roles, DTO, fixtures y errores con código, OpenAPI `implemented` y tests Java. Mantener nombres de métrica estables, evitar UUID/tokens en tags y aislar preparación, negativas y mutaciones. Actualizar matriz y guía de fixtures junto al script.
 
 Para cambios exclusivamente k6/documentación, ejecutar desde la raíz `./k6/check-syntax.ps1` (PowerShell 7 y Node), ejecutar `node --experimental-vm-modules --test k6/tests/offline.test.mjs`, revisar imports/rutas y `git diff --check`; el análisis sintáctico no evalúa módulos y las regresiones semánticas usan respuestas sintéticas y dobles sin red. Ninguno acredita el runtime real ni rendimiento. Las cargas solo se ejecutan con entorno y datos autorizados; stress no es obligatorio por contribución ni se integra en CI. No versionar resultados, manifiestos privados ni secretos. No regenerar OpenAPI/HTML si no cambia el contrato.
 

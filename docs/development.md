@@ -1,6 +1,10 @@
 # Guía de desarrollo de UrbanPulse
 
-El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
+El entorno de desarrollo reúne el backend, Expo Web, PostgreSQL 18 con PostGIS 3.6 y Mailpit en Compose. Neon Object Storage de desarrollo conserva las fotografías. Neon PostgreSQL se reserva para producción.
+
+## 0. Base geográfica de desarrollo
+
+La única V1 instala 16 tablas de dominio en el esquema principal y el catálogo `cartografia.contexto_urbano`, cinco roles y las siete funciones nativas de Mapas. Compose y las pruebas usan la misma imagen PostGIS fijada por digest. La migración requiere que el rol pueda instalar la extensión o que un administrador la haya instalado en el esquema adecuado. Un volumen con datos o un checksum antiguo necesita respaldo y una transición propia. Para verificar una instalación limpia se utiliza una base nueva y aislada. [Instalación y contrato del catálogo](postgis-urban-context.md).
 
 ## 1. Configuración privada
 
@@ -57,7 +61,7 @@ docker compose logs -f backend
 
 Todos los puertos publicados se vinculan a `127.0.0.1`. Los clientes móviles requieren una configuración de acceso explícita y no forman parte de este procedimiento web.
 
-El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica únicamente V1 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
+El backend espera al healthcheck de PostgreSQL. Flyway aplica V1 desde `classpath:db/migration` y Hibernate comprueba el esquema con `ddl-auto=validate`. Arrancar la aplicación puede aplicar migraciones. Las suites se ejecutan mediante Maven.
 
 ```bash
 docker compose up -d --wait postgres
@@ -83,7 +87,7 @@ Antes de arrancar una rama diferente, revisar sus migraciones frente al historia
 
 El aislamiento entre equipos **no resuelve colisiones al integrar ramas**:
 
-1. Coordinar la siguiente versión libre y revisar las migraciones de `origin/main` antes de integrar; en esta integración solo existe V1; coordinar las ampliaciones posteriores sin reescribir una V1 aplicada.
+1. Coordinar la siguiente versión libre y revisar todas las migraciones de `origin/main` antes de integrar; el árbol actual contiene una única V1 con PostGIS. No reescribir ninguna migración aplicada y comprobar la disponibilidad de la extensión en cada entorno.
 2. Si dos ramas introducen distintas V2, acordar el orden según sus dependencias. Solo el trabajo no publicado ni aplicado en bases compartidas puede renumerarse antes de integrar.
 3. Validar la secuencia conjunta sobre una base nueva y, cuando haya cambios incrementales, también desde el esquema compartido anterior. No reutilizar un historial local incompatible ni editarlo a mano.
 4. Una migración aplicada en una base compartida es inmutable. Si hay historiales compartidos en conflicto, detener la integración y preparar una reconciliación revisada, con respaldo y migraciones compatibles.
@@ -114,7 +118,7 @@ El comando del job, desde `backend/`, es:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para catorce suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT, MapPerformancePostgresIT y DuplicatePostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
+Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para quince suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT, MapPerformancePostgresIT, DuplicatePostgresIT y UrbanAssetControllerIT. Usan `postgis/postgis:18-3.6-alpine` (PostgreSQL 18 con PostGIS) mediante Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
 
 Para repetirlo sin instalar Java/Maven en Windows, desde la raíz con Docker Desktop (PowerShell):
 
@@ -160,7 +164,7 @@ El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontain
 
 ### Pruebas de rendimiento k6 preparadas (17/11/2026)
 
-La [guía k6](../k6/README.md) define scripts y comandos PowerShell para una sesión futura, con smoke por rol, carga de lectura, estrés, picos, soak, tasa fija, Mapas y consultas de Tramitación/Duplicados. Un smoke separado crea una única incidencia, lee su ETag y la corrige con If-Match; no hay DELETE de incidencias. **Scripts implementados; aún no ejecutados con k6 real, sin percentiles ni informes k6.** La incorporación se verifica con análisis estático y regresiones offline con datos sintéticos; no se arranca Compose ni se ejecuta carga para validarla.
+La [guía k6](../k6/README.md) define scripts y comandos PowerShell para una sesión futura, con smoke por rol, carga de lectura, estrés, picos, soak, tasa fija, Mapas y consultas de Tramitación/Duplicados. Un smoke separado crea una única incidencia, lee su ETag y la corrige con If-Match; no hay DELETE de incidencias. **Scripts implementados; validados offline en esta integración.** La incorporación se verifica con análisis estático y regresiones offline con datos sintéticos; no se arranca Compose ni se ejecuta carga para validarla.
 
 Preparar primero un proyecto Compose con base local exclusiva, cuentas activas verificadas mediante Mailpit y los [fixtures reales](../k6/fixtures/README.md). No existe ADMIN inicial automático; el aprovisionamiento de personal requiere el procedimiento explícito de pruebas o invitaciones de un ADMIN existente. Suministrar JWT por entorno, sin login por iteración, y confirmar `K6_ENVIRONMENT=isolated-test`. Escrituras requieren `K6_ENABLE_WRITES=1`; stress/spike/soak y ampliaciones altas requieren `K6_ALLOW_HEAVY=1`.
 

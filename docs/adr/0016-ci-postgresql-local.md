@@ -5,6 +5,8 @@
 - **Ámbito:** desarrollo y validación automática; despliegue productivo fuera de alcance
 - **Evoluciona parcialmente:** [ADR-0002](0002-neon-postgresql.md) y [ADR-0006](0006-flyway.md)
 
+El catálogo espacial se verifica con la misma imagen PostgreSQL 18/PostGIS 3.6 fijada en Compose. Las bases de Testcontainers son efímeras. [ADR-0018](0018-catalogo-espacial.md).
+
 ## Contexto y evolución
 
 La decisión inicial utilizaba Neon PostgreSQL también para desarrollo. Compartir esa base entre integrantes con migraciones distintas mezcla historiales Flyway. La decisión definitiva separa PostgreSQL local de desarrollo y Neon PostgreSQL de producción. Se simplifica la propuesta inicial: un único Compose, sin modalidad SQL remota, overrides JDBC ni configuración de worktrees simultáneos.

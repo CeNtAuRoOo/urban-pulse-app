@@ -2,31 +2,32 @@
 
 **UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección e historial y Evidencias cinco rutas privadas JPEG/PNG; Mapas consulta la provincia con privacidad y agrupaciones; revisión, información adicional y prioridad manual están implementadas; derivación e integraciones siguen en diseño.
 
-## Estado del proyecto (16/11/2026)
+## Estado del proyecto (17/11/2026)
 
-| Área                 | Estado                                                                                                                                                                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                                                                          |
-| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                                                                        |
-| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `audit` y `shared`.                                       |
-| Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                                                                        |
-| Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                                                                |
-| Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                                                              |
-| Departamentos        | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                                                                |
-| Categorías           | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                                                                  |
-| PostgreSQL           | V1 inicial consolidada con 16 tablas de dominio y funciones/índices geográficos; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
+| Área                 | Estado                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                                           |
+| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                                         |
+| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `urban_context`, `audit` y `shared`.                              |
+| Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                                         |
+| Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                                 |
+| Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                               |
+| Departamentos        | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                                 |
+| Categorías           | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                                   |
+| PostgreSQL           | V1 inicial consolidada con 16 tablas de dominio en el esquema principal y el catálogo `cartografia.contexto_urbano` y funciones/índices geográficos; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
 | Object Storage       | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; fotografías privadas JPEG/PNG implementadas con cinco rutas, 10 MiB y máximo cinco activas por incidencia.                                                                     |
 | Incidencias          | Seis endpoints backend con auditoría, titularidad y concurrencia optimista; Tramitación fase 1 operativa; equipos y analítica siguen en diseño.                                                                                               |
 | CI / despliegue      | GitHub Actions verifica backend, frontend, OpenAPI y Compose. CD y despliegue productivo pendientes.                                                                                                                                          |
 | Mapas                | Consulta provincial con permisos vigentes, ubicaciones públicas aproximadas, filtros y clústeres por zoom; visor pendiente.                                                                                                                   |
+| Contexto urbano | Catálogo consultable por tipo y proximidad. V1 crea la tabla vacía. Sin adquisición ni sincronización municipal en esta fase. |
 
 Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas históricas, pendientes de regeneración manual tras esta integración; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
 
 ## Tecnologías
 
-- **Backend:** Java 25, Spring Boot 4.1.2, Maven, Spring Security, JWT HS256, JPA/Hibernate, Flyway, PostgreSQL 18, AWS SDK S3 y Spring Mail.
+- **Backend:** Java 25, Spring Boot 4.1.2, Maven, Spring Security, JWT HS256, JPA/Hibernate, Flyway, Hibernate Spatial, PostgreSQL 18 con PostGIS 3.6, AWS SDK S3 y Spring Mail.
 - **Frontend:** React Native/Expo SDK 57, Expo Router, React Native Web, TypeScript, Node.js 24 en Docker.
-- **Infraestructura:** PostgreSQL 18 local y Mailpit en Compose, Neon PostgreSQL productivo y Neon Object Storage en ambos entornos, PostgreSQL Testcontainers, GitHub Actions y Redocly.
+- **Infraestructura:** PostgreSQL 18 con PostGIS 3.6 y Mailpit en Compose, Neon PostgreSQL productivo y Neon Object Storage en ambos entornos, PostgreSQL Testcontainers, GitHub Actions y Redocly.
 
 ## Instalación
 
@@ -45,6 +46,8 @@ Copy-Item backend/.env.example backend/.env.development
 ```
 
 El desarrollo utiliza exclusivamente **PostgreSQL local**: configurar el JDBC del backend a `postgres:5432` en `backend/.env.development`, junto con tres secretos JWT/HMAC independientes, Mailpit y Neon Object Storage de desarrollo. `frontend/.env` contiene `EXPO_PUBLIC_API_URL=http://localhost:8080`; CORS autoriza `http://localhost:8888`. Compose carga esos valores sin sobrescribirlos. Neon PostgreSQL y los secretos productivos pertenecen al despliegue independiente. [Configuración completa](docs/development.md#1-configuración-privada).
+
+La instalación limpia aplica una única V1 que crea el catálogo espacial junto al dominio existente. La imagen de Compose ya incluye PostGIS. Antes de reutilizar un volumen con datos o con otro historial Flyway, conservar un respaldo y comprobar la compatibilidad. [Guía del catálogo](docs/postgis-urban-context.md).
 
 ## Ejecución en desarrollo
 
@@ -90,11 +93,11 @@ Incidencias implementa `POST/GET /incidents`, `GET /incidents/mine`, `GET/PATCH 
 
 Evidencias implementa cinco operaciones privadas de fotografía; Tramitación diez de revisión, información adicional y prioridad manual; Mapas `GET /map/incidents`; Duplicados `GET /incidents/{incidentId}/duplicate-candidates` y `POST /incidents/{incidentId}/duplicate-links`.
 
-El contrato combinado contiene **57 rutas, 77 operaciones: 47 implementadas y 30 futuras**. Duplicados ofrece las veinte mejores sugerencias heurísticas de ±72 h y 250 m, confirmación humana y auditoría; no fusión, desvinculación ni prevención de ciclos arbitrarios. RF08 y RF16 son parciales: faltan visor/capas y semántica textual. Las UI de Mapas, Duplicados, Evidencias y Tramitación siguen pendientes. [Matriz verificable por módulo](docs/integration-reconciliation.md).
+El contrato combinado contiene **57 rutas, 77 operaciones: 48 implementadas y 29 futuras**. Contexto urbano implementa la consulta de activos sobre PostGIS; la guía de [PostGIS y contexto urbano](docs/postgis-urban-context.md) describe la instalación con V1 y PostGIS 3.6. El catálogo se crea vacío. Duplicados ofrece las veinte mejores sugerencias heurísticas de ±72 h y 250 m, confirmación humana y auditoría; no fusión, desvinculación ni prevención de ciclos arbitrarios. RF08 y RF16 son parciales: faltan visor/capas y semántica textual. Las UI de Mapas, Duplicados, Evidencias y Tramitación siguen pendientes. [Matriz verificable por módulo](docs/integration-reconciliation.md).
 
 ## Pruebas y validación
 
-La [batería Grafana k6](k6/README.md) añade a las herramientas de validación smoke por rol, lectura con perfiles load/stress/spike/soak, tasa fija, Mapas, consultas de Tramitación/Duplicados y un smoke protegido de alta/corrección de incidencia. Requiere cuentas verificadas y fixtures reales de prueba; excluye S3 y autenticación masiva. **Los scripts están implementados; todavía no hay ejecuciones ni mediciones k6.** No forman parte del CI ordinario ni acreditan capacidad productiva.
+La [batería Grafana k6](k6/README.md) añade a las herramientas de validación smoke por rol, lectura con perfiles load/stress/spike/soak, tasa fija, Mapas, consultas de Tramitación/Duplicados y un smoke protegido de alta/corrección de incidencia. Requiere cuentas verificadas y fixtures reales de prueba; excluye S3 y autenticación masiva. **Esta integración verifica los scripts offline. No aporta mediciones k6.** No forman parte del CI ordinario ni acreditan capacidad productiva.
 
 El [workflow CI](.github/workflows/ci.yml) se ejecuta en PR hacia `main`, push a `main` y manualmente. Las ramas de desarrollo se validan por PR/manual para evitar ejecuciones duplicadas. Jobs independientes, permisos de lectura, cachés y PostgreSQL efímero sin secretos Neon; no despliega.
 

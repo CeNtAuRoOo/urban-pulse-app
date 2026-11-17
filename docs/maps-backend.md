@@ -3,6 +3,12 @@
 Entrega de 2026-11-10 en `feature/implementacion-mapas`. Endpoint implementado:
 `GET /api/v1/map/incidents`. No hay cambios en frontend, Tramitación o Evidencias.
 
+**Separación respecto a PostGIS:** el endpoint de Mapas usa los tipos nativos `point`,
+`polygon`, `lseg`, `box`, funciones SQL versionadas e índices GiST nativos. No invoca
+funciones PostGIS ni utiliza la tabla `cartografia.contexto_urbano`. La extensión
+PostGIS y el catálogo de activos pertenecen al módulo independiente `urban_context`;
+véase [PostGIS y contexto urbano](postgis-urban-context.md).
+
 ## Uso
 
 ```http
@@ -344,6 +350,6 @@ no repair ni outOfOrder para ocultar diferencias. Las estimaciones de cardinalid
 
 ## Integración actual (16/11/2026)
 
-**Ampliación de validación (17/11/2026):** la [batería k6](../k6/README.md) incorpora smoke y un escenario de lectura de Mapas con un único VU, viewport validado y pausa de cinco segundos por defecto. Comprueba variantes, privacidad mediante listas de claves permitidas también en category/coordinates, conteos y presencia opcional de un ID real; no convierte 422/429/503 en éxito ni navega al detalle privado de marcadores ajenos. Los dos ejemplos versionados de Mapas y sus mutaciones sintéticas se verifican offline. Los scripts están implementados y **aún no ejecutados con k6 real**: la medición HTTP concurrente y sus percentiles siguen sin datos, independientemente de los tiempos SQL sintéticos históricos de esta guía.
+**Ampliación de validación (17/11/2026):** la [batería k6](../k6/README.md) incorpora smoke y un escenario de lectura de Mapas con un único VU, viewport validado y pausa de cinco segundos por defecto. Comprueba variantes, privacidad mediante listas de claves permitidas también en category/coordinates, conteos y presencia opcional de un ID real; no convierte 422/429/503 en éxito ni navega al detalle privado de marcadores ajenos. Los dos ejemplos versionados de Mapas y sus mutaciones sintéticas se verifican offline. Los scripts están implementados y **validados offline en esta integración**: la medición HTTP concurrente y sus percentiles siguen sin datos, independientemente de los tiempos SQL sintéticos históricos de esta guía.
 
 La geografía antes entregada en V5 está integrada sin cambios matemáticos en la región marcada de V1. Las mediciones y secuencias anteriores de esta guía son históricas. No hay V2/V3/V5 ejecutables. La huella exige bytes LF originales; .gitattributes evita conversiones CRLF del GeoJSON. SVG pendientes de exportación manual.
