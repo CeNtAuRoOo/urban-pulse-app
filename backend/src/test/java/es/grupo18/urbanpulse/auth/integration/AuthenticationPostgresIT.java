@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import es.grupo18.urbanpulse.auth.dto.ChangePasswordRequest;
 import es.grupo18.urbanpulse.auth.dto.LoginRequest;
@@ -69,7 +70,10 @@ class AuthenticationPostgresIT {
     // Always creates a new disposable PostgreSQL. No environment-supplied database
     // URL.
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -118,7 +122,7 @@ class AuthenticationPostgresIT {
     @Test
     void flywaySchemaValidatesAndPersistsV7DefaultsAndCompositeRoles() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
         assertThat(roles.findAll()).hasSize(5);
         assertThat(jdbc.queryForObject(
                 "select count(*) from information_schema.columns where table_name='roles' and column_name='scope'",

@@ -20,10 +20,10 @@ Utilizar PostgreSQL como almacén principal de datos estructurados. Spring Boot 
 
 ## Consecuencias
 
-**Positivas:** transacciones, integridad referencial, consultas SQL y soporte para índices y funciones espaciales si se necesitan.
+**Positivas:** transacciones, integridad referencial, consultas SQL y soporte para índices y funciones espaciales. La migración V2 utiliza PostGIS para el catálogo de activos urbanos; Mapas mantiene su implementación independiente con tipos y funciones nativas de PostgreSQL.
 
 **Costes:** diseño y evolución del esquema; migraciones y mantenimiento de índices. Elegir PostgreSQL no implica que todas las consultas sean realizadas exclusivamente por JPA.
 
 ## Consideraciones pendientes
 
-El modelo de entidades, los índices y la eventual utilización de PostGIS se definirán al implementar los casos de uso.
+PostGIS está incorporado por `V2__create_cartografia.sql` para `cartografia.contexto_urbano`; véase [PostGIS y contexto urbano](../postgis-urban-context.md). Su disponibilidad debe comprobarse en cada entorno y no debe confundirse con el subsistema Mapas.

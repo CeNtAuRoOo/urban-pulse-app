@@ -1,18 +1,19 @@
 /incidents/{incidentId}/urban-context:
   get:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Consultar contexto asociado'
-    description: Observaciones cercanas con procedencia y caducidad; puede devolver PARTIAL/UNAVAILABLE 
-      sin ocultar la incidencia.
+      - Contexto urbano
+    summary: "Diseño futuro: Consultar contexto asociado"
+    description: >-
+      Observaciones cercanas con procedencia y caducidad; puede devolver
+      PARTIAL/UNAVAILABLE sin ocultar la incidencia.
     operationId: getIncidentsIncidentIdUrbanContext
     x-implementation: future
     x-roles:
-    - OPERATOR
-    - TECHNICIAN
-    - ADMIN
+      - OPERATOR
+      - TECHNICIAN
+      - ADMIN
     parameters:
-    - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/IncidentId"
     responses:
       "200":
         description: Operación correcta.
@@ -36,17 +37,18 @@
 /incidents/{incidentId}/asset-candidates:
   get:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Candidatos a activo urbano'
-    description: Devuelve activos próximos y confianza sin asociar uno automáticamente si existe 
-      ambigüedad.
+      - Contexto urbano
+    summary: "Diseño futuro: Candidatos a activo urbano"
+    description: >-
+      Devuelve activos próximos y confianza sin asociar uno automáticamente
+      si existe ambigüedad.
     operationId: getIncidentsIncidentIdAssetCandidates
     x-implementation: future
     x-roles:
-    - OPERATOR
-    - ADMIN
+      - OPERATOR
+      - ADMIN
     parameters:
-    - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/IncidentId"
     responses:
       "200":
         description: Operación correcta.
@@ -72,16 +74,16 @@
 /incidents/{incidentId}/asset-association:
   put:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Confirmar activo urbano'
+      - Contexto urbano
+    summary: "Diseño futuro: Confirmar activo urbano"
     description: Crea o reemplaza una única asociación del activo afectado, con trazabilidad.
     operationId: putIncidentsIncidentIdAssetAssociation
     x-implementation: future
     x-roles:
-    - OPERATOR
-    - ADMIN
+      - OPERATOR
+      - ADMIN
     parameters:
-    - $ref: "../components/parameters.yaml#/IncidentId"
+      - $ref: "../components/parameters.yaml#/IncidentId"
     requestBody:
       required: true
       content:
@@ -113,44 +115,50 @@
 /urban-assets:
   get:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Buscar activos urbanos'
-    description: Filtra activos por tipo o proximidad.
+      - Contexto urbano
+    summary: Buscar activos urbanos
+    description: >-
+      Consulta de solo lectura del catálogo unificado PostGIS
+      cartografia.contexto_urbano. `type` filtra por `source_table`. La búsqueda
+      por proximidad requiere `latitude`, `longitude` y `radiusMeters`
+      conjuntamente; las coordenadas de entrada son WGS84 y se transforman a
+      EPSG:25830 para aplicar `ST_DWithin` y ordenar por distancia. La respuesta
+      devuelve `geom` como WKT en SRID 25830. No asocia activos a incidencias.
     operationId: getUrbanAssets
-    x-implementation: future
+    x-implementation: implemented
     x-roles:
-    - AUTHENTICATED
+      - AUTHENTICATED
     parameters:
-    - name: type
-      in: query
-      required: false
-      schema:
-        type: string
-      description: Tipo de activo.
-    - name: latitude
-      in: query
-      required: false
-      schema:
-        type: number
-        minimum: -90
-        maximum: 90
-      description: Latitud central.
-    - name: longitude
-      in: query
-      required: false
-      schema:
-        type: number
-        minimum: -180
-        maximum: 180
-      description: Longitud central.
-    - name: radiusMeters
-      in: query
-      required: false
-      schema:
-        type: number
-        minimum: 1
-        maximum: 5000
-      description: Radio de búsqueda.
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Coincidencia exacta con source_table; se recortan espacios exteriores.
+      - name: latitude
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+        description: Latitud WGS84; debe enviarse junto con longitude y radiusMeters.
+      - name: longitude
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+        description: Longitud WGS84; debe enviarse junto con latitude y radiusMeters.
+      - name: radiusMeters
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 1
+          maximum: 5000
+        description: Radio en metros, entre 1 y 5000; debe enviarse junto con latitude y longitude.
     responses:
       "200":
         description: Operación correcta.
@@ -159,9 +167,13 @@
             schema:
               type: array
               items:
-                $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetDTO"
+                $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetRecordDTO"
       "400":
-        $ref: "../components/responses.yaml#/BadRequest"
+        description: Parámetros de proximidad incompletos o fuera de rango.
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas/comunes.yaml#/ProblemDetail"
       "401":
         $ref: "../components/responses.yaml#/Unauthorized"
       "403":
@@ -172,19 +184,21 @@
         $ref: "../components/responses.yaml#/Conflict"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/ServiceUnavailable"
 
 /urban-assets/{assetId}:
   get:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Consultar activo urbano'
+      - Contexto urbano
+    summary: "Diseño futuro: Consultar activo urbano"
     description: Devuelve geometría, procedencia y metadatos permitidos.
     operationId: getUrbanAssetsAssetId
     x-implementation: future
     x-roles:
-    - AUTHENTICATED
+      - AUTHENTICATED
     parameters:
-    - $ref: "../components/parameters.yaml#/AssetId"
+      - $ref: "../components/parameters.yaml#/AssetId"
     responses:
       "200":
         description: Operación correcta.
@@ -208,30 +222,30 @@
 /external-observations:
   get:
     tags:
-    - Contexto urbano
-    summary: 'Diseño futuro: Consultar observaciones normalizadas'
+      - Contexto urbano
+    summary: "Diseño futuro: Consultar observaciones normalizadas"
     description: Acceso interno a observaciones históricas; filtrado por fuente, métrica y fechas.
     operationId: getExternalObservations
     x-implementation: future
     x-roles:
-    - OPERATOR
-    - ADMIN
+      - OPERATOR
+      - ADMIN
     parameters:
-    - $ref: "../components/parameters.yaml#/FromDate"
-    - $ref: "../components/parameters.yaml#/ToDate"
-    - name: sourceId
-      in: query
-      required: false
-      schema:
-        type: string
-        format: uuid
-      description: Identificador del proveedor.
-    - name: metric
-      in: query
-      required: false
-      schema:
-        type: string
-      description: Variable registrada.
+      - $ref: "../components/parameters.yaml#/FromDate"
+      - $ref: "../components/parameters.yaml#/ToDate"
+      - name: sourceId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Identificador del proveedor.
+      - name: metric
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Variable registrada.
     responses:
       "200":
         description: Operación correcta.

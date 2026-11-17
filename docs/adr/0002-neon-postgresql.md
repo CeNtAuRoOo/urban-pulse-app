@@ -40,4 +40,6 @@ Utilizar un proyecto PostgreSQL administrado en Neon. Los clientes web y móvil 
 
 ## Consideraciones pendientes
 
+La migración V2 de Contexto urbano requiere la extensión PostGIS (`CREATE EXTENSION postgis`) y crea `cartografia.contexto_urbano`. Antes de aplicar V2 en Neon hay que verificar que la extensión esté disponible para el proyecto/rol y probar los permisos reales de Flyway. La conectividad histórica de Neon no acredita que esta migración se haya aplicado. Véase [PostGIS y contexto urbano](../postgis-urban-context.md).
+
 La V1 consolidada se valida en PostgreSQL local/efímero (ADR-0006). Su despliegue controlado en Neon pertenece a producción, con respaldo, revisión de historial y permisos; no se acredita por las pruebas locales. Quedan políticas de backups/recuperación y, cuando corresponda, separación de roles de migración/ejecución. Las cuotas y condiciones del proveedor se revisan al preparar el despliegue.

@@ -2,7 +2,8 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.8.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
+  description:
+    Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login,
     cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por
     invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis
     operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco
@@ -122,6 +123,14 @@ paths:
     $ref: ./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-candidates
   /incidents/{incidentId}/asset-association:
     $ref: ./paths/contexto-urbano.yaml#/~1incidents~1{incidentId}~1asset-association
+  /ai/incident-assessments:
+    $ref: ./paths/asistencia-inteligente.yaml#/~1ai~1incident-assessments
+  /ai/incident-assessments/{assessmentId}:
+    $ref: ./paths/asistencia-inteligente.yaml#/~1ai~1incident-assessments~1{assessmentId}
+  /ai/training-jobs:
+    $ref: ./paths/asistencia-inteligente.yaml#/~1ai~1training-jobs
+  /ai/training-jobs/{trainingId}:
+    $ref: ./paths/asistencia-inteligente.yaml#/~1ai~1training-jobs~1{trainingId}
   /urban-assets:
     $ref: ./paths/contexto-urbano.yaml#/~1urban-assets
   /urban-assets/{assetId}:
@@ -287,14 +296,16 @@ components:
       $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkRequest
     DuplicateLinkDTO:
       $ref: ./components/schemas/duplicados.yaml#/DuplicateLinkDTO
-    UrbanAssetDTO:
-      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetDTO
-    UrbanAssetCandidateDTO:
-      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetCandidateDTO
-    UrbanAssetAssociationRequest:
-      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationRequest
-    UrbanAssetAssociationDTO:
-      $ref: ./components/schemas/contexto-urbano.yaml#/UrbanAssetAssociationDTO
+    AIAssessmentRequest:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIAssessmentRequest
+    AIRecommendationDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIRecommendationDTO
+    AIAssessmentDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/AIAssessmentDTO
+    TrainingRequest:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/TrainingRequest
+    TrainingJobDTO:
+      $ref: ./components/schemas/asistencia-inteligente.yaml#/TrainingJobDTO
     ExternalObservationDTO:
       $ref: ./components/schemas/contexto-urbano.yaml#/ExternalObservationDTO
     UrbanContextDTO:

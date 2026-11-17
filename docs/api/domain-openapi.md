@@ -1,6 +1,6 @@
 # UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.8.0)
 
-> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias, Evidencias, Mapas y Duplicados tienen API implementada. OpenAPI vigente 0.8.0; V1 consolida 16 tablas, respuestas de información, duplicate_links y las funciones/índices de Mapas. Revisión, respuestas y prioridad MANUAL tienen diez operaciones. Las fases posteriores y los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias, Evidencias, Mapas, Duplicados y la búsqueda de activos urbanos (`GET /urban-assets`) tienen API implementada. OpenAPI vigente 0.8.0; V1 consolida 16 tablas, respuestas de información, duplicate_links y las funciones/índices de Mapas; V2 añade PostGIS y `cartografia.contexto_urbano`. Revisión, respuestas y prioridad MANUAL tienen diez operaciones. Las fases posteriores y los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
 
 ## 1. Referencia coherente y varias vistas
 
@@ -31,7 +31,7 @@ DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-rol
 | Ciclo de vida             | `VALIDATED` puede existir sin departamento; derivación y trabajo son fases distintas             | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`, no un único `ASSIGNED`                                                                                            |
 | Invitaciones              | Temporal, correo obligatorio, rol/ámbito fijados y canje sobre cuenta verificada                 | `InvitationRequest` `oneOf`; cinco rutas **implementadas**; contrato `0.5.0`                                                                                  |
 | Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | Dos operaciones backend; heurística y confirmación humana, sin semántica textual ni UI                                                                                                                    |
-| Contexto urbano           | Localización y fuentes con IDs externos separados de los internos                                | DTO de coordenadas y contexto, sin proveedores elegidos                                                                                                       |
+| Contexto urbano           | Catálogo de activos PostGIS consultable por tipo/proximidad; modelo objetivo de fuentes y asociaciones | `UrbanAssetRecordDTO` real (ID numérico y WKT SRID 25830); asociación, observaciones y contexto por incidencia futuros |
 
 ### 2.1. Revisión histórica de Autenticación (0.3.0 y 0.4.0)
 
@@ -73,6 +73,8 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 ## 4. Atributos y alcance que permanecen abiertos
 
 `UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. `StatusChangeDTO.fromStatus` siempre corresponde a una transición real; no existe evento inicial de transición. El alta se registra en AuditEvent. El actor puede faltar en un futuro evento de sistema. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales activas e históricas ya están implementadas en UserDTO y en los servicios internos de organization (ADR-0013).
+
+No confundir ese DTO conceptual con la respuesta actual de `GET /api/v1/urban-assets`: el controlador devuelve `UrbanAssetRecordDTO`, con `id` numérico de `cartografia.contexto_urbano` y `geom` como WKT en EPSG:25830. La migración V2 y el comportamiento espacial se detallan en [PostGIS y contexto urbano](../postgis-urban-context.md).
 
 **Pendiente de implementar:** equipos, API de retirada de permisos, fases posteriores de Tramitación (derivación departamental, asignaciones y ejecución), notificaciones de negocio, filtros avanzados por campo/titularidad, visor y capas de mapas (backend provincial implementado), fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias, la primera fase de Tramitación y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 

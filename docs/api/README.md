@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados** y **Tramitación** (primera fase) tienen endpoints backend implementados; las operaciones de los restantes tags, así como las fases posteriores de Tramitación, describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un aplicación de la V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados**, **Tramitación** (primera fase) y la búsqueda de activos de **Contexto urbano** (`GET /urban-assets`) tienen endpoints backend implementados; las demás operaciones de Contexto urbano, las operaciones de los restantes tags y las fases posteriores de Tramitación describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un aplicación de la V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -108,6 +108,12 @@ Los errores usan `application/problem+json` y el contrato común `ProblemDetail`
 
 Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#4-persistencia-y-transacciones) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#verificación-del-backend), sus pruebas.
 
+## Contexto urbano: búsqueda de activos implementada
+
+`GET /api/v1/urban-assets` consulta la tabla PostGIS `cartografia.contexto_urbano`. Acepta `type` para filtrar por `source_table` y, opcionalmente, el grupo completo `latitude`, `longitude`, `radiusMeters` para una búsqueda espacial métrica. Los tres parámetros de proximidad deben aparecer juntos; latitud y longitud se reciben en WGS84 y el punto se transforma a EPSG:25830 antes de aplicar `ST_DWithin`. El radio permitido es 1–5.000 m; la búsqueda por proximidad ordena por `ST_Distance` y limita a 500 filas. El DTO real contiene un ID numérico, metadatos de origen y `geom` como WKT (sin prefijo SRID; se interpreta como EPSG:25830).
+
+No confundir este endpoint implementado con las rutas futuras de contexto agregado por incidencia, candidatos/asociaciones de activos o consultas de observaciones externas. El esquema conceptual `UrbanAssetDTO` del modelo objetivo no es el DTO real de este endpoint: OpenAPI usa `UrbanAssetRecordDTO` para la respuesta del catálogo. Los límites de listado y los bloqueos de despliegue se documentan en [PostGIS y contexto urbano](../postgis-urban-context.md).
+
 ## Usuarios implementados
 
 | Método      | Ruta              | Permiso                          |
@@ -173,7 +179,7 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
-Todas las operaciones referenciadas tienen x-implementation explícito: 47 implemented y 30 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+Todas las operaciones referenciadas tienen x-implementation explícito: 48 implemented y 29 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
 
 ## Evidencias implementadas
 
@@ -260,7 +266,7 @@ El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aisl
 
 ## Duplicados y Mapas en la integración actual sobre 0.8.0
 
-El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. El resultado contiene 57 rutas y 77 operaciones (47 implementadas/30 futuras).
+El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. La búsqueda de activos urbanos existente se clasifica como implementada; las restantes operaciones de Contexto urbano siguen futuras. El resultado contiene 57 rutas y 77 operaciones (48 implementadas/29 futuras).
 
 | Método | Ruta | Autorización | Resultado |
 |---|---|---|---|

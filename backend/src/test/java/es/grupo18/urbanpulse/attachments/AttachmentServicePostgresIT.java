@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import es.grupo18.urbanpulse.attachment.dto.AttachmentDTO;
 import es.grupo18.urbanpulse.attachment.service.AttachmentService;
@@ -92,7 +93,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class AttachmentServicePostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -372,8 +376,9 @@ class AttachmentServicePostgresIT {
         }
         assertThatThrownBy(() -> jdbc.update("delete from incidents where id=?", incident))
                 .isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-                .containsExactly("1");
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+                String.class))
+                .containsExactly("1", "2");
         assertThat(jdbc.queryForObject("select incident_id from attachments where id=?", UUID.class, dto.id()))
                 .isEqualTo(incident);
     }

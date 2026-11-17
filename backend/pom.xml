@@ -84,6 +84,13 @@
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
+        <!-- Jts locationtech -->
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <version>1.19.0</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -145,6 +152,7 @@
                                 <include>**/IncidentPostgresIT.java</include>
                                 <include>**/DuplicatePostgresIT.java</include>
                                 <include>**/MapPostgresIT.java</include>
+                                <include>**/UrbanAssetControllerIT.java</include>
                                 <include>**/MapPerformancePostgresIT.java</include>
                                 <include>**/AttachmentServicePostgresIT.java</include>
                                 <include>**/ProcessingPostgresIT.java</include>
