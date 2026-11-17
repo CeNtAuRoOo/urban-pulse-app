@@ -24,7 +24,7 @@ import org.locationtech.jts.geom.Geometry;
  * </p>
  */
 @Entity
-@Table(name = "contexto_urbano")
+@Table(name = "contexto_urbano", schema = "cartografia")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UrbanAsset {

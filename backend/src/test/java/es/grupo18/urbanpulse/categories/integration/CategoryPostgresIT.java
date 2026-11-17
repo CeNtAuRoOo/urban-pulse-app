@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
@@ -51,7 +52,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class CategoryPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -77,7 +81,8 @@ class CategoryPostgresIT {
     static void initialSchemaContainsAllModulesWithoutCatalogSeeds(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
                 String.class))
-                .containsExactlyInAnyOrder("flyway_schema_history", "users", "roles", "user_roles",
+                .containsExactlyInAnyOrder("geography_columns", "geometry_columns", "spatial_ref_sys",
+                        "flyway_schema_history", "users", "roles", "user_roles",
                         "email_verifications", "departments", "department_memberships", "staff_invitations",
                         "audit_events", "categories", "incidents", "status_changes", "incident_reviews",
                         "priority_decisions", "incident_information_responses", "attachments", "duplicate_links");
@@ -91,7 +96,7 @@ class CategoryPostgresIT {
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1");
+                .containsExactly("1", "2");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);

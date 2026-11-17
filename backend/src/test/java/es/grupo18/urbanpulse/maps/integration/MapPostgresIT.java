@@ -29,11 +29,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
+import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapQueryService;
-import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.processing.dto.InformationResponseRequest;
 import es.grupo18.urbanpulse.processing.dto.ReviewRequest;
 import es.grupo18.urbanpulse.processing.model.ReviewDecision;
@@ -58,7 +59,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class MapPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -89,7 +93,8 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute("truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute(
+                "truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -108,13 +113,15 @@ class MapPostgresIT {
     @Test
     void actualDatabaseLockTimeoutReturns503WithoutPartialMap() throws Exception {
         UUID actor = account("OPERATOR");
-        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
             connection.setAutoCommit(false);
             connection.createStatement().execute("lock table incidents in access exclusive mode");
             var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port
                     + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
                     .header("Authorization", bearer(actor)).timeout(java.time.Duration.ofSeconds(15)).build();
-            var response = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            var response = java.net.http.HttpClient.newHttpClient().send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(503);
             assertThat(json.readTree(response.body()).get("code").asString()).isEqualTo("MAP_QUERY_TIMEOUT");
             connection.rollback();
@@ -174,8 +181,10 @@ class MapPostgresIT {
         var finalReview = new ReviewRequest();
         finalReview.setDecision(ReviewDecision.valueOf(decision));
         finalReview.setExpectedIncidentVersion(4L);
-        if (decision.equals("VALIDATE")) finalReview.setCategoryId(category);
-        else finalReview.setReason("Motivo interno de rechazo");
+        if (decision.equals("VALIDATE"))
+            finalReview.setCategoryId(category);
+        else
+            finalReview.setReason("Motivo interno de rechazo");
         processing.review(operator, 0, id, finalReview);
         assertThat(jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Long.class, id))
                 .isEqualTo(3);
@@ -451,7 +460,7 @@ class MapPostgresIT {
             jdbc.execute("reindex index map_upgrade.maps_public_location_idx");
             assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
                     + "where success and version is not null order by installed_rank", String.class))
-                    .containsExactly("1");
+                    .containsExactly("1", "2");
             assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
                     .isEqualTo(36.7213);
             assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))
@@ -532,8 +541,10 @@ class MapPostgresIT {
     }
 
     private void validate(UUID id, UUID operator) {
-        jdbc.update("insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
-                + "values(?,?,?,'VALIDATE',now(),'VALIDATED')", UUID.randomUUID(), id, operator);
+        jdbc.update(
+                "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
+                        + "values(?,?,?,'VALIDATE',now(),'VALIDATED')",
+                UUID.randomUUID(), id, operator);
     }
 
     private String bearer(UUID id) {

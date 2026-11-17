@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import es.grupo18.urbanpulse.identity.model.Role;
 import es.grupo18.urbanpulse.identity.model.RoleCode;
@@ -47,7 +48,10 @@ class DepartmentMembershipPostgresIT {
      * Base de datos PostgreSQL efímera utilizada durante las pruebas.
      */
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     /**
      * Configura las propiedades de conexión para utilizar el contenedor de pruebas.

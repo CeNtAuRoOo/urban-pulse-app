@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import es.grupo18.urbanpulse.audit.model.AuditEvent;
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
@@ -80,7 +81,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class IncidentPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName
+                    .parse("postgis/postgis:18-3.6-alpine")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -273,7 +277,7 @@ class IncidentPostgresIT {
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1");
+                .containsExactly("1", "2");
     }
 
     @Test
@@ -666,7 +670,7 @@ class IncidentPostgresIT {
     @Test
     void schemaRecordsConsolidatedV1AndIndexesFinalStructures() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1");
+                String.class)).containsExactly("2");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
                 .isEqualTo(16);
@@ -691,7 +695,8 @@ class IncidentPostgresIT {
             }
         }
         assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null, "VALIDATE")).isEqualTo(1);
-        for (String reason : List.of("motivo", "abc", "", " ", "\t", "\u2003".repeat(3), " abc", "abc\t", "🚦".repeat(2001))) {
+        for (String reason : List.of("motivo", "abc", "", " ", "\t", "\u2003".repeat(3), " abc", "abc\t",
+                "🚦".repeat(2001))) {
             assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), "VALIDATE", reason, "VALIDATE"))
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
