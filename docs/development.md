@@ -158,6 +158,14 @@ El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.en
 
 El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontainers. Exige `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración S3 de un recurso de pruebas no productivo autorizado; disponer de credenciales de desarrollo no constituye autorización para ejecutarlo. Tampoco pertenece al CI ordinario. Una prueba omitida no acredita conectividad.
 
+### Pruebas de rendimiento k6 preparadas (17/11/2026)
+
+La [guía k6](../k6/README.md) define scripts y comandos PowerShell para una sesión futura, con smoke por rol, carga de lectura, estrés, picos, soak, tasa fija, Mapas y consultas de Tramitación/Duplicados. Un smoke separado crea una única incidencia, lee su ETag y la corrige con If-Match; no hay DELETE de incidencias. **Scripts implementados; aún no ejecutados con k6 real, sin percentiles ni informes k6.** La incorporación se verifica con análisis estático y regresiones offline con datos sintéticos; no se arranca Compose ni se ejecuta carga para validarla.
+
+Preparar primero un proyecto Compose con base local exclusiva, cuentas activas verificadas mediante Mailpit y los [fixtures reales](../k6/fixtures/README.md). No existe ADMIN inicial automático; el aprovisionamiento de personal requiere el procedimiento explícito de pruebas o invitaciones de un ADMIN existente. Suministrar JWT por entorno, sin login por iteración, y confirmar `K6_ENVIRONMENT=isolated-test`. Escrituras requieren `K6_ENABLE_WRITES=1`; stress/spike/soak y ampliaciones altas requieren `K6_ALLOW_HEAVY=1`.
+
+Mapas utiliza un VU con pausa para respetar la cuota por usuario; un 429 no equivale a saturación SQL. Ningún escenario carga fotografías: PostgreSQL local no aísla Neon Object Storage. Guardar informes solo en `k6/results/` y manifiestos privados en `k6/local/`, ambos ignorados; no introducir carga pesada en CI. Desde la raíz, `./k6/check-syntax.ps1` (PowerShell 7 y Node) analiza los módulos sin ejecutarlos; `node --experimental-vm-modules --test k6/tests/offline.test.mjs` comprueba validadores y recorridos con dobles sin red. Esto no valida el binario k6 ni aporta latencias. Las evidencias Java/SQL fechadas a continuación no se modifican ni se reinterpretan como mediciones k6.
+
 ## 6. Límites y evidencias históricas
 
 **Las secciones siguientes conservan los resultados y procedimientos anteriores a esta integración. V2/V3/V5, outOfOrder y sus cifras no describen la V1 vigente. Los resultados actuales se registran exclusivamente en [el informe de integración](integration-reconciliation.md).**
@@ -174,16 +182,16 @@ Merge local de main 27357ea sobre Mapas b78a6ea. Se conservan Mapas, Evidencias,
 CI y processing. V1 y V2 coinciden con main; V5 y el código de producción de Mapas
 permanecen intactos. No se modifican bases compartidas ni se accede a Neon.
 
-| Comprobación | Resultado |
-| --- | --- |
-| `mvn -B -ntp clean verify -Ppostgres-it` | **351 pruebas correctas: 187 Surefire + 164 Failsafe**, cero fallos, errores u omisiones |
-| Mapas | 12 unitarias + 20 IT funcionales + 4 IT de rendimiento |
-| Evidencias | 19 IT y 8 unitarias de imágenes |
-| Tramitación | 19 IT funcionales + 2 de migración; unitarias incluidas en Surefire |
-| `npm ci`, `npm test`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web` | PASS; cinco pruebas frontend y exportación web local |
-| `docker compose config --quiet` | PASS con copia aislada de compose.yaml y plantillas versionadas |
-| Recurso IGN `--check` | PASS; 12.339 vértices y V5 reproducible |
-| Redocly 2.16.0 | Fuente y bundle válidos; bundle y HTML regenerados con redoc-template.hbs |
+| Comprobación                                                                               | Resultado                                                                                |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `mvn -B -ntp clean verify -Ppostgres-it`                                                   | **351 pruebas correctas: 187 Surefire + 164 Failsafe**, cero fallos, errores u omisiones |
+| Mapas                                                                                      | 12 unitarias + 20 IT funcionales + 4 IT de rendimiento                                   |
+| Evidencias                                                                                 | 19 IT y 8 unitarias de imágenes                                                          |
+| Tramitación                                                                                | 19 IT funcionales + 2 de migración; unitarias incluidas en Surefire                      |
+| `npm ci`, `npm test`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web` | PASS; cinco pruebas frontend y exportación web local                                     |
+| `docker compose config --quiet`                                                            | PASS con copia aislada de compose.yaml y plantillas versionadas                          |
+| Recurso IGN `--check`                                                                      | PASS; 12.339 vértices y V5 reproducible                                                  |
+| Redocly 2.16.0                                                                             | Fuente y bundle válidos; bundle y HTML regenerados con redoc-template.hbs                |
 
 Las trece suites Failsafe ejecutaron: Authentication 8, EmailVerification 12,
 StaffInvitation 24, UserRepository 15, Department 6, Category 6, DepartmentMembership 9,

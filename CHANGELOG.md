@@ -4,6 +4,13 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Pruebas Grafana k6 (17/11/2026)
+
+- Batería modular de scripts k6 y documentación: smoke por rol, lectura con perfiles load/stress/spike/soak, tasa fija, Mapas, consultas de Tramitación/Duplicados y alta/corrección controlada de una incidencia.
+- Configuración por entorno, fixtures explícitos, JWT provisionados, guardas de aislamiento/carga/escritura, checks y umbrales iniciales configurables; resultados y manifiestos privados ignorados.
+- Validación estricta de proyecciones públicas y objetos anidados, ETag SHA-256, configuración vacía y RUN_ID documentado de forma uniforme. Regresiones offline reproducibles con ejemplos versionados y dobles sin red; smoke exige cero fallos funcionales y conserva latencias sin threshold p95, mientras load/arrival mantienen sus criterios.
+- Guía PowerShell, dashboard/HTML opcionales y comprobación sintáctica sin tráfico. Scripts implementados y aún no ejecutados con k6 real; no hay mediciones k6 ni cambios de negocio, contrato, CI o infraestructura.
+
 ### Integración de Duplicados y Mapas (16–17/11/2026)
 
 - Merge real de main `b08ad608` sobre Mapas `50d7ed7`, con base histórica `27357ea1`; reconciliación de código, pruebas, contrato y documentación.

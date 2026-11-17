@@ -81,6 +81,12 @@ Los artefactos `docs/api/openapi.yaml` y `docs/api/openapi.html` son derivados y
 
 El informe de pruebas HTTP de Invitaciones utilizó `compose.test.yaml` y `backend/scripts/invitations_http_test.py` con PostgreSQL/Mailpit efímeros, **pero esos archivos no figuran en el repositorio**. No presentar ese flujo como reproducible sin restaurar y revisar el runner. Las suites Maven/Testcontainers configuradas en el proyecto se describen en [Desarrollo](docs/development.md); la política funcional y de seguridad, en [ADR-0007](docs/adr/0007-invitaciones-personal.md).
 
+## Mantenimiento de k6
+
+La [batería k6](k6/README.md) contiene scripts implementados y aún no ejecutados con k6 real; mantener ese estado separado de resultados reales posteriores. Al ampliar un escenario, contrastar ruta, método, roles, DTO, fixtures y errores con código, OpenAPI `implemented` y tests Java. Mantener nombres de métrica estables, evitar UUID/tokens en tags y aislar preparación, negativas y mutaciones. Actualizar matriz y guía de fixtures junto al script.
+
+Para cambios exclusivamente k6/documentación, ejecutar desde la raíz `./k6/check-syntax.ps1` (PowerShell 7 y Node), ejecutar `node --experimental-vm-modules --test k6/tests/offline.test.mjs`, revisar imports/rutas y `git diff --check`; el análisis sintáctico no evalúa módulos y las regresiones semánticas usan respuestas sintéticas y dobles sin red. Ninguno acredita el runtime real ni rendimiento. Las cargas solo se ejecutan con entorno y datos autorizados; stress no es obligatorio por contribución ni se integra en CI. No versionar resultados, manifiestos privados ni secretos. No regenerar OpenAPI/HTML si no cambia el contrato.
+
 ## CI, bases locales y migraciones
 
 El [workflow CI](.github/workflows/ci.yml) valida PR hacia main, push a main y ejecución manual: backend (Surefire y catorce suites PostgreSQL Testcontainers), frontend (npm ci, npm test, TypeScript, ESLint y exportación web), OpenAPI y Compose. No incluye `NeonConnectivityIT`, el perfil `neon-storage` ni el runner HTTP mutativo `frontend/scripts/integration.cjs`. No necesita secretos ni despliega; las ramas se comprueban por PR/manual para evitar duplicados.

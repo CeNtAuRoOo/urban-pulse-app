@@ -174,6 +174,8 @@ Se mantienen las tres fuentes y sus ocho páginas, IDs/conexiones/estilos y geom
 
 Quedan fuera de esta integración la UI de Evidencias/Tramitación/Mapas/Duplicados, capas urbanas, semántica textual, títulos aprobados, flujo completo de trabajo, despliegue productivo, SMTP externo, prueba real de almacenamiento Neon, carga concurrente/percentiles y rate limiting distribuido. Las mediciones sintéticas son evidencia de regresión, no una promesa universal de rendimiento.
 
+**Ampliación posterior (17/11/2026):** se incorpora una [batería de scripts Grafana k6](../k6/README.md) para los contratos implementados, con fixtures explícitos y carga/escritura protegidas. Los scripts están preparados, revisados estáticamente y comprobados con regresiones offline; **su ejecución con k6 real y medición continúan sin realizarse**. No modifica las cifras Java, planes SQL, fechas ni resultados de la integración descrita aquí; no añade infraestructura, contratos o resultados productivos.
+
 ## Inventario de operaciones
 
 | Tag | Método y ruta | Estado |

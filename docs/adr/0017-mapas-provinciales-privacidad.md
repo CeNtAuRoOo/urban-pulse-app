@@ -108,9 +108,9 @@ se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
 **Antecedente histórico de C `50d7ed7`, sustituido por V1 única:** tras integrar Tramitación de main (16/11/2026), la secuencia desde vacío es V1 → V2 → V5.
-V1 consolida Evidencias, V2__processing_phase_one.sql incorpora información adicional
+V1 consolida Evidencias, V2**processing_phase_one.sql incorpora información adicional
 y restricciones de revisión; V5 conserva íntegramente la geografía. No se restauran
-las antiguas V2__incidents.sql/V3 ni se crea V4. Se prueba V5 sobre V1/V2 con datos.
+las antiguas V2**incidents.sql/V3 ni se crea V4. Se prueba V5 sobre V1/V2 con datos.
 Para bases con V1/V5 ya aplicadas, Flyway rechaza V2 pendiente por defecto; véase
 el procedimiento excepcional de [ADR-0006](0006-flyway.md#v2-recibida-después-de-v5).
 No se cambia outOfOrder globalmente ni se accede a Neon.
@@ -150,10 +150,12 @@ Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funcio
 
 ## Alternativas consideradas y criterios de revisión
 
-| Alternativa | Decisión y atributo prioritario | Consecuencia / cuándo reconsiderar |
-|---|---|---|
-| PostgreSQL nativo frente a PostGIS | Mantener nativo: sencillez operativa en el ámbito provincial medido | Contorno de 12.339 vértices y coste de índices; reconsiderar PostGIS/subdivisión con medición de lecturas y escrituras |
-| Cálculo por consulta frente a caché persistente | Instantánea coherente y permisos actuales; materialización solo dentro de SQL | Recalcula entre peticiones; cachear exigiría invalidación, ámbito de autorización y pruebas de privacidad |
-| Cuadrícula pública fija frente a desplazamiento aleatorio | Estabilidad y ausencia de filtración por promediar consultas repetidas | Reduce precisión, no anonimiza; conserva el ajuste del centro de celda en costa/frontera |
+| Alternativa                                               | Decisión y atributo prioritario                                               | Consecuencia / cuándo reconsiderar                                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL nativo frente a PostGIS                        | Mantener nativo: sencillez operativa en el ámbito provincial medido           | Contorno de 12.339 vértices y coste de índices; reconsiderar PostGIS/subdivisión con medición de lecturas y escrituras |
+| Cálculo por consulta frente a caché persistente           | Instantánea coherente y permisos actuales; materialización solo dentro de SQL | Recalcula entre peticiones; cachear exigiría invalidación, ámbito de autorización y pruebas de privacidad              |
+| Cuadrícula pública fija frente a desplazamiento aleatorio | Estabilidad y ausencia de filtración por promediar consultas repetidas        | Reduce precisión, no anonimiza; conserva el ajuste del centro de celda en costa/frontera                               |
 
 Pendientes previos a producción: carga concurrente representativa, p95/p99, errores, coste de escritura/índices y cuotas distribuidas si hay varias instancias. No son resultados acreditados por pruebas sintéticas aisladas. La retirada de publicación y los títulos aprobados requieren decisiones y contratos propios; se mantiene VALIDATE histórico.
+
+**Validación preparada (17/11/2026):** la [batería k6](../../k6/README.md) dispone de scripts de lectura de Mapas con cuota delimitada y checks de privacidad. Están implementados y aún sin ejecutar con k6 real; las mediciones anteriores siguen pendientes. No cambia la decisión arquitectónica ni acredita capacidad concurrente.

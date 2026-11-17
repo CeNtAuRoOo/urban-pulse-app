@@ -144,37 +144,37 @@ VALIDATE no publica. No se ha creado columna `public_title` ni endpoint de aprob
 
 Rutas relativas a la raíz del repositorio:
 
-| Archivo/directorio                                                                                   | Cambio                                                                          |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/api/MapController.java`                            | Endpoint, parámetros, cuota, no-store                                           |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQuery.java`                             | Límites y zoom                                                                  |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQueryService.java`                      | Transacción, orquestación, DTO, límites                                         |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicy.java`                  | Permisos DB actuales                                                            |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapTitlePolicy.java`                       | Etiquetas y futura integración                                                  |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/repository/MapIncidentRepository.java`             | Consulta espacial y agregada                                                    |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapFeatureDTO.java`                            | Variantes individuales/grupos                                                   |
-| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapIncidentsDTO.java`                          | Colección y totales                                                             |
-| `backend/src/main/resources/maps/malaga-ign.geojson`, `maps/README.md`                               | Contorno oficial y procedencia                                                  |
-| `backend/src/main/resources/db/migration/V1__initial_schema.sql`                                     | Esquema consolidado con funciones constantes e índices                                         |
-| `backend/scripts/generate-map-boundary.mjs`, `maps-functions.sql.template`                           | Generación reproducible offline                                                 |
-| `backend/scripts/validate-map-contract.cjs`                                                          | Validación de respuestas capturadas contra OpenAPI y rechazo de campos privados |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryTest.java`                         | Parámetros y cuadrículas                                                        |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicyTest.java`              | Autorización                                                                    |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryServiceTest.java`                  | Proyección, límites y errores                                                   |
-| `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPostgresIT.java`                    | PostgreSQL y HTTP real de Spring Security/MVC                                   |
+| Archivo/directorio                                                                                   | Cambio                                                                           |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/api/MapController.java`                            | Endpoint, parámetros, cuota, no-store                                            |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQuery.java`                             | Límites y zoom                                                                   |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapQueryService.java`                      | Transacción, orquestación, DTO, límites                                          |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicy.java`                  | Permisos DB actuales                                                             |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/service/MapTitlePolicy.java`                       | Etiquetas y futura integración                                                   |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/repository/MapIncidentRepository.java`             | Consulta espacial y agregada                                                     |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapFeatureDTO.java`                            | Variantes individuales/grupos                                                    |
+| `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapIncidentsDTO.java`                          | Colección y totales                                                              |
+| `backend/src/main/resources/maps/malaga-ign.geojson`, `maps/README.md`                               | Contorno oficial y procedencia                                                   |
+| `backend/src/main/resources/db/migration/V1__initial_schema.sql`                                     | Esquema consolidado con funciones constantes e índices                           |
+| `backend/scripts/generate-map-boundary.mjs`, `maps-functions.sql.template`                           | Generación reproducible offline                                                  |
+| `backend/scripts/validate-map-contract.cjs`                                                          | Validación de respuestas capturadas contra OpenAPI y rechazo de campos privados  |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryTest.java`                         | Parámetros y cuadrículas                                                         |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapVisibilityPolicyTest.java`              | Autorización                                                                     |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryServiceTest.java`                  | Proyección, límites y errores                                                    |
+| `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPostgresIT.java`                    | PostgreSQL y HTTP real de Spring Security/MVC                                    |
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPerformancePostgresIT.java`         | Regresión costera y comparación de planes con 1.000, 10.000 y 50.000 incidencias |
-| `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                               | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
-| `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                      |
-| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar la única V1 consolidada                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar la única V1 consolidada                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar la única V1 consolidada                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar la única V1 consolidada                               |
-| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Verificar esquema final consolidado, índices e invariantes         |
-| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.8.0                                                          |
-| `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                |
-| `docs/api/examples/maps-incident.json`, `maps-cluster.json`                                          | Respuestas capturadas con datos sintéticos                                      |
-| `docs/adr/0017-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                               |
-| `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md`          | Integración y verificación                                                      |
+| `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                                | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
+| `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                       |
+| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar la única V1 consolidada                                                |
+| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar la única V1 consolidada                                                |
+| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar la única V1 consolidada                                                |
+| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar la única V1 consolidada                                                |
+| `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Verificar esquema final consolidado, índices e invariantes                       |
+| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.8.0                                                           |
+| `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                 |
+| `docs/api/examples/maps-incident.json`, `maps-cluster.json`                                          | Respuestas capturadas con datos sintéticos                                       |
+| `docs/adr/0017-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                                |
+| `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md`          | Integración y verificación                                                       |
 
 ## Verificación reproducible
 
@@ -238,22 +238,22 @@ y servidor PostgreSQL 18.6 de Testcontainers. Medianas de tres ejecuciones de
 EXPLAIN por variante, con caché calentada por la comprobación previa de igualdad
 de filas. Son tiempos SQL, no latencias HTTP ni resultados de carga concurrente.
 
-| Datos / consulta | Antes (ms) | Después (ms) |
-| --- | ---: | ---: |
-| 1.000 en una celda costera, provincia | 4.728,402 | 9,460 |
-| 1.000 costeras, estado y categoría | 1.732,169 | 8,102 |
-| 1.000 mixtas, provincia | 21,870 | 29,988 |
-| 1.000 mixtas, ciudad | 12,578 | 17,249 |
-| 1.000 mixtas, estado y categoría | 1,773 | 2,315 |
-| 1.000 mixtas, zoom 18 | 5,431 | 4,166 |
-| 10.000 mixtas, provincia | 190,006 | 305,367 |
-| 10.000 mixtas, ciudad | 124,478 | 132,886 |
-| 10.000 mixtas, estado y categoría | 15,700 | 7,822 |
-| 10.000 mixtas, zoom 18 | 112,766 | 69,039 |
-| 50.000 mixtas, provincia | 946,278 | 139,488 |
-| 50.000 mixtas, ciudad | 618,497 | 87,060 |
-| 50.000 mixtas, estado y categoría | 86,938 | 31,270 |
-| 50.000 mixtas, zoom 18 | 171,555 | 29,140 |
+| Datos / consulta                      | Antes (ms) | Después (ms) |
+| ------------------------------------- | ---------: | -----------: |
+| 1.000 en una celda costera, provincia |  4.728,402 |        9,460 |
+| 1.000 costeras, estado y categoría    |  1.732,169 |        8,102 |
+| 1.000 mixtas, provincia               |     21,870 |       29,988 |
+| 1.000 mixtas, ciudad                  |     12,578 |       17,249 |
+| 1.000 mixtas, estado y categoría      |      1,773 |        2,315 |
+| 1.000 mixtas, zoom 18                 |      5,431 |        4,166 |
+| 10.000 mixtas, provincia              |    190,006 |      305,367 |
+| 10.000 mixtas, ciudad                 |    124,478 |      132,886 |
+| 10.000 mixtas, estado y categoría     |     15,700 |        7,822 |
+| 10.000 mixtas, zoom 18                |    112,766 |       69,039 |
+| 50.000 mixtas, provincia              |    946,278 |      139,488 |
+| 50.000 mixtas, ciudad                 |    618,497 |       87,060 |
+| 50.000 mixtas, estado y categoría     |     86,938 |       31,270 |
+| 50.000 mixtas, zoom 18                |    171,555 |       29,140 |
 
 La celda costera mejora aproximadamente **500 veces**; las tres medidas anteriores
 fueron 5.350,517 / 4.728,402 / 4.713,056 ms y las nuevas 9,460 / 11,112 / 8,320 ms.
@@ -325,7 +325,7 @@ y 164 PostgreSQL, sin fallos, errores ni omisiones. Mapas conserva sus 12 unitar
 Tramitación. Las 19 IT de Evidencias y las 21 de Tramitación/migraciones pasan juntas.
 La prueba de V2 tardía verifica rechazo por defecto y un ensayo explícito en una
 base desechable, sin cambiar configuración global ni checksums. Los logs, planes
- y respuestas están en `backend/target/maps-processing-merge-verification`.
+y respuestas están en `backend/target/maps-processing-merge-verification`.
 Las mediciones se ejecutaron junto con comprobaciones frontend; sirven de regresión,
 no de comparación controlada con los tiempos de P1 anteriores. El timeout sigue en 5 s.
 
@@ -343,5 +343,7 @@ no repair ni outOfOrder para ocultar diferencias. Las estimaciones de cardinalid
 (P2) quedan fuera de esta integración.
 
 ## Integración actual (16/11/2026)
+
+**Ampliación de validación (17/11/2026):** la [batería k6](../k6/README.md) incorpora smoke y un escenario de lectura de Mapas con un único VU, viewport validado y pausa de cinco segundos por defecto. Comprueba variantes, privacidad mediante listas de claves permitidas también en category/coordinates, conteos y presencia opcional de un ID real; no convierte 422/429/503 en éxito ni navega al detalle privado de marcadores ajenos. Los dos ejemplos versionados de Mapas y sus mutaciones sintéticas se verifican offline. Los scripts están implementados y **aún no ejecutados con k6 real**: la medición HTTP concurrente y sus percentiles siguen sin datos, independientemente de los tiempos SQL sintéticos históricos de esta guía.
 
 La geografía antes entregada en V5 está integrada sin cambios matemáticos en la región marcada de V1. Las mediciones y secuencias anteriores de esta guía son históricas. No hay V2/V3/V5 ejecutables. La huella exige bytes LF originales; .gitattributes evita conversiones CRLF del GeoJSON. SVG pendientes de exportación manual.

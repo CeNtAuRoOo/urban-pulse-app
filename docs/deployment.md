@@ -10,16 +10,22 @@ UrbanPulse contempla un frontend web exportable como SPA, clientes Android/iOS E
 - **Pruebas aisladas**: el perfil Maven `postgres-it` usa Testcontainers PostgreSQL 18. El informe histórico de HTTP usó JAR + PostgreSQL `tmpfs` + Mailpit; su configuración Compose no está versionada en el repositorio.
 - **Producción futura**: imagen frontend exportada/servida por Nginx, imagen backend independiente, Neon PostgreSQL y Neon Object Storage de producción, SMTP confiable, HTTPS, gestión segura de secretos y automatización CD. No se describe como una infraestructura ya operativa.
 
+### Verificación de rendimiento previa al despliegue
+
+La [batería Grafana k6](../k6/README.md) permite preparar ensayos sobre una API y una base **de pruebas aisladas y autorizadas** antes de desplegar: smoke, lectura representativa, tasa fija y perfiles pesados opt-in. Sus scripts están implementados; **no se han ejecutado con k6 real ni acreditan un despliegue nuevo o carga productiva**. Las hipótesis de p95/errores se revisarán con una línea base real, dataset y hardware registrados.
+
+El destino predeterminado es loopback; cualquier origen remoto exige HTTPS y una confirmación exacta adicional, exclusivamente para pruebas. Comprobar el JDBC detrás de la API: una URL local no impide que el servidor apunte a una base remota. La batería no accede a evidencias S3 ni envía correos; no habilita observabilidad productiva ni instala Actuator, Micrometer, Prometheus o Grafana Server. El dashboard integrado y los informes locales de k6 son opcionales al ejecutar en el futuro.
+
 ## 2. Componentes y responsabilidades
 
-| Componente        | Implementado/configurado                                                                                                                                      | Pendiente de validar o entregar                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Frontend Expo Web | Panel web conectado a auth, usuarios, invitaciones, catálogos e incidencias; exportación SPA                                                                  | Imagen multietapa Nginx desplegada y validación productiva                  |
-| Android/iOS       | Base de código compartida Expo/React Native                                                                                                                   | Ejecución funcional completa y distribución en dispositivos                 |
+| Componente        | Implementado/configurado                                                                                                                                                                          | Pendiente de validar o entregar                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Frontend Expo Web | Panel web conectado a auth, usuarios, invitaciones, catálogos e incidencias; exportación SPA                                                                                                      | Imagen multietapa Nginx desplegada y validación productiva                  |
+| Android/iOS       | Base de código compartida Expo/React Native                                                                                                                                                       | Ejecución funcional completa y distribución en dispositivos                 |
 | API Spring Boot   | Java 25/Spring Boot 4.1.2, módulos `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `audit`, `shared`; puerto 8080 | Despliegue externo, TLS/proxy, observabilidad y endurecimiento de imagen    |
-| PostgreSQL        | PostgreSQL 18 local persistente y esquema inicial consolidado V1 con 16 tablas; JDBC Neon comprobado históricamente                                                                    | Aplicación controlada de las migraciones en producción y gestión de backups |
-| Object Storage    | Cliente S3 privado, cinco rutas de evidencias JPEG/PNG y baja lógica                                                                                          | Retención, purgado físico y reconciliación de huérfanos                     |
-| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                                                         | Proveedor SMTP real, entregabilidad y recuperación/reintentos               |
+| PostgreSQL        | PostgreSQL 18 local persistente y esquema inicial consolidado V1 con 16 tablas; JDBC Neon comprobado históricamente                                                                               | Aplicación controlada de las migraciones en producción y gestión de backups |
+| Object Storage    | Cliente S3 privado, cinco rutas de evidencias JPEG/PNG y baja lógica                                                                                                                              | Retención, purgado físico y reconciliación de huérfanos                     |
+| SMTP              | `EmailSender` y eventos `AFTER_COMMIT`; Mailpit local                                                                                                                                             | Proveedor SMTP real, entregabilidad y recuperación/reintentos               |
 
 ## 3. Diagramas arquitectónicos
 

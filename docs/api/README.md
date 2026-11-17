@@ -4,6 +4,8 @@
 
 ## 1. Fuente de verdad y artefactos derivados
 
+La [batería k6](../../k6/README.md) ejercita un subconjunto de operaciones `implemented` con `/api/v1`, autorización vigente y fixtures explícitos. Los scripts están implementados y aún sin ejecutar con k6 real; no añaden endpoints ni modifican el contrato o sus artefactos generados. Su matriz enlaza las rutas reales y separa métricas de rendimiento de las regresiones funcionales Java. Los validadores k6 tienen regresiones offline de propiedades anidadas, privacidad pública, null/omisiones y ETag SHA-256; no modifican OpenAPI ni acreditan respuestas reales de la API.
+
 | Ruta                                                                     | Función                                                                                                                                                   | Edición                        |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml)                 | Entrada principal de la especificación modular, metadatos, servidores y tags                                                                              | **Fuente editable**            |
@@ -262,11 +264,11 @@ El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aisl
 
 El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. El resultado contiene 57 rutas y 77 operaciones (47 implementadas/30 futuras).
 
-| Método | Ruta | Autorización | Resultado |
-|---|---|---|---|
-| GET | `/incidents/{incidentId}/duplicate-candidates` | OPERATOR/ADMIN global, activo y verificado | 200, hasta veinte mejores sugerencias |
-| POST | `/incidents/{incidentId}/duplicate-links` | OPERATOR/ADMIN global, activo y verificado | 201 DuplicateLinkDTO, sin Location |
-| GET | `/map/incidents` | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO |
+| Método | Ruta                                           | Autorización                                            | Resultado                             |
+| ------ | ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------- |
+| GET    | `/incidents/{incidentId}/duplicate-candidates` | OPERATOR/ADMIN global, activo y verificado              | 200, hasta veinte mejores sugerencias |
+| POST   | `/incidents/{incidentId}/duplicate-links`      | OPERATOR/ADMIN global, activo y verificado              | 201 DuplicateLinkDTO, sin Location    |
+| GET    | `/map/incidents`                               | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO                   |
 
 Duplicados aplica ±72 h inclusivas, Haversine ≤250 m y categoría opcional, excluye pares ya vinculados y corta después del ranking. Desempate UUID ascendente sin signo, sin análisis semántico. Timeout SQL 5 s: 503 DUPLICATE_QUERY_TIMEOUT sin resultado parcial. Confirmación manual, única y simétrica, sin autoenlaces; 409 en reintento/carrera, 404 si falta incidencia, 422 en autoenlace/validación. Motivo opcional/null, trim Java y hasta 2000 puntos Unicode; vacío se persiste null, NUL/sustitutos aislados se rechazan. Vínculo y auditoría atómicos, sin modificar originales. No hay desvinculación, fusión ni prevención general de ciclos. Cache-Control no-store.
 
