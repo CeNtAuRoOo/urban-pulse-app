@@ -57,7 +57,8 @@ public class DuplicateLink {
         Objects.requireNonNull(first);
         Objects.requireNonNull(second);
         if (first.getId().equals(second.getId())) throw new IllegalArgumentException("An incident cannot duplicate itself");
-        if (first.getId().compareTo(second.getId()) < 0) {
+        // PostgreSQL ordena UUID por bytes sin signo; UUID.compareTo usa longs con signo.
+        if (first.getId().toString().compareTo(second.getId().toString()) < 0) {
             this.incident = first;
             this.candidateIncident = second;
         } else {

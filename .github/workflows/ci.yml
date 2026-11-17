@@ -38,6 +38,15 @@ jobs:
           docker info
       - name: Unit, MVC and PostgreSQL integration tests
         run: mvn -B -ntp clean verify -Ppostgres-it
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Validate real map HTTP responses against OpenAPI
+        working-directory: .
+        run: npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-contract.cjs"
+      - name: Javadoc
+        run: mvn -B -ntp javadoc:javadoc -Ddoclint=all
 
   frontend:
     name: Frontend
@@ -77,8 +86,19 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Lint modular OpenAPI without regenerating artifacts
-        run: npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+      - name: Check generated geography in V1
+        run: node backend/scripts/generate-map-boundary.mjs --check
+      - name: Verify geography generator isolation and markers
+        run: node --test backend/scripts/generate-map-boundary.test.mjs
+      - name: Lint and reproduce OpenAPI artifacts
+        run: |
+          npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
+          npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
+          npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
+          npx --yes @redocly/cli@2.16.0 lint docs/api/openapi.yaml
+          git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html
+          npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-openapi.cjs"
+          npx --yes --package=@redocly/cli@2.16.0 -c "node --test backend/scripts/validate-openapi.test.cjs"
       - name: Validate development Compose configuration
         run: |
           cp backend/.env.example backend/.env.development

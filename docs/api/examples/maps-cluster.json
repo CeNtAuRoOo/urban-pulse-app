@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "type": "CLUSTER",
+      "clusterId": "g1:8:0:-1",
+      "coordinates": {
+        "latitude": 36.721671408542676,
+        "longitude": -4.4208714084871055
+      },
+      "incidentCount": 2
+    }
+  ],
+  "count": 1,
+  "totalIncidents": 2
+}

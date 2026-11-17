@@ -1,25 +1,26 @@
 # UrbanPulse
 
-**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones, la administración de departamentos y categorías, y la detección y gestión de duplicados de incidencias ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección, historial y la vinculación de duplicados y Evidencias cinco rutas privadas JPEG/PNG; la tramitación operativa y las integraciones siguen en diseño.
+**UrbanPulse** es una plataforma cloud en desarrollo para gestionar incidencias urbanas: registro de avisos con ubicación y fotografías, validación, prioridad, asignación municipal y enriquecimiento posterior con contexto de la ciudad. El proyecto sigue un enfoque incremental de **diseño dominio–OpenAPI y desarrollo por tags**, documentando decisiones mediante ADR. El núcleo de identidad, los perfiles y administración de usuarios, las invitaciones y la administración de departamentos y categorías ya tienen implementación backend; Incidencias incorpora seis operaciones de registro, consulta, corrección e historial y Evidencias cinco rutas privadas JPEG/PNG; Mapas consulta la provincia con privacidad y agrupaciones; revisión, información adicional y prioridad manual están implementadas; derivación e integraciones siguen en diseño.
 
-## Estado del proyecto (15/11/2026)
+## Estado del proyecto (16/11/2026)
 
-| Área                  | Estado |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Frontend web          | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos, incidencias y vinculación de duplicados; UI de evidencias y validación móvil pendientes. |
-| Frontend Android/iOS  | Código compartido; prueba funcional completa en dispositivo pendiente. |
-| Backend               | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `duplicates`, `processing`, `attachment`, `audit` y `shared`. |
-| Autenticación         | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados. |
-| Usuarios              | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador. |
-| Invitaciones          | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal. |
-| Departamentos         | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado. |
-| Categorías            | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado. |
-| PostgreSQL            | V1 conservada, V2 aditiva y V3 para la persistencia de relaciones entre incidencias duplicadas mediante `duplicate_links`; 15 tablas de dominio. Evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita la aplicación de V1+V2+V3 consolidada en Neon**. |
-| Object Storage        | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; fotografías privadas JPEG/PNG implementadas con cinco rutas, 10 MiB y máximo cinco activas por incidencia. |
-| Incidencias           | Seis endpoints backend con auditoría, titularidad y concurrencia optimista. Detección y vinculación/desvinculación manual de duplicados implementadas, con prevención de ciclos y simetría. Tramitación fase 1 operativa mediante `processing`; el resto de la tramitación, equipos y analítica siguen en diseño. |
-| CI / despliegue       | GitHub Actions verifica backend, frontend, OpenAPI y Compose. CD y despliegue productivo pendientes. |
+| Área                 | Estado                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend web         | Panel Expo SDK 57 conectado: autenticación, perfil, usuarios, invitaciones, catálogos e incidencias; UI de evidencias y validación móvil pendientes.                                                           |
+| Frontend Android/iOS | Código compartido; prueba funcional completa en dispositivo pendiente.                                                                                                                                         |
+| Backend              | Java 25/Spring Boot 4.1.2; **monolito modular** con `auth`, `identity`, `invitations`, `organization`, `categories`, `incidents`, `processing`, `attachment`, `maps`, `duplicates`, `audit` y `shared`.                              |
+| Autenticación        | Registro, login, cambio de contraseña, confirmación y reenvío de verificación de correo implementados.                                                                                                         |
+| Usuarios             | Perfil propio y administración ADMIN, listado paginado y pertenencias activas/históricas; protección del último administrador.                                                                                 |
+| Invitaciones         | Emisión/listado/consulta/revocación por ADMIN y canje por usuario verificado implementados; sin registro especial para personal.                                                                               |
+| Departamentos        | Listado/detalle, creación y PATCH; escritura por ADMIN verificado y desactivación sin borrado.                                                                                                                 |
+| Categorías           | Listado/detalle, alta y PATCH; nombre Unicode único, desactivación/reactivación sin borrado.                                                                                                                   |
+| PostgreSQL           | V1 inicial consolidada con 16 tablas de dominio y funciones/índices geográficos; evidencia aislada en la guía de desarrollo. Conectividad Neon `development` comprobada previamente; **no se acredita aplicación de V1 consolidada en Neon**. |
+| Object Storage       | Conectividad S3/`HeadBucket` de Neon verificada anteriormente; fotografías privadas JPEG/PNG implementadas con cinco rutas, 10 MiB y máximo cinco activas por incidencia.                                      |
+| Incidencias          | Seis endpoints backend con auditoría, titularidad y concurrencia optimista; Tramitación fase 1 operativa; equipos y analítica siguen en diseño.                                                                |
+| CI / despliegue      | GitHub Actions verifica backend, frontend, OpenAPI y Compose. CD y despliegue productivo pendientes.                                                                                                           |
+| Mapas                | Consulta provincial con permisos vigentes, ubicaciones públicas aproximadas, filtros y clústeres por zoom; visor pendiente. |
 
-Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas regeneradas manualmente por el usuario; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
+Los [diagramas C4, ER y clases](docs/diagrams/README.md) incluyen los módulos implementados y el diseño futuro identificado como tal. El inventario distingue las fuentes de dominio y las exportaciones gráficas históricas, pendientes de regeneración manual tras esta integración; el [roadmap de Incidencias](docs/incidents-implementation-roadmap.md) recoge su alcance implementado y futuro.
 
 ## Tecnologías
 
@@ -87,7 +88,9 @@ Categorías ofrece las mismas cuatro operaciones en `/categories`, con `Category
 
 Incidencias implementa `POST/GET /incidents`, `GET /incidents/mine`, `GET/PATCH /incidents/{incidentId}` y `GET /incidents/{incidentId}/history`. PATCH exige If-Match y solo admite correcciones en REPORTED; detalle e historial son privados al titular o personal global autorizado. [Contrato y evolución](docs/incidents-implementation-roadmap.md).
 
-Los demás recursos del contrato son **diseño**, no endpoints ejecutables.
+Evidencias implementa cinco operaciones privadas de fotografía; Tramitación diez de revisión, información adicional y prioridad manual; Mapas `GET /map/incidents`; Duplicados `GET /incidents/{incidentId}/duplicate-candidates` y `POST /incidents/{incidentId}/duplicate-links`.
+
+El contrato combinado contiene **57 rutas, 77 operaciones: 47 implementadas y 30 futuras**. Duplicados ofrece las veinte mejores sugerencias heurísticas de ±72 h y 250 m, confirmación humana y auditoría; no fusión, desvinculación ni prevención de ciclos arbitrarios. RF08 y RF16 son parciales: faltan visor/capas y semántica textual. Las UI de Mapas, Duplicados, Evidencias y Tramitación siguen pendientes. [Matriz verificable por módulo](docs/integration-reconciliation.md).
 
 ## Pruebas y validación
 
@@ -111,7 +114,7 @@ Comando del job backend desde `backend/`, con Java 25/Maven/Docker; la [guía](d
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Las suites cubren Autenticación, correo, Invitaciones, Usuarios, pertenencias, Departamentos, Categorías, Incidencias y Evidencias sobre PostgreSQL 18 efímero. [Desarrollo](docs/development.md#verificación-del-backend) documenta los resultados, comandos y límites. Las pruebas aisladas no acreditan un despliegue en Neon.
+Las 14 suites PostgreSQL cubren Autenticación, correo, Invitaciones, Usuarios, pertenencias, Departamentos, Categorías, Incidencias, Evidencias, Tramitación, Mapas y Duplicados sobre PostgreSQL 18 efímero. El [informe de integración](docs/integration-reconciliation.md#validación-de-esta-integración) documenta los resultados actuales, comandos y límites. Las pruebas aisladas no acreditan un despliegue en Neon.
 
 ## Configuración, despliegue y límites
 

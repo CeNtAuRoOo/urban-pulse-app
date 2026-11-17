@@ -1,0 +1,6 @@
+backend/src/main/resources/maps/malaga-ign.geojson -text
+backend/scripts/maps-functions.sql.template text eol=lf
+backend/src/main/resources/db/migration/*.sql text eol=lf
+docs/api/openapi.yaml text eol=lf
+docs/api/openapi.html text eol=lf
+docs/api/redoc-template.hbs text eol=lf

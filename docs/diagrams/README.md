@@ -1,28 +1,31 @@
 # Diagramas de UrbanPulse
 
-Las fuentes editables describen V1 + V2: Incidencias, Evidencias y Tramitación fase 1, distinguiendo ejecución y asignaciones futuras. La exportación documentada del 04/11/2026 se realizó con draw.io Desktop 32.6.1. La revisión correctiva del 05/11 valida fuentes y no genera ni modifica SVG.
+> **Integración 16/11/2026:** fuentes `.drawio` actualizadas para V1 única (16 tablas), Mapas y Duplicados. **Los ocho SVG siguientes son exportaciones históricas sin modificar; pendientes de regeneración manual y revisión visual por el responsable.** La validación XML no acredita su actualización visual.
 
-Los diagramas representan **el dominio lógico global**, cuya evolución se valida por tag. El esquema implementado comprende V1 conservada y V2 aditiva con 15 tablas; las demás entidades, asociaciones y servicios que aparecen en el modelo siguen siendo **diseño** hasta que tengan migraciones, código y pruebas.
+
+Las fuentes editables describen V1 consolidada: Incidencias, Evidencias y Tramitación fase 1, distinguiendo ejecución y asignaciones futuras. La exportación documentada del 04/11/2026 se realizó con draw.io Desktop 32.6.1. La revisión correctiva del 05/11 valida fuentes y no genera ni modifica SVG.
+
+Los diagramas representan **el dominio lógico global**, cuya evolución se valida por tag. El esquema implementado comprende V1 consolidada con 16 tablas; las demás entidades, asociaciones y servicios que aparecen en el modelo siguen siendo **diseño** hasta que tengan migraciones, código y pruebas.
 
 ## Variante de desarrollo local
 
-Los C4 de contexto y contenedores representan la arquitectura lógica y Neon PostgreSQL como proveedor del despliegue productivo. En desarrollo la aplicación usa exclusivamente Compose: backend `postgres:5432`, correo `mailpit:1025` y Neon Object Storage de desarrollo. Los accesos del navegador son backend `localhost:8080`, frontend `localhost:8888` y Mailpit `localhost:9999` (interno 8025). Cada integrante tiene su volumen SQL local, conservado al cambiar de rama. [ADR-0016](../adr/0016-ci-postgresql-local.md) y [Desarrollo](../development.md) definen esta variante, sin cambiar entidades ni relaciones ER ni acreditar producción. Los diagramas no fijan estos puertos; se conservan sus fuentes y exportaciones.
+Los C4 de contexto y contenedores representan la arquitectura lógica y Neon PostgreSQL como proveedor del despliegue productivo. En desarrollo la aplicación usa exclusivamente Compose: backend `postgres:5432`, correo `mailpit:1025` y Neon Object Storage de desarrollo. Los accesos del navegador son backend `localhost:8080`, frontend `localhost:8888` y Mailpit `localhost:9999` (interno 8025). Cada integrante tiene su volumen SQL local, conservado al cambiar de rama. [ADR-0016](../adr/0016-ci-postgresql-local.md) y [Desarrollo](../development.md) definen esta variante, sin cambiar entidades ni relaciones ER ni acreditar producción. Los diagramas no fijan estos puertos; las exportaciones deben regenerarse tras esta integración.
 
 ## Inventario verificable
 
 | Fuente editable                                            | Exportación                                                                   | Contenido                                                                                                                                                                                                                                 |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`c4.drawio`](c4.drawio)                                   | [`c4-context.svg`](c4-context.svg) y [`c4-containers.svg`](c4-containers.svg) | C4 de contexto y de contenedores; contenedor API, almacenamiento y correo SMTP/Mailpit; alcance inicial de evidencias: fotografías.                                                                                                       |
-| [`relacional.drawio`](relacional.drawio), **página 1**     | [`relacional-01.svg`](relacional-01.svg)                                      | Category en V1; Incident, Attachment y StatusChange base en V1; territorio y duplicados futuros.                                                                                                                                          |
-| [`relacional.drawio`](relacional.drawio), **página 2**     | [`relacional-02.svg`](relacional-02.svg)                                      | AuditEvent V1; IncidentReview/PriorityDecision operativas; Assignment y ejecución futuras; ampliación V2 detallada en ER05.                                                                                                               |
+| [`relacional.drawio`](relacional.drawio), **página 1**     | [`relacional-01.svg`](relacional-01.svg)                                      | Category en V1; Incident, Attachment y StatusChange base en V1; DuplicateLink implementado, territorio futuro.                                                                                                                                          |
+| [`relacional.drawio`](relacional.drawio), **página 2**     | [`relacional-02.svg`](relacional-02.svg)                                      | AuditEvent V1; IncidentReview/PriorityDecision operativas; Assignment y ejecución futuras; respuestas detalladas en ER05.                                                                                                               |
 | [`relacional.drawio`](relacional.drawio), **página 3**     | [`relacional-03.svg`](relacional-03.svg)                                      | Identidad/organización: `User`, roles, `EmailVerification`, `StaffInvitation`, `Department` y `DepartmentMembership`; V1 consolidada en SQL.                                                                                              |
 | [`relacional.drawio`](relacional.drawio), **página 4**     | [`relacional-04.svg`](relacional-04.svg)                                      | Territorio/contexto provisional; la nota distingue coordenadas V1 de geocodificación futura.                                                                                                                                              |
-| [`relacional.drawio`](relacional.drawio), **página 5**     | [`relacional-05.svg`](relacional-05.svg)                                      | Tramitación V2: respuestas de información, unicidad y FK compuesta hacia la solicitud.                                                                                                                                                    |
+| [`relacional.drawio`](relacional.drawio), **página 5**     | [`relacional-05.svg`](relacional-05.svg)                                      | Tramitación fase 1 en V1: respuestas de información, unicidad y FK compuesta hacia la solicitud.                                                                                                                                                    |
 | [`clases-simplificado.drawio`](clases-simplificado.drawio) | [`clases-simplificado.svg`](clases-simplificado.svg)                          | Catálogo Java simplificado de entidades, DTO, enums y embebidos; estado de invitación derivado y atributos V1, núcleo de Incidencias y Evidencias, nueve estados y campos futuros de Location. Sin conectores UML por elección de diseño. |
 
 El conjunto de exportaciones es **SVG, no PNG**. Los once archivos enumerados (tres `.drawio` y ocho `.svg`) existen en el árbol local; no se necesitan rutas alternativas ni instrucciones de cambiar extensiones. El C4 contiene ambas vistas en una fuente editable; el relacional, cinco páginas. ER05 dispone de `relacional-05.svg`, incluido en el inventario y en la vista previa.
 
-## Vistas previas actuales
+## Vistas previas de exportaciones históricas
 
 El usuario regeneró manualmente las exportaciones después de la implementación de Tramitación. Esta revisión confirma ocho SVG presentes y XML legible, incluido ER05; no acredita una nueva comprobación visual de correspondencia, recortes o solapamientos.
 
@@ -48,9 +51,9 @@ El usuario regeneró manualmente las exportaciones después de la implementació
 
 ![Territorio y contexto](relacional-04.svg)
 
-### Relacional — página 5: Tramitación V2
+### Relacional — página 5: Tramitación fase 1 en V1
 
-![Respuestas de información y restricciones V2](relacional-05.svg)
+![Respuestas de información y restricciones de V1](relacional-05.svg)
 
 ### Clases simplificadas
 

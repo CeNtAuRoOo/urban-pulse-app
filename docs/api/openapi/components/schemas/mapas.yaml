@@ -1,36 +1,109 @@
 MapFeatureDTO:
+  description: Variantes disjuntas de marcador individual y agrupación.
+  oneOf:
+  - $ref: '#/MapIncidentFeatureDTO'
+  - $ref: '#/MapClusterFeatureDTO'
+  discriminator:
+    propertyName: type
+    mapping:
+      INCIDENT: '#/MapIncidentFeatureDTO'
+      CLUSTER: '#/MapClusterFeatureDTO'
+
+MapCoordinatesDTO:
   type: object
+  additionalProperties: false
+  required: [latitude, longitude]
   properties:
+    latitude:
+      type: number
+      format: double
+      minimum: -90
+      maximum: 90
+    longitude:
+      type: number
+      format: double
+      minimum: -180
+      maximum: 180
+
+MapIncidentFeatureDTO:
+  type: object
+  additionalProperties: false
+  required: [type, incidentId, title, status, createdAt, coordinates, coordinatePrecision, canAccessPrivateDetail]
+  properties:
+    type:
+      type: string
+      enum: [INCIDENT]
     incidentId:
       type: string
       format: uuid
     title:
       type: string
+      description: Etiqueta segura «Incidencia UUID». No publica Incident.title; pendiente integrar título aprobado de Tramitación.
+    category:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      description: Omitida si no existe; admite categorías históricas inactivas.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
     status:
-      $ref: "./incidencias.yaml#/IncidentStatus"
+      $ref: './incidencias.yaml#/IncidentStatus'
     priority:
-      $ref: "./incidencias.yaml#/IncidentPriority"
-    coordinates:
-      $ref: "./comunes.yaml#/CoordinatesDTO"
-    categoryId:
+      $ref: './incidencias.yaml#/IncidentPriority'
+    createdAt:
       type: string
-      format: uuid
-  required:
-  - incidentId
-  - title
-  - status
-  - coordinates
+      format: date-time
+    coordinates:
+      $ref: '#/MapCoordinatesDTO'
+    coordinatePrecision:
+      type: string
+      enum: [EXACT, APPROXIMATE]
+      description: EXACT solo para autor y OPERATOR/ADMIN global; APPROXIMATE usa una cuadrícula métrica fija de unos 100 m.
+    canAccessPrivateDetail:
+      type: boolean
+      description: Autor o rol global OPERATOR/ADMIN vigente. No concede acceso nuevo al endpoint privado.
+
+MapClusterFeatureDTO:
+  type: object
+  additionalProperties: false
+  required: [type, clusterId, coordinates, incidentCount]
+  properties:
+    type:
+      type: string
+      enum: [CLUSTER]
+    clusterId:
+      type: string
+      description: Identificador determinista g1:zoom:columna:fila, referido a la cuadrícula y versión.
+      example: 'g1:8:0:-1'
+    coordinates:
+      $ref: '#/MapCoordinatesDTO'
+    incidentCount:
+      type: integer
+      format: int64
+      minimum: 2
+      description: Incidencias autorizadas de esta celda dentro del viewport y filtros; nunca número de grupos.
 
 MapIncidentsDTO:
   type: object
+  additionalProperties: false
+  required: [items, count, totalIncidents]
   properties:
     items:
       type: array
+      maxItems: 1000
       items:
-        $ref: "./mapas.yaml#/MapFeatureDTO"
+        $ref: '#/MapFeatureDTO'
     count:
       type: integer
       minimum: 0
-  required:
-  - items
-  - count
+      maximum: 1000
+      description: Número de elementos gráficos, igual a items.length.
+    totalIncidents:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Suma de incidentCount de los grupos y 1 por marcador individual. Sin truncamiento ni paginación.

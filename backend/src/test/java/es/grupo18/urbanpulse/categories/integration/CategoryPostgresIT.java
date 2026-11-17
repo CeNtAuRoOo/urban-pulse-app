@@ -91,7 +91,7 @@ class CategoryPostgresIT {
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "2", "3");
+                .containsExactly("1");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);

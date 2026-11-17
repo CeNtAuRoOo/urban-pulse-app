@@ -131,7 +131,7 @@ public class Incident {
 
     /**
      * Aplica una transición autorizada por Tramitación sin alterar el reporte.
-     * 
+     *
      * @param target            destino de esta fase
      * @param confirmedCategory categoría activa obligatoria al validar
      * @param now               instante de la operación
@@ -160,7 +160,7 @@ public class Incident {
     /**
      * Cambia el nivel antes de derivar; la decisión histórica la guarda
      * Tramitación.
-     * 
+     *
      * @param next nivel obligatorio distinto del vigente
      * @param now  instante de decisión
      * @throws ApiException estado no válido o mismo nivel (409)
@@ -176,7 +176,7 @@ public class Incident {
 
     /**
      * Actualiza la fecha sin retroceder respecto a la última modificación.
-     * 
+     *
      * @param now instante UTC de negocio
      */
     private void touch(Instant now) {

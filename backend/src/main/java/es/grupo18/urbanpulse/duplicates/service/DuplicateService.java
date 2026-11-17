@@ -1,9 +1,6 @@
 package es.grupo18.urbanpulse.duplicates.service;
 
 import java.time.Clock;
-import java.time.Instant;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,7 +31,6 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 @Service
 @RequiredArgsConstructor
 public class DuplicateService {
-    private static final int MAX_SUGGESTIONS = 20;
 
     private final IncidentRepository incidents;
     private final DuplicateCandidateRepository candidates;
@@ -45,31 +41,22 @@ public class DuplicateService {
     private final Clock clock;
 
     /** Obtiene candidatos recientes y cercanos; no persiste ni decide automáticamente. */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<DuplicateSuggestionDTO> candidates(UUID incidentId) {
         Incident source = incident(incidentId);
-        Instant since = source.getCreatedAt().minus(DuplicateScorer.MAX_TIME_DIFFERENCE);
-        var linked = new HashSet<UUID>(links.linkedCandidateIds(source.getId()));
-        linked.addAll(links.linkedSourceIds(source.getId()));
         double lat = source.getLocation().getCoordinates().getLatitude();
         double lon = source.getLocation().getCoordinates().getLongitude();
         String category = source.getCategory() == null ? null : source.getCategory().getName();
-
-        return candidates.findTop100ByIdNotAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdAsc(
-                        source.getId(), since).stream()
-                .filter(candidate -> !linked.contains(candidate.getId()))
-                .map(candidate -> {
-                    String candidateCategory = candidate.getCategory() == null ? null : candidate.getCategory().getName();
-                    var score = scorer.score(lat, lon, source.getCreatedAt(), category,
-                            candidate.getLocation().getCoordinates().getLatitude(),
-                            candidate.getLocation().getCoordinates().getLongitude(), candidate.getCreatedAt(),
-                            candidateCategory);
-                    return new DuplicateSuggestionDTO(candidate.getId(), score.score(), score.reasons());
-                })
-                .filter(item -> item.score() > 0)
-                .sorted(Comparator.comparingDouble(DuplicateSuggestionDTO::score).reversed()
-                        .thenComparing(DuplicateSuggestionDTO::candidateIncidentId))
-                .limit(MAX_SUGGESTIONS).toList();
+        try {
+            return candidates.bestCandidates(source).stream().map(candidate -> {
+                var score = scorer.score(lat, lon, source.getCreatedAt(), category,
+                        candidate.latitude(), candidate.longitude(), candidate.createdAt(), candidate.category());
+                return new DuplicateSuggestionDTO(candidate.id(), score.score(), score.reasons());
+            }).toList();
+        } catch (org.springframework.dao.QueryTimeoutException ex) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DUPLICATE_QUERY_TIMEOUT",
+                    "Consulta temporalmente no disponible. Vuelve a intentarlo.");
+        }
     }
 
     /** Registra una relación simétrica y conserva intactos ambos reportes. */
@@ -112,7 +99,7 @@ public class DuplicateService {
         if (value == null) return null;
         String reason = value.trim();
         int length = reason.codePointCount(0, reason.length());
-        if (length > 2000 || reason.codePoints().anyMatch(c -> c == 0 || (c >= 0xD800 && c <= 0xDFFF))) {
+        if (length > 2000 || value.codePoints().anyMatch(c -> c == 0 || (c >= 0xD800 && c <= 0xDFFF))) {
             throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
                     "El motivo supera los límites admitidos.");
         }

@@ -19,7 +19,7 @@ Neon Object Storage se mantiene tanto en desarrollo como en producción, con rec
 
 Cada integrante tiene su base local persistente. El volumen no cambia al hacer `git switch`; un historial incompatible necesita una base de prueba nueva o una reconciliación explícita, conservando los datos necesarios. No se exige personalizar proyectos ni puertos para el trabajo habitual. `down` conserva volúmenes; `down -v` los elimina y solo corresponde a recursos propios descartables.
 
-Flyway es la única herramienta de migración, V1 permanece intacta y Hibernate usa `validate`. Coordinar versiones antes de integrar ramas: el aislamiento entre equipos no resuelve una colisión V2/V2. Las migraciones aplicadas en bases compartidas son inmutables; no usar `repair` para ocultar conflictos. La [guía de desarrollo](../development.md#3-ramas-y-migraciones-concurrentes) detalla el procedimiento.
+Flyway es la única herramienta de migración y Hibernate usa `validate`. La integración actual consolida excepcionalmente V1 antes de aplicarla; después es inmutable. Coordinar versiones antes de integrar ramas: el aislamiento entre equipos no resuelve una colisión V2/V2. Las migraciones aplicadas en bases compartidas son inmutables; no usar `repair` para ocultar conflictos. La [guía de desarrollo](../development.md#3-ramas-y-migraciones-concurrentes) detalla el procedimiento.
 
 GitHub Actions verifica PR hacia main, push a main y ejecución manual mediante tres jobs: Maven/Surefire/Failsafe con PostgreSQL 18 Testcontainers; npm/test/tipos/lint/exportación web; OpenAPI modular y el único Compose. La validación Compose prepara temporalmente los archivos privados desde las plantillas versionadas, sin secretos ni arranque. Se excluyen NeonConnectivityIT, neon-storage y el runner HTTP mutativo. Hay permisos de lectura, cachés y cancelación de ejecuciones obsoletas, sin CD.
 
@@ -32,3 +32,5 @@ Las pruebas de arranque Compose complementan Testcontainers porque comprueban im
 ## Ampliación de Tramitación (15/11/2026)
 
 El perfil postgres-it incorpora explícitamente ProcessingPostgresIT y ProcessingMigrationPostgresIT. Conserva las nueve suites anteriores; Evidencias usa dobles S3. La equivalencia local del workflow no dispara ejecuciones remotas. Resultados y entorno en [Desarrollo](../development.md).
+
+**Evolución 16/11/2026:** Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon. Las restricciones de revisión/respuestas se integran en CREATE TABLE, todas validadas. El historial anterior se conserva aquí como antecedente; no autoriza outOfOrder ni actualización de bases existentes. [ADR-0006](0006-flyway.md).

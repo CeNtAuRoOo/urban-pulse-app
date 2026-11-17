@@ -47,6 +47,7 @@ public class DuplicateScorer {
         double dp = Math.toRadians(latB - latA), dl = Math.toRadians(lonB - lonA);
         double a = Math.sin(dp / 2) * Math.sin(dp / 2)
                 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+        a = Math.max(0, Math.min(1, a));
         return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }
