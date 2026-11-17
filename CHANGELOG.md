@@ -4,6 +4,19 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Integración de Duplicados y Mapas (16–17/11/2026)
+
+- Merge real de main `b08ad608` sobre Mapas `50d7ed7`, con base histórica `27357ea1`; reconciliación de código, pruebas, contrato y documentación.
+- Backend Mapas provincial IGN, publicación por VALIDATE histórico, permisos vigentes, punto público estable de celda de 100 m, filtros y clustering; límite 1000, 422, timeout 5 s/503 y cuota 429. Conserva rendimiento/equivalencia y ADR-0017; sin visor ni capas urbanas.
+- Duplicados: ranking de las veinte mejores sugerencias entre todos los candidatos válidos de ±72 h y 250 m, con timeout SQL 5 s/503 explícito, sin truncado previo a 100. Decisión aprobada en esta integración. Confirmación humana simétrica, auditoría y originales intactos; semántica textual pendiente.
+- Motivo opcional de hasta 2000 puntos Unicode tras trim, par UUID compatible con PostgreSQL y limpieza de cuentas consciente de las nuevas FK.
+- Única V1 ejecutable con 16 tablas y geografía generada intacta. Las antiguas V2/V3/V5 quedan como antecedentes en Git, sin ruta de actualización de bases con datos.
+- Conservadas las regresiones de privacidad y N+1 de A/C; ampliadas pruebas HTTP, ranking, concurrencia, rollback e instalación. Resultados de esta ejecución en [informe de integración](docs/integration-reconciliation.md).
+- Contrato 0.8.0 conjunto: 77 operaciones, 47 implementadas y 30 futuras; YAML/HTML derivados de fuentes modulares. CI refuerza paridad, generación y ejemplos HTTP.
+- Fuentes .drawio actualizadas; los ocho SVG permanecen idénticos y pendientes de exportación manual. No implica despliegue ni acceso a Neon.
+
+Las entradas siguientes son **históricas**: sus cifras y secuencias de migración describen la fecha indicada, no el esquema vigente.
+
 ### Tramitación, primera fase — contrato 0.8.0 (15/11/2026)
 
 - Revisión correctiva: historial sin identidad de autores distintos del informante, también en PATCH municipal; auditoría real conservada. uploadedBy de Evidencias pasa a null para otros autores, con autorización expresa.
@@ -14,6 +27,28 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 - Versión esperada, bloqueos coordinados, auditoría atómica, proyección institucional y consulta SQL por prioridad.
 - Evidencias congeladas después de validar/rechazar, con compensación de subidas concurrentes; lecturas conservadas.
 - OpenAPI 0.8.0 y documentación actualizada. Sin frontend, correo ni fases posteriores. SVG regenerados manualmente por el usuario después de la implementación, incluida ER05; conservados por la revisión correctiva.
+
+### Detección de incidencias duplicadas — RF16 (14/11/2026, entrega histórica de B)
+
+- Implementado el mecanismo de detección de posibles incidencias duplicadas. El sistema analiza incidencias candidatas teniendo en cuenta la proximidad geográfica, la diferencia temporal y la categoría.
+
+- Incorporado un algoritmo heurístico de puntuación de similitud entre 0 y 1, con ponderaciones del 60 % para ubicación, 30 % para tiempo y 10 % para coincidencia de categoría. Cuando no se dispone de categoría en ambas incidencias, se ajusta la ponderación entre ubicación y tiempo.
+
+- Cálculo de distancia geográfica mediante la fórmula Haversine y aplicación de límites de proximidad de 250 metros y ventana temporal de 72 horas.
+
+- Búsqueda de hasta 100 incidencias candidatas, exclusión de la propia incidencia y de relaciones ya existentes, ordenación por puntuación y devolución de un máximo de 20 sugerencias.
+
+- Cada sugerencia incluye el identificador de la incidencia candidata, la puntuación obtenida y los motivos de coincidencia, como proximidad geográfica, cercanía temporal o categoría compartida.
+
+- Incorporada la confirmación manual de relaciones de duplicidad por personal autorizado (OPERATOR o ADMIN). La detección genera sugerencias, pero no confirma duplicados automáticamente.
+
+- Persistencia de las relaciones confirmadas, incluyendo las incidencias relacionadas, el usuario que realiza la confirmación, la fecha y el motivo cuando se proporciona. Se conservan los reportes originales y se impiden las relaciones de una incidencia consigo misma y las duplicadas.
+
+- Expuestas las operaciones REST para consultar candidatos y confirmar relaciones bajo /api/v1/incidents/{incidentId}/duplicate-candidates y /api/v1/incidents/{incidentId}/duplicate-links.
+
+- Verificación satisfactoria de la implementación mediante la ejecución completa de la suite de pruebas, incluyendo las pruebas de integración con PostgreSQL. Todos los tests finalizaron correctamente.
+
+- Implementación y validación en el entorno local; esta entrega no acredita despliegue en Neon ni en producción.
 
 ### CI y PostgreSQL local (14/11/2026)
 

@@ -25,8 +25,8 @@ admita ubicaciones de provincias vecinas o mar abierto.
 ## Reproducción offline
 
 Desde la raíz: `node backend/scripts/generate-map-boundary.mjs --check` verifica la
-huella y que la migración coincide exactamente con la plantilla y el recurso. Sin
-`--check` genera el archivo SQL. **Nunca regenerar una migración ya aplicada**: una
+huella y que la región geográfica delimitada de V1 coincide exactamente con la plantilla y el recurso. Sin
+`--check` actualiza solo esa región, sin reescribir tablas. **Nunca regenerar una migración ya aplicada**: una
 revisión exige otra versión de funciones, migración e índices. El generador falla
 si cambia la huella, identidad, número de polígonos o anillos, para exigir revisión.
 
@@ -47,3 +47,7 @@ En el intervalo de latitudes del recurso (36.310280594–37.282199489°), un lad
 proyectado de 100 m corresponde aproximadamente a 99.54–100.80 m este/oeste y
 99.79–99.81 m norte/sur, usando radios locales del elipsoide WGS84. Así se evita
 interpretar un número arbitrario de decimales geográficos como metros.
+
+## Integración actual (16/11/2026)
+
+La geografía antes entregada en V5 está integrada sin cambios matemáticos en la región marcada de V1. Las mediciones y secuencias anteriores de esta guía son históricas. No hay V2/V3/V5 ejecutables. La huella exige bytes LF originales; .gitattributes evita conversiones CRLF del GeoJSON. SVG pendientes de exportación manual.

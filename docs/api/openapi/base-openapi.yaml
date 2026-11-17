@@ -12,6 +12,7 @@ info:
     Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo
     admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados.
     Mapas implementa consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
+    Duplicados implementa consulta heurística y confirmación manual auditada; no fusiona ni elimina reportes.
   contact:
     name: Equipo UrbanPulse
 servers:

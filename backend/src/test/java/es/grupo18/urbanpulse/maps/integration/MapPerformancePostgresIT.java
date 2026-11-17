@@ -77,7 +77,7 @@ class MapPerformancePostgresIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.execute("truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
         reader = account(false);
         owner = account(false);
         operator = account(true);

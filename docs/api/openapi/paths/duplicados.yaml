@@ -2,11 +2,17 @@
   get:
     tags:
       - Duplicados
-    summary: 'Diseño futuro: Sugerir incidencias duplicadas'
-    description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría 
-      si está disponible). La confirmación siempre corresponde al personal municipal.
+    summary: 'Obtener candidatos a incidencia duplicada'
+    description: |
+      Requiere OPERATOR o ADMIN global vigente, cuenta activa y EMAIL_VERIFIED.
+      Consulta todos los candidatos no vinculados a ±72 horas inclusivas y hasta 250 m
+      Haversine. Devuelve como máximo las veinte mejores puntuaciones, con
+      desempate por UUID ascendente sin signo. Categoría opcional; sin semántica textual.
+      Preselección conservadora por latitud, filtros y ranking en SQL antes del corte.
+      Timeout SQL de 5 s; 503 DUPLICATE_QUERY_TIMEOUT sin sugerencias parciales.
+      No persiste ni confirma sugerencias. Cache-Control no-store.
     operationId: getIncidentsIncidentIdDuplicateCandidates
-    x-implementation: future
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
@@ -31,6 +37,12 @@
         $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
+      "503":
+        description: PostgreSQL no disponible o timeout; sin respuesta parcial.
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas/comunes.yaml#/ProblemDetail"
       "500":
         $ref: "../components/responses.yaml#/InternalError"
 
@@ -38,10 +50,14 @@
   post:
     tags:
       - Duplicados
-    summary: 'Diseño futuro: Vincular duplicado confirmado'
-    description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
+    summary: 'Confirmar relación de duplicidad'
+    description: |
+      Confirmación manual por OPERATOR/ADMIN global vigente, cuenta activa y EMAIL_VERIFIED.
+      Relación simétrica y única, sin autoenlaces. Conserva reportes, evidencias e historiales;
+      vínculo y auditoría son atómicos. No prohíbe ciclos arbitrarios ni permite desvincular.
+      Responde 201 con Cache-Control no-store, sin Location al no existir GET del vínculo.
     operationId: postIncidentsIncidentIdDuplicateLinks
-    x-implementation: future
+    x-implementation: implemented
     x-roles:
       - OPERATOR
       - ADMIN
@@ -61,10 +77,8 @@
             schema:
               $ref: "../components/schemas/duplicados.yaml#/DuplicateLinkDTO"
         headers:
-          Location:
-            description: Ruta al nuevo recurso, cuando esté disponible.
-            schema:
-              type: string
+          Cache-Control:
+            schema: {type: string, enum: [no-store]}
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
       "401":
@@ -77,5 +91,11 @@
         $ref: "../components/responses.yaml#/Conflict"
       "422":
         $ref: "../components/responses.yaml#/ValidationError"
+      "503":
+        description: PostgreSQL no disponible o timeout; sin respuesta parcial.
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas/comunes.yaml#/ProblemDetail"
       "500":
         $ref: "../components/responses.yaml#/InternalError"

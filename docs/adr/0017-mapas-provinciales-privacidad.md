@@ -53,8 +53,7 @@ marcadores públicos pueden coincidir y no deben desplazarse usando datos privad
 La consulta materializa candidatos autorizados y filtrados por estado/categoría,
 selecciona un representante por celda de privacidad de 100 m y materializa su punto
 público. Evalúa `map_public_point_v1` una sola vez por celda candidata y reutiliza
-el resultado para todas sus incidencias. La función y la migración V5 permanecen
-intactas; no se añaden tablas persistentes ni cachés entre peticiones. La rama
+el resultado para todas sus incidencias. La función permanece intacta; la antigua V5 se integra en V1 en el merge del 16/11/2026; no se añaden tablas persistentes ni cachés entre peticiones. La rama
 exacta de autores y usuarios globales conserva su comportamiento.
 
 Para acotar candidatos se usa el índice GiST de ubicación exacta con el bbox
@@ -65,7 +64,7 @@ es <= 100√2 m (141,43 m), con margen para tolerancias numéricas. La inclusió
 definitiva se decide **siempre por el punto público y el bbox solicitado**, antes
 de agrupar y contar. La preselección no excluye posiciones públicas visibles aunque
 su original esté fuera del viewport. Los CTE `MATERIALIZED` evitan reevaluaciones
-por incidencia. El índice público de V5 se conserva, incluido su coste de escritura.
+por incidencia. El índice público, ahora integrado en V1, se conserva, incluido su coste de escritura.
 
 ## Agrupación y costes
 
@@ -108,7 +107,7 @@ de coordenadas, sin cambiar reglas del módulo Incidencias. Para grandes volúme
 se debe medir rendimiento y considerar PostGIS/subdivisión del polígono; no se
 promete rendimiento ilimitado. Los timeouts nunca deben convertirse en mapas vacíos.
 
-Tras integrar Tramitación de main (16/11/2026), la secuencia desde vacío es V1 → V2 → V5.
+**Antecedente histórico de C `50d7ed7`, sustituido por V1 única:** tras integrar Tramitación de main (16/11/2026), la secuencia desde vacío es V1 → V2 → V5.
 V1 consolida Evidencias, V2__processing_phase_one.sql incorpora información adicional
 y restricciones de revisión; V5 conserva íntegramente la geografía. No se restauran
 las antiguas V2__incidents.sql/V3 ni se crea V4. Se prueba V5 sobre V1/V2 con datos.
@@ -144,3 +143,17 @@ Este ADR pasa de 0015 a 0017 al integrar los ADR-0015 de Evidencias y ADR-0016 d
 Pruebas unitarias de parámetros, permisos y límites; pruebas PostgreSQL con JWT
 firmado, roles y pertenencias reales, revisiones, límites geográficos, privacidad,
 agrupaciones y JSON. Ver [guía de Mapas](../maps-backend.md) para comandos y resultados.
+
+## Consolidación actual (16/11/2026)
+
+Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon. Geometría, políticas, costes e índices conservados sin cambios. El generador verifica exclusivamente la región marcada de V1; no existe V5 ejecutable. [Evidencia de integración](../integration-reconciliation.md).
+
+## Alternativas consideradas y criterios de revisión
+
+| Alternativa | Decisión y atributo prioritario | Consecuencia / cuándo reconsiderar |
+|---|---|---|
+| PostgreSQL nativo frente a PostGIS | Mantener nativo: sencillez operativa en el ámbito provincial medido | Contorno de 12.339 vértices y coste de índices; reconsiderar PostGIS/subdivisión con medición de lecturas y escrituras |
+| Cálculo por consulta frente a caché persistente | Instantánea coherente y permisos actuales; materialización solo dentro de SQL | Recalcula entre peticiones; cachear exigiría invalidación, ámbito de autorización y pruebas de privacidad |
+| Cuadrícula pública fija frente a desplazamiento aleatorio | Estabilidad y ausencia de filtración por promediar consultas repetidas | Reduce precisión, no anonimiza; conserva el ajuste del centro de celda en costa/frontera |
+
+Pendientes previos a producción: carga concurrente representativa, p95/p99, errores, coste de escritura/índices y cuotas distribuidas si hay varias instancias. No son resultados acreditados por pruebas sintéticas aisladas. La retirada de publicación y los títulos aprobados requieren decisiones y contratos propios; se mantiene VALIDATE histórico.

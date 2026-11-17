@@ -11,7 +11,7 @@ DuplicateSuggestionDTO:
       type: array
       items:
         type: string
-      description: Proximidad, tiempo y/o semántica.
+      description: Proximidad espacial, cercanía temporal y coincidencia de categoría.
     candidateIncidentId:
       type: string
       format: uuid
@@ -29,6 +29,9 @@ DuplicateLinkRequest:
       format: uuid
     reason:
       type: string
+      nullable: true
+      pattern: '^[\u0001-\u0020]*[^\u0000\uD800-\uDFFF]{0,2000}[\u0001-\u0020]*$'
+      description: Opcional; máximo 2000 puntos Unicode tras trim Java. Vacío se guarda como null; NUL y sustitutos aislados se rechazan con 422.
   required:
     - candidateIncidentId
   additionalProperties: false

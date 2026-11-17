@@ -146,6 +146,7 @@ class StaffInvitationPostgresIT {
     void setup() {
         jdbc.execute("""
                 TRUNCATE TABLE
+                    duplicate_links,
                     incident_information_responses,
                     status_changes,
                     incident_reviews,
@@ -671,7 +672,7 @@ class StaffInvitationPostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from users where id=?", admin))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2", "5");
+                String.class)).containsExactly("1");
     }
 
     @Test

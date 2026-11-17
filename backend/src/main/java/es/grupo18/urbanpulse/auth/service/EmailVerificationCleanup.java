@@ -44,6 +44,8 @@ public class EmailVerificationCleanup {
             and not exists (select 1 from status_changes s where s.changed_by_user_id = u.id)
             and not exists (select 1 from incident_reviews r where r.reviewed_by_user_id = u.id)
             and not exists (select 1 from priority_decisions p where p.decided_by_user_id = u.id)
+            and not exists (select 1 from incident_information_responses r where r.responded_by_user_id = u.id)
+            and not exists (select 1 from duplicate_links d where d.linked_by_user_id = u.id)
             """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;

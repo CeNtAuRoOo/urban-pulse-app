@@ -127,7 +127,7 @@ original `map_public_point_v1`. El desplazamiento máximo teórico es 100√2 m,
 que ese margen. El filtro definitivo usa el punto público y el bbox solicitado;
 los conteos y clústeres se calculan después. Así se conserva la privacidad incluso
 cuando el original está fuera del viewport y su ubicación pública dentro.
-No cambian V5, la función geográfica, el contrato REST ni el timeout de 5 s.
+La optimización histórica no cambió la geografía; esta integración la traslada íntegra a V1 y conserva el timeout de 5 s.
 La rama exacta permanece igual. No hay almacenamiento adicional ni caché persistente.
 
 ## Integrar títulos aprobados de Tramitación
@@ -155,7 +155,7 @@ Rutas relativas a la raíz del repositorio:
 | `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapFeatureDTO.java`                            | Variantes individuales/grupos                                                   |
 | `backend/src/main/java/es/grupo18/urbanpulse/maps/dto/MapIncidentsDTO.java`                          | Colección y totales                                                             |
 | `backend/src/main/resources/maps/malaga-ign.geojson`, `maps/README.md`                               | Contorno oficial y procedencia                                                  |
-| `backend/src/main/resources/db/migration/V5__maps_geography.sql`                                     | Funciones constantes e índices, aditiva                                         |
+| `backend/src/main/resources/db/migration/V1__initial_schema.sql`                                     | Esquema consolidado con funciones constantes e índices                                         |
 | `backend/scripts/generate-map-boundary.mjs`, `maps-functions.sql.template`                           | Generación reproducible offline                                                 |
 | `backend/scripts/validate-map-contract.cjs`                                                          | Validación de respuestas capturadas contra OpenAPI y rechazo de campos privados |
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/service/MapQueryTest.java`                         | Parámetros y cuadrículas                                                        |
@@ -165,18 +165,20 @@ Rutas relativas a la raíz del repositorio:
 | `backend/src/test/java/es/grupo18/urbanpulse/maps/integration/MapPerformancePostgresIT.java`         | Regresión costera y comparación de planes con 1.000, 10.000 y 50.000 incidencias |
 | `backend/src/test/resources/maps/citizen-query-before-cell-reuse.sql`                               | SQL anterior de `8704ac1`, solo para comparar resultados y rendimiento           |
 | `backend/pom.xml`                                                                                    | Incluir pruebas de Mapas en perfil aislado                                      |
-| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar V1 consolidada, V2 de Tramitación y V5                                 |
-| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar V1 consolidada, V2 de Tramitación y V5                               |
+| `backend/src/test/java/es/grupo18/urbanpulse/auth/integration/AuthenticationPostgresIT.java`         | Verificar la única V1 consolidada                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/invitations/integration/StaffInvitationPostgresIT.java` | Verificar la única V1 consolidada                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/categories/integration/CategoryPostgresIT.java`         | Verificar la única V1 consolidada                                 |
+| `backend/src/test/java/es/grupo18/urbanpulse/organization/integration/DepartmentPostgresIT.java`     | Verificar la única V1 consolidada                               |
 | `backend/src/test/java/es/grupo18/urbanpulse/incidents/integration/IncidentPostgresIT.java`          | Verificar esquema final consolidado, índices e invariantes         |
-| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.7.0                                                          |
+| `docs/api/openapi/paths/mapas.yaml`, `components/schemas/mapas.yaml`, `base-openapi.yaml`            | Contrato modular 0.8.0                                                          |
 | `docs/api/openapi.yaml`, `docs/api/openapi.html`                                                     | Artefactos generados por Redocly                                                |
 | `docs/api/examples/maps-incident.json`, `maps-cluster.json`                                          | Respuestas capturadas con datos sintéticos                                      |
 | `docs/adr/0017-mapas-provinciales-privacidad.md`, `docs/adr/README.md`                               | Decisión e índice                                                               |
 | `docs/architecture.md`, `docs/api/README.md`, `docs/development.md`, `docs/maps-backend.md`          | Integración y verificación                                                      |
 
 ## Verificación reproducible
+
+Los resultados numéricos de esta sección pertenecen a C y sus antecedentes. La validación de la integración actual está en [el informe de integración](integration-reconciliation.md).
 
 ```sh
 node backend/scripts/generate-map-boundary.mjs --check
@@ -294,13 +296,13 @@ Estas mediciones no sustituyen las de la corrección P1 fechadas arriba.
 
 ## Compatibilidad con Tramitación fase 1
 
-V2 incorpora AWAITING_INFORMATION y exige resulting_status en revisiones nuevas.
+V1 consolidada incorpora AWAITING_INFORMATION y exige resulting_status en todas las revisiones.
 Mapas acepta el estado mediante el enum compartido, sin añadir rutas ni cambiar DTO.
 REPORTED, AWAITING_INFORMATION y REJECTED propios siguen visibles con precisión
 exacta; para terceros la publicación exige un VALIDATE histórico. REQUEST_INFORMATION,
 las respuestas del informante y REJECT no publican. Dos ciclos de solicitud/respuesta
 seguidos de VALIDATE generan un solo marcador aproximado, sin multiplicar el conteo.
-Las revisiones V1 con resulting_status desconocido conservan su valor histórico y
+**Antecedente anterior a la consolidación:** las revisiones de la V1 antigua con resulting_status desconocido conservaban su valor histórico y
 la visibilidad por VALIDATE: el snapshot nuevo no se usa como criterio de publicación.
 
 OPERATOR/ADMIN global mantienen coordenadas exactas. Los demás permisos no se amplían.
@@ -311,11 +313,11 @@ No se publica título original, motivo, mensaje ni identidad municipal en Mapas.
 Evidencias conserva la nueva regla de main: altas/bajas solo en REPORTED o
 AWAITING_INFORMATION y lecturas autorizadas también después de validar/rechazar.
 
-La secuencia desde vacío es V1 → V2 → V5, con las tres migraciones intactas. V5 se
+**Antecedente histórico de C `50d7ed7`:** la secuencia desde vacío era V1 → V2 → V5, con las tres migraciones intactas. V5 se
 prueba sobre V1/V2 con datos; para una base anterior V1/V5 véase el procedimiento de
 [ADR-0006](adr/0006-flyway.md#v2-recibida-después-de-v5). No se activa outOfOrder global.
 
-### Verificación conjunta del 16/11/2026
+### Verificación histórica de C del 16/11/2026 (anterior a esta integración)
 
 `mvn -B -ntp clean verify -Ppostgres-it`: **351 pruebas correctas**, 187 unitarias/MVC
 y 164 PostgreSQL, sin fallos, errores ni omisiones. Mapas conserva sus 12 unitarias,
@@ -334,8 +336,12 @@ sintéticas no sustituyen una evaluación de carga concurrente representativa de
 producción. Contorno detallado, índices y ajuste costero añaden coste de escritura;
 esta optimización solo reduce cálculos durante la lectura. La cuota es local por instancia. Actualizar el contorno
 requiere nueva migración/funciones/índices, nunca modificar las funciones constantes
-ya utilizadas por índices. Tras integrar Tramitación, la secuencia desde cero es V1 → V2 → V5.
-Evidencias está en V1; la V2 nueva es processing_phase_one, no la antigua de Incidencias.
-V5 permanece intacta y no se inventa V4. Un historial anterior necesita una transición revisada,
+ya utilizadas por índices. En C, antes de esta consolidación, la secuencia era V1 → V2 → V5.
+En aquel estado C, Evidencias estaba en V1 y V2 era processing_phase_one. Actualmente todo forma parte de V1; no hay actualización incremental desde ese historial.
+La región geográfica de V1 conserva las funciones de C sin cambios. Un historial anterior necesita una transición revisada,
 no repair ni outOfOrder para ocultar diferencias. Las estimaciones de cardinalidad
 (P2) quedan fuera de esta integración.
+
+## Integración actual (16/11/2026)
+
+La geografía antes entregada en V5 está integrada sin cambios matemáticos en la región marcada de V1. Las mediciones y secuencias anteriores de esta guía son históricas. No hay V2/V3/V5 ejecutables. La huella exige bytes LF originales; .gitattributes evita conversiones CRLF del GeoJSON. SVG pendientes de exportación manual.

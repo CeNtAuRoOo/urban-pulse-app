@@ -1,13 +1,13 @@
 # UrbanPulse — contrato de dominio y API unificados (dominio objetivo / API 0.8.0)
 
-> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias y Evidencias tienen API implementada. OpenAPI vigente 0.8.0; V1 conserva 14 tablas y V2 añade la respuesta de información. Revisión, respuestas y prioridad MANUAL tienen diez operaciones. Las fases posteriores y los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
+> **Estado actual:** Autenticación, Usuarios, Invitaciones, catálogos, Incidencias, Evidencias, Mapas y Duplicados tienen API implementada. OpenAPI vigente 0.8.0; V1 consolida 16 tablas, respuestas de información, duplicate_links y las funciones/índices de Mapas. Revisión, respuestas y prioridad MANUAL tienen diez operaciones. Las fases posteriores y los restantes tags son diseño. No se acredita aplicación de estas migraciones en Neon. El [roadmap](../incidents-implementation-roadmap.md) relaciona DTO efectivos, modelo objetivo y pendientes.
 
 ## 1. Referencia coherente y varias vistas
 
 El proyecto aplica un flujo _design-first_ con fuentes complementarias:
 
 - **Requisitos del caso de estudio y ADR**: determinan el alcance, prioridades, roles, invariantes y decisiones arquitectónicas; las funcionalidades opcionales siguen aplazadas.
-- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cinco páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto, y Tramitación V2). Combina **esquemas V1 y V2 implementados** con elementos de diseño futuro aún no persistidos.
+- **Modelo relacional**: [`../diagrams/relacional.drawio`](../diagrams/relacional.drawio) (cinco páginas: incidencias, tramitación/auditoría, identidad/organización, territorio y contexto, y Tramitación fase 1). Combina **esquema inicial V1 consolidado** con elementos de diseño futuro aún no persistidos.
 - **Clases simplificadas**: [`../diagrams/clases-simplificado.drawio`](../diagrams/clases-simplificado.drawio) (una página), con atributos Java/DTO/enums/embebidos; **sin líneas UML intencionadamente**, ya que las relaciones están en el ER.
 - **Contrato OpenAPI fuente**: [`openapi/base-openapi.yaml`](openapi/base-openapi.yaml), rutas en `openapi/paths/` y esquemas en `openapi/components/`.
 - **Salidas derivadas**: [`openapi.yaml`](openapi.yaml) y [`openapi.html`](openapi.html), regeneradas con Redocly y **nunca editadas a mano**.
@@ -30,7 +30,7 @@ DTO, entidad de dominio, entidad JPA y tabla SQL **no son equivalentes**. `x-rol
 | Aceptación                | `acceptedBy`/`acceptedAt` no inicia automáticamente el trabajo                                   | Respuesta futura `AssignmentDTO`                                                                                                                              |
 | Ciclo de vida             | `VALIDATED` puede existir sin departamento; derivación y trabajo son fases distintas             | `ASSIGNED_TO_DEPARTMENT` y `WORK_ASSIGNED`, no un único `ASSIGNED`                                                                                            |
 | Invitaciones              | Temporal, correo obligatorio, rol/ámbito fijados y canje sobre cuenta verificada                 | `InvitationRequest` `oneOf`; cinco rutas **implementadas**; contrato `0.5.0`                                                                                  |
-| Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | DTO de sugerencias y enlaces **de diseño**                                                                                                                    |
+| Duplicados                | Sugerencias calculadas; vínculo persistido solo por acción humana                                | Dos operaciones backend; heurística y confirmación humana, sin semántica textual ni UI                                                                                                                    |
 | Contexto urbano           | Localización y fuentes con IDs externos separados de los internos                                | DTO de coordenadas y contexto, sin proveedores elegidos                                                                                                       |
 
 ### 2.1. Revisión histórica de Autenticación (0.3.0 y 0.4.0)
@@ -74,7 +74,7 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 `UrbanAssetDTO.id` es UUID interno; `externalId` pertenece al proveedor y `sourceId` referencia `ExternalSource` si existe. `AuditEvent.resourceId`/`requestId` son cadenas heterogéneas, no FKs obligatorias. `StatusChangeDTO.fromStatus` siempre corresponde a una transición real; no existe evento inicial de transición. El alta se registra en AuditEvent. El actor puede faltar en un futuro evento de sistema. `UserDTO.emailVerified` es la representación segura del estado, sin `passwordHash` ni `tokenVersion`; las pertenencias departamentales activas e históricas ya están implementadas en UserDTO y en los servicios internos de organization (ADR-0013).
 
-**Pendiente de implementar:** equipos, API de retirada de permisos, fases posteriores de Tramitación (derivación departamental, asignaciones y ejecución), notificaciones de negocio, filtros avanzados por campo/titularidad, selección de mapas, fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias, la primera fase de Tramitación y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
+**Pendiente de implementar:** equipos, API de retirada de permisos, fases posteriores de Tramitación (derivación departamental, asignaciones y ejecución), notificaciones de negocio, filtros avanzados por campo/titularidad, visor y capas de mapas (backend provincial implementado), fuentes de contexto, IA entrenada, RAG y analítica predictiva. Tampoco hay proveedor SMTP real, auditoría administrativa completa RF18 ni bootstrap del primer administrador. Autenticación, Usuarios, Invitaciones, Incidencias, Evidencias, la primera fase de Tramitación y la administración de Departamentos y Categorías sí están implementadas; ambos catálogos ofrecen consulta, alta y PATCH, sin DELETE.
 
 ## 5. Proceso dominio–API por tag
 
@@ -87,7 +87,7 @@ El operador puede validar sin departamento; derivar cambia `Incident.assignedDep
 
 ## 6. Validación del contrato
 
-La [CI](../../.github/workflows/ci.yml) valida la fuente modular con el comando lint siguiente; no regenera bundle/HTML ni acredita los endpoints marcados como futuros.
+La [CI](../../.github/workflows/ci.yml) valida la fuente modular con el comando lint siguiente; regenera y compara bundle/HTML ni acredita los endpoints marcados como futuros.
 
 Desde la raíz:
 
@@ -117,10 +117,12 @@ El alta solo produce REPORTED y AuditEvent INCIDENT_CREATED; correcciones reales
 
 @Version e If-Match obligatorio evitan correcciones sobre versiones obsoletas (428/412); ETag se devuelve en alta/detalle/corrección. Solo el titular u OPERATOR/ADMIN globales pueden corregir REPORTED; permisos sobre terceros provisionales y sujetos a revisión. Un rol departamental no concede acceso global ni modifica la semántica de mine. Datos ajenos sin autorización responden como inexistentes.
 
-La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V1 incorpora los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la matriz de revisión/información está implementada en V2; ejecución y cierre siguen aplazados.
+La revisión correctiva mantiene el DTO y adopta ETag fuerte opaca del JSON completo, con @Version independiente; no se construye desde version. POST/PATCH limitan el cuerpo bruto a 65536 bytes y devuelven 413. Cada operación referenciada tiene x-implementation explícito: implemented o future; los esquemas futuros no habilitan rutas. V1 incorpora los motivos REJECT/REQUEST_INFORMATION y la justificación de prioridad con Java/ADR-0010; la matriz de revisión/información está integrada en V1; ejecución y cierre siguen aplazados.
 
 ## Correspondencia de Tramitación (0.8.0)
 
-Diez operaciones implementadas: revisiones, resultado público, respuestas de información y prioridades. ReviewRequest tiene variantes disjuntas; PriorityRequest no acepta source; todos los POST incluyen expectedIncidentVersion. Historial interno y resultado institucional tienen DTO separados. IncidentDTO solo publica el nivel vigente, nunca fuente ni justificación. V2 conserva snapshot null para revisiones antiguas no reconstruibles.
+Diez operaciones implementadas: revisiones, resultado público, respuestas de información y prioridades. ReviewRequest tiene variantes disjuntas; PriorityRequest no acepta source; todos los POST incluyen expectedIncidentVersion. Historial interno y resultado institucional tienen DTO separados. IncidentDTO solo publica el nivel vigente, nunca fuente ni justificación. La antigua V2 conservaba snapshots desconocidos; V1 nueva exige snapshot coherente en toda revisión.
 
 [Contrato REST y ejemplos](README.md#api-de-tramitación-implementada-080), [matriz y SQL](../incidents-implementation-roadmap.md#tramitación-primera-fase-15112026). Derivación, asignación, ejecución, comentarios y asistencia siguen future.
+
+Backend Mapas y Duplicados implementados en esta integración sobre el contrato 0.8.0; RF08 sigue parcial por visor/capas y RF16 por semántica textual pendientes. No hay UI de ambos módulos, desvinculación ni prohibición de ciclos arbitrarios. [Matriz verificable](../integration-reconciliation.md).

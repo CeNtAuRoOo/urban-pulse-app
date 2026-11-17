@@ -1,6 +1,6 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas** y **Tramitación** (primera fase) tienen endpoints backend implementados; las operaciones de los restantes tags, así como las fases posteriores de Tramitación, describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un despliegue de V1 consolidada o V2 en Neon.
+> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados** y **Tramitación** (primera fase) tienen endpoints backend implementados; las operaciones de los restantes tags, así como las fases posteriores de Tramitación, describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un aplicación de la V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
 
@@ -24,10 +24,10 @@ La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetai
 - **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
 - **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
 - **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
-- **`0.7.0` (histórica)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico; Mapas provincial con privacidad y agrupaciones.
-- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual.
+- **`0.7.0` (histórica)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
+- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual. La integración del 16/11/2026 incorpora además las dos operaciones de Duplicados y la consulta de Mapas sobre esta versión.
 
-La existencia de versiones históricas no implica que los 14 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni las interfaces específicas de Evidencias y Tramitación.
+La existencia de versiones históricas no implica que los 14 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni las interfaces específicas de Evidencias, Tramitación, Mapas y Duplicados.
 
 ## 3. Convenciones y reglas generales
 
@@ -173,7 +173,7 @@ POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
-Todas las operaciones referenciadas tienen x-implementation explícito: 45 implemented y 32 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
+Todas las operaciones referenciadas tienen x-implementation explícito: 47 implemented y 30 future (77 operaciones). Los campos/esquemas futuros conservados no equivalen a operaciones habilitadas.
 
 ## Evidencias implementadas
 
@@ -234,7 +234,7 @@ Son diez operaciones. POST devuelve 201, DTO y Location relativa resoluble media
 
 REJECT usa la misma estructura de motivo que REQUEST_INFORMATION. VALIDATE no admite reason, ni null; las otras decisiones no admiten categoryId, ni null. `source` no pertenece a PriorityRequest. JSON estricto y máximo bruto 65536 bytes en los tres POST, sin interceptar multipart. Errores compartidos: 400 JSON/UUID/parámetros mal formados, 401/403 identidad/permisos, 404 recurso oculto, 409 estado/nivel/versión, 413 cuerpo excesivo, 422 validación semántica/propiedades no admitidas, 500/503 saneados.
 
-GET review-outcome devuelve 200 con latestReview:null antes de cualquier revisión. Después incluye estado actual, informationPending y último resultado público: decisión, fecha, snapshot nullable solo para historia V1, motivo exclusivamente de rechazo/solicitud e identificación institucional Ayuntamiento.
+GET review-outcome devuelve 200 con latestReview:null antes de cualquier revisión. Después incluye estado actual, informationPending y último resultado público: decisión, fecha, snapshot cuyo contrato conserva nullable por compatibilidad histórica; la V1 consolidada exige un valor en todas las revisiones persistidas, motivo exclusivamente de rechazo/solicitud e identificación institucional Ayuntamiento.
 
 GET `/api/v1/incidents` admite `priority=HIGH` y `sort=priority,asc` o `sort=priority,desc`. El rango es LOW < MEDIUM < HIGH < CRITICAL, null siempre al final; desempate createdAt DESC,id DESC. Sin sort se mantiene el orden anterior. No admite orden arbitrario. La prioridad/decisión cambia Incident.version y la ETag; PATCH sigue exigiendo If-Match y solo funciona en REPORTED.
 
@@ -248,7 +248,7 @@ ReviewOutcomeDTO siempre serializa latestReview, incluso null. El contrato OAS 3
 
 La especificación OpenAPI se valida mediante Redocly, siguiendo los comandos de la sección «Validación y visualización». Esta comprobación verifica la estructura y las referencias del contrato, pero no sustituye las pruebas de comportamiento del backend ni valida individualmente todos los casos de nulabilidad y serialización.
 
-## Mapas implementados (0.7.0)
+## Mapas implementados (integración sobre 0.8.0)
 
 `GET /map/incidents` requiere cuatro límites WGS84 y zoom entero 0..22, con estado
 y categoría opcionales. Admite la provincia completa a zoom bajo. Aplica permisos
@@ -257,3 +257,17 @@ ajenas públicas y agrupaciones SQL. Distingue INCIDENT/CLUSTER, count gráfico 
 totalIncidents. Máximo 1000 gráficos, sin truncamiento; errores 400/401/403/422/429/503.
 El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aislado.
 [Guía completa](../maps-backend.md).
+
+## Duplicados y Mapas en la integración actual sobre 0.8.0
+
+El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. El resultado contiene 57 rutas y 77 operaciones (47 implementadas/30 futuras).
+
+| Método | Ruta | Autorización | Resultado |
+|---|---|---|---|
+| GET | `/incidents/{incidentId}/duplicate-candidates` | OPERATOR/ADMIN global, activo y verificado | 200, hasta veinte mejores sugerencias |
+| POST | `/incidents/{incidentId}/duplicate-links` | OPERATOR/ADMIN global, activo y verificado | 201 DuplicateLinkDTO, sin Location |
+| GET | `/map/incidents` | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO |
+
+Duplicados aplica ±72 h inclusivas, Haversine ≤250 m y categoría opcional, excluye pares ya vinculados y corta después del ranking. Desempate UUID ascendente sin signo, sin análisis semántico. Timeout SQL 5 s: 503 DUPLICATE_QUERY_TIMEOUT sin resultado parcial. Confirmación manual, única y simétrica, sin autoenlaces; 409 en reintento/carrera, 404 si falta incidencia, 422 en autoenlace/validación. Motivo opcional/null, trim Java y hasta 2000 puntos Unicode; vacío se persiste null, NUL/sustitutos aislados se rechazan. Vínculo y auditoría atómicos, sin modificar originales. No hay desvinculación, fusión ni prevención general de ciclos. Cache-Control no-store.
+
+La CI valida fuente y bundle, analiza paths reales y referencias, regenera YAML/HTML con Redocly 2.16.0 y la plantilla versionada y exige igualdad. Los ejemplos Mapas capturados por Maven se validan antes de terminar el job backend. [Matriz y evidencia actual](../integration-reconciliation.md).

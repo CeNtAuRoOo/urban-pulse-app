@@ -1,6 +1,6 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 15/11/2026:** V1 conserva 14 tablas y V2 añade respuestas de información; revisión y prioridad manual están operativas en processing. El [roadmap](incidents-implementation-roadmap.md) conserva el modelo objetivo, sus dependencias y la trazabilidad RF01–RF26 del enunciado.
+> **Estado a 16/11/2026:** V1 inicial consolidada con 16 tablas, respuestas de información y duplicate_links, más funciones/índices de Mapas. Tramitación fase 1, Duplicados y Mapas tienen backend; derivación/asignación, visor/capas y semántica textual siguen pendientes. El [roadmap](incidents-implementation-roadmap.md) conserva RF01–RF26.
 
 ## 1. Fuentes y criterio de interpretación
 
@@ -10,11 +10,11 @@ Una **entidad de dominio** expresa identidad y reglas de negocio; una **entidad 
 
 ## 2. Los diagramas y sus funciones
 
-- [Modelo relacional, cinco páginas](diagrams/relacional.drawio): **ER01** Incidencias, **ER02** tramitación y auditoría, **ER03** identidad, invitaciones, departamentos y organización, **ER04** territorio/contexto; **ER05** ampliación de Tramitación V2. Las exportaciones [`relacional-01.svg`](diagrams/relacional-01.svg) a [`relacional-05.svg`](diagrams/relacional-05.svg) se encuentran en el mismo directorio.
+- [Modelo relacional, cinco páginas](diagrams/relacional.drawio): **ER01** Incidencias, **ER02** tramitación y auditoría, **ER03** identidad, invitaciones, departamentos y organización, **ER04** territorio/contexto; **ER05** detalle de Tramitación integrado en V1. Las exportaciones [`relacional-01.svg`](diagrams/relacional-01.svg) a [`relacional-05.svg`](diagrams/relacional-05.svg) se encuentran en el mismo directorio.
 - [Catálogo de clases simplificadas](diagrams/clases-simplificado.drawio): una página de clases, enums, embebidos y DTO, **sin líneas de relación UML por decisión de diseño**. Relaciones y claves se estudian en el ER; [SVG exportado](diagrams/clases-simplificado.svg).
 - [C4 contexto y contenedores](diagrams/README.md): arquitectura exterior y almacenamiento. Reflejan correo SMTP/Mailpit y solo fotografías en el alcance inicial.
 
-Las fuentes editables distinguen V1 + V2, el núcleo de Incidencias y las entidades conceptuales. El [inventario](diagrams/README.md) identifica las exportaciones regeneradas manualmente por el usuario y la validación de fuentes. Siguen siendo futuros los diagramas de despliegue y de la matriz completa de tramitación.
+Las fuentes editables distinguen V1 inicial consolidada, el núcleo de Incidencias y las entidades conceptuales. El [inventario](diagrams/README.md) identifica las exportaciones históricas pendientes de regeneración manual tras esta integración y la validación de fuentes. Siguen siendo futuros los diagramas de despliegue y de la matriz completa de tramitación.
 
 ## 3. Conceptos principales y estado
 
@@ -22,7 +22,9 @@ Las fuentes editables distinguen V1 + V2, el núcleo de Incidencias y las entida
 
 `Incident` es el reporte central. V1 implementa informante, texto, coordenadas, categoría, estado REPORTED, fechas y versión; prioridad y departamento quedan opcionales para tramitación. El objetivo completo conserva: informante, título y descripción, categoría opcional, coordenadas, dirección/barrio/distrito cuando se conozcan, estado, prioridad, departamento responsable e historial. Los datos geográficos/contextuales enriquecen el reporte sin impedir su creación si un proveedor falla. `Attachment` representa metadatos de fotografías, con binario fuera de PostgreSQL en un bucket S3 privado. Sus cinco rutas implementan autorización compartida con Incidencias, subida JPEG/PNG saneada, listado privado, detalle, descarga y baja lógica. Admite cinco activas por incidencia y 10 MiB por imagen; conserva objetos tras la baja.
 
-Las sugerencias de duplicados se calculan y no deben fusionar ni rechazar automáticamente incidencias. `DuplicateLink` solo se persistiría tras confirmación humana. Las prioridades propuestas son `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, con una `PriorityDecision` justificable y auditable. Los identificadores del proveedor externo de un activo urbano (`externalId`) no equivalen a las claves UUID internas.
+Detección de duplicados (RF16). El módulo `duplicates`, separado de `incidents`, calcula sugerencias de posibles incidencias duplicadas a partir de proximidad geográfica, diferencia temporal y categoría. Utiliza la fórmula Haversine para la distancia y una puntuación heurística entre 0 y 1: 60 % ubicación, 30 % tiempo y 10 % categoría. Cuando no se dispone de categoría en ambas incidencias, la ponderación se redistribuye entre ubicación y tiempo. La búsqueda aplica límites inclusivos de 250 metros y ±72 horas, examina todas las candidatas válidas, excluye la propia incidencia y las relaciones ya existentes, ordena por puntuación y UUID y devuelve como máximo 20 sugerencias. Un timeout SQL de 5 segundos devuelve 503 explícito sin resultados parciales. Cada sugerencia incluye el identificador de la candidata, la puntuación y los motivos de coincidencia.
+
+La detección no fusiona, elimina ni rechaza reportes y no confirma relaciones automáticamente. `DuplicateLink` representa exclusivamente una relación confirmada manualmente por un usuario autorizado con rol `OPERATOR` o `ADMIN`. La relación conserva las incidencias vinculadas, el usuario confirmador, la fecha y el motivo cuando se proporciona. Se impiden las autorrelaciones y la duplicación de relaciones, manteniendo intactos los reportes originales. Las prioridades propuestas son `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, con una `PriorityDecision` justificable y auditable. Los identificadores del proveedor externo de un activo urbano (`externalId`) no equivalen a las claves UUID internas.
 
 #### Catálogo Category
 
@@ -77,17 +79,19 @@ La política general es **UUIDv7** generados en Hibernate para identidades de en
 
 Los cinco códigos de rol son `CITIZEN`, `OPERATOR`, `ADMIN`, `TECHNICIAN` y `DEPARTMENT_COORDINATOR`. `RoleCode` determina ámbito global/departamental; no existe `RoleScope` persistido. Los permisos departamentales se consultarán siempre en el contexto del recurso. Un estado dibujado de incidencia **no** es una transición programada ni autoriza acciones por sí mismo.
 
+`DuplicateLink` utiliza identificadores UUID para las incidencias relacionadas y el usuario que confirma la relación. La base de datos impide la autorrelación y la repetición del mismo par mediante restricciones e índice único sobre el par canónico. La relación es una asociación entre reportes existentes: no sustituye la identidad de `Incident`, no altera sus datos originales y no representa una fusión. La detección de candidatas es una operación de consulta; la persistencia solo ocurre tras la confirmación autorizada.
+
 ## 6. Revisión obligatoria del dominio con cada tag OpenAPI
 
 1. Identificar casos de uso, requisitos, operaciones, roles, resultados y límites de alcance.
 2. Revisar simultáneamente `docs/api/openapi/paths/<tag>.yaml`, los esquemas de `components/`, ER, catálogo de clases y ADR asociados.
 3. Resolver discrepancias de PK/FK, nulabilidad, asociaciones, valores permitidos, estados, reglas de autorización y DTO **antes de implementar**.
-4. Actualizar fuentes `.drawio`, exportaciones SVG, textos, ADR, OpenAPI modular y pruebas en el mismo cambio cuando evolucionen las entidades compartidas. No editar los archivos de salida `api/openapi.yaml` y `api/openapi.html` directamente; regenerarlos con Redocly.
+4. Actualizar fuentes `.drawio`, textos, ADR, OpenAPI modular y pruebas; dejar las exportaciones SVG a regeneración manual del responsable en el mismo cambio cuando evolucionen las entidades compartidas. No editar los archivos de salida `api/openapi.yaml` y `api/openapi.html` directamente; regenerarlos con Redocly.
 5. Implementar **solo** las entidades/servicios/endpoints necesarios en el tag elegido, con migraciones nuevas y tests apropiados. Una ruta descrita en OpenAPI no demuestra que exista en Java.
 
 ## 7. Estado de los tags y próximas decisiones
 
-**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Incidencias** y **Evidencias** (OpenAPI `0.8.0`) cuentan con endpoints backend. Tramitación fase 1 añade diez operaciones; derivación, equipos, estadísticas, mapas e IA continúan en diseño; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
+**Autenticación**, **Usuarios**, **Invitaciones**, **Departamentos**, **Categorías**, **Detección de duplicados**, **Incidencias** y **Evidencias** (OpenAPI `0.8.0`) cuentan con endpoints backend. Tramitación fase 1 añade diez operaciones; la detección y gestión de duplicados se implementa mediante el módulo duplicates, con sugerencias y confirmación manual. Derivación, equipos, estadísticas e IA continúan en diseño; Mapas tiene backend provincial y visor/capas pendientes; el núcleo de incidencias ya tiene seis endpoints. Sus límites, campos omitidos y pendientes se detallan en el [roadmap](incidents-implementation-roadmap.md). Faltan el primer administrador de producción, API de retirada de permisos, política de retención y anonimización de históricos (RGPD), rotación no disruptiva de HMAC, mensajería confiable y autorización por titularidad/estado/ámbito cuando se desarrollen dichos tags.
 
 - [Contrato dominio–API](api/domain-openapi.md) y [guía de la API](api/README.md).
 - [Arquitectura modular real](architecture.md), [diagramas actualizados](diagrams/README.md) y [ADR](adr/README.md).
@@ -99,10 +103,16 @@ El módulo `identity` implementa perfil propio y administración de usuarios. `U
 
 `displayName` utiliza 2–120 puntos Unicode después de recortar espacios de borde y rechaza controles interiores. Actividad y perfil se modifican bajo bloqueo del usuario; la administración protege al último ADMIN activo y verificado, incluida la autodesactivación. La limpieza de cuentas caducadas excluye referencias históricas antes de paginar el lote. Detalles en [ADR-0012](adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](adr/0013-pertenencias-usuarios-departamentos.md).
 
-La revisión exige motivo de 3–2000 puntos Unicode en REJECT y REQUEST_INFORMATION; VALIDATE lo prohíbe y exige categoría activa. V2 conserva los motivos históricos V1 exclusivamente en vistas internas. PriorityDecision exige justificación con la misma regla. StatusChange conserva textos opcionales (2000/5000), incluso blancos; exigirlos por transición y sincronizar estado/asignación es responsabilidad de ProcessingService para revisión y de fases futuras para ejecución. V1 mantiene sus restricciones originales y V2 aplica las nuevas.
+La revisión exige motivo de 3–2000 puntos Unicode en REJECT y REQUEST_INFORMATION; VALIDATE lo prohíbe y exige categoría activa. La antigua V2 conservaba motivos históricos; en una V1 nueva VALIDATE no admite motivo. PriorityDecision exige justificación con la misma regla. StatusChange conserva textos opcionales (2000/5000), incluso blancos; exigirlos por transición y sincronizar estado/asignación es responsabilidad de ProcessingService para revisión y de fases futuras para ejecución. V1 incorpora directamente las restricciones finales.
 
 ## Tramitación: primera fase (15/11/2026)
 
-IncidentInformationResponse vincula una solicitud REQUEST_INFORMATION exacta con su informante, mensaje normalizado e instante. Una respuesta como máximo por solicitud, sin relación persistente con fotos. IncidentReview conserva resultingStatus de cada decisión; null solo para filas V1 sin evidencia. Los tres historiales anteriores se trasladan a processing sin duplicar tablas.
+IncidentInformationResponse vincula una solicitud REQUEST_INFORMATION exacta con su informante, mensaje normalizado e instante. Una respuesta como máximo por solicitud, sin relación persistente con fotos. IncidentReview conserva resultingStatus de cada decisión; obligatorio en toda instalación V1 nueva; el null de antiguas migraciones queda como antecedente histórico. Los tres historiales anteriores se trasladan a processing sin duplicar tablas.
 
 AWAITING_INFORMATION permite respuesta del informante o rechazo municipal. VALIDATE exige categoría activa explícita; VALIDATED/REJECTED no se rectifican. Prioridad manual solo VALIDATED sin departamento, null hasta decisión real. [Matriz, invariantes y límites](incidents-implementation-roadmap.md#tramitación-primera-fase-15112026).
+
+## Mapas y Duplicados en la integración actual
+
+Mapas es una consulta del agregado y sus revisiones, sin entidad ni tabla Map. `GET /api/v1/map/incidents` aplica provincia Málaga, ámbito/visibilidad, ubicación autorizada exacta o aproximada, viewport, filtros y clustering. [Guía](maps-backend.md) y [ADR-0017](adr/0017-mapas-provinciales-privacidad.md). RF08 parcial: visor React/Expo, capas urbanas y títulos públicos aprobados pendientes.
+
+`DuplicateLink` persiste exclusivamente confirmaciones humanas en V1: dos FK Incident distintas, par UUID canónico único, FK de autor, fecha y motivo opcional de hasta 2000 puntos Unicode. Sugerencias calculadas, no persistidas; RF16 parcial por ausencia de semántica textual. Dos operaciones backend, sin UI, fusión ni desvinculación. [Matriz de alcance](integration-reconciliation.md).

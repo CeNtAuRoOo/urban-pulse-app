@@ -27,8 +27,16 @@ const sql = template
   .replaceAll("@SCALE_Y@", String(scaleY))
   .replace("@POLYGON@", "(" + vertices.join(",") + ")")
   .replace("@VERTICES@", "{" + vertices.map((p) => '"' + p + '"').join(",") + "}");
-const target = root + "src/main/resources/db/migration/V5__maps_geography.sql";
+const target = root + "src/main/resources/db/migration/V1__initial_schema.sql";
+const begin = "-- BEGIN GENERATED MAP GEOGRAPHY\n";
+const end = "-- END GENERATED MAP GEOGRAPHY";
+const current = readFileSync(target, "utf8");
+if (current.split(begin).length !== 2 || current.split(end).length !== 2)
+  throw Error("V1 must contain exactly one pair of geography markers");
+const start = current.indexOf(begin) + begin.length;
+const finish = current.indexOf(end);
+if (finish < start) throw Error("Invalid geography marker order");
 if (process.argv.includes("--check")) {
-  if (readFileSync(target, "utf8") !== sql) throw Error("Generated migration differs");
-} else writeFileSync(target, sql);
+  if (current.slice(start, finish) !== sql) throw Error("Generated V1 geography differs");
+} else writeFileSync(target, current.slice(0, start) + sql + current.slice(finish));
 console.log("Verified IGN province and generated geography: " + vertices.length + " vertices");

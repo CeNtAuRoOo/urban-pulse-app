@@ -134,7 +134,7 @@ class IncidentPostgresIT {
         when(clock.instant()).thenReturn(Instant.now());
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
         jdbc.execute(
-                "truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+                "truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -273,7 +273,7 @@ class IncidentPostgresIT {
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "2", "5");
+                .containsExactly("1");
     }
 
     @Test
@@ -664,12 +664,12 @@ class IncidentPostgresIT {
     }
 
     @Test
-    void schemaRecordsV1V2V5AndIndexesFinalStructures() {
+    void schemaRecordsConsolidatedV1AndIndexesFinalStructures() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2", "5");
+                String.class)).containsExactly("1");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
-                .isEqualTo(15);
+                .isEqualTo(16);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
                         "attachments_incident_active_idx");
@@ -691,8 +691,10 @@ class IncidentPostgresIT {
             }
         }
         assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null, "VALIDATE")).isEqualTo(1);
-        assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), "VALIDATE", "motivo", "VALIDATE"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        for (String reason : List.of("motivo", "abc", "", " ", "\t", "\u2003".repeat(3), " abc", "abc\t", "🚦".repeat(2001))) {
+            assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), "VALIDATE", reason, "VALIDATE"))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
         for (String decision : List.of("REJECT", "REQUEST_INFORMATION")) {
             assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), decision, null, decision))
                     .isInstanceOf(DataIntegrityViolationException.class);

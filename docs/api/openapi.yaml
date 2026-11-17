@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: UrbanPulse API REST
   version: 0.8.0
-  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas. Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados. Mapas implementa consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom.
+  description: Contrato de los tags Autenticación, Usuarios e Invitaciones implementados en el backend (registro, login, cambio de contraseña, verificación de correo, perfil, administración de usuarios y concesión de permisos por invitación). Departamentos y Categorías también implementan consulta, alta y PATCH. Incidencias implementa seis operaciones de alta, listados, detalle, corrección con If-Match e historial paginado. Evidencias implementa cinco operaciones privadas JPEG/PNG con máximo cinco activas por incidencia, 10 MiB y borrado lógico. Las restantes áreas del API mantienen su carácter de propuesta revisable; al implementarlas, toda petición protegida requerirá también EMAIL_VERIFIED salvo excepciones explícitas de autenticación por tag. Funciones avanzadas opcionales aplazadas. Tramitación implementa diez operaciones de revisión, información adicional y prioridad MANUAL. Evidencias solo admite altas/bajas en REPORTED/AWAITING_INFORMATION; las lecturas siguen autorizadas en todos los estados. Mapas implementa consulta provincial de Málaga con permisos vigentes, privacidad y agrupaciones por zoom. Duplicados implementa consulta heurística y confirmación manual auditada; no fusiona ni elimina reportes.
   contact:
     name: Equipo UrbanPulse
 servers:
@@ -1992,10 +1992,17 @@ paths:
     get:
       tags:
         - Duplicados
-      summary: 'Diseño futuro: Sugerir incidencias duplicadas'
-      description: Sugerencias calculadas sin persistencia, por proximidad espacial y temporal (categoría si está disponible). La confirmación siempre corresponde al personal municipal.
+      summary: Obtener candidatos a incidencia duplicada
+      description: |
+        Requiere OPERATOR o ADMIN global vigente, cuenta activa y EMAIL_VERIFIED.
+        Consulta todos los candidatos no vinculados a ±72 horas inclusivas y hasta 250 m
+        Haversine. Devuelve como máximo las veinte mejores puntuaciones, con
+        desempate por UUID ascendente sin signo. Categoría opcional; sin semántica textual.
+        Preselección conservadora por latitud, filtros y ranking en SQL antes del corte.
+        Timeout SQL de 5 s; 503 DUPLICATE_QUERY_TIMEOUT sin sugerencias parciales.
+        No persiste ni confirma sugerencias. Cache-Control no-store.
       operationId: getIncidentsIncidentIdDuplicateCandidates
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2022,14 +2029,24 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          description: PostgreSQL no disponible o timeout; sin respuesta parcial.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /incidents/{incidentId}/duplicate-links:
     post:
       tags:
         - Duplicados
-      summary: 'Diseño futuro: Vincular duplicado confirmado'
-      description: Confirma relación con otra incidencia, conservando los dos reportes y su historial.
+      summary: Confirmar relación de duplicidad
+      description: |
+        Confirmación manual por OPERATOR/ADMIN global vigente, cuenta activa y EMAIL_VERIFIED.
+        Relación simétrica y única, sin autoenlaces. Conserva reportes, evidencias e historiales;
+        vínculo y auditoría son atómicos. No prohíbe ciclos arbitrarios ni permite desvincular.
+        Responde 201 con Cache-Control no-store, sin Location al no existir GET del vínculo.
       operationId: postIncidentsIncidentIdDuplicateLinks
-      x-implementation: future
+      x-implementation: implemented
       x-roles:
         - OPERATOR
         - ADMIN
@@ -2049,10 +2066,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/DuplicateLinkDTO'
           headers:
-            Location:
-              description: Ruta al nuevo recurso, cuando esté disponible.
+            Cache-Control:
               schema:
                 type: string
+                enum:
+                  - no-store
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2067,6 +2085,12 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          description: PostgreSQL no disponible o timeout; sin respuesta parcial.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /incidents/{incidentId}/urban-context:
     get:
       tags:
@@ -4551,7 +4575,7 @@ components:
           type: array
           items:
             type: string
-          description: Proximidad, tiempo y/o semántica.
+          description: Proximidad espacial, cercanía temporal y coincidencia de categoría.
         candidateIncidentId:
           type: string
           format: uuid
@@ -4568,6 +4592,9 @@ components:
           format: uuid
         reason:
           type: string
+          nullable: true
+          pattern: ^[\u0001-\u0020]*[^\u0000\uD800-\uDFFF]{0,2000}[\u0001-\u0020]*$
+          description: Opcional; máximo 2000 puntos Unicode tras trim Java. Vacío se guarda como null; NUL y sustitutos aislados se rechazan con 422.
       required:
         - candidateIncidentId
       additionalProperties: false

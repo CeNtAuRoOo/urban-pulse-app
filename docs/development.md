@@ -1,6 +1,6 @@
 # Guía de desarrollo de UrbanPulse
 
-El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. `V1__initial_schema.sql` crea 14 tablas funcionales y cinco roles; V2 añade respuestas y restricciones de Tramitación, sin usuarios, ADMIN ni catálogos de demostración. V5 añade las funciones e índices geográficos de Mapas.
+El desarrollo se ejecuta siempre con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
 
 ## 1. Configuración privada
 
@@ -57,7 +57,7 @@ docker compose logs -f backend
 
 Todos los puertos publicados se vinculan a `127.0.0.1`. Los clientes móviles requieren una configuración de acceso explícita y no forman parte de este procedimiento web.
 
-El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica V1, V2 y V5 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
+El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: aplica únicamente V1 a una base vacía y Hibernate valida después con `ddl-auto=validate`. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
 
 ```bash
 docker compose up -d --wait postgres
@@ -83,7 +83,7 @@ Antes de arrancar una rama diferente, revisar sus migraciones frente al historia
 
 El aislamiento entre equipos **no resuelve colisiones al integrar ramas**:
 
-1. Coordinar la siguiente versión libre y revisar las migraciones de `origin/main` antes de integrar; en esta integración existen V1, V2 de Tramitación y V5; coordinar la siguiente versión posterior a V5, sin rellenar huecos históricos ni duplicar versiones.
+1. Coordinar la siguiente versión libre y revisar las migraciones de `origin/main` antes de integrar; en esta integración solo existe V1; coordinar las ampliaciones posteriores sin reescribir una V1 aplicada.
 2. Si dos ramas introducen distintas V2, acordar el orden según sus dependencias. Solo el trabajo no publicado ni aplicado en bases compartidas puede renumerarse antes de integrar.
 3. Validar la secuencia conjunta sobre una base nueva y, cuando haya cambios incrementales, también desde el esquema compartido anterior. No reutilizar un historial local incompatible ni editarlo a mano.
 4. Una migración aplicada en una base compartida es inmutable. Si hay historiales compartidos en conflicto, detener la integración y preparar una reconciliación revisada, con respaldo y migraciones compatibles.
@@ -114,12 +114,12 @@ El comando del job, desde `backend/`, es:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para trece suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT y MapPerformancePostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
+Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para catorce suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT, MapPerformancePostgresIT y DuplicatePostgresIT. Usan PostgreSQL 18 efímero de Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
 
 Para repetirlo sin instalar Java/Maven en Windows, desde la raíz con Docker Desktop (PowerShell):
 
 ```powershell
-docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=/src,readonly" --mount type=volume,source=urbanpulse-auth-maven,target=/root/.m2 --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal maven:3.9.16-eclipse-temurin-25 sh -c 'mkdir -p /tmp/check; cp -a /src/pom.xml /src/src /tmp/check/; cd /tmp/check; mvn -B -ntp clean verify -Ppostgres-it'
+docker run --rm --mount "type=bind,source=$((Get-Location).Path)\backend,target=/src,readonly" --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal maven:3.9.16-eclipse-temurin-25 sh -c 'mkdir -p /tmp/check; cp -a /src/pom.xml /src/src /tmp/check/; cd /tmp/check; mvn -B -ntp clean verify -Ppostgres-it'
 ```
 
 La copia interna evita que `clean` compita con el backend de desarrollo sobre `target`. Este contenedor es un ejecutor de tests, no otra modalidad de ejecución de la aplicación. No necesita los archivos privados ni iniciar Compose.
@@ -150,7 +150,7 @@ docker compose config --quiet
 git diff --check
 ```
 
-El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.env.example` a `frontend/.env` únicamente en su checkout temporal. Valida solo `compose.yaml`, sin arrancar servicios ni conectar a Neon. Las plantillas vacías bastan para resolver `env_file`, pero el arranque real requiere completar la configuración. No regenerar artefactos en CI; cuando cambie la fuente OpenAPI, seguir [API](api/README.md#7-validación-y-visualización).
+El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.env.example` a `frontend/.env` únicamente en su checkout temporal. Valida solo `compose.yaml`, sin arrancar servicios ni conectar a Neon. Las plantillas vacías bastan para resolver `env_file`, pero el arranque real requiere completar la configuración. CI regenera bundle/HTML y comprueba que coincidan; al cambiar la fuente OpenAPI, seguir [API](api/README.md#7-validación-y-visualización).
 
 ### Pruebas externas
 
@@ -159,6 +159,8 @@ El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.en
 El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontainers. Exige `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración S3 de un recurso de pruebas no productivo autorizado; disponer de credenciales de desarrollo no constituye autorización para ejecutarlo. Tampoco pertenece al CI ordinario. Una prueba omitida no acredita conectividad.
 
 ## 6. Límites y evidencias históricas
+
+**Las secciones siguientes conservan los resultados y procedimientos anteriores a esta integración. V2/V3/V5, outOfOrder y sus cifras no describen la V1 vigente. Los resultados actuales se registran exclusivamente en [el informe de integración](integration-reconciliation.md).**
 
 Las pruebas aisladas y el arranque Compose no acreditan despliegue productivo ni operaciones reales S3. Siguen fuera de alcance CD, hosting/TLS, SMTP productivo, bootstrap del primer ADMIN, retención/purgado, las fases posteriores de Tramitación y validación móvil completa.
 
@@ -352,7 +354,7 @@ OpenAPI 3.0.3 / contrato 0.7.0: Redocly 2.16.0 validó la fuente modular, regene
 
 ### Incidencias: revisión correctiva del 05/11/2026 (histórica)
 
-Este registro conserva los resultados y migraciones de aquella fecha. La entrega vigente usa V1 consolidada, V2 de Tramitación y V5 de Mapas; estas referencias a V2/V3 no son instrucciones de ejecución actuales.
+Este registro conserva los resultados y migraciones de aquella fecha. El estado C previo a la integración usaba V1, V2 de Tramitación y V5 de Mapas; estas referencias no son instrucciones de ejecución actuales.
 
 Entorno aislado: Java 25.0.4, Maven 3.9.16, Spring Boot 4.1.2/Hibernate 7.4.13.Final, Testcontainers 2.0.5 y PostgreSQL 18.6 efímero. No se ejecutó NeonConnectivityIT ni se utilizaron credenciales de Neon. El inventario Docker no ofrecía una base PostgreSQL persistente local. El historial remoto de Neon no se ha consultado; V1/V2 se conservan y V3 es aditiva.
 
@@ -483,3 +485,9 @@ npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-co
 
 Verificación offline del contorno IGN con `generate-map-boundary.mjs --check` y
 `git diff --check` correctos. No se ejecutan ni se modifican funcionalidades frontend.
+
+## Verificación de la integración actual (16–17/11/2026)
+
+Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
+
+[Matriz, comandos, resultados nuevos y limitaciones](integration-reconciliation.md). El generador comprueba V1; Redocly 2.16.0 regenera bundle y HTML con la plantilla versionada; los ejemplos HTTP se verifican después de Maven.

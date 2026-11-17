@@ -1,4 +1,24 @@
-# ADR-0006: Migraciones de PostgreSQL mediante Flyway
+# ADR-0006: Migraciones PostgreSQL mediante Flyway
+
+- Estado vigente: aceptado; consolidación autorizada el 16/11/2026 antes de la primera aplicación en destinos.
+
+## Decisión vigente de integración
+
+Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
+
+La única migración ejecutable es [V1__initial_schema.sql](../../backend/src/main/resources/db/migration/V1__initial_schema.sql). Integra directamente AWAITING_INFORMATION, snapshot obligatorio/coherente de revisión, VALIDATE sin motivo, respuestas con FK compuesta, vínculos canónicos únicos de Duplicados y geografía de Mapas. No hay CHECK NOT VALID ni datos ficticios; solo cinco roles legítimos. Hibernate mantiene validate.
+
+El generador comprueba o actualiza exclusivamente la región delimitada de geografía en V1; las tablas no se reescriben. Se preservan las siete funciones, tres índices, 12.339 vértices y checksum IGN. Solo se prueba en PostgreSQL 18 efímero. Después de aplicar V1, su contenido es inmutable y cualquier evolución requiere una migración posterior compatible.
+
+La premisa de destinos sin migraciones procede del responsable; no equivale a una garantía universal. Si un destino tiene otro historial o datos conservables, detener el arranque y diseñar una transición específica con respaldo. No utilizar repair, baseline, outOfOrder ni alterar checksums para aplicar esta consolidación.
+
+Las pruebas incrementales anteriores se transforman en instalación final, restricciones, idempotencia, conservación de fotografías/revisiones válidas y reconstrucción de índices con datos importados en un esquema aislado. [Trazabilidad y validación](../integration-reconciliation.md).
+
+## Archivo histórico anterior a la integración
+
+**Todo lo que sigue documenta las decisiones anteriores en A `27357ea1` y C `50d7ed7`. Sus secuencias V1/V2/V5 y procedimientos no son ejecutables ni instrucciones para el esquema vigente. B `b08ad608` añadió V3 de Duplicados. Se conserva el texto para explicar la evolución, sin duplicar SQL histórico fuera de Git.**
+
+### Texto anterior conservado
 
 - **Estado:** Aceptado e implementado; consolidación previa al primer despliegue, 11/11/2026.
 - **Alcance:** esquema PostgreSQL 18, aislamiento de pruebas y evolución explícita.

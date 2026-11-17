@@ -89,7 +89,7 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute("truncate incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -103,6 +103,22 @@ class MapPostgresIT {
         mvc.perform(request(PROVINCE).header("Authorization", token)).andExpect(status().isUnauthorized());
         jdbc.update("update users set active=true, token_version=1 where id=?", actor);
         mvc.perform(request(PROVINCE).header("Authorization", token)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void actualDatabaseLockTimeoutReturns503WithoutPartialMap() throws Exception {
+        UUID actor = account("OPERATOR");
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            connection.setAutoCommit(false);
+            connection.createStatement().execute("lock table incidents in access exclusive mode");
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port
+                    + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
+                    .header("Authorization", bearer(actor)).timeout(java.time.Duration.ofSeconds(15)).build();
+            var response = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(503);
+            assertThat(json.readTree(response.body()).get("code").asString()).isEqualTo("MAP_QUERY_TIMEOUT");
+            connection.rollback();
+        }
     }
 
     @Test
@@ -410,30 +426,32 @@ class MapPostgresIT {
     @Test
     void mapMigrationAndBothSpatialIndexesAreInstalled() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history "
-                + "where success and version='5'", Integer.class)).isEqualTo(1);
+                + "where success and version='1'", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where indexname like 'maps_%'", String.class))
                 .containsExactlyInAnyOrder("maps_exact_location_idx", "maps_public_location_idx",
                         "maps_validated_review_idx");
     }
 
     @Test
-    void mapMigrationBuildsIndexesOverExistingDataAndWorksOutsideItsSchemaSearchPath() {
+    void consolidatedSchemaRebuildsIndexesOverImportedDataAndWorksOutsideItsSchemaSearchPath() {
         UUID author = account(null);
         UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
         var base = org.flywaydb.core.Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("map_upgrade").defaultSchema("map_upgrade").target("2").load();
-        assertThat(base.migrate().migrationsExecuted).isEqualTo(2);
+                .schemas("map_upgrade").defaultSchema("map_upgrade").target("1").load();
+        assertThat(base.migrate().migrationsExecuted).isEqualTo(1);
         try {
             jdbc.update("insert into map_upgrade.users select * from public.users where id=?", author);
             jdbc.update("insert into map_upgrade.incidents select * from public.incidents where id=?", id);
             var upgrade = org.flywaydb.core.Flyway.configure()
                     .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                     .schemas("map_upgrade").defaultSchema("map_upgrade").load();
-            assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(upgrade.migrate().migrationsExecuted).isZero();
+            jdbc.execute("reindex index map_upgrade.maps_exact_location_idx");
+            jdbc.execute("reindex index map_upgrade.maps_public_location_idx");
             assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
                     + "where success and version is not null order by installed_rank", String.class))
-                    .containsExactly("1", "2", "5");
+                    .containsExactly("1");
             assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
                     .isEqualTo(36.7213);
             assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))
