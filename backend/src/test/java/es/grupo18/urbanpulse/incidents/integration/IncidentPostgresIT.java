@@ -673,7 +673,7 @@ class IncidentPostgresIT {
                 String.class)).containsExactly("1", "2");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
-                .isEqualTo(16);
+                .isEqualTo(17);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
                         "attachments_incident_active_idx");
