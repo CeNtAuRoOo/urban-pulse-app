@@ -48,13 +48,13 @@ class ProcessingMigrationPostgresIT {
                 incident, user);
         Flyway.configure().dataSource(source).load().migrate();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("2");
+                String.class)).containsExactly("1", "2");
         assertThat(jdbc.queryForObject("select reason from incident_reviews where id=?", String.class, legacy))
                 .isNull();
         assertThat(
                 jdbc.queryForObject("select resulting_status from incident_reviews where id=?", String.class, legacy))
                 .isEqualTo("VALIDATED");
-        assertThat(jdbc.queryForObject("select count(*) from attachments", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from attachments", Integer.class)).isEqualTo(2);
         assertThatThrownBy(() -> jdbc.update(
                 "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at) values(uuidv7(),?,?,'VALIDATE',now())",
                 incident, user))

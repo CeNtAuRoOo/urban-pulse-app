@@ -670,7 +670,7 @@ class IncidentPostgresIT {
     @Test
     void schemaRecordsConsolidatedV1AndIndexesFinalStructures() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("2");
+                String.class)).containsExactly("1", "2");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
                 + "and table_type='BASE TABLE' and table_name <> 'flyway_schema_history'", Integer.class))
                 .isEqualTo(16);
