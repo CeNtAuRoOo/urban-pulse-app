@@ -17,10 +17,6 @@ import es.grupo18.urbanpulse.identity.model.RoleCode;
  * @param redeemedAt   instante de concesión
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record InvitationRedemptionDTO(
-        UUID invitationId,
-        RoleCode role,
-        String scope,
-        UUID departmentId,
+public record InvitationRedemptionDTO(UUID invitationId, RoleCode role, String scope, UUID departmentId,
         Instant redeemedAt) {
 }

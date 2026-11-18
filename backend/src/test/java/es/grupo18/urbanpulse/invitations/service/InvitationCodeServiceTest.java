@@ -1,7 +1,11 @@
 package es.grupo18.urbanpulse.invitations.service;
 
-import java.time.*;
-import java.util.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import jakarta.validation.Validation;
 
@@ -23,8 +27,11 @@ import es.grupo18.urbanpulse.shared.security.JwtProperties;
 
 import tools.jackson.databind.json.JsonMapper;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class InvitationCodeServiceTest {
     private final String jwtKey = Base64.getEncoder().encodeToString(new byte[32]);
@@ -59,7 +66,7 @@ class InvitationCodeServiceTest {
         for (String bad : List.of(jwtKey, emailKey, "not-base64", "AA==")) {
             assertThatThrownBy(
                     () -> new InvitationCodeService(new StaffInvitationProperties(bad, 7), jwt, verification))
-                    .isInstanceOf(IllegalArgumentException.class);
+                            .isInstanceOf(IllegalArgumentException.class);
         }
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var validator = factory.getValidator();
@@ -91,8 +98,8 @@ class InvitationCodeServiceTest {
     @Test
     void secretBearingObjectsAreRedactedAndMailHtmlIsEscaped() {
         String code = "A".repeat(43);
-        var event = new StaffInvitationRequested("private@example.org", code, RoleCode.TECHNICIAN,
-                "<script>&\"", Instant.parse("2026-11-06T12:00:00Z"));
+        var event = new StaffInvitationRequested("private@example.org", code, RoleCode.TECHNICIAN, "<script>&\"",
+                Instant.parse("2026-11-06T12:00:00Z"));
         assertThat(event.toString()).doesNotContain(code, "private@example.org");
         assertThat(new InvitationRedemptionRequest(code).toString()).doesNotContain(code);
         var mapper = JsonMapper.builder().build();

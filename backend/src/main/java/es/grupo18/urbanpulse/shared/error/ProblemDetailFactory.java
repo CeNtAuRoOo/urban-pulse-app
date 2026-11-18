@@ -16,9 +16,8 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Centraliza la creación y serialización de respuestas de error
- * en formato ProblemDetail, siguiendo el estándar de errores HTTP
- * utilizado por la API REST.
+ * Centraliza la creación y serialización de respuestas de error en formato ProblemDetail, siguiendo el estándar de
+ * errores HTTP utilizado por la API REST.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,8 +26,8 @@ public class ProblemDetailFactory {
     private final JsonMapper mapper;
 
     /**
-     * Construye un ProblemDetail con el estado HTTP, código y descripción
-     * del error, incluyendo opcionalmente la ruta de la petición.
+     * Construye un ProblemDetail con el estado HTTP, código y descripción del error, incluyendo opcionalmente la ruta
+     * de la petición.
      *
      * @param status estado HTTP del error
      * @param code   código identificador del error
@@ -49,8 +48,8 @@ public class ProblemDetailFactory {
     }
 
     /**
-     * Escribe directamente una respuesta HTTP de error en formato ProblemDetail.
-     * Establece el estado y el tipo de contenido antes de serializar el resultado.
+     * Escribe directamente una respuesta HTTP de error en formato ProblemDetail. Establece el estado y el tipo de
+     * contenido antes de serializar el resultado.
      *
      * @param request  petición HTTP que ha provocado el error
      * @param response respuesta HTTP en la que se escribirá el error
@@ -74,9 +73,6 @@ public class ProblemDetailFactory {
      * @param code    código identificador del error de validación
      * @param message descripción del error
      */
-    public record FieldError(
-            String field,
-            String code,
-            String message) {
+    public record FieldError(String field, String code, String message) {
     }
 }

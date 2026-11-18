@@ -13,9 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Representa la asignación de un rol global a un usuario.
- * Establece la relación entre User y Role mediante una clave primaria
- * compuesta y rechaza la asignación de roles departamentales.
+ * Representa la asignación de un rol global a un usuario. Establece la relación entre User y Role mediante una clave
+ * primaria compuesta y rechaza la asignación de roles departamentales.
  */
 @Entity
 @Table(name = "user_roles")
@@ -37,9 +36,8 @@ public class UserRole {
     private Role role;
 
     /**
-     * Crea una asignación de rol global para un usuario.
-     * Construye la clave primaria compuesta utilizando el identificador
-     * del usuario y el código del rol.
+     * Crea una asignación de rol global para un usuario. Construye la clave primaria compuesta utilizando el
+     * identificador del usuario y el código del rol.
      *
      * @param user usuario al que se asignará el rol
      * @param role rol global que se desea asignar

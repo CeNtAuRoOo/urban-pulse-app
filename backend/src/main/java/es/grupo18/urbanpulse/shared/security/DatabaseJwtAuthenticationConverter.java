@@ -19,17 +19,16 @@ import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.shared.error.AuthenticationBackendException;
 
 /**
- * Convierte un JWT validado en una autenticación de Spring Security.
- * Comprueba el estado actual del usuario y sus permisos en la base de datos,
- * sin confiar en los roles incluidos en el propio token.
+ * Convierte un JWT validado en una autenticación de Spring Security. Comprueba el estado actual del usuario y sus
+ * permisos en la base de datos, sin confiar en los roles incluidos en el propio token.
  */
 @Component
 @RequiredArgsConstructor
 public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     /**
-     * Autoridad asignada a las cuentas con correo verificado, utilizada para
-     * restringir el acceso a las rutas protegidas.
+     * Autoridad asignada a las cuentas con correo verificado, utilizada para restringir el acceso a las rutas
+     * protegidas.
      */
     public static final String EMAIL_VERIFIED = "EMAIL_VERIFIED";
 
@@ -82,16 +81,14 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
     }
 
     /**
-     * Autentica al usuario a partir de un JWT previamente validado.
-     * Consulta su estado actual, comprueba la versión del token y obtiene
-     * los roles globales vigentes desde la base de datos, exigiendo CITIZEN.
-     * Añade la autoridad EMAIL_VERIFIED cuando el correo está verificado,
-     * permitiendo aplicar las restricciones de acceso correspondientes.
+     * Autentica al usuario a partir de un JWT previamente validado. Consulta su estado actual, comprueba la versión del
+     * token y obtiene los roles globales vigentes desde la base de datos, exigiendo CITIZEN. Añade la autoridad
+     * EMAIL_VERIFIED cuando el correo está verificado, permitiendo aplicar las restricciones de acceso
+     * correspondientes.
      *
      * @param jwt token JWT validado
      * @return autenticación con la identidad y las autoridades actuales del usuario
-     * @throws InvalidBearerTokenException    si el usuario, el token
-     *                                        o el rol base no son válidos
+     * @throws InvalidBearerTokenException    si el usuario, el token o el rol base no son válidos
      * @throws AuthenticationBackendException si falla el backend de autenticación
      */
     @Override
@@ -110,17 +107,15 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
                 throw invalid();
             }
 
-            var authorities = new ArrayList<>(rows.stream()
-                    .map(row -> row.getRoleCode())
-                    .filter(Objects::nonNull).filter(code -> code.isGlobal())
-                    .map(code -> new SimpleGrantedAuthority("ROLE_" + code.name())).distinct().toList());
+            var authorities = new ArrayList<>(
+                    rows.stream().map(row -> row.getRoleCode()).filter(Objects::nonNull).filter(code -> code.isGlobal())
+                            .map(code -> new SimpleGrantedAuthority("ROLE_" + code.name())).distinct().toList());
 
             if (rows.getFirst().getEmailVerified()) {
                 authorities.add(new SimpleGrantedAuthority(EMAIL_VERIFIED));
             }
 
-            // TODO ADR-0009: resource ownership and departmental authorization in their own
-            // tags.
+            // TODO ADR-009: resource ownership and departmental authorization in their own tags.
 
             return new JwtAuthenticationToken(jwt, authorities, id.toString());
         }
@@ -135,8 +130,7 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
     }
 
     /**
-     * Crea una excepción de autenticación para indicar que el JWT
-     * o las credenciales asociadas no son válidos.
+     * Crea una excepción de autenticación para indicar que el JWT o las credenciales asociadas no son válidos.
      *
      * @return excepción de token Bearer no válido
      */

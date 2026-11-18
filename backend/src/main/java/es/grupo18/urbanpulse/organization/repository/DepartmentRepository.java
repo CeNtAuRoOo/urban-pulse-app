@@ -17,8 +17,7 @@ import es.grupo18.urbanpulse.organization.model.Department;
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
     /**
-     * Bloquea la fila hasta el fin de la transacción para serializar PATCH y
-     * canjes.
+     * Bloquea la fila hasta el fin de la transacción para serializar PATCH y canjes.
      *
      * @param id UUID de la unidad
      * @return unidad bloqueada, o vacío
@@ -69,8 +68,7 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     boolean existsByCodeIgnoreCaseAndIdNot(String code, UUID id);
 
     /**
-     * Bloquea la unidad para coordinar el permiso con una desactivación
-     * concurrente.
+     * Bloquea la unidad para coordinar el permiso con una desactivación concurrente.
      *
      * @param id identificador de departamento
      * @return unidad bloqueada, o vacío

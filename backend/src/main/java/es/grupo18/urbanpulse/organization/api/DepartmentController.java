@@ -20,6 +20,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import es.grupo18.urbanpulse.organization.dto.CreateDepartmentRequest;
 import es.grupo18.urbanpulse.organization.dto.DepartmentResponse;
 import es.grupo18.urbanpulse.organization.dto.PatchDepartmentRequest;
+import es.grupo18.urbanpulse.organization.service.DepartmentNotFoundException;
 import es.grupo18.urbanpulse.organization.service.DepartmentService;
 
 /** Operaciones REST del catálogo municipal, con DTO independientes de JPA. */
@@ -39,8 +40,7 @@ public class DepartmentController {
     }
 
     /**
-     * Lista unidades activas e inactivas ordenadas por nombre; requiere correo
-     * verificado.
+     * Lista unidades activas e inactivas ordenadas por nombre; requiere correo verificado.
      *
      * @return catálogo sin paginación ni fechas internas
      */
@@ -54,11 +54,7 @@ public class DepartmentController {
      *
      * @param departmentId UUID de la unidad
      * @return proyección pública del departamento
-     * @throws es.grupo18.urbanpulse.organization.service.DepartmentNotFoundException si
-     *                                                                                no
-     *                                                                                existe
-     *                                                                                la
-     *                                                                                unidad
+     * @throws DepartmentNotFoundException si no existe la unidad
      */
     @GetMapping("/{departmentId}")
     public DepartmentResponse findById(@PathVariable UUID departmentId) {
@@ -66,36 +62,28 @@ public class DepartmentController {
     }
 
     /**
-     * Da de alta una unidad; la cadena de seguridad exige correo verificado y
-     * ADMIN.
+     * Da de alta una unidad; la cadena de seguridad exige correo verificado y ADMIN.
      *
      * @param request datos validados de alta
      * @return HTTP 201 con la proyección creada y cabecera Location
      */
     @PostMapping
-    public ResponseEntity<DepartmentResponse> create(
-            @Valid @RequestBody CreateDepartmentRequest request) {
+    public ResponseEntity<DepartmentResponse> create(@Valid @RequestBody CreateDepartmentRequest request) {
         DepartmentResponse response = departmentService.create(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{departmentId}")
-                .buildAndExpand(response.id())
-                .toUri();
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .location(location)
-                .body(response);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{departmentId}")
+                .buildAndExpand(response.id()).toUri();
+        return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response);
     }
 
     /**
      * Modifica los campos presentes sin eliminar la unidad; exige ADMIN verificado.
      *
      * @param departmentId UUID de la unidad
-     * @param request      campos validados; omitir conserva, null explícito no se
-     *                     admite
+     * @param request      campos validados; omitir conserva, null explícito no se admite
      * @return proyección resultante de la actualización
      */
     @PatchMapping("/{departmentId}")
-    public DepartmentResponse patch(
-            @PathVariable UUID departmentId,
+    public DepartmentResponse patch(@PathVariable UUID departmentId,
             @Valid @RequestBody PatchDepartmentRequest request) {
         return departmentService.patch(departmentId, request);
     }

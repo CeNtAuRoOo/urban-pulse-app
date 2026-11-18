@@ -31,8 +31,7 @@ class UpdateMyProfileRequestTest {
     void rejectsNullDisplayName() {
         var request = new UpdateMyProfileRequest(null);
 
-        assertThat(validator.validate(request))
-                .extracting(error -> error.getMessage())
+        assertThat(validator.validate(request)).extracting(error -> error.getMessage())
                 .contains("El nombre no puede estar vacío.");
     }
 
@@ -40,8 +39,7 @@ class UpdateMyProfileRequestTest {
     void rejectsBlankDisplayName() {
         var request = new UpdateMyProfileRequest("   ");
 
-        assertThat(validator.validate(request))
-                .extracting(error -> error.getMessage())
+        assertThat(validator.validate(request)).extracting(error -> error.getMessage())
                 .contains("El nombre no puede estar vacío.");
     }
 
@@ -49,8 +47,7 @@ class UpdateMyProfileRequestTest {
     void rejectsDisplayNameShorterThanTwoCharacters() {
         var request = new UpdateMyProfileRequest("A");
 
-        assertThat(validator.validate(request))
-                .extracting(error -> error.getMessage())
+        assertThat(validator.validate(request)).extracting(error -> error.getMessage())
                 .contains("El nombre debe tener entre 2 y 120 caracteres.");
     }
 
@@ -58,8 +55,7 @@ class UpdateMyProfileRequestTest {
     void rejectsDisplayNameLongerThan120Characters() {
         var request = new UpdateMyProfileRequest("A".repeat(121));
 
-        assertThat(validator.validate(request))
-                .extracting(error -> error.getMessage())
+        assertThat(validator.validate(request)).extracting(error -> error.getMessage())
                 .contains("El nombre debe tener entre 2 y 120 caracteres.");
     }
 

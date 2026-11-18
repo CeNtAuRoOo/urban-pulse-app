@@ -5,13 +5,13 @@ import java.util.UUID;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Identidad pública mínima compartida; no contiene email, roles ni
- * pertenencias.
+ * Identidad pública mínima compartida; no contiene email, roles ni pertenencias.
  *
  * @param id          identidad estable
  * @param displayName nombre visible actual
  */
 public record UserSummaryDTO(UUID id, String displayName) {
+
     /**
      * Proyecta el nombre vigente sin datos de cuenta ni permisos.
      *

@@ -1,7 +1,9 @@
 package es.grupo18.urbanpulse.auth.service;
 
 import java.security.SecureRandom;
-import java.util.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -14,8 +16,12 @@ import es.grupo18.urbanpulse.auth.mail.EmailVerificationRequested;
 import es.grupo18.urbanpulse.shared.mail.EmailMessage;
 import es.grupo18.urbanpulse.shared.security.JwtProperties;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class EmailVerificationCodeServiceTest {
     private EmailVerificationProperties properties() throws Exception {
@@ -24,8 +30,9 @@ class EmailVerificationCodeServiceTest {
     }
 
     private JwtProperties jwt() throws Exception {
-        return new JwtProperties("tests", PropertiesLoaderUtils.loadAllProperties("auth-test.properties")
-                .getProperty("security.jwt.secret"), 7200, List.of("http://localhost"));
+        return new JwtProperties("tests",
+                PropertiesLoaderUtils.loadAllProperties("auth-test.properties").getProperty("security.jwt.secret"),
+                7200, List.of("http://localhost"));
     }
 
     @Test
@@ -52,7 +59,7 @@ class EmailVerificationCodeServiceTest {
         for (String key : List.of("invalid-base64", Base64.getEncoder().encodeToString(new byte[31]), jwt.secret())) {
             assertThatThrownBy(
                     () -> new EmailVerificationCodeService(new EmailVerificationProperties(key, 100, 10), jwt))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageNotContaining(key);
+                            .isInstanceOf(IllegalArgumentException.class).hasMessageNotContaining(key);
         }
         assertThat(properties().toString()).doesNotContain(properties().secret());
         assertThat(new ConfirmEmailRequest("01234567").toString()).doesNotContain("01234567");

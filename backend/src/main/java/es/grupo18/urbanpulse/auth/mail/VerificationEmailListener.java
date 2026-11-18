@@ -14,10 +14,9 @@ import es.grupo18.urbanpulse.shared.mail.EmailMessage;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 
 /**
- * Escucha los eventos de solicitud de verificación del correo electrónico.
- * Prepara y envía los mensajes después de confirmar la transacción
- * de persistencia, evitando que los fallos SMTP reviertan
- * el registro o reenvío previamente confirmado.
+ * Escucha los eventos de solicitud de verificación del correo electrónico. Prepara y envía los mensajes después de
+ * confirmar la transacción de persistencia, evitando que los fallos SMTP reviertan el registro o reenvío previamente
+ * confirmado.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,13 +26,11 @@ public class VerificationEmailListener {
     private final EmailSender sender;
 
     /**
-     * Procesa una solicitud de verificación después del commit de la transacción.
-     * Construye el contenido del correo en español y delega su envío
-     * en EmailSender, sin participar en una transacción de persistencia activa.
-     * Registra los fallos sin revelar información sensible ni propagarlos.
+     * Procesa una solicitud de verificación después del commit de la transacción. Construye el contenido del correo en
+     * español y delega su envío en EmailSender, sin participar en una transacción de persistencia activa. Registra los
+     * fallos sin revelar información sensible ni propagarlos.
      *
-     * @param event evento que contiene el destinatario y el código
-     *              de verificación que debe enviarse
+     * @param event evento que contiene el destinatario y el código de verificación que debe enviarse
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

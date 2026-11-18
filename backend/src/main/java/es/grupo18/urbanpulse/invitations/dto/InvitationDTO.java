@@ -10,8 +10,7 @@ import es.grupo18.urbanpulse.invitations.model.InvitationStatus;
 import es.grupo18.urbanpulse.invitations.model.StaffInvitation;
 
 /**
- * Metadatos administrativos sin código ni HMAC; los campos opcionales ausentes
- * se omiten.
+ * Metadatos administrativos sin código ni HMAC; los campos opcionales ausentes se omiten.
  *
  * @param id           identificador
  * @param email        destinatario normalizado
@@ -27,18 +26,8 @@ import es.grupo18.urbanpulse.invitations.model.StaffInvitation;
  * @param revokedAt    revocación opcional
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record InvitationDTO(
-        UUID id,
-        String email,
-        RoleCode role,
-        UUID departmentId,
-        InvitationStatus status,
-        UUID createdBy,
-        UUID redeemedBy,
-        UUID revokedBy,
-        Instant createdAt,
-        Instant expiresAt,
-        Instant redeemedAt,
+public record InvitationDTO(UUID id, String email, RoleCode role, UUID departmentId, InvitationStatus status,
+        UUID createdBy, UUID redeemedBy, UUID revokedBy, Instant createdAt, Instant expiresAt, Instant redeemedAt,
         Instant revokedAt) {
 
     /**
@@ -53,8 +42,7 @@ public record InvitationDTO(
                 invitation.getDepartment() == null ? null : invitation.getDepartment().getId(),
                 invitation.statusAt(now), invitation.getCreatedBy().getId(),
                 invitation.getRedeemedBy() == null ? null : invitation.getRedeemedBy().getId(),
-                invitation.getRevokedBy() == null ? null : invitation.getRevokedBy().getId(),
-                invitation.getCreatedAt(), invitation.getExpiresAt(),
-                invitation.getRedeemedAt(), invitation.getRevokedAt());
+                invitation.getRevokedBy() == null ? null : invitation.getRevokedBy().getId(), invitation.getCreatedAt(),
+                invitation.getExpiresAt(), invitation.getRedeemedAt(), invitation.getRevokedAt());
     }
 }

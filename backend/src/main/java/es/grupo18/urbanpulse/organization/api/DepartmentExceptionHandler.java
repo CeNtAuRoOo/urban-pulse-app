@@ -14,8 +14,7 @@ import es.grupo18.urbanpulse.organization.service.InvalidDepartmentException;
 import es.grupo18.urbanpulse.shared.error.ProblemDetailFactory;
 
 /**
- * Traduce los errores específicos de Departamentos al formato común
- * ProblemDetail.
+ * Traduce los errores específicos de Departamentos al formato común ProblemDetail.
  */
 @RestControllerAdvice
 public class DepartmentExceptionHandler {
@@ -79,7 +78,6 @@ public class DepartmentExceptionHandler {
      */
     private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail,
             HttpServletRequest request) {
-        return ResponseEntity.status(status)
-                .body(problems.create(status, code, detail, request.getRequestURI()));
+        return ResponseEntity.status(status).body(problems.create(status, code, detail, request.getRequestURI()));
     }
 }

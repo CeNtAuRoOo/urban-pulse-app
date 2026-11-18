@@ -39,14 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DepartmentController.class)
-@Import({
-        DepartmentExceptionHandler.class,
-        SecurityConfig.class,
-        DatabaseJwtAuthenticationConverter.class,
-        RestAuthenticationEntryPoint.class,
-        RestAccessDeniedHandler.class,
-        ProblemDetailFactory.class
-})
+@Import({ DepartmentExceptionHandler.class, SecurityConfig.class, DatabaseJwtAuthenticationConverter.class,
+        RestAuthenticationEntryPoint.class, RestAccessDeniedHandler.class, ProblemDetailFactory.class })
 @TestPropertySource("classpath:auth-test.properties")
 class DepartmentControllerTest {
 
@@ -101,8 +95,8 @@ class DepartmentControllerTest {
         when(departmentService.create(any())).thenThrow(
                 new es.grupo18.urbanpulse.organization.service.DuplicateDepartmentException("nombre", "Duplicado"));
         mockMvc.perform(post(URL).with(admin()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Duplicado\",\"code\":\"DUP\"}"))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEPARTMENT_DUPLICATE"));
+                .content("{\"name\":\"Duplicado\",\"code\":\"DUP\"}")).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DEPARTMENT_DUPLICATE"));
     }
 
     @Test
@@ -135,50 +129,38 @@ class DepartmentControllerTest {
     @Test
     void authenticatedUserCanListDepartments() throws Exception {
         UUID id = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
-        when(departmentService.findAll()).thenReturn(List.of(
-                new DepartmentResponse(id, "Mantenimiento Urbano", "MANT", "Conservación", true)));
+        when(departmentService.findAll())
+                .thenReturn(List.of(new DepartmentResponse(id, "Mantenimiento Urbano", "MANT", "Conservación", true)));
 
         mockMvc.perform(get("/api/v1/departments")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].code").value("MANT"));
     }
 
     @Test
     void unauthenticatedWriteIsRejected() throws Exception {
-        mockMvc.perform(post("/api/v1/departments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/departments").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void nonAdminWriteIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/departments")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void adminCanCreateDepartmentAndReceivesLocation() throws Exception {
         UUID id = UUID.fromString("0199f6de-0004-7000-8000-000000000004");
-        when(departmentService.create(any())).thenReturn(
-                new DepartmentResponse(id, "Movilidad", "MOV", null, true));
+        when(departmentService.create(any())).thenReturn(new DepartmentResponse(id, "Movilidad", "MOV", null, true));
 
         mockMvc.perform(post("/api/v1/departments")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Movilidad\",\"code\":\"MOV\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/v1/departments/" + id))
                 .andExpect(jsonPath("$.active").value(true));
@@ -187,17 +169,13 @@ class DepartmentControllerTest {
     @Test
     void patchRequiresAdminAndDelegatesToService() throws Exception {
         UUID id = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
-        when(departmentService.patch(eq(id), any())).thenReturn(
-                new DepartmentResponse(id, "Limpieza", "LIMP", null, false));
+        when(departmentService.patch(eq(id), any()))
+                .thenReturn(new DepartmentResponse(id, "Limpieza", "LIMP", null, false));
 
         mockMvc.perform(patch("/api/v1/departments/{departmentId}", id)
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"active\":false}"))
-                .andExpect(status().isOk())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
         verify(departmentService).patch(eq(id), any());
@@ -206,12 +184,9 @@ class DepartmentControllerTest {
     @Test
     void invalidRequestReturnsContractValidationStatus() throws Exception {
         mockMvc.perform(post("/api/v1/departments")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"X\",\"code\":\"invalid code\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"X\",\"code\":\"invalid code\"}"))
                 .andExpect(status().isUnprocessableContent());
     }
 }

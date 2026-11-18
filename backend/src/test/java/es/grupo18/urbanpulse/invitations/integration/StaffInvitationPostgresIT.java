@@ -46,8 +46,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
@@ -73,6 +71,7 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailMessage;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 import es.grupo18.urbanpulse.shared.ratelimit.InMemoryRateLimiter;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -177,8 +176,8 @@ class StaffInvitationPostgresIT {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             if (message.subject().startsWith("Invitación")) {
                 try (var connection = dataSource.getConnection();
-                        var query = connection.prepareStatement(
-                                "select count(*) from staff_invitations i join audit_events a "
+                        var query = connection
+                                .prepareStatement("select count(*) from staff_invitations i join audit_events a "
                                         + "on a.resource_id=i.id::text where i.email=? and a.action='STAFF_INVITATION_CREATED'")) {
                     query.setString(1, message.to());
                     try (var rows = query.executeQuery()) {
@@ -317,8 +316,8 @@ class StaffInvitationPostgresIT {
             }));
             try {
                 assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
-                Future<?> redemption = executor.submit(() -> fails(422, "INVALID_DEPARTMENT",
-                        () -> service.redeem(citizen, 0, secret)));
+                Future<?> redemption = executor
+                        .submit(() -> fails(422, "INVALID_DEPARTMENT", () -> service.redeem(citizen, 0, secret)));
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
                 boolean waiting;
                 do {
@@ -357,8 +356,8 @@ class StaffInvitationPostgresIT {
             }));
             try {
                 assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
-                Future<?> redemption = executor.submit(() -> fails(422, "INVALID_INVITATION_CODE",
-                        () -> service.redeem(citizen, 0, secret)));
+                Future<?> redemption = executor
+                        .submit(() -> fails(422, "INVALID_INVITATION_CODE", () -> service.redeem(citizen, 0, secret)));
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
                 boolean waiting;
                 do {
@@ -460,8 +459,9 @@ class StaffInvitationPostgresIT {
         issue("second@example.org", role);
         String second = code();
         assertThat(race(first, second)).containsExactlyInAnyOrder(200, 409);
-        assertThat(jdbc.queryForObject("select count(*) from staff_invitations where email='second@example.org' "
-                + "and redeemed_at is null", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from staff_invitations where email='second@example.org' " + "and redeemed_at is null",
+                Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from audit_events where action='STAFF_INVITATION_REDEEMED'",
                 Integer.class)).isEqualTo(2);
     }
@@ -515,8 +515,8 @@ class StaffInvitationPostgresIT {
         var dto = issue(RoleCode.ADMIN);
         assertThat(service.get(admin, 0, dto.id()).status()).isEqualTo(InvitationStatus.ACTIVE);
         assertThat(audit.count()).isEqualTo(1);
-        assertThat(output.getAll()).contains("STAFF_INVITATION_EMAIL_FAILED")
-                .doesNotContain("PRIVATE_SMTP", "PRIVATE_SECRET", "person@example.org");
+        assertThat(output.getAll()).contains("STAFF_INVITATION_EMAIL_FAILED").doesNotContain("PRIVATE_SMTP",
+                "PRIVATE_SECRET", "person@example.org");
     }
 
     @Test
@@ -542,8 +542,8 @@ class StaffInvitationPostgresIT {
                 release.countDown();
             }
             password.get(10, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> redemption.get(10, TimeUnit.SECONDS))
-                    .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(ApiException.class)
+            assertThatThrownBy(() -> redemption.get(10, TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(ApiException.class)
                     .satisfies(ex -> assertThat(((ApiException) ex.getCause()).status().value()).isEqualTo(401));
         }
         assertThat(service.get(admin, 0, dto.id()).status()).isEqualTo(InvitationStatus.ACTIVE);
@@ -608,15 +608,14 @@ class StaffInvitationPostgresIT {
         var empty = service.list(admin, 0, new InvitationQuery(InvitationStatus.ACTIVE, null, null, null, 3, 1));
         assertThat(empty.data()).isEmpty();
         assertThat(empty.pagination().totalItems()).isEqualTo(2);
-        var filtered = service.list(admin, 0,
-                new InvitationQuery(null, null, RoleCode.TECHNICIAN, department, 1, 20));
+        var filtered = service.list(admin, 0, new InvitationQuery(null, null, RoleCode.TECHNICIAN, department, 1, 20));
         assertThat(filtered.data()).hasSize(1);
         assertThat(filtered.data().getFirst().id()).isEqualTo(c.id());
         now = a.expiresAt();
         assertThat(service.list(admin, 0, new InvitationQuery(InvitationStatus.EXPIRED, null, null, null, 1, 20))
                 .pagination().totalItems()).isEqualTo(2);
-        fails(422, "VALIDATION_ERROR", () -> service.list(admin, 0,
-                new InvitationQuery(null, null, null, null, Integer.MAX_VALUE, 100)));
+        fails(422, "VALIDATION_ERROR",
+                () -> service.list(admin, 0, new InvitationQuery(null, null, null, null, Integer.MAX_VALUE, 100)));
     }
 
     @Test
@@ -624,8 +623,8 @@ class StaffInvitationPostgresIT {
         var dto = issue("new@example.org", RoleCode.OPERATOR);
         String secret = code();
         var old = auth.register(new RegisterRequest("Pendiente", "new@example.org", "password-123"));
-        jdbc.update("update users set created_at=? where id=?",
-                Timestamp.from(now.minus(Duration.ofHours(25))), old.user().id());
+        jdbc.update("update users set created_at=? where id=?", Timestamp.from(now.minus(Duration.ofHours(25))),
+                old.user().id());
         assertThat(cleanup.clean().users()).isEqualTo(1);
         assertThat(invitations.findById(dto.id())).isPresent();
         var replacement = auth.register(new RegisterRequest("Verificada", "new@example.org", "password-123"));
@@ -642,27 +641,28 @@ class StaffInvitationPostgresIT {
     void sqlEnforcesHashScopeStateDatesForeignKeysAndActiveMembershipHistory() {
         var dto = issue(RoleCode.OPERATOR);
         for (String assignment : List.of("code_hash=decode('00','hex')", "role_code='CITIZEN'",
-                "role_code='TECHNICIAN'", "department_id='" + department + "'",
-                "expires_at=created_at", "redeemed_at=created_at", "revoked_at=created_at",
-                "created_by_user_id='" + UUID.randomUUID() + "'",
+                "role_code='TECHNICIAN'", "department_id='" + department + "'", "expires_at=created_at",
+                "redeemed_at=created_at", "revoked_at=created_at", "created_by_user_id='" + UUID.randomUUID() + "'",
                 "email=' Upper@Example.org '", "redeemed_at=expires_at, redeemed_by_user_id='" + citizen + "'")) {
             assertThatThrownBy(
                     () -> jdbc.update("update staff_invitations set " + assignment + " where id=?", dto.id()))
-                    .isInstanceOf(DataIntegrityViolationException.class);
+                            .isInstanceOf(DataIntegrityViolationException.class);
         }
         var other = issue(RoleCode.OPERATOR);
-        assertThatThrownBy(() -> jdbc.update("update staff_invitations set code_hash="
-                + "(select code_hash from staff_invitations where id=?) where id=?", dto.id(), other.id()))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(
+                () -> jdbc.update(
+                        "update staff_invitations set code_hash="
+                                + "(select code_hash from staff_invitations where id=?) where id=?",
+                        dto.id(), other.id())).isInstanceOf(DataIntegrityViolationException.class);
         service.revoke(admin, 0, dto.id());
-        assertThatThrownBy(() -> jdbc.update("update staff_invitations set redeemed_at=created_at, "
-                + "redeemed_by_user_id=? where id=?", citizen, dto.id()))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update(
+                "update staff_invitations set redeemed_at=created_at, " + "redeemed_by_user_id=? where id=?", citizen,
+                dto.id())).isInstanceOf(DataIntegrityViolationException.class);
         issue(RoleCode.TECHNICIAN);
         service.redeem(citizen, 0, code());
         assertThatThrownBy(() -> jdbc.update("insert into department_memberships "
                 + "select uuidv7(),user_id,department_id,role_code,joined_at,left_at from department_memberships"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                        .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("update department_memberships set role_code='ADMIN'"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("update department_memberships set left_at=joined_at-interval '1 second'"))
@@ -690,7 +690,7 @@ class StaffInvitationPostgresIT {
         mvc.perform(post("/api/v1/users/me/staff-invitation-redemptions").header("Authorization", bearer)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"invitationCode\":\"" + secret + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ADMIN"));
-        mvc.perform(get("/api/v1/staff-invitations").header("Authorization", bearer))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.pagination.totalItems").value(1));
+        mvc.perform(get("/api/v1/staff-invitations").header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.pagination.totalItems").value(1));
     }
 }

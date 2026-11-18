@@ -11,7 +11,7 @@ import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 
 /**
  * Resumen para listado, sin descripción ni identidad del informante.
- * 
+ *
  * @param id        identidad estable
  * @param title     título normalizado
  * @param category  categoría opcional

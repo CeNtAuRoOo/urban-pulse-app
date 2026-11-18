@@ -64,8 +64,8 @@ class AuthServiceTest {
     @BeforeEach
     void setup() {
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        auth = new AuthService(users, roles, assignments, departmentMemberships,
-                passwords, tokens, manager, mock(EmailVerificationService.class));
+        auth = new AuthService(users, roles, assignments, departmentMemberships, passwords, tokens, manager,
+                mock(EmailVerificationService.class));
     }
 
     private User account() {
@@ -110,8 +110,8 @@ class AuthServiceTest {
     }
 
     /**
-     * Comprueba que el inicio de sesión incluye las pertenencias departamentales
-     * activas e históricas en el DTO devuelto junto con el JWT.
+     * Comprueba que el inicio de sesión incluye las pertenencias departamentales activas e históricas en el DTO
+     * devuelto junto con el JWT.
      */
     @Test
     void loginIncludesDepartmentMembershipsInUserDTO() {
@@ -134,51 +134,42 @@ class AuthServiceTest {
         when(membership.getRole()).thenReturn(role);
         when(membership.getJoinedAt()).thenReturn(joinedAt);
         when(membership.getLeftAt()).thenReturn(null);
-        when(departmentMemberships.findAllForUsers(List.of(user.getId())))
-                .thenReturn(List.of(membership));
+        when(departmentMemberships.findAllForUsers(List.of(user.getId()))).thenReturn(List.of(membership));
 
         TokenDTO response = auth.login(new LoginRequest("test@example.org", "password-123"));
 
         assertThat(response.user().departmentMemberships()).hasSize(1);
-        assertThat(response.user().departmentMemberships().getFirst().role())
-                .isEqualTo(RoleCode.TECHNICIAN);
-        assertThat(response.user().departmentMemberships().getFirst().department().code())
-                .isEqualTo("MANT");
+        assertThat(response.user().departmentMemberships().getFirst().role()).isEqualTo(RoleCode.TECHNICIAN);
+        assertThat(response.user().departmentMemberships().getFirst().department().code()).isEqualTo("MANT");
     }
 
     @Test
     void loginFailuresAreIndistinguishableAndUnverifiedUserCanLogin() {
         User user = account();
         when(users.findByEmail("test@example.org")).thenReturn(Optional.of(user));
-        assertThat(auth.login(new LoginRequest(" TEST@EXAMPLE.ORG ", "password-123")).tokenType())
-                .isEqualTo("Bearer");
+        assertThat(auth.login(new LoginRequest(" TEST@EXAMPLE.ORG ", "password-123")).tokenType()).isEqualTo("Bearer");
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "bad")))
-                .isInstanceOf(ApiException.class)
-                .hasMessage("Autenticación no válida.");
+                .isInstanceOf(ApiException.class).hasMessage("Autenticación no válida.");
         ReflectionTestUtils.setField(user, "active", false);
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "password-123")))
-                .isInstanceOf(ApiException.class)
-                .hasMessage("Autenticación no válida.");
+                .isInstanceOf(ApiException.class).hasMessage("Autenticación no válida.");
         when(users.findByEmail("test@example.org")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "password-123")))
-                .isInstanceOf(ApiException.class)
-                .hasMessage("Autenticación no válida.");
+                .isInstanceOf(ApiException.class).hasMessage("Autenticación no válida.");
     }
 
     @Test
     void passwordChangeChecksCurrentPasswordAndLockedVersionThenIncrements() {
         User user = account();
         when(users.findForPasswordChange(user.getId())).thenReturn(Optional.of(user));
-        assertThatThrownBy(() -> auth.changePassword(user.getId(), 0,
-                new ChangePasswordRequest("bad", "password-456")))
+        assertThatThrownBy(() -> auth.changePassword(user.getId(), 0, new ChangePasswordRequest("bad", "password-456")))
                 .isInstanceOf(ApiException.class);
         auth.changePassword(user.getId(), 0, new ChangePasswordRequest("password-123", "password-456"));
         assertThat(user.getTokenVersion()).isEqualTo(1);
         assertThat(passwords.matches("password-456", user.getPasswordHash())).isTrue();
         assertThatThrownBy(
-                () -> auth.changePassword(user.getId(), 0,
-                        new ChangePasswordRequest("password-456", "password-789")))
-                .isInstanceOf(ApiException.class);
+                () -> auth.changePassword(user.getId(), 0, new ChangePasswordRequest("password-456", "password-789")))
+                        .isInstanceOf(ApiException.class);
         verify(users, times(1)).flush();
     }
 
@@ -189,14 +180,12 @@ class AuthServiceTest {
         assertThatThrownBy(() -> auth.login(new LoginRequest("test@example.org", "password-123")))
                 .isSameAs(unavailable);
         when(users.saveAndFlush(any())).thenThrow(unavailable);
-        assertThatThrownBy(() -> auth
-                .register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
+        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
                 .isSameAs(unavailable);
         verify(manager).rollback(any());
         var transactionFailure = new CannotCreateTransactionException("private transaction", unavailable);
         doThrow(transactionFailure).when(manager).getTransaction(any());
-        assertThatThrownBy(() -> auth
-                .register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
+        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "password-123")))
                 .isSameAs(transactionFailure);
         verifyNoInteractions(assignments);
     }
@@ -208,11 +197,9 @@ class AuthServiceTest {
             Role role = mock(Role.class);
             when(role.getCode()).thenReturn(code);
             if (code.isDepartmental())
-                assertThatThrownBy(() -> new UserRole(account(), role))
-                        .isInstanceOf(IllegalArgumentException.class);
+                assertThatThrownBy(() -> new UserRole(account(), role)).isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> auth
-                .register(new RegisterRequest("Ciudadana", "test@example.org", "é".repeat(37))))
+        assertThatThrownBy(() -> auth.register(new RegisterRequest("Ciudadana", "test@example.org", "é".repeat(37))))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(users);
     }

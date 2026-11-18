@@ -1,34 +1,40 @@
 package es.grupo18.urbanpulse.shared.error;
 
-import java.sql.*;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTimeoutException;
+import java.sql.SQLTransientConnectionException;
 import java.util.List;
 
-import org.springframework.dao.*;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.TransactionSystemException;
 
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthenticationBackendExceptionTest {
 
     @Test
     void recognizesTypedResourceFailuresAndWrappedPostgresConnectionStates() {
-        for (Throwable failure : List.of(
-                new DataAccessResourceFailureException("private"),
-                new TransientDataAccessResourceException("private"),
-                new RecoverableDataAccessException("private"),
-                new QueryTimeoutException("private"),
-                new SQLTransientConnectionException("private"),
-                new SQLNonTransientConnectionException("private"),
-                new SQLRecoverableException("private"),
+        for (Throwable failure : List.of(new DataAccessResourceFailureException("private"),
+                new TransientDataAccessResourceException("private"), new RecoverableDataAccessException("private"),
+                new QueryTimeoutException("private"), new SQLTransientConnectionException("private"),
+                new SQLNonTransientConnectionException("private"), new SQLRecoverableException("private"),
                 new SQLTimeoutException("private"))) {
             assertThat(AuthenticationBackendException.isDatabaseUnavailable(failure))
                     .as(failure.getClass().getSimpleName()).isTrue();
-            assertThat(AuthenticationBackendException.isDatabaseUnavailable(
-                    new CannotCreateTransactionException("private transaction", failure))).isTrue();
+            assertThat(AuthenticationBackendException
+                    .isDatabaseUnavailable(new CannotCreateTransactionException("private transaction", failure)))
+                            .isTrue();
         }
         for (String sqlState : List.of("08001", "08006", "53300", "57P01", "57P02", "57P03")) {
             var failure = new TransactionSystemException("private transaction",
@@ -47,10 +53,8 @@ class AuthenticationBackendExceptionTest {
                 new DataIntegrityViolationException("private", new SQLException("private", "23505")),
                 new InvalidDataAccessApiUsageException("private"),
                 new CannotCreateTransactionException("connection unavailable"),
-                new IllegalStateException("connection refused"),
-                new SQLException("connection refused"),
-                new SQLException("private", "40001"),
-                new SQLException("private", "40P01"))) {
+                new IllegalStateException("connection refused"), new SQLException("connection refused"),
+                new SQLException("private", "40001"), new SQLException("private", "40P01"))) {
             assertThat(AuthenticationBackendException.isDatabaseUnavailable(failure))
                     .as(failure.getClass().getSimpleName()).isFalse();
         }

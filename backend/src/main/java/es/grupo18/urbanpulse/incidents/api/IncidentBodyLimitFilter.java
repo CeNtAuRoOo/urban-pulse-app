@@ -16,20 +16,19 @@ import es.grupo18.urbanpulse.shared.error.ProblemDetailFactory;
 import es.grupo18.urbanpulse.shared.security.CachedBodyRequest;
 
 /**
- * Acota la memoria antes de deserializar altas y correcciones. No consume
- * cuotas
- * ni depende de Content-Length: también limita cuerpos transferidos por
- * bloques.
+ * Acota la memoria antes de deserializar altas y correcciones. No consume cuotas ni depende de Content-Length: también
+ * limita cuerpos transferidos por bloques.
  */
 @RequiredArgsConstructor
 public class IncidentBodyLimitFilter extends OncePerRequestFilter {
+
     /** Máximo bruto, incluido escape Unicode y espacios JSON: 64 KiB. */
     public static final int MAX_BODY_BYTES = 65_536;
+
     private final ProblemDetailFactory problems;
 
     /**
-     * Selecciona las escrituras JSON del núcleo y de Tramitación, excluyendo
-     * multipart.
+     * Selecciona las escrituras JSON del núcleo y de Tramitación, excluyendo multipart.
      *
      * @param request petición recibida, con posible context path
      * @return true para cualquier otra combinación de método y ruta

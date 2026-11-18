@@ -9,8 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import es.grupo18.urbanpulse.attachment.model.Attachment;
 
 /**
- * Consultas privadas acotadas por incidencia; el servicio comprueba
- * visibilidad.
+ * Consultas privadas acotadas por incidencia; el servicio comprueba visibilidad.
  */
 public interface AttachmentRepository extends JpaRepository<Attachment, UUID> {
 

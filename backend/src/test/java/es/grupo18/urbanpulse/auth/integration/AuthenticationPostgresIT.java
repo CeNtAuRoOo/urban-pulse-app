@@ -38,8 +38,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.auth.dto.ChangePasswordRequest;
 import es.grupo18.urbanpulse.auth.dto.LoginRequest;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
@@ -51,6 +49,7 @@ import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.ratelimit.InMemoryRateLimiter;
 import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -157,8 +156,8 @@ class AuthenticationPostgresIT {
     void enforcesEmailFkCompositeKeyAndGlobalRoleChecks() {
         TokenDTO token = register("person@example.org");
         UUID id = token.user().id();
-        assertThatThrownBy(() -> register(" PERSON@EXAMPLE.ORG ")).isInstanceOf(ApiException.class)
-                .extracting("status").isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+        assertThatThrownBy(() -> register(" PERSON@EXAMPLE.ORG ")).isInstanceOf(ApiException.class).extracting("status")
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
         assertThatThrownBy(() -> jdbc.update("update users set email='PERSON@EXAMPLE.ORG' where id=?", id))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("insert into user_roles values (?, 'CITIZEN')", id))
@@ -263,24 +262,25 @@ class AuthenticationPostgresIT {
         // Distinct valid JWT from an earlier session, independent of wall-clock test
         // speed.
         Instant earlier = Instant.now().minusSeconds(60);
-        String older = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
-                JwtClaimsSet.builder().issuer("urbanpulse-tests").subject(first.user().id().toString())
-                        .issuedAt(earlier).expiresAt(earlier.plusSeconds(7200)).claim("ver", 0).build()))
+        String older = encoder
+                .encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
+                        JwtClaimsSet.builder().issuer("urbanpulse-tests").subject(first.user().id().toString())
+                                .issuedAt(earlier).expiresAt(earlier.plusSeconds(7200)).claim("ver", 0).build()))
                 .getTokenValue();
         assertThat(older).isNotEqualTo(first.accessToken());
         assertThat(converter.convert(decoder.decode(older)).isAuthenticated()).isTrue();
         String change = "{\"currentPassword\":\"password-123\",\"newPassword\":\"password-456\"}";
         mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", "Bearer " + first.accessToken())
-                .contentType(MediaType.APPLICATION_JSON).content(change))
-                .andExpect(status().isNoContent()).andExpect(content().string(""));
+                .contentType(MediaType.APPLICATION_JSON).content(change)).andExpect(status().isNoContent())
+                .andExpect(content().string(""));
         for (String token : List.of(first.accessToken(), second.accessToken(), older)) {
             mvc.perform(post("/api/v1/users/me/password-changes").header("Authorization", "Bearer " + token)
-                    .contentType(MediaType.APPLICATION_JSON).content(change))
-                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                    .contentType(MediaType.APPLICATION_JSON).content(change)).andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
         }
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.org\",\"password\":\"password-456\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.expiresIn").value(7200));
+                .content("{\"email\":\"person@example.org\",\"password\":\"password-456\"}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresIn").value(7200));
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"person@example.org\",\"password\":\"password-123\"}"))
                 .andExpect(status().isUnauthorized());
@@ -294,11 +294,9 @@ class AuthenticationPostgresIT {
         jdbc.update("delete from user_roles where user_id=? and role_code='CITIZEN'", id);
         for (int remainingRoles : List.of(1, 0)) {
             mvc.perform(post("/api/v1/users/me/password-changes")
-                    .header("Authorization", "Bearer " + token.accessToken())
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + token.accessToken()).contentType(MediaType.APPLICATION_JSON)
                     .content("{\"currentPassword\":\"password-123\",\"newPassword\":\"password-456\"}"))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
             var user = users.findById(id).orElseThrow();
             assertThat(user.isActive()).isTrue();
             assertThat(user.getTokenVersion()).isZero();

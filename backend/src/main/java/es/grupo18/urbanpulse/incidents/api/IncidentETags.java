@@ -9,19 +9,21 @@ import org.springframework.http.HttpStatus;
 
 import es.grupo18.urbanpulse.incidents.dto.IncidentDTO;
 import es.grupo18.urbanpulse.shared.error.ApiException;
+
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Validador fuerte del detalle completo, incluidos los datos relacionados y la
- * versión JPA. El cliente conserva la etiqueta opaca sin reconstruirla.
+ * Validador fuerte del detalle completo, incluidos los datos relacionados y la versión JPA. El cliente conserva la
+ * etiqueta opaca sin reconstruirla.
  */
 public final class IncidentETags {
+
     private IncidentETags() {
     }
 
     /**
-     * Resume los mismos bytes JSON que serializa MVC con el mapper compartido.
-     * No usa hashCode, fechas auxiliares ni el estado interno de las entidades.
+     * Resume los mismos bytes JSON que serializa MVC con el mapper compartido. No usa hashCode, fechas auxiliares ni el
+     * estado interno de las entidades.
      *
      * @param mapper configuración JSON de la aplicación
      * @param detail representación autorizada e inmutable
@@ -37,8 +39,8 @@ public final class IncidentETags {
     }
 
     /**
-     * Interpreta una única etiqueta fuerte del contrato; no admite listas,
-     * wildcard, etiquetas débiles ni el antiguo formato decimal.
+     * Interpreta una única etiqueta fuerte del contrato; no admite listas, wildcard, etiquetas débiles ni el antiguo
+     * formato decimal.
      *
      * @param values líneas If-Match; null o vacío representan cabecera ausente
      * @return etiqueta canónica o null; el servicio decide 428 tras autorizar

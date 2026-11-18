@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import es.grupo18.urbanpulse.duplicates.model.DuplicateLink;
 
 public interface DuplicateLinkRepository extends JpaRepository<DuplicateLink, UUID> {
+
     @Query("select case when count(d) > 0 then true else false end from DuplicateLink d "
             + "where (d.incident.id = :first and d.candidateIncident.id = :second) "
             + "or (d.incident.id = :second and d.candidateIncident.id = :first)")

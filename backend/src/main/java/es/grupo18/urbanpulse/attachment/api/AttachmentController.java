@@ -31,14 +31,14 @@ import static es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationCon
 import static es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter.version;
 
 /**
- * Cinco operaciones privadas anidadas; el servicio revalida la cuenta y
- * visibilidad vigente.
+ * Cinco operaciones privadas anidadas; el servicio revalida la cuenta y visibilidad vigente.
  */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/incidents/{incidentId}/attachments")
 @PreAuthorize("hasAuthority('EMAIL_VERIFIED')")
 public class AttachmentController {
+
     private final AttachmentService service;
 
     /**
@@ -51,9 +51,8 @@ public class AttachmentController {
      * @return 201 con DTO y Location relativa al recurso anidado
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<AttachmentDTO> attachPhoto(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String description) {
+    public ResponseEntity<AttachmentDTO> attachPhoto(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @RequestParam("file") MultipartFile file, @RequestParam(required = false) String description) {
         var result = service.attachPhoto(subject(jwt), version(jwt), incidentId, file, description);
         return ResponseEntity.created(URI.create("/api/v1/incidents/" + incidentId + "/attachments/" + result.id()))
                 .cacheControl(CacheControl.noStore()).body(result);
@@ -82,8 +81,8 @@ public class AttachmentController {
      * @return metadatos o 404
      */
     @GetMapping("/{attachmentId}")
-    public ResponseEntity<AttachmentDTO> getAttachment(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @PathVariable UUID attachmentId) {
+    public ResponseEntity<AttachmentDTO> getAttachment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @PathVariable UUID attachmentId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(service.getAttachment(subject(jwt), version(jwt), incidentId, attachmentId));
     }
@@ -97,13 +96,13 @@ public class AttachmentController {
      * @return binario privado o 404
      */
     @GetMapping("/{attachmentId}/content")
-    public ResponseEntity<byte[]> getAttachmentContent(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @PathVariable UUID attachmentId) {
+    public ResponseEntity<byte[]> getAttachmentContent(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @PathVariable UUID attachmentId) {
         var content = service.getAttachmentContent(subject(jwt), version(jwt), incidentId, attachmentId);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .contentType(MediaType.parseMediaType(content.contentType())).contentLength(content.sizeBytes())
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(content.fileName(), StandardCharsets.UTF_8).build().toString())
+        return ResponseEntity
+                .ok().cacheControl(CacheControl.noStore()).contentType(MediaType.parseMediaType(content.contentType()))
+                .contentLength(content.sizeBytes()).header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition
+                        .attachment().filename(content.fileName(), StandardCharsets.UTF_8).build().toString())
                 .body(content.data());
     }
 
@@ -116,8 +115,8 @@ public class AttachmentController {
      * @return 204; repetir devuelve 404
      */
     @DeleteMapping("/{attachmentId}")
-    public ResponseEntity<Void> deleteAttachment(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @PathVariable UUID attachmentId) {
+    public ResponseEntity<Void> deleteAttachment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @PathVariable UUID attachmentId) {
         service.deleteAttachment(subject(jwt), version(jwt), incidentId, attachmentId);
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }

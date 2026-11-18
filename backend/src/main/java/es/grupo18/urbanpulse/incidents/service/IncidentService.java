@@ -49,8 +49,7 @@ import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Casos de uso del núcleo; permisos, cambios y auditoría se resuelven en la
- * transacción.
+ * Casos de uso del núcleo; permisos, cambios y auditoría se resuelven en la transacción.
  */
 @Service
 @RequiredArgsConstructor
@@ -95,8 +94,7 @@ public class IncidentService {
      * @param tokenVersion versión JWT
      * @param id           incidencia
      * @return detalle mínimo autorizado
-     * @throws ApiException 404 indistinguible para inexistencia o falta de
-     *                      titularidad
+     * @throws ApiException 404 indistinguible para inexistencia o falta de titularidad
      */
     @Transactional(readOnly = true)
     public IncidentDTO get(UUID actor, long tokenVersion, UUID id) {
@@ -104,24 +102,18 @@ public class IncidentService {
     }
 
     /**
-     * Corrige solo REPORTED con precondición obligatoria y bloqueo optimista JPA.
-     * La precondición se evalúa sobre el detalle actual antes de modificarlo; un
-     * cambio relacionado posterior es otra operación y tendrá otra ETag al
-     * consultarlo.
-     * {@code @Version} protege además las escrituras concurrentes de la propia
-     * incidencia.
-     * El permiso transversal de OPERATOR/ADMIN es provisional y requiere revisión
-     * futura.
+     * Corrige solo REPORTED con precondición obligatoria y bloqueo optimista JPA. La precondición se evalúa sobre el
+     * detalle actual antes de modificarlo; un cambio relacionado posterior es otra operación y tendrá otra ETag al
+     * consultarlo. {@code @Version} protege además las escrituras concurrentes de la propia incidencia. El permiso
+     * transversal de OPERATOR/ADMIN es provisional y requiere revisión futura.
      *
      * @param actor        sujeto JWT
      * @param tokenVersion versión de seguridad
      * @param id           incidencia
      * @param expectedTag  ETag fuerte interpretada por HTTP; null si no existe
-     * @param request      campos presentes, con null de categoría distinto de
-     *                     omisión
+     * @param request      campos presentes, con null de categoría distinto de omisión
      * @return detalle; un no-op conserva versión y no produce auditoría
-     * @throws ApiException 404 sin acceso, 428 sin precondición, 412 obsoleta, 409
-     *                      estado o 422 datos
+     * @throws ApiException 404 sin acceso, 428 sin precondición, 412 obsoleta, 409 estado o 422 datos
      */
     @Transactional
     public IncidentDTO patch(UUID actor, long tokenVersion, UUID id, String expectedTag,
@@ -175,8 +167,7 @@ public class IncidentService {
      * @param createdFrom  inicio inclusivo UTC
      * @param createdTo    fin inclusivo UTC
      * @return página SQL ordenada por createdAt DESC, id DESC
-     * @throws ApiException 403 sin rol global OPERATOR/ADMIN; 400 para intervalo
-     *                      invertido
+     * @throws ApiException 403 sin rol global OPERATOR/ADMIN; 400 para intervalo invertido
      */
     @Transactional(readOnly = true)
     public IncidentPageDTO list(UUID actor, long tokenVersion, int page, int pageSize, IncidentStatus status,
@@ -239,23 +230,20 @@ public class IncidentService {
      * @param id           incidencia autorizada
      * @param page         página desde 1
      * @param pageSize     máximo 100
-     * @return historial ocurrido ASC, UUID ASC; nunca detalles arbitrarios de
-     *         auditoría
+     * @return historial ocurrido ASC, UUID ASC; nunca detalles arbitrarios de auditoría
      */
     @Transactional(readOnly = true)
     public HistoryPageDTO history(UUID actor, long tokenVersion, UUID id, int page, int pageSize) {
         UUID reporterId = visible(account(actor, tokenVersion, false), id).getReporter().getId();
         PageMetadata.validate(page, pageSize);
         Page<AuditEvent> events = audit.findByResourceTypeAndResourceIdAndActionIn(RESOURCE, id.toString(),
-                PUBLIC_ACTIONS,
-                PageRequest.of(page - 1, pageSize, Sort.by("occurredAt", "id")));
+                PUBLIC_ACTIONS, PageRequest.of(page - 1, pageSize, Sort.by("occurredAt", "id")));
         return new HistoryPageDTO(events.stream().map(event -> historyEvent(event, reporterId)).toList(),
                 metadata(events));
     }
 
     /**
-     * Revalida seguridad en base de datos; las escrituras coordinan el bloqueo con
-     * identidad.
+     * Revalida seguridad en base de datos; las escrituras coordinan el bloqueo con identidad.
      *
      * @param id           sujeto autenticado
      * @param tokenVersion versión de seguridad que debe seguir vigente
@@ -268,8 +256,7 @@ public class IncidentService {
     }
 
     /**
-     * Carga el recurso y oculta su existencia si no pertenece al solicitante sin
-     * rol global.
+     * Carga el recurso y oculta su existencia si no pertenece al solicitante sin rol global.
      *
      * @param actor cuenta previamente revalidada
      * @param id    identidad del recurso
@@ -286,8 +273,7 @@ public class IncidentService {
     }
 
     /**
-     * Bloquea el catálogo como sus escrituras para impedir aceptar una
-     * desactivación concurrente.
+     * Bloquea el catálogo como sus escrituras para impedir aceptar una desactivación concurrente.
      *
      * @param id categoría solicitada, o null para desclasificar
      * @return entidad activa bloqueada, o null
@@ -308,8 +294,7 @@ public class IncidentService {
     /**
      * Combina filtros mediante AND y pagina en SQL antes de proyectar los DTO.
      *
-     * @param reporter titular obligatorio para mine; null en consulta
-     *                 administrativa
+     * @param reporter titular obligatorio para mine; null en consulta administrativa
      * @param page     página desde 1
      * @param pageSize tamaño entre 1 y 100
      * @param status   estado opcional
@@ -355,49 +340,43 @@ public class IncidentService {
             }
             return builder.and(predicates.toArray(Predicate[]::new));
         };
-        Page<Incident> result = incidents.findAll(filter,
-                PageRequest.of(page - 1, pageSize, sort == null
-                        ? Sort.by(Sort.Direction.DESC, "createdAt", "id")
-                        : Sort.unsorted()));
-        return new IncidentPageDTO(result.stream().map(i -> new IncidentSummaryDTO(i.getId(), i.getTitle(),
-                category(i.getCategory()), location(i), i.getStatus(), i.getPriority(), i.getCreatedAt(),
-                i.getUpdatedAt(), i.getVersion())).toList(), metadata(result));
+        Page<Incident> result = incidents.findAll(filter, PageRequest.of(page - 1, pageSize,
+                sort == null ? Sort.by(Sort.Direction.DESC, "createdAt", "id") : Sort.unsorted()));
+        return new IncidentPageDTO(result.stream()
+                .map(i -> new IncidentSummaryDTO(i.getId(), i.getTitle(), category(i.getCategory()), location(i),
+                        i.getStatus(), i.getPriority(), i.getCreatedAt(), i.getUpdatedAt(), i.getVersion()))
+                .toList(), metadata(result));
     }
 
     /**
-     * Fuerza también el evento dentro de la transacción; cualquier fallo revierte
-     * ambos cambios.
+     * Fuerza también el evento dentro de la transacción; cualquier fallo revierte ambos cambios.
      *
      * @param actor    autor vigente
      * @param incident incidencia ya insertada o actualizada
      * @param action   acción interna CREATED/UPDATED prefijada por INCIDENT_
      */
     private void record(User actor, Incident incident, String action) {
+
         audit.saveAndFlush(new AuditEvent(actor, action, RESOURCE, incident.getId().toString(),
                 Map.of("version", Long.toString(incident.getVersion())), incident.getUpdatedAt()));
     }
 
     /**
-     * Construye un texto estable y una lista cerrada de detalles; nunca devuelve el
-     * mapa de auditoría.
+     * Construye un texto estable y una lista cerrada de detalles; nunca devuelve el mapa de auditoría.
      *
-     * @param event      evento filtrado previamente por recurso y lista permitida
-     *                   de
-     *                   acciones
-     * @param reporterId informante original obtenido una vez al autorizar la
-     *                   incidencia
-     * @return proyección pública con versión opcional e identidad solo del
-     *         informante;
-     *         no depende de roles, nombre ni actividad posteriores al evento
+     * @param event      evento filtrado previamente por recurso y lista permitida de acciones
+     * @param reporterId informante original obtenido una vez al autorizar la incidencia
+     * @return proyección pública con versión opcional e identidad solo del informante; no depende de roles, nombre ni
+     *         actividad posteriores al evento
      */
     private HistoryEventDTO historyEvent(AuditEvent event, UUID reporterId) {
         if ("INCIDENT_REVIEWED".equals(event.getAction())) {
             String decision = event.getDetails().get("decision");
             String description = switch (decision == null ? "" : decision) {
-                case "VALIDATE" -> "Incidencia validada.";
-                case "REJECT" -> "Incidencia rechazada.";
-                case "REQUEST_INFORMATION" -> "Información adicional solicitada.";
-                default -> "Incidencia revisada.";
+            case "VALIDATE" -> "Incidencia validada.";
+            case "REJECT" -> "Incidencia rechazada.";
+            case "REQUEST_INFORMATION" -> "Información adicional solicitada.";
+            default -> "Incidencia revisada.";
             };
             Map<String, String> details = new java.util.HashMap<>();
             if (decision != null && List.of("VALIDATE", "REJECT", "REQUEST_INFORMATION").contains(decision)) {
@@ -411,8 +390,7 @@ public class IncidentService {
         if ("INCIDENT_PRIORITY_CHANGED".equals(event.getAction())) {
             String priority = event.getDetails().get("priority");
             Map<String, String> details = priority != null
-                    && List.of("LOW", "MEDIUM", "HIGH", "CRITICAL").contains(priority)
-                            ? Map.of("priority", priority)
+                    && List.of("LOW", "MEDIUM", "HIGH", "CRITICAL").contains(priority) ? Map.of("priority", priority)
                             : Map.of();
             return new HistoryEventDTO(event.getId(), "PRIORITY_CHANGED", event.getOccurredAt(), null,
                     "Prioridad de la incidencia actualizada.", details);
@@ -431,8 +409,8 @@ public class IncidentService {
     }
 
     /**
-     * Expone exclusivamente al informante original en eventos ciudadanos. El actor
-     * real permanece en auditoría; su relación to-one ya se carga con la página.
+     * Expone exclusivamente al informante original en eventos ciudadanos. El actor real permanece en auditoría; su
+     * relación to-one ya se carga con la página.
      *
      * @param event      evento de auditoría autorizado
      * @param reporterId identidad inmutable del informante

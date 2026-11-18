@@ -50,12 +50,11 @@ class ProcessingMigrationPostgresIT {
                 .isNull();
         assertThat(
                 jdbc.queryForObject("select resulting_status from incident_reviews where id=?", String.class, legacy))
-                .isEqualTo("VALIDATED");
+                        .isEqualTo("VALIDATED");
         assertThat(jdbc.queryForObject("select count(*) from attachments", Integer.class)).isEqualTo(1);
         assertThatThrownBy(() -> jdbc.update(
                 "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at) values(uuidv7(),?,?,'VALIDATE',now())",
-                incident, user))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                incident, user)).isInstanceOf(DataIntegrityViolationException.class);
         UUID request = UUID.randomUUID();
         jdbc.update(
                 "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reason,reviewed_at,resulting_status) values(?,?,?,'REQUEST_INFORMATION','Datos',now(),'AWAITING_INFORMATION')",
@@ -86,22 +85,33 @@ class ProcessingMigrationPostgresIT {
         Flyway.configure().dataSource(source).load().validate();
     }
 
-    /** Sustituye el ensayo histórico V1/V5/V2; V1 actual no actualiza bases anteriores. */
+    /**
+     * Sustituye el ensayo histórico V1/V5/V2; V1 actual no actualiza bases anteriores.
+     */
     @Test
     void reinstallIsIdempotentAndAllConstraintsAreValidated() {
         var source = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         var flyway = Flyway.configure().dataSource(source).load();
         assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
         var jdbc = new JdbcTemplate(source);
-        assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')", Integer.class)).isEqualTo(16);
-        assertThat(jdbc.queryForObject("select count(*) from pg_constraint where connamespace='public'::regnamespace and not convalidated", Integer.class)).isZero();
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class)).containsExactly("1");
-        assertThat(jdbc.queryForList("select proname from pg_proc where pronamespace='public'::regnamespace and proname like 'map_%'", String.class))
-                .containsExactlyInAnyOrder("map_xy_v1", "map_lat_v1", "map_lon_v1", "map_outline_v1", "map_vertices_v1", "map_in_malaga_v1", "map_public_point_v1");
-        assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public' and indexname like 'maps_%'", String.class))
-                .containsExactlyInAnyOrder("maps_exact_location_idx", "maps_public_location_idx", "maps_validated_review_idx");
-        assertThat(jdbc.queryForList("select code from roles", String.class))
-                .containsExactlyInAnyOrder("CITIZEN", "OPERATOR", "ADMIN", "DEPARTMENT_COORDINATOR", "TECHNICIAN");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')",
+                Integer.class)).isEqualTo(16);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from pg_constraint where connamespace='public'::regnamespace and not convalidated",
+                Integer.class)).isZero();
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success", String.class))
+                .containsExactly("1");
+        assertThat(jdbc.queryForList(
+                "select proname from pg_proc where pronamespace='public'::regnamespace and proname like 'map_%'",
+                String.class)).containsExactlyInAnyOrder("map_xy_v1", "map_lat_v1", "map_lon_v1", "map_outline_v1",
+                        "map_vertices_v1", "map_in_malaga_v1", "map_public_point_v1");
+        assertThat(jdbc.queryForList(
+                "select indexname from pg_indexes where schemaname='public' and indexname like 'maps_%'", String.class))
+                        .containsExactlyInAnyOrder("maps_exact_location_idx", "maps_public_location_idx",
+                                "maps_validated_review_idx");
+        assertThat(jdbc.queryForList("select code from roles", String.class)).containsExactlyInAnyOrder("CITIZEN",
+                "OPERATOR", "ADMIN", "DEPARTMENT_COORDINATOR", "TECHNICIAN");
         for (String table : java.util.List.of("users", "departments", "categories", "incidents", "duplicate_links"))
             assertThat(jdbc.queryForObject("select count(*) from " + table, Integer.class)).isZero();
         assertThat(flyway.migrate().migrationsExecuted).isZero();

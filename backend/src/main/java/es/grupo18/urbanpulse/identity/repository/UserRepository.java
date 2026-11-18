@@ -18,16 +18,14 @@ import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Repositorio JPA encargado del acceso y persistencia de usuarios.
- * Proporciona consultas para autenticación, obtención del estado de seguridad,
- * gestión de roles y actualización segura de contraseñas y verificación
- * del correo electrónico.
+ * Repositorio JPA encargado del acceso y persistencia de usuarios. Proporciona consultas para autenticación, obtención
+ * del estado de seguridad, gestión de roles y actualización segura de contraseñas y verificación del correo
+ * electrónico.
  */
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
-     * Busca un usuario por su correo electrónico, cargando también
-     * sus asignaciones de roles globales.
+     * Busca un usuario por su correo electrónico, cargando también sus asignaciones de roles globales.
      *
      * @param email correo electrónico normalizado del usuario
      * @return usuario encontrado, o un Optional vacío si no existe
@@ -36,8 +34,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
     /**
-     * Busca un usuario aplicando un bloqueo pesimista de escritura
-     * para evitar modificaciones concurrentes durante el cambio de contraseña.
+     * Busca un usuario aplicando un bloqueo pesimista de escritura para evitar modificaciones concurrentes durante el
+     * cambio de contraseña.
      *
      * @param id identificador del usuario
      * @return usuario bloqueado, o un Optional vacío si no existe
@@ -47,9 +45,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findForPasswordChange(@Param("id") UUID id);
 
     /**
-     * Busca un usuario aplicando un bloqueo pesimista de escritura
-     * para coordinar las operaciones concurrentes de confirmación,
-     * reenvío y eliminación de cuentas pendientes de verificación.
+     * Busca un usuario aplicando un bloqueo pesimista de escritura para coordinar las operaciones concurrentes de
+     * confirmación, reenvío y eliminación de cuentas pendientes de verificación.
      *
      * @param id identificador del usuario que se desea bloquear
      * @return usuario bloqueado, o un Optional vacío si no existe
@@ -59,13 +56,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findForEmailVerification(@Param("id") UUID id);
 
     /**
-     * Consulta el estado de seguridad de un usuario y sus roles globales actuales.
-     * Devuelve una fila por asignación de rol, incluso si no tiene
-     * ninguna, para comprobar la validez de sus JWT.
+     * Consulta el estado de seguridad de un usuario y sus roles globales actuales. Devuelve una fila por asignación de
+     * rol, incluso si no tiene ninguna, para comprobar la validez de sus JWT.
      *
      * @param id identificador del usuario
-     * @return filas con actividad, verificación del correo, versión del token y
-     *         roles
+     * @return filas con actividad, verificación del correo, versión del token y roles
      */
     @Query("""
             select u.active as active, u.emailVerified as emailVerified,
@@ -77,10 +72,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<SecurityState> findSecurityState(@Param("id") UUID id);
 
     /**
-     * Proyección de los datos de seguridad necesarios para autenticar
-     * un usuario, incluyendo actividad, verificación del correo,
-     * versión del token y rol global.
-     * El código del rol puede ser null si no existen asignaciones.
+     * Proyección de los datos de seguridad necesarios para autenticar un usuario, incluyendo actividad, verificación
+     * del correo, versión del token y rol global. El código del rol puede ser null si no existen asignaciones.
      */
     interface SecurityState {
 
@@ -114,8 +107,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     }
 
     /**
-     * Busca un usuario por su identificador y carga sus asignaciones de roles.
-     * Evita consultas adicionales al acceder posteriormente a los roles.
+     * Busca un usuario por su identificador y carga sus asignaciones de roles. Evita consultas adicionales al acceder
+     * posteriormente a los roles.
      *
      * @param id identificador del usuario
      * @return usuario encontrado con sus roles, o un Optional vacío si no existe
@@ -125,13 +118,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findUserWithRolesById(@Param("id") UUID id);
 
     /**
-     * Busca usuarios aplicando filtros opcionales por rol global o por rol
-     * departamental activo y estado de actividad.
-     * Los resultados se devuelven de forma paginada y ordenada
-     * según el objeto Pageable recibido.
+     * Busca usuarios aplicando filtros opcionales por rol global o por rol departamental activo y estado de actividad.
+     * Los resultados se devuelven de forma paginada y ordenada según el objeto Pageable recibido.
      *
-     * @param role     rol global o departamental activo que deben tener los
-     *                 usuarios, o null para no filtrar
+     * @param role     rol global o departamental activo que deben tener los usuarios, o null para no filtrar
      * @param active   estado de actividad requerido, o null para no filtrar
      * @param pageable configuración de paginación y ordenación
      * @return página con los usuarios que cumplen los filtros
@@ -157,14 +147,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                   )
               )
             """)
-    Page<User> searchUsers(
-            @Param("role") RoleCode role,
-            @Param("active") Boolean active,
-            Pageable pageable);
+    Page<User> searchUsers(@Param("role") RoleCode role, @Param("active") Boolean active, Pageable pageable);
 
     /**
-     * Carga los roles de los usuarios ya seleccionados por la página SQL.
-     * No pagina un fetch de colección: mantiene el límite y los totales originales.
+     * Carga los roles de los usuarios ya seleccionados por la página SQL. No pagina un fetch de colección: mantiene el
+     * límite y los totales originales.
      *
      * @param ids identificadores de una página no vacía
      * @return usuarios con sus roles inicializados en el contexto de persistencia
@@ -174,19 +161,17 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findAllWithRolesByIdIn(@Param("ids") List<UUID> ids);
 
     /**
-     * Serializa cambios administrativos de actividad antes de bloquear usuarios.
-     * El bloqueo transaccional PostgreSQL se libera tanto al confirmar como al
-     * abortar.
+     * Serializa cambios administrativos de actividad antes de bloquear usuarios. El bloqueo transaccional PostgreSQL se
+     * libera tanto al confirmar como al abortar.
      *
-     * @return true al adquirir el bloqueo compartido por la administración de
-     *         cuentas
+     * @return true al adquirir el bloqueo compartido por la administración de cuentas
      */
     @Query(value = "select true from pg_advisory_xact_lock(182011, 1)", nativeQuery = true)
     boolean lockAccountAdministration();
 
     /**
-     * Cuenta administradores globales que todavía pueden acceder a la API.
-     * Se consulta bajo el bloqueo de administración para evitar bajas simultáneas.
+     * Cuenta administradores globales que todavía pueden acceder a la API. Se consulta bajo el bloqueo de
+     * administración para evitar bajas simultáneas.
      *
      * @return cuentas activas, verificadas y con asignación global ADMIN
      */

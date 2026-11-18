@@ -1,8 +1,5 @@
 package es.grupo18.urbanpulse.duplicates.service;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -22,14 +19,27 @@ import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 class DuplicateServiceTest {
-    @Mock IncidentRepository incidents;
-    @Mock DuplicateCandidateRepository candidates;
-    @Mock DuplicateLinkRepository links;
-    @Mock UserRepository users;
-    @Mock AuditEventRepository audit;
-    @Mock DuplicateScorer scorer;
+    @Mock
+    IncidentRepository incidents;
+    @Mock
+    DuplicateCandidateRepository candidates;
+    @Mock
+    DuplicateLinkRepository links;
+    @Mock
+    UserRepository users;
+    @Mock
+    AuditEventRepository audit;
+    @Mock
+    DuplicateScorer scorer;
 
     @Test
     void rejectsSelfLinkBeforeAccessingPersistenceForTheLink() {

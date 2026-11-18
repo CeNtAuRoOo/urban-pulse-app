@@ -9,8 +9,7 @@ import jakarta.validation.constraints.Size;
  * @param currentPassword contraseña actual del usuario
  * @param newPassword     nueva contraseña que se desea establecer
  */
-public record ChangePasswordRequest(
-        @NotNull @Size(min = 1) String currentPassword,
+public record ChangePasswordRequest(@NotNull @Size(min = 1) String currentPassword,
         @NotNull @Size(min = 8) String newPassword) {
 
     /**

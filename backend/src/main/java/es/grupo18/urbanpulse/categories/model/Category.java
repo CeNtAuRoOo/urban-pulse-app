@@ -11,8 +11,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.UuidGenerator;
 
 /**
- * Categoría persistente sin código ni fechas; su UUIDv7 se conserva al
- * desactivarla.
+ * Categoría persistente sin código ni fechas; su UUIDv7 se conserva al desactivarla.
  */
 @Entity
 @Table(name = "categories")

@@ -6,9 +6,8 @@ import jakarta.persistence.Embeddable;
 import lombok.Getter;
 
 /**
- * Representa las preferencias de notificación de un usuario.
- * Se almacena como parte de la entidad User y permite habilitar
- * o deshabilitar las notificaciones en la aplicación, por correo y push.
+ * Representa las preferencias de notificación de un usuario. Se almacena como parte de la entidad User y permite
+ * habilitar o deshabilitar las notificaciones en la aplicación, por correo y push.
  */
 @Embeddable
 @Getter

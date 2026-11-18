@@ -24,10 +24,10 @@ import org.hibernate.annotations.UuidGenerator;
 import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
+import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Registro histórico de revisión. ProcessingService coordina la decisión y su
- * transición atómica.
+ * Registro histórico de revisión. ProcessingService coordina la decisión y su transición atómica.
  */
 @Entity
 @Table(name = "incident_reviews")
@@ -65,8 +65,7 @@ public class IncidentReview {
     private Instant reviewedAt;
 
     /**
-     * Snapshot; null exclusivamente para revisiones anteriores a V2 no
-     * reconstruibles.
+     * Snapshot; null exclusivamente para revisiones anteriores a V2 no reconstruibles.
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 32)
@@ -77,16 +76,12 @@ public class IncidentReview {
      *
      * @param incident   incidencia revisada
      * @param reviewedBy responsable obligatorio
-     * @param decision   decisión; REQUEST_INFORMATION resulta en
-     *                   AWAITING_INFORMATION
-     * @param reason     motivo recortado de 3–2000 puntos Unicode; obligatorio en
-     *                   REJECT/REQUEST_INFORMATION, prohibido en VALIDATE
+     * @param decision   decisión; REQUEST_INFORMATION resulta en AWAITING_INFORMATION
+     * @param reason     motivo recortado de 3–2000 puntos Unicode; obligatorio en REJECT/REQUEST_INFORMATION, prohibido
+     *                   en VALIDATE
      * @param reviewedAt instante UTC
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si el motivo incumple
-     *                                                         las reglas (422)
-     * @throws NullPointerException                            si falta una
-     *                                                         referencia, decisión
-     *                                                         o fecha obligatoria
+     * @throws ApiException         si el motivo incumple las reglas (422)
+     * @throws NullPointerException si falta una referencia, decisión o fecha obligatoria
      */
     public IncidentReview(Incident incident, User reviewedBy, ReviewDecision decision, String reason,
             Instant reviewedAt) {
@@ -94,14 +89,13 @@ public class IncidentReview {
         this.reviewedBy = Objects.requireNonNull(reviewedBy);
         this.decision = Objects.requireNonNull(decision);
         if (decision == ReviewDecision.VALIDATE && reason != null) {
-            throw new es.grupo18.urbanpulse.shared.error.ApiException(
-                    org.springframework.http.HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
+            throw new ApiException(org.springframework.http.HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
                     "VALIDATE no admite motivo.");
         }
         this.resultingStatus = switch (decision) {
-            case VALIDATE -> IncidentStatus.VALIDATED;
-            case REJECT -> IncidentStatus.REJECTED;
-            case REQUEST_INFORMATION -> IncidentStatus.AWAITING_INFORMATION;
+        case VALIDATE -> IncidentStatus.VALIDATED;
+        case REJECT -> IncidentStatus.REJECTED;
+        case REQUEST_INFORMATION -> IncidentStatus.AWAITING_INFORMATION;
         };
         this.reason = decision == ReviewDecision.VALIDATE && reason == null ? null
                 : Incident.normalizeText(reason, 3, 2000);

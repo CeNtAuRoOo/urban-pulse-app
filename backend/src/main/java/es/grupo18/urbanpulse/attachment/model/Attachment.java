@@ -28,8 +28,7 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 
 /**
- * Esta entidad representa un archivo externo asociado a una Incidencia de
- * UrbanPulse.
+ * Esta entidad representa un archivo externo asociado a una Incidencia de UrbanPulse.
  */
 @Entity
 @Table(name = "attachments")
@@ -88,8 +87,7 @@ public class Attachment {
      *
      * @return nueva entidad sin identidad asignada todavía
      *
-     * @param incident         incidencia a la que pertenece el archivo (no puede
-     *                         ser nula)
+     * @param incident         incidencia a la que pertenece el archivo (no puede ser nula)
      * @param user             usuario que lo sube
      * @param originalFilename nombre original del archivo
      * @param contentType      MIME del archivo
@@ -97,14 +95,8 @@ public class Attachment {
      * @param sizeBytes        tamaño del archivo en bytes
      * @param description      descripción opcional
      */
-    public static Attachment create(
-            Incident incident,
-            User user,
-            String originalFilename,
-            ContentType contentType,
-            String storageKey,
-            long sizeBytes,
-            String description) {
+    public static Attachment create(Incident incident, User user, String originalFilename, ContentType contentType,
+            String storageKey, long sizeBytes, String description) {
 
         if (incident == null) {
             throw new IllegalArgumentException("incident is required");

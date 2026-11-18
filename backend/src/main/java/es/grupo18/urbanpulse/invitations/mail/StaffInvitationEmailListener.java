@@ -25,8 +25,7 @@ public class StaffInvitationEmailListener {
     private final EmailSender sender;
 
     /**
-     * Envía instrucciones en español. Un fallo no revierte la invitación
-     * confirmada.
+     * Envía instrucciones en español. Un fallo no revierte la invitación confirmada.
      *
      * @param event datos efímeros de entrega; nunca se incluyen en logs
      */
@@ -34,11 +33,9 @@ public class StaffInvitationEmailListener {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void send(StaffInvitationRequested event) {
         try {
-            String text = "Has recibido una invitación municipal de UrbanPulse para " + event.email()
-                    + ".\nRol: " + event.role()
-                    + (event.departmentName() == null ? "" : "\nDepartamento: " + event.departmentName())
-                    + "\nCódigo: " + event.code()
-                    + "\nCaduca en: " + event.expiresAt() + " (UTC)."
+            String text = "Has recibido una invitación municipal de UrbanPulse para " + event.email() + ".\nRol: "
+                    + event.role() + (event.departmentName() == null ? "" : "\nDepartamento: " + event.departmentName())
+                    + "\nCódigo: " + event.code() + "\nCaduca en: " + event.expiresAt() + " (UTC)."
                     + "\nSi no tienes cuenta, regístrate y verifica este mismo correo."
                     + " Si ya tienes cuenta verificada, inicia sesión."
                     + "\nCanjea el código con tu sesión en POST /api/v1/users/me/staff-invitation-redemptions."

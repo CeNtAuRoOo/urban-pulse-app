@@ -3,19 +3,25 @@ package es.grupo18.urbanpulse.maps.repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
 import javax.sql.DataSource;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+
 import es.grupo18.urbanpulse.incidents.model.IncidentPriority;
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapVisibilityPolicy.Access;
 
-/** PostgreSQL does authorization, spatial filtering and aggregation before returning bounded projections. */
+/**
+ * PostgreSQL does authorization, spatial filtering and aggregation before returning bounded projections.
+ */
 @Repository
 public class MapIncidentRepository {
+
     public static final int MAX_FEATURES = 1000;
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -27,11 +33,9 @@ public class MapIncidentRepository {
     }
 
     public List<Row> find(MapQuery query, Access access) {
-        var args = new MapSqlParameterSource()
-                .addValue("actor", access.actor())
-                .addValue("minLat", query.minLat()).addValue("minLon", query.minLon())
-                .addValue("maxLat", query.maxLat()).addValue("maxLon", query.maxLon())
-                .addValue("cell", query.cellMeters()).addValue("zoom", query.zoom());
+        var args = new MapSqlParameterSource().addValue("actor", access.actor()).addValue("minLat", query.minLat())
+                .addValue("minLon", query.minLon()).addValue("maxLat", query.maxLat())
+                .addValue("maxLon", query.maxLon()).addValue("cell", query.cellMeters()).addValue("zoom", query.zoom());
         String filters = "";
         if (query.status() != null) {
             filters += " AND i.status = :status";
@@ -72,25 +76,24 @@ public class MapIncidentRepository {
                 ORDER BY g.bucket COLLATE "C"
                 LIMIT 1001
                 """.formatted(publicCtes, visible);
-        return jdbc.query(sql, args, (rs, n) -> new Row(rs.getString("bucket"), rs.getLong("incident_count"),
-                rs.getObject("id", UUID.class), rs.getObject("category_id", UUID.class),
-                rs.getString("category_name"), IncidentStatus.valueOf(rs.getString("status")),
-                rs.getString("priority") == null ? null : IncidentPriority.valueOf(rs.getString("priority")),
-                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("exact"),
-                rs.getDouble("latitude"), rs.getDouble("longitude")));
+        return jdbc.query(sql, args,
+                (rs, n) -> new Row(rs.getString("bucket"), rs.getLong("incident_count"), rs.getObject("id", UUID.class),
+                        rs.getObject("category_id", UUID.class), rs.getString("category_name"),
+                        IncidentStatus.valueOf(rs.getString("status")),
+                        rs.getString("priority") == null ? null : IncidentPriority.valueOf(rs.getString("priority")),
+                        rs.getTimestamp("created_at").toInstant(), rs.getBoolean("exact"), rs.getDouble("latitude"),
+                        rs.getDouble("longitude")));
     }
 
     /**
-     * Bounds candidates conservatively, then evaluates the unchanged public-location
-     * function exactly once per privacy cell. Materialization keeps PostgreSQL from
-     * pushing that expensive expression back into a per-incident projection.
+     * Bounds candidates conservatively, then evaluates the unchanged public-location function exactly once per privacy
+     * cell. Materialization keeps PostgreSQL from pushing that expensive expression back into a per-incident
+     * projection.
      *
-     * A cell centre is at most 50*sqrt(2) metres from its original point. If the
-     * centre is outside the province, its nearest boundary is no farther than that
-     * original point inside the province. Hence the complete displacement is at
-     * most 100*sqrt(2) metres; 150 metres also accommodates numerical tolerance.
-     * The expanded exact bbox is ONLY a superset prefilter. Visibility in the
-     * response is decided exclusively by cells.p and the requested public bbox.
+     * A cell centre is at most 50*sqrt(2) metres from its original point. If the centre is outside the province, its
+     * nearest boundary is no farther than that original point inside the province. Hence the complete displacement is
+     * at most 100*sqrt(2) metres; 150 metres also accommodates numerical tolerance. The expanded exact bbox is ONLY a
+     * superset prefilter. Visibility in the response is decided exclusively by cells.p and the requested public bbox.
      */
     private static String publicCells(String filters) {
         return """
@@ -121,7 +124,8 @@ public class MapIncidentRepository {
     }
 
     private static String branch(String point, String scope, String filters, boolean exact) {
-        // These strings are internal constants. All user input is bound through named parameters.
+        // These strings are internal constants. All user input is bound through named
+        // parameters.
         return "SELECT i.id, i.category_id, i.status, i.priority, i.created_at, " + exact + " AS exact, "
                 + (exact ? "i.latitude, i.longitude, " : "NULL::float8 AS latitude, NULL::float8 AS longitude, ")
                 + point + " AS p FROM incidents i WHERE (" + scope + ") "
@@ -129,8 +133,11 @@ public class MapIncidentRepository {
                 + " <@ box(map_xy_v1(:minLat, :minLon), map_xy_v1(:maxLat, :maxLon))" + filters;
     }
 
-    /** Coordinates in this projection are already authorized; no original title or personal fields. */
+    /**
+     * Coordinates in this projection are already authorized; no original title or personal fields.
+     */
     public record Row(String bucket, long incidentCount, UUID id, UUID categoryId, String categoryName,
-            IncidentStatus status, IncidentPriority priority, Instant createdAt, boolean exact,
-            double latitude, double longitude) { }
+            IncidentStatus status, IncidentPriority priority, Instant createdAt, boolean exact, double latitude,
+            double longitude) {
+    }
 }

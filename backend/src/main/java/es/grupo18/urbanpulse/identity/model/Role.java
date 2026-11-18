@@ -12,9 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Representa un rol del catálogo de permisos de UrbanPulse.
- * Almacena su código identificador y una descripción de su función,
- * incluyendo tanto roles globales como departamentales.
+ * Representa un rol del catálogo de permisos de UrbanPulse. Almacena su código identificador y una descripción de su
+ * función, incluyendo tanto roles globales como departamentales.
  */
 @Entity
 @Table(name = "roles")

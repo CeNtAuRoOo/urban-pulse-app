@@ -15,8 +15,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.UuidGenerator;
 
 /**
- * Unidad municipal compartida por administración, invitaciones y pertenencias
- * históricas.
+ * Unidad municipal compartida por administración, invitaciones y pertenencias históricas.
  */
 @Entity
 @Table(name = "departments")
@@ -58,14 +57,12 @@ public class Department {
      * @param code        código ASCII de 2–20 caracteres, convertido a mayúsculas
      * @param description descripción opcional de hasta 500 puntos de código Unicode
      * @param active      estado inicial; false impide emisión y canje
-     * @throws IllegalArgumentException si las longitudes o el formato no son
-     *                                  válidos
+     * @throws IllegalArgumentException si las longitudes o el formato no son válidos
      */
     public Department(String name, String code, String description, boolean active) {
         String normalizedName = name == null ? null : name.trim();
         int nameLength = normalizedName == null ? 0 : normalizedName.codePointCount(0, normalizedName.length());
-        if (nameLength < 2 || nameLength > 120
-                || code == null || !code.trim().matches("[A-Za-z0-9_-]{2,20}")
+        if (nameLength < 2 || nameLength > 120 || code == null || !code.trim().matches("[A-Za-z0-9_-]{2,20}")
                 || (description != null && description.codePointCount(0, description.length()) > 500)) {
             throw new IllegalArgumentException("Datos de departamento no válidos.");
         }
@@ -86,8 +83,7 @@ public class Department {
     }
 
     /**
-     * Actualiza la fecha cuando Hibernate realiza un UPDATE; no controla escrituras
-     * SQL externas.
+     * Actualiza la fecha cuando Hibernate realiza un UPDATE; no controla escrituras SQL externas.
      */
     @PreUpdate
     void preUpdate() {

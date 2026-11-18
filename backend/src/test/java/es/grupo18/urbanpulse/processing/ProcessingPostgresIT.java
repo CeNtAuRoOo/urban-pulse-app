@@ -23,8 +23,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.dto.TokenDTO;
 import es.grupo18.urbanpulse.auth.service.AuthService;
@@ -43,6 +41,7 @@ import es.grupo18.urbanpulse.processing.model.ReviewDecision;
 import es.grupo18.urbanpulse.processing.service.ProcessingService;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -100,8 +99,7 @@ class ProcessingPostgresIT {
         owner = account(null);
         operator = account("OPERATOR");
         category = UUID.randomUUID();
-        jdbc.update("insert into categories(id,name,active) values(?,?,true)",
-                category, "Categoría " + category);
+        jdbc.update("insert into categories(id,name,active) values(?,?,true)", category, "Categoría " + category);
         id = create(owner).id();
     }
 
@@ -113,8 +111,9 @@ class ProcessingPostgresIT {
         UUID other = UUID.randomUUID();
         jdbc.update("insert into categories(id,name,active) values(?,?,true)", other, "Otra " + other);
         jdbc.update("update incidents set category_id=? where id=?", other, id);
-        var result = mvc.perform(post(path("reviews")).header("Authorization", bearer(operator))
-                .contentType(APPLICATION_JSON).content(validateBody(0)))
+        var result = mvc
+                .perform(post(path("reviews")).header("Authorization", bearer(operator)).contentType(APPLICATION_JSON)
+                        .content(validateBody(0)))
                 .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.resultingStatus").value("VALIDATED")).andReturn().getResponse();
         mvc.perform(get(result.getHeader("Location")).header("Authorization", bearer(operator)))
@@ -137,18 +136,15 @@ class ProcessingPostgresIT {
 
     @Test
     void variantsCategoryAndVersionsAreStrictAndAtomic() throws Exception {
-        for (String body : List.of(
-                "{\"decision\":\"VALIDATE\",\"expectedIncidentVersion\":0}",
+        for (String body : List.of("{\"decision\":\"VALIDATE\",\"expectedIncidentVersion\":0}",
                 validateBody(0).replace("}", ",\"reason\":null}"),
                 validateBody(0).replace("}", ",\"reason\":\"texto\"}"),
                 "{\"decision\":\"REJECT\",\"reason\":\"motivo\",\"categoryId\":null,\"expectedIncidentVersion\":0}",
                 "{\"decision\":\"REQUEST_INFORMATION\",\"reason\":\"  \",\"expectedIncidentVersion\":0}",
                 validateBody(0).replace(category.toString(), UUID.randomUUID().toString()),
-                validateBody(0).replace(",\"expectedIncidentVersion\":0", ""),
-                validateBody(-1))) {
+                validateBody(0).replace(",\"expectedIncidentVersion\":0", ""), validateBody(-1))) {
             mvc.perform(post(path("reviews")).header("Authorization", bearer(operator)).contentType(APPLICATION_JSON)
-                    .content(body))
-                    .andExpect(status().isUnprocessableContent());
+                    .content(body)).andExpect(status().isUnprocessableContent());
         }
         jdbc.update("update categories set active=false where id=?", category);
         mvc.perform(post(path("reviews")).header("Authorization", bearer(operator)).contentType(APPLICATION_JSON)
@@ -309,9 +305,9 @@ class ProcessingPostgresIT {
             }
         }
         var desc = incidents.list(operator.user().id(), 0, 1, 100, null, null, null, null, null, "priority,desc");
-        assertThat(desc.data()).extracting(incident -> incident.priority()).containsExactly(
-                IncidentPriority.CRITICAL, IncidentPriority.CRITICAL, IncidentPriority.HIGH, IncidentPriority.HIGH,
-                IncidentPriority.MEDIUM, IncidentPriority.MEDIUM, IncidentPriority.LOW, IncidentPriority.LOW, null);
+        assertThat(desc.data()).extracting(incident -> incident.priority()).containsExactly(IncidentPriority.CRITICAL,
+                IncidentPriority.CRITICAL, IncidentPriority.HIGH, IncidentPriority.HIGH, IncidentPriority.MEDIUM,
+                IncidentPriority.MEDIUM, IncidentPriority.LOW, IncidentPriority.LOW, null);
         var asc = incidents.list(operator.user().id(), 0, 1, 100, null, null, null, null, null, "priority,asc");
         assertThat(asc.data().getFirst().priority()).isEqualTo(IncidentPriority.LOW);
         assertThat(asc.data().getLast().priority()).isNull();
@@ -353,9 +349,8 @@ class ProcessingPostgresIT {
         race(() -> processing.review(operator.user().id(), 0, id, validate(0)),
                 () -> processing.review(second.user().id(), 0, id, validate(0)));
         assertThat(count("incident_reviews")).isEqualTo(1);
-        race(() -> processing.prioritize(operator.user().id(), 0, id, priority(1)),
-                () -> processing.prioritize(second.user().id(), 0, id,
-                        new PriorityRequest(IncidentPriority.LOW, "Motivo", 1L)));
+        race(() -> processing.prioritize(operator.user().id(), 0, id, priority(1)), () -> processing
+                .prioritize(second.user().id(), 0, id, new PriorityRequest(IncidentPriority.LOW, "Motivo", 1L)));
         assertThat(count("priority_decisions")).isEqualTo(1);
         id = create(owner).id();
         processing.review(operator.user().id(), 0, id, review("REQUEST_INFORMATION", "Datos", 0));
@@ -391,7 +386,7 @@ class ProcessingPostgresIT {
         try {
             assertThatThrownBy(
                     () -> processing.respond(owner.user().id(), 0, id, new InformationResponseRequest("Respuesta", 1L)))
-                    .isInstanceOf(RuntimeException.class);
+                            .isInstanceOf(RuntimeException.class);
             assertThat(count("incident_information_responses")).isZero();
             assertThat(current().version()).isEqualTo(1);
         } finally {
@@ -428,8 +423,8 @@ class ProcessingPostgresIT {
             assertStatus(() -> processing.prioritize(operator.user().id(), 0, id,
                     new PriorityRequest(IncidentPriority.HIGH, text, 1L)), 422);
         }
-        assertStatus(() -> processing.prioritize(operator.user().id(), 0, id,
-                new PriorityRequest(null, "Motivo", 1L)), 422);
+        assertStatus(() -> processing.prioritize(operator.user().id(), 0, id, new PriorityRequest(null, "Motivo", 1L)),
+                422);
         processing.prioritize(operator.user().id(), 0, id,
                 new PriorityRequest(IncidentPriority.LOW, "🚦".repeat(2000), 1L));
         assertThat(processing.priorities(operator.user().id(), 0, id, 1, 20).data().getFirst().justification())
@@ -491,10 +486,10 @@ class ProcessingPostgresIT {
             assertThat(current().version()).isZero();
             assertThat(
                     jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Integer.class, id))
-                    .isZero();
+                            .isZero();
             assertThat(
                     jdbc.queryForObject("select count(*) from status_changes where incident_id=?", Integer.class, id))
-                    .isZero();
+                            .isZero();
         } finally {
             jdbc.execute("drop trigger fail_review_commit on incident_reviews");
             jdbc.execute("drop function fail_review_commit()");
@@ -564,8 +559,7 @@ class ProcessingPostgresIT {
     }
 
     /**
-     * Los motivos públicos sobreviven al saneamiento; las identidades y
-     * justificaciones no.
+     * Los motivos públicos sobreviven al saneamiento; las identidades y justificaciones no.
      */
     @Test
     void publicHistoryKeepsReasonsButNeverMunicipalIdentityOrPriorityJustification() throws Exception {
@@ -578,8 +572,8 @@ class ProcessingPostgresIT {
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.data[1].details.reason").value("Aclare el punto exacto"))
                 .andExpect(jsonPath("$.data[2].actor.id").value(owner.user().id().toString()))
-                .andExpect(jsonPath("$.data[3].details.reason").value("Fuera del ámbito municipal"))
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.data[3].details.reason").value("Fuera del ámbito municipal")).andReturn()
+                .getResponse().getContentAsString();
         assertThat(rejected).doesNotContain(operator.user().id().toString(), employeeName);
         assertThat(json.readTree(rejected).get("data").get(1).has("actor")).isFalse();
         assertThat(json.readTree(rejected).get("data").get(3).has("actor")).isFalse();
@@ -589,8 +583,8 @@ class ProcessingPostgresIT {
                 new PriorityRequest(IncidentPriority.HIGH, "Justificación solo interna", 1L));
         var prioritized = mvc.perform(get(path("history")).header("Authorization", bearer(owner)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data[2].eventType").value("PRIORITY_CHANGED"))
-                .andExpect(jsonPath("$.data[2].details.priority").value("HIGH"))
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.data[2].details.priority").value("HIGH")).andReturn().getResponse()
+                .getContentAsString();
         assertThat(prioritized).doesNotContain(operator.user().id().toString(), employeeName,
                 "Justificación solo interna");
         assertThat(json.readTree(prioritized).get("data").get(2).has("actor")).isFalse();

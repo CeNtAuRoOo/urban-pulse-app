@@ -15,12 +15,8 @@ import es.grupo18.urbanpulse.identity.model.RoleCode;
  * @param departmentName unidad opcional
  * @param expiresAt      caducidad exacta UTC
  */
-public record StaffInvitationRequested(
-        @JsonIgnore String email,
-        @JsonIgnore String code,
-        RoleCode role,
-        String departmentName,
-        Instant expiresAt) {
+public record StaffInvitationRequested(@JsonIgnore String email, @JsonIgnore String code, RoleCode role,
+        String departmentName, Instant expiresAt) {
 
     /** @return representación sin destinatario ni secreto */
     @Override

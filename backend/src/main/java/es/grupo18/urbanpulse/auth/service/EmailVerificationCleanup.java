@@ -18,21 +18,19 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 /**
  * Limpieza limitada por lotes y número de transacciones por barrido.
  *
- * Las cuentas con referencias históricas desde pertenencias, invitaciones o
- * auditoría se conservan íntegramente y se excluyen antes de limitar el lote.
- * Se revalida la ausencia de referencias bajo bloqueo de usuario; no se borra
+ * Las cuentas con referencias históricas desde pertenencias, invitaciones o auditoría se conservan íntegramente y se
+ * excluyen antes de limitar el lote. Se revalida la ausencia de referencias bajo bloqueo de usuario; no se borra
  * historia ni se añade CASCADE. Los códigos caducados se limpian por separado.
  *
- * Retención: 24 h sin verificar; barrido horario, sin garantía exacta antes de
- * 25 h si hay bloqueos, fallos o más filas que el presupuesto de un barrido.
+ * Retención: 24 h sin verificar; barrido horario, sin garantía exacta antes de 25 h si hay bloqueos, fallos o más filas
+ * que el presupuesto de un barrido.
  */
 @Component
 @Slf4j
 public class EmailVerificationCleanup {
 
     /**
-     * Predicado compartido por selección y revisión bajo bloqueo; incluye todas las
-     * FK históricas.
+     * Predicado compartido por selección y revisión bajo bloqueo; incluye todas las FK históricas.
      */
     private static final String WITHOUT_HISTORY = """
             not exists (select 1 from department_memberships m where m.user_id = u.id)
@@ -53,8 +51,8 @@ public class EmailVerificationCleanup {
     private final Clock clock;
 
     /**
-     * Inicializa el componente de limpieza con acceso SQL, gestión
-     * transaccional, configuración de los lotes y un reloj inyectable.
+     * Inicializa el componente de limpieza con acceso SQL, gestión transaccional, configuración de los lotes y un reloj
+     * inyectable.
      *
      * @param jdbc       componente de acceso a PostgreSQL mediante SQL
      * @param manager    gestor de transacciones de la aplicación
@@ -71,10 +69,8 @@ public class EmailVerificationCleanup {
     }
 
     /**
-     * Ejecuta periódicamente la limpieza de códigos caducados
-     * y cuentas pendientes de verificación que han superado las 24 horas.
-     * Registra el número de eliminaciones y captura los fallos
-     * sin revelar información sensible.
+     * Ejecuta periódicamente la limpieza de códigos caducados y cuentas pendientes de verificación que han superado las
+     * 24 horas. Registra el número de eliminaciones y captura los fallos sin revelar información sensible.
      */
     @Scheduled(cron = "${security.email-verification.cleanup-cron:0 0 * * * *}")
     public void scheduledCleanup() {
@@ -92,10 +88,9 @@ public class EmailVerificationCleanup {
     }
 
     /**
-     * Ejecuta la limpieza de solicitudes de verificación caducadas
-     * y usuarios no verificados que han superado su tiempo de retención.
-     * Procesa los registros mediante transacciones y lotes acotados,
-     * evitando cargar grandes conjuntos de datos en memoria.
+     * Ejecuta la limpieza de solicitudes de verificación caducadas y usuarios no verificados que han superado su tiempo
+     * de retención. Procesa los registros mediante transacciones y lotes acotados, evitando cargar grandes conjuntos de
+     * datos en memoria.
      *
      * @return resultado con el número de códigos y usuarios eliminados
      */
@@ -133,10 +128,9 @@ public class EmailVerificationCleanup {
     }
 
     /**
-     * Elimina un lote de cuentas no verificadas anteriores a la fecha límite.
-     * Selecciona los usuarios con bloqueo pesimista y SKIP LOCKED,
-     * comprueba nuevamente su estado y elimina sus solicitudes
-     * de verificación y roles antes de borrar las cuentas.
+     * Elimina un lote de cuentas no verificadas anteriores a la fecha límite. Selecciona los usuarios con bloqueo
+     * pesimista y SKIP LOCKED, comprueba nuevamente su estado y elimina sus solicitudes de verificación y roles antes
+     * de borrar las cuentas.
      *
      * @param cutoff fecha límite para considerar caducada una cuenta
      * @return número de usuarios eliminados durante el lote
@@ -162,22 +156,19 @@ public class EmailVerificationCleanup {
             jdbc.update("delete from email_verifications where user_id = ?", id);
             jdbc.update("delete from user_roles where user_id = ?", id);
 
-            deleted += jdbc.update("delete from users where id = ? and email_verified = false and created_at <= ?",
-                    id, cutoff);
+            deleted += jdbc.update("delete from users where id = ? and email_verified = false and created_at <= ?", id,
+                    cutoff);
         }
 
         return deleted;
     }
 
     /**
-     * Representa el resultado de una ejecución de limpieza
-     * de solicitudes de verificación y cuentas caducadas.
+     * Representa el resultado de una ejecución de limpieza de solicitudes de verificación y cuentas caducadas.
      *
      * @param codes número de solicitudes de verificación eliminadas
      * @param users número de cuentas de usuario eliminadas
      */
-    public record Result(
-            int codes,
-            int users) {
+    public record Result(int codes, int users) {
     }
 }

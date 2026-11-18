@@ -15,9 +15,8 @@ import es.grupo18.urbanpulse.incidents.repository.IncidentRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Política común de cuenta y visibilidad para incidencias y sus evidencias.
- * Los llamadores deben mantener una transacción durante el uso de las
- * entidades.
+ * Política común de cuenta y visibilidad para incidencias y sus evidencias. Los llamadores deben mantener una
+ * transacción durante el uso de las entidades.
  */
 @Component
 @RequiredArgsConstructor
@@ -50,8 +49,7 @@ public class IncidentAccess {
     }
 
     /**
-     * Oculta por igual inexistencia y falta de visibilidad, sin restricción de
-     * estado.
+     * Oculta por igual inexistencia y falta de visibilidad, sin restricción de estado.
      *
      * @param actor cuenta revalidada
      * @param id    incidencia solicitada

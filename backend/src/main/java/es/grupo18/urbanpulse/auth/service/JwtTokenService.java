@@ -18,9 +18,8 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.shared.security.JwtProperties;
 
 /**
- * Servicio encargado de generar y firmar tokens JWT de acceso.
- * Utiliza la configuración de seguridad para establecer su emisor,
- * duración y firma mediante el algoritmo HS256.
+ * Servicio encargado de generar y firmar tokens JWT de acceso. Utiliza la configuración de seguridad para establecer su
+ * emisor, duración y firma mediante el algoritmo HS256.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,8 +30,8 @@ public class JwtTokenService {
     private final Clock clock;
 
     /**
-     * Genera un JWT firmado con la identidad del usuario, las fechas de emisión
-     * y expiración, y la versión del token utilizada para su invalidación.
+     * Genera un JWT firmado con la identidad del usuario, las fechas de emisión y expiración, y la versión del token
+     * utilizada para su invalidación.
      *
      * @param user entidad del usuario autenticado
      * @param dto  datos públicos del usuario que se incluirán en la respuesta
@@ -41,15 +40,11 @@ public class JwtTokenService {
     public TokenDTO issue(User user, UserDTO dto) {
         Instant now = clock.instant();
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(properties.issuer())
-                .subject(user.getId().toString()).issuedAt(now)
-                .expiresAt(now.plusSeconds(properties.ttlSeconds()))
-                .claim("ver", user.getTokenVersion())
+        JwtClaimsSet claims = JwtClaimsSet.builder().issuer(properties.issuer()).subject(user.getId().toString())
+                .issuedAt(now).expiresAt(now.plusSeconds(properties.ttlSeconds())).claim("ver", user.getTokenVersion())
                 .build();
 
-        String token = encoder
-                .encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+        String token = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
 
         return new TokenDTO(token, "Bearer", properties.ttlSeconds(), dto);

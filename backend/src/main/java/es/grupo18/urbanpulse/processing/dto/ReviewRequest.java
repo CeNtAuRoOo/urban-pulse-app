@@ -11,8 +11,7 @@ import es.grupo18.urbanpulse.processing.model.ReviewDecision;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Variantes de revisión con presencia explícita: también se rechazan campos
- * prohibidos nulos.
+ * Variantes de revisión con presencia explícita: también se rechazan campos prohibidos nulos.
  */
 @JsonAutoDetect(getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
 public class ReviewRequest {
@@ -123,9 +122,8 @@ public class ReviewRequest {
      * @throws ApiException 422 si faltan campos o se mezclan variantes
      */
     public void validate() {
-        if (decision == null || (decision == ReviewDecision.VALIDATE
-                ? categoryId == null || reasonPresent
-                : categoryPresent)) {
+        if (decision == null
+                || (decision == ReviewDecision.VALIDATE ? categoryId == null || reasonPresent : categoryPresent)) {
             throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
                     "Variante de revisión inválida.");
         }

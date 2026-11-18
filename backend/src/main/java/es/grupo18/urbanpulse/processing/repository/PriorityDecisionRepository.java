@@ -11,8 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import es.grupo18.urbanpulse.processing.model.PriorityDecision;
 
 /**
- * Persistencia histórica; todas las consultas públicas se acotan al padre en
- * SQL.
+ * Persistencia histórica; todas las consultas públicas se acotan al padre en SQL.
  */
 public interface PriorityDecisionRepository extends JpaRepository<PriorityDecision, UUID> {
 

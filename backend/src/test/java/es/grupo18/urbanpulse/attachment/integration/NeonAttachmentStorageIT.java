@@ -1,4 +1,4 @@
-package es.grupo18.urbanpulse.attachments;
+package es.grupo18.urbanpulse.attachment.integration;
 
 import java.util.UUID;
 
@@ -14,9 +14,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.attachment.service.ObjectStorageService;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -24,17 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Real Neon Object Storage integration test: PUT -> GET -> DELETE against the
- * configured S3-compatible endpoint.
+ * Real Neon Object Storage integration test: PUT -> GET -> DELETE against the configured S3-compatible endpoint.
  *
- * Requires explicit NEON_STORAGE_TEST_AUTHORIZED=true for a non-production test
- * endpoint,
- * and all of AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID,
- * AWS_SECRET_ACCESS_KEY,
- * AWS_REGION and STORAGE_BUCKET to be present and non-empty in the environment.
- * The class is skipped entirely otherwise, so it can live in the repo without
- * breaking CI or a plain `mvn verify -Pneon-storage` on a machine with no
- * creds.
+ * Requires explicit NEON_STORAGE_TEST_AUTHORIZED=true for a non-production test endpoint, and all of
+ * AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION and STORAGE_BUCKET to be present and
+ * non-empty in the environment. The class is skipped entirely otherwise, so it can live in the repo without breaking CI
+ * or a plain `mvn verify -Pneon-storage` on a machine with no creds.
  */
 @EnabledIfEnvironmentVariable(named = "NEON_STORAGE_TEST_AUTHORIZED", matches = "true")
 @EnabledIfEnvironmentVariable(named = "AWS_ENDPOINT_URL_S3", matches = ".+")
@@ -43,9 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @EnabledIfEnvironmentVariable(named = "AWS_REGION", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "STORAGE_BUCKET", matches = ".+")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = {
-        "security.email-verification.cleanup-cron=-",
-        "spring.mail.port=2525"
-})
+        "security.email-verification.cleanup-cron=-", "spring.mail.port=2525" })
 @TestPropertySource("classpath:auth-test.properties")
 @Testcontainers
 class NeonAttachmentStorageIT {
@@ -82,7 +74,6 @@ class NeonAttachmentStorageIT {
 
         // S3 GET on a deleted key throws NoSuchKeyException (subclass of S3Exception),
         // it does not return null.
-        assertThatThrownBy(() -> storage.download(storageKey))
-                .isInstanceOf(S3Exception.class);
+        assertThatThrownBy(() -> storage.download(storageKey)).isInstanceOf(S3Exception.class);
     }
 }

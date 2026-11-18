@@ -18,10 +18,8 @@ import es.grupo18.urbanpulse.shared.error.AuthenticationBackendException;
 import es.grupo18.urbanpulse.shared.error.ProblemDetailFactory;
 
 /**
- * Gestiona los errores de autenticación de Spring Security.
- * Devuelve 401 para credenciales no válidas, 503 para indisponibilidad del
- * backend
- * y 500 para fallos internos, siempre en formato ProblemDetail.
+ * Gestiona los errores de autenticación de Spring Security. Devuelve 401 para credenciales no válidas, 503 para
+ * indisponibilidad del backend y 500 para fallos internos, siempre en formato ProblemDetail.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,9 +29,8 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     private final ProblemDetailFactory problems;
 
     /**
-     * Responde al fallo de autenticación. Solo los errores 401 incluyen
-     * WWW-Authenticate; los errores del backend se registran sin mensajes ni
-     * causas.
+     * Responde al fallo de autenticación. Solo los errores 401 incluyen WWW-Authenticate; los errores del backend se
+     * registran sin mensajes ni causas.
      *
      * @param request   petición HTTP que ha provocado el error
      * @param response  respuesta HTTP en la que se escribirá el error
@@ -48,8 +45,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
             boolean unavailable = exception instanceof AuthenticationBackendException backend
                     && backend.isUnavailable();
 
-            String failureType = exception instanceof AuthenticationBackendException backend
-                    ? backend.failureType()
+            String failureType = exception instanceof AuthenticationBackendException backend ? backend.failureType()
                     : exception.getClass().getName();
 
             if (unavailable) {

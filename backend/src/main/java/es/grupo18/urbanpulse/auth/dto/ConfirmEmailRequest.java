@@ -4,16 +4,15 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * Representa los datos necesarios para confirmar el correo electrónico
- * de un usuario mediante un código de exactamente ocho dígitos ASCII.
+ * Representa los datos necesarios para confirmar el correo electrónico de un usuario mediante un código de exactamente
+ * ocho dígitos ASCII.
  *
  * @param code código numérico de verificación proporcionado por el usuario
  */
 public record ConfirmEmailRequest(@NotNull @Pattern(regexp = "[0-9]{8}") String code) {
 
     /**
-     * Devuelve una representación del DTO sin revelar el código
-     * de verificación proporcionado por el usuario.
+     * Devuelve una representación del DTO sin revelar el código de verificación proporcionado por el usuario.
      *
      * @return representación textual con el código de verificación oculto
      */

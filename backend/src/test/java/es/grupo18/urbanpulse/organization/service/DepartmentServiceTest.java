@@ -76,8 +76,8 @@ class DepartmentServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
         when(departmentRepository.saveAndFlush(any(Department.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        var created = departmentService.create(
-                new CreateDepartmentRequest(symbol.repeat(120), "OK", symbol.repeat(500), true));
+        var created = departmentService
+                .create(new CreateDepartmentRequest(symbol.repeat(120), "OK", symbol.repeat(500), true));
         assertThat(created.name()).isEqualTo(symbol.repeat(120));
         assertThat(created.description()).isEqualTo(symbol.repeat(500));
     }
@@ -111,8 +111,8 @@ class DepartmentServiceTest {
         when(departmentRepository.saveAndFlush(any(Department.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        DepartmentResponse result = departmentService.create(
-                new CreateDepartmentRequest("  Mantenimiento Urbano  ", " mant ", "Descripción", null));
+        DepartmentResponse result = departmentService
+                .create(new CreateDepartmentRequest("  Mantenimiento Urbano  ", " mant ", "Descripción", null));
 
         assertThat(result.name()).isEqualTo("Mantenimiento Urbano");
         assertThat(result.code()).isEqualTo("MANT");
@@ -125,10 +125,8 @@ class DepartmentServiceTest {
         when(departmentRepository.existsByNameIgnoreCase("Limpieza")).thenReturn(false);
         when(departmentRepository.existsByCodeIgnoreCase("LIMP")).thenReturn(true);
 
-        assertThatThrownBy(() -> departmentService.create(
-                new CreateDepartmentRequest("Limpieza", "limp", null, true)))
-                .isInstanceOf(DuplicateDepartmentException.class)
-                .hasMessageContaining("código");
+        assertThatThrownBy(() -> departmentService.create(new CreateDepartmentRequest("Limpieza", "limp", null, true)))
+                .isInstanceOf(DuplicateDepartmentException.class).hasMessageContaining("código");
 
         verify(departmentRepository, never()).saveAndFlush(any(Department.class));
     }
@@ -157,7 +155,6 @@ class DepartmentServiceTest {
         UUID id = UUID.randomUUID();
         when(departmentRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> departmentService.findById(id))
-                .isInstanceOf(DepartmentNotFoundException.class);
+        assertThatThrownBy(() -> departmentService.findById(id)).isInstanceOf(DepartmentNotFoundException.class);
     }
 }

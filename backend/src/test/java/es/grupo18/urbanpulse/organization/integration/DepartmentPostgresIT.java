@@ -30,8 +30,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
 import es.grupo18.urbanpulse.organization.dto.CreateDepartmentRequest;
@@ -40,6 +38,7 @@ import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 import es.grupo18.urbanpulse.organization.service.DepartmentService;
 import es.grupo18.urbanpulse.organization.service.DuplicateDepartmentException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,86 +92,74 @@ class DepartmentPostgresIT {
     @org.junit.jupiter.api.BeforeAll
     static void initialSchemaStartsWithoutDepartments(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-                .containsExactly("1");
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+                String.class)).containsExactly("1");
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
-                String.class))
-                .contains("users", "roles", "user_roles", "email_verifications", "departments",
+                String.class)).contains("users", "roles", "user_roles", "email_verifications", "departments",
                         "department_memberships", "staff_invitations", "audit_events");
     }
 
     @Test
     void realJwtUsesCurrentDatabaseRolesAndVerification() throws Exception {
-        var token = auth.register(new RegisterRequest(
-                "Administradora", "departments@example.org", "password-123"));
+        var token = auth.register(new RegisterRequest("Administradora", "departments@example.org", "password-123"));
         String bearer = "Bearer " + token.accessToken();
         String url = "/api/v1/departments";
-        mvc.perform(get(url).header("Authorization", bearer))
-                .andExpect(status().isForbidden());
+        mvc.perform(get(url).header("Authorization", bearer)).andExpect(status().isForbidden());
         jdbc.update("update users set email_verified=true where id=?", token.user().id());
-        mvc.perform(get(url).header("Authorization", bearer))
-                .andExpect(status().isOk());
+        mvc.perform(get(url).header("Authorization", bearer)).andExpect(status().isOk());
         String body = "{\"name\":\"HTTP unit\",\"code\":\"HTTP\"}";
-        mvc.perform(post(url).header("Authorization", bearer)
-                .contentType(APPLICATION_JSON).content(body))
+        mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
         jdbc.update("insert into user_roles values (?, 'ADMIN')", token.user().id());
-        var result = mvc.perform(post(url).header("Authorization", bearer)
-                .contentType(APPLICATION_JSON).content(body))
+        var result = mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn();
         String location = result.getResponse().getHeader("Location");
-        mvc.perform(patch(location).header("Authorization", bearer)
-                .contentType(APPLICATION_JSON).content("{\"active\":false}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"active\":false}")).andExpect(status().isOk()).andExpect(jsonPath("$.active").value(false));
         jdbc.update("delete from user_roles where user_id=? and role_code='ADMIN'", token.user().id());
-        mvc.perform(patch(location).header("Authorization", bearer)
-                .contentType(APPLICATION_JSON).content("{\"active\":true}"))
-                .andExpect(status().isForbidden());
+        mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                .content("{\"active\":true}")).andExpect(status().isForbidden());
     }
 
     @Test
     void unicodeBoundsMatchPostgresForCreateAndPatch() throws Exception {
-        var token = auth.register(new RegisterRequest(
-                "Administradora Unicode", "department-unicode@example.org", "password-123"));
+        var token = auth.register(
+                new RegisterRequest("Administradora Unicode", "department-unicode@example.org", "password-123"));
         jdbc.update("update users set email_verified=true where id=?", token.user().id());
         jdbc.update("insert into user_roles values (?, 'ADMIN')", token.user().id());
         String bearer = "Bearer " + token.accessToken();
         String symbol = "\uD83D\uDE00";
         String url = "/api/v1/departments";
         mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                .content("{\"name\":\"" + symbol + "\",\"code\":\"UNICODE\"}"))
-                .andExpect(status().is(422));
+                .content("{\"name\":\"" + symbol + "\",\"code\":\"UNICODE\"}")).andExpect(status().is(422));
 
-        var created = mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                .content("{\"name\":\"" + symbol.repeat(120) + "\",\"code\":\"UNICODE\",\"description\":\""
-                        + symbol.repeat(500) + "\"}"))
+        var created = mvc
+                .perform(
+                        post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
+                                .content("{\"name\":\"" + symbol.repeat(120)
+                                        + "\",\"code\":\"UNICODE\",\"description\":\"" + symbol.repeat(500) + "\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String location = created.getResponse().getHeader("Location");
         assertThat(location).isNotNull();
-        for (String[] invalid : List.of(
-                new String[] { "name", symbol },
-                new String[] { "name", symbol.repeat(121) },
+        for (String[] invalid : List.of(new String[] { "name", symbol }, new String[] { "name", symbol.repeat(121) },
                 new String[] { "description", symbol.repeat(501) })) {
             String body = "{\"" + invalid[0] + "\":\"" + invalid[1] + "\"}";
             mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
                     .andExpect(status().is(422));
             String name = invalid[0].equals("name") ? invalid[1] : "Valid Unicode";
             String description = invalid[0].equals("description") ? invalid[1] : "";
-            mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                    .content(
-                            "{\"name\":\"" + name + "\",\"code\":\"INVALID\",\"description\":\"" + description + "\"}"))
+            mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON).content(
+                    "{\"name\":\"" + name + "\",\"code\":\"INVALID\",\"description\":\"" + description + "\"}"))
                     .andExpect(status().is(422));
         }
         mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
                 .content("{\"name\":\"" + symbol.repeat(2) + "\",\"description\":\"" + symbol.repeat(500) + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.name").value(symbol.repeat(2)));
         mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                .content("{\"name\":\"" + symbol.repeat(120) + "\"}"))
-                .andExpect(status().isOk());
+                .content("{\"name\":\"" + symbol.repeat(120) + "\"}")).andExpect(status().isOk());
         assertThat(jdbc.queryForMap("select length(name) as name_length, length(description) as description_length "
-                + "from departments where code='UNICODE'"))
-                .containsEntry("name_length", 120).containsEntry("description_length", 500);
+                + "from departments where code='UNICODE'")).containsEntry("name_length", 120)
+                        .containsEntry("description_length", 500);
     }
 
     @Test
@@ -196,8 +183,7 @@ class DepartmentPostgresIT {
         assertThat(after.isActive()).isFalse();
         assertThat(after.getDescription()).isEmpty();
         assertThat(after.getName()).isEqualTo("Movilidad");
-        assertThat(service.findAll())
-                .anySatisfy(department -> assertThat(department.id()).isEqualTo(created.id()));
+        assertThat(service.findAll()).anySatisfy(department -> assertThat(department.id()).isEqualTo(created.id()));
         assertThatThrownBy(() -> service.create(new CreateDepartmentRequest("movilidad", "OTHER", null, true)))
                 .isInstanceOf(DuplicateDepartmentException.class);
         assertThatThrownBy(() -> service.create(new CreateDepartmentRequest("Otra unidad", "mov", null, true)))
@@ -209,8 +195,7 @@ class DepartmentPostgresIT {
         UUID id = jdbc.queryForObject("insert into departments(name,code) values ('SQL unit','SQL') returning id",
                 UUID.class);
         assertThat(id.version()).isEqualTo(7);
-        for (String sql : List.of(
-                "insert into departments(name,code) values ('sql UNIT','UNIQUE')",
+        for (String sql : List.of("insert into departments(name,code) values ('sql UNIT','UNIQUE')",
                 "insert into departments(name,code) values ('Different','SQL')",
                 "insert into departments(name,code) values (' ','EMPTY')",
                 "insert into departments(name,code) values ('Valid','bad code')",

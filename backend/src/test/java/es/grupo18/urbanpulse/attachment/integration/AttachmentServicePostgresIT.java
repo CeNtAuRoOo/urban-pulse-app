@@ -1,4 +1,4 @@
-package es.grupo18.urbanpulse.attachments;
+package es.grupo18.urbanpulse.attachment.integration;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -47,8 +47,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.attachment.dto.AttachmentDTO;
 import es.grupo18.urbanpulse.attachment.service.AttachmentService;
 import es.grupo18.urbanpulse.attachment.service.ImageSanitizer;
@@ -62,6 +60,7 @@ import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.incidents.service.IncidentService;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -158,13 +157,14 @@ class AttachmentServicePostgresIT {
 
     @Test
     void fiveHttpOperationsExposeExactDtoHeadersAndRetainDeletedObject() throws Exception {
-        var uploaded = mvc.perform(multipart(path()).file(file("../foto.jpeg", "text/plain", jpeg))
-                .header("Authorization", bearer(owner))).andExpect(status().isCreated())
-                .andExpect(header().string("Cache-Control", "no-store")).andReturn().getResponse();
+        var uploaded = mvc
+                .perform(multipart(path()).file(file("../foto.jpeg", "text/plain", jpeg)).header("Authorization",
+                        bearer(owner)))
+                .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store")).andReturn()
+                .getResponse();
         var node = json.readTree(uploaded.getContentAsString());
         assertThat(node.propertyNames()).containsExactlyInAnyOrder("id", "incidentId", "originalFilename",
-                "contentType",
-                "sizeBytes", "uploadedBy", "createdAt", "description");
+                "contentType", "sizeBytes", "uploadedBy", "createdAt", "description");
         assertThat(node.get("description").isNull()).isTrue();
         assertThat(node.get("originalFilename").asString()).isEqualTo("foto.jpeg");
         assertThat(node.get("uploadedBy").asString()).isEqualTo(owner.user().id().toString());
@@ -200,7 +200,7 @@ class AttachmentServicePostgresIT {
         verify(storage, never()).delete(anyString());
         assertThat(jdbc.queryForList(
                 "select action from audit_events where resource_type='ATTACHMENT' order by occurred_at", String.class))
-                .containsExactly("ATTACHMENT_CREATED", "ATTACHMENT_DELETED");
+                        .containsExactly("ATTACHMENT_CREATED", "ATTACHMENT_DELETED");
         assertThat(incidents.history(owner.user().id(), 0, incident, 1, 20).pagination().totalItems()).isEqualTo(1);
     }
 
@@ -277,8 +277,7 @@ class AttachmentServicePostgresIT {
         jdbc.update("update users set active=true where id=?", owner.user().id());
         mvc.perform(get("/api/v1/attachments").header("Authorization", bearer(owner))).andExpect(status().isNotFound());
         mvc.perform(multipart("/api/v1/attachments").file(file("a.jpg", "image/jpeg", jpeg)).header("Authorization",
-                bearer(owner)))
-                .andExpect(status().isNotFound());
+                bearer(owner))).andExpect(status().isNotFound());
     }
 
     @Test
@@ -365,17 +364,15 @@ class AttachmentServicePostgresIT {
         for (String change : List.of("incident_id=null", "uploaded_by=null",
                 "incident_id='00000000-0000-0000-0000-000000000000'",
                 "uploaded_by='00000000-0000-0000-0000-000000000000'", "content_type='IMAGE_WEBP'", "size_bytes=0",
-                "size_bytes=10485761",
-                "deleted_at=created_at-interval '1 second'", "original_filename='../a.jpg'",
-                "original_filename=E'a\\nb.jpg'",
-                "description=repeat('x',301)")) {
+                "size_bytes=10485761", "deleted_at=created_at-interval '1 second'", "original_filename='../a.jpg'",
+                "original_filename=E'a\\nb.jpg'", "description=repeat('x',301)")) {
             assertThatThrownBy(() -> jdbc.update("update attachments set " + change + " where id=?", dto.id()))
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
         assertThatThrownBy(() -> jdbc.update("delete from incidents where id=?", incident))
                 .isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-                .containsExactly("1");
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
+                String.class)).containsExactly("1");
         assertThat(jdbc.queryForObject("select incident_id from attachments where id=?", UUID.class, dto.id()))
                 .isEqualTo(incident);
     }
@@ -388,8 +385,8 @@ class AttachmentServicePostgresIT {
                 .perform(multipart(path()).file(file("a.jpg", "image/jpeg", jpeg)).header("Authorization",
                         bearer(owner)))
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("ATTACHMENT_STORAGE_ERROR"))
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.code").value("ATTACHMENT_STORAGE_ERROR")).andReturn().getResponse()
+                .getContentAsString();
         assertThat(response).doesNotContain("secret-key", "AWS", "SQL", "storageKey");
         assertThat(count()).isZero();
         doAnswer(i -> {
@@ -444,8 +441,7 @@ class AttachmentServicePostgresIT {
     void reviewDuringObjectUploadFreezesMetadataAndCompensatesRemoteObject() throws Exception {
         var operator = account("OPERATOR");
         UUID category = UUID.randomUUID();
-        jdbc.update("insert into categories(id,name,active) values(?,?,true)",
-                category, "Categoría " + category);
+        jdbc.update("insert into categories(id,name,active) values(?,?,true)", category, "Categoría " + category);
         for (var decision : List.of(es.grupo18.urbanpulse.processing.model.ReviewDecision.VALIDATE,
                 es.grupo18.urbanpulse.processing.model.ReviewDecision.REJECT)) {
             incident = createIncident(owner);
@@ -497,14 +493,15 @@ class AttachmentServicePostgresIT {
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         body.write(("--" + boundary
                 + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"large.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n")
-                .getBytes(StandardCharsets.US_ASCII));
+                        .getBytes(StandardCharsets.US_ASCII));
         body.write(new byte[ImageSanitizer.MAX_BYTES + 1]);
         body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII));
         try (var client = HttpClient.newHttpClient()) {
-            var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path()))
-                    .header("Authorization", bearer(owner))
-                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(),
+            var response = client.send(
+                    HttpRequest.newBuilder(URI.create("http://localhost:" + port + path()))
+                            .header("Authorization", bearer(owner))
+                            .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                            .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(),
                     HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(413);
             assertThat(json.readTree(response.body()).get("code").asString()).isEqualTo("ATTACHMENT_TOO_LARGE");
@@ -564,8 +561,7 @@ class AttachmentServicePostgresIT {
     }
 
     /**
-     * La identidad municipal no sale por alta, listado o detalle; permanece en SQL
-     * y auditoría.
+     * La identidad municipal no sale por alta, listado o detalle; permanece en SQL y auditoría.
      */
     @Test
     void municipalUploadHidesUploaderButPreservesInternalAttribution() throws Exception {
@@ -573,9 +569,11 @@ class AttachmentServicePostgresIT {
             var employee = account(role);
             String name = "Empleado de fotografías " + role;
             jdbc.update("update users set display_name=? where id=?", name, employee.user().id());
-            var response = mvc.perform(multipart(path()).file(file("municipal.jpg", "image/jpeg", jpeg))
-                    .header("Authorization", bearer(employee))).andExpect(status().isCreated())
-                    .andExpect(header().string("Cache-Control", "no-store")).andReturn().getResponse();
+            var response = mvc
+                    .perform(multipart(path()).file(file("municipal.jpg", "image/jpeg", jpeg)).header("Authorization",
+                            bearer(employee)))
+                    .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store")).andReturn()
+                    .getResponse();
             var node = json.readTree(response.getContentAsString());
             assertThat(node.has("uploadedBy")).isTrue();
             assertThat(node.get("uploadedBy").isNull()).isTrue();
@@ -583,16 +581,16 @@ class AttachmentServicePostgresIT {
             UUID attachmentId = UUID.fromString(node.get("id").asString());
             assertThat(jdbc.queryForObject("select uploaded_by from attachments where id=?", UUID.class, attachmentId))
                     .isEqualTo(employee.user().id());
-            assertThat(jdbc.queryForObject("select actor_user_id from audit_events where resource_id=? "
-                    + "and action='ATTACHMENT_CREATED'", UUID.class, attachmentId.toString()))
-                    .isEqualTo(employee.user().id());
+            assertThat(jdbc.queryForObject(
+                    "select actor_user_id from audit_events where resource_id=? " + "and action='ATTACHMENT_CREATED'",
+                    UUID.class, attachmentId.toString())).isEqualTo(employee.user().id());
             jdbc.update("update users set active=false,display_name=? where id=?", "Nombre cambiado",
                     employee.user().id());
             jdbc.update("delete from user_roles where user_id=? and role_code=?", employee.user().id(), role);
             for (String url : List.of(path(), response.getHeader("Location"))) {
-                String body = mvc.perform(get(url).header("Authorization", bearer(owner)))
-                        .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
-                        .andReturn().getResponse().getContentAsString();
+                String body = mvc.perform(get(url).header("Authorization", bearer(owner))).andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store")).andReturn().getResponse()
+                        .getContentAsString();
                 assertThat(body).doesNotContain(employee.user().id().toString(), name, "Nombre cambiado");
             }
             assertThat(service.getAttachment(owner.user().id(), 0, incident, attachmentId).uploadedBy()).isNull();
@@ -603,30 +601,28 @@ class AttachmentServicePostgresIT {
     }
 
     /**
-     * Documenta que la versión del reporte no representa el conjunto de fotografías
-     * consultado.
+     * Documenta que la versión del reporte no representa el conjunto de fotografías consultado.
      */
     @Test
     void evidenceChangesAfterOperatorReadDoNotInvalidateExpectedIncidentVersion() throws Exception {
         var operator = account("OPERATOR");
         var original = upload(owner);
         var snapshot = incidents.get(operator.user().id(), 0, incident);
-        assertThat(service.getAttachments(operator.user().id(), 0, incident))
-                .singleElement()
+        assertThat(service.getAttachments(operator.user().id(), 0, incident)).singleElement()
                 .satisfies(a -> assertThat(a.id()).isEqualTo(original.id()));
         service.deleteAttachment(owner.user().id(), 0, incident, original.id());
         var replacement = upload(owner);
         assertThat(incidents.get(operator.user().id(), 0, incident).version()).isEqualTo(snapshot.version());
         UUID category = UUID.randomUUID();
         jdbc.update("insert into categories(id,name,active) values(?,?,true)", category, "Categoría " + category);
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
-                "/api/v1/incidents/" + incident + "/reviews").header("Authorization", bearer(operator))
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content("{\"decision\":\"VALIDATE\",\"categoryId\":\"" + category
-                        + "\",\"expectedIncidentVersion\":" + snapshot.version() + "}"))
+        mvc.perform(
+                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/incidents/" + incident + "/reviews").header("Authorization", bearer(operator))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"VALIDATE\",\"categoryId\":\"" + category
+                                + "\",\"expectedIncidentVersion\":" + snapshot.version() + "}"))
                 .andExpect(status().isCreated());
-        assertThat(service.getAttachments(owner.user().id(), 0, incident))
-                .singleElement()
+        assertThat(service.getAttachments(owner.user().id(), 0, incident)).singleElement()
                 .satisfies(a -> assertThat(a.id()).isEqualTo(replacement.id()));
         assertThat(incidents.get(owner.user().id(), 0, incident).version()).isEqualTo(snapshot.version() + 1);
         assertStatus(() -> service.deleteAttachment(owner.user().id(), 0, incident, replacement.id()), 409);

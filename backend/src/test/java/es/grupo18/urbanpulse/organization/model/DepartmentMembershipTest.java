@@ -17,12 +17,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Pruebas unitarias de las invariantes de dominio de DepartmentMembership.
- * Comprueba el ámbito del rol y las transiciones entre pertenencia activa
- * y pertenencia histórica.
+ * Pruebas unitarias de las invariantes de dominio de DepartmentMembership. Comprueba el ámbito del rol y las
+ * transiciones entre pertenencia activa y pertenencia histórica.
  */
 class DepartmentMembershipTest {
-
     private User user;
     private Department department;
     private Role role;
@@ -54,8 +52,7 @@ class DepartmentMembershipTest {
     }
 
     /**
-     * Comprueba que una pertenencia finalizada conserva su fecha de baja
-     * y deja de considerarse activa.
+     * Comprueba que una pertenencia finalizada conserva su fecha de baja y deja de considerarse activa.
      */
     @Test
     void endChangesMembershipToHistorical() {
@@ -69,16 +66,13 @@ class DepartmentMembershipTest {
     }
 
     /**
-     * Comprueba que no se puede finalizar una pertenencia con una fecha
-     * anterior a su fecha de alta.
+     * Comprueba que no se puede finalizar una pertenencia con una fecha anterior a su fecha de alta.
      */
     @Test
     void endRejectsDateBeforeJoinDate() {
         DepartmentMembership membership = new DepartmentMembership(user, department, role, joinedAt);
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> membership.end(joinedAt.minusSeconds(1)));
+        assertThrows(IllegalArgumentException.class, () -> membership.end(joinedAt.minusSeconds(1)));
 
         assertTrue(membership.isActive());
     }
@@ -91,9 +85,7 @@ class DepartmentMembershipTest {
         DepartmentMembership membership = new DepartmentMembership(user, department, role, joinedAt);
         membership.end(joinedAt.plusSeconds(3600));
 
-        assertThrows(
-                IllegalStateException.class,
-                () -> membership.end(joinedAt.plusSeconds(7200)));
+        assertThrows(IllegalStateException.class, () -> membership.end(joinedAt.plusSeconds(7200)));
     }
 
     /**
@@ -103,8 +95,6 @@ class DepartmentMembershipTest {
     void constructorRejectsGlobalRole() {
         when(role.getCode()).thenReturn(RoleCode.ADMIN);
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new DepartmentMembership(user, department, role, joinedAt));
+        assertThrows(IllegalArgumentException.class, () -> new DepartmentMembership(user, department, role, joinedAt));
     }
 }

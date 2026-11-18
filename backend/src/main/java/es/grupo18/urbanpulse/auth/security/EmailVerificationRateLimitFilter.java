@@ -19,12 +19,10 @@ import es.grupo18.urbanpulse.shared.ratelimit.InMemoryRateLimiter;
 import es.grupo18.urbanpulse.shared.ratelimit.RateLimitProperties;
 
 /**
- * Cuotas de verificación después de validar JWT y antes del
- * controlador/HMAC/bloqueos. Se consume IP, luego usuario (en reenvío:
- * enfriamiento y presupuesto largo). Si un bucket posterior deniega, no se
- * restituyen los tokens anteriores: política conservadora. Reenviar nunca
- * modifica los buckets de confirmación. Los contadores son locales por
- * instancia y se pierden al reiniciar.
+ * Cuotas de verificación después de validar JWT y antes del controlador/HMAC/bloqueos. Se consume IP, luego usuario (en
+ * reenvío: enfriamiento y presupuesto largo). Si un bucket posterior deniega, no se restituyen los tokens anteriores:
+ * política conservadora. Reenviar nunca modifica los buckets de confirmación. Los contadores son locales por instancia
+ * y se pierden al reiniciar.
  */
 @RequiredArgsConstructor
 public class EmailVerificationRateLimitFilter extends OncePerRequestFilter {
@@ -34,13 +32,11 @@ public class EmailVerificationRateLimitFilter extends OncePerRequestFilter {
     private final ProblemDetailFactory problems;
 
     /**
-     * Determina si una petición debe excluirse del filtro de limitación
-     * de confirmaciones y reenvíos.
-     * Solo procesa los POST dirigidos a los dos endpoints de verificación.
+     * Determina si una petición debe excluirse del filtro de limitación de confirmaciones y reenvíos. Solo procesa los
+     * POST dirigidos a los dos endpoints de verificación.
      *
      * @param request petición HTTP recibida
-     * @return true si la petición debe excluirse del filtro; false si debe
-     *         procesarse
+     * @return true si la petición debe excluirse del filtro; false si debe procesarse
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -50,10 +46,8 @@ public class EmailVerificationRateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Aplica los límites de confirmación o reenvío al usuario autenticado
-     * y a la dirección IP de conexión.
-     * Rechaza las solicitudes que agotan alguno de los buckets antes
-     * de continuar con el procesamiento de la petición.
+     * Aplica los límites de confirmación o reenvío al usuario autenticado y a la dirección IP de conexión. Rechaza las
+     * solicitudes que agotan alguno de los buckets antes de continuar con el procesamiento de la petición.
      *
      * @param request  petición HTTP recibida
      * @param response respuesta HTTP
@@ -86,9 +80,8 @@ public class EmailVerificationRateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Intenta consumir un token del bucket identificado por la clave indicada.
-     * Si el límite se ha agotado, devuelve HTTP 429 e informa del tiempo
-     * de espera mediante la cabecera Retry-After.
+     * Intenta consumir un token del bucket identificado por la clave indicada. Si el límite se ha agotado, devuelve
+     * HTTP 429 e informa del tiempo de espera mediante la cabecera Retry-After.
      *
      * @param key      identificador del bucket que se desea consumir
      * @param policy   política de capacidad y reposición aplicable

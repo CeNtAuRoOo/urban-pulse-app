@@ -4,14 +4,21 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.Test;
+
 import org.springframework.dao.QueryTimeoutException;
+
+import org.junit.jupiter.api.Test;
+
 import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.repository.MapIncidentRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class MapQueryServiceTest {
     private final MapVisibilityPolicy visibility = mock(MapVisibilityPolicy.class);
@@ -43,9 +50,10 @@ class MapQueryServiceTest {
         assertThatThrownBy(() -> service.find(actor, 0, query)).isInstanceOfSatisfying(ApiException.class,
                 e -> assertThat(e.code()).isEqualTo("MAP_RESULT_LIMIT"));
         when(repository.find(query, access)).thenThrow(new QueryTimeoutException("private database details"));
-        assertThatThrownBy(() -> service.find(actor, 0, query)).isInstanceOfSatisfying(ApiException.class,
-                e -> { assertThat(e.code()).isEqualTo("MAP_QUERY_TIMEOUT");
-                    assertThat(e.getMessage()).doesNotContain("private"); });
+        assertThatThrownBy(() -> service.find(actor, 0, query)).isInstanceOfSatisfying(ApiException.class, e -> {
+            assertThat(e.code()).isEqualTo("MAP_QUERY_TIMEOUT");
+            assertThat(e.getMessage()).doesNotContain("private");
+        });
     }
 
     @Test
@@ -56,7 +64,7 @@ class MapQueryServiceTest {
     }
 
     private MapIncidentRepository.Row row(long count, boolean exact) {
-        return new MapIncidentRepository.Row("g1:8:0:0", count, UUID.randomUUID(), null, null,
-                IncidentStatus.REPORTED, null, Instant.parse("2026-11-10T10:00:00Z"), exact, 36.72, -4.42);
+        return new MapIncidentRepository.Row("g1:8:0:0", count, UUID.randomUUID(), null, null, IncidentStatus.REPORTED,
+                null, Instant.parse("2026-11-10T10:00:00Z"), exact, 36.72, -4.42);
     }
 }

@@ -20,11 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
-        "spring.flyway.enabled=false",
-        "security.email-verification.cleanup-cron=-",
-        "spring.jpa.hibernate.ddl-auto=none"
-})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = { "spring.flyway.enabled=false",
+        "security.email-verification.cleanup-cron=-", "spring.jpa.hibernate.ddl-auto=none" })
 class NeonConnectivityIT {
 
     @Autowired
@@ -40,8 +37,7 @@ class NeonConnectivityIT {
     void postgresConnectionWorks() throws Exception {
 
         try (Connection connection = dataSource.getConnection();
-                PreparedStatement statement = connection.prepareStatement(
-                        "SELECT current_database(), current_user");
+                PreparedStatement statement = connection.prepareStatement("SELECT current_database(), current_user");
                 ResultSet result = statement.executeQuery()) {
 
             assertTrue(result.next());
@@ -54,9 +50,7 @@ class NeonConnectivityIT {
     @Test
     void objectStorageIsAccessible() {
 
-        HeadBucketRequest request = HeadBucketRequest.builder()
-                .bucket(storageProperties.bucket())
-                .build();
+        HeadBucketRequest request = HeadBucketRequest.builder().bucket(storageProperties.bucket()).build();
 
         assertDoesNotThrow(() -> s3Client.headBucket(request));
     }

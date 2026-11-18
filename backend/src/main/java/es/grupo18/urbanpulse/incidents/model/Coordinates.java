@@ -20,15 +20,18 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 @EqualsAndHashCode
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Coordinates {
+
     @Column(nullable = false)
     private double latitude;
+
     @Column(nullable = false)
     private double longitude;
+
     private Double accuracyMeters;
 
     /**
      * Valida rangos y finitud, sin redondear la posición recibida.
-     * 
+     *
      * @param latitude       latitud obligatoria entre -90 y 90
      * @param longitude      longitud obligatoria entre -180 y 180
      * @param accuracyMeters precisión opcional, finita y no negativa

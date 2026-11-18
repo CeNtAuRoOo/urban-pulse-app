@@ -24,10 +24,9 @@ import es.grupo18.urbanpulse.identity.model.Role;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Representa la pertenencia temporal de un usuario a un departamento
- * mediante un rol de ámbito departamental.
- * Conserva el historial de adscripciones mediante las fechas de alta y baja,
- * sin sustituir los roles globales gestionados por UserRole.
+ * Representa la pertenencia temporal de un usuario a un departamento mediante un rol de ámbito departamental. Conserva
+ * el historial de adscripciones mediante las fechas de alta y baja, sin sustituir los roles globales gestionados por
+ * UserRole.
  */
 @Entity
 @Table(name = "department_memberships")
@@ -36,8 +35,7 @@ import es.grupo18.urbanpulse.identity.model.User;
 public class DepartmentMembership {
 
     /**
-     * Identificador único de la pertenencia departamental.
-     * Se genera automáticamente utilizando UUID versión 7.
+     * Identificador único de la pertenencia departamental. Se genera automáticamente utilizando UUID versión 7.
      */
     @Id
     @GeneratedValue
@@ -59,8 +57,7 @@ public class DepartmentMembership {
     private Department department;
 
     /**
-     * Rol departamental asociado a esta pertenencia.
-     * Solo admite DEPARTMENT_COORDINATOR o TECHNICIAN.
+     * Rol departamental asociado a esta pertenencia. Solo admite DEPARTMENT_COORDINATOR o TECHNICIAN.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_code", nullable = false)
@@ -73,8 +70,7 @@ public class DepartmentMembership {
     private Instant joinedAt;
 
     /**
-     * Fecha y hora en la que finaliza la pertenencia.
-     * Permanece a null mientras la adscripción esté activa.
+     * Fecha y hora en la que finaliza la pertenencia. Permanece a null mientras la adscripción esté activa.
      */
     @Column(name = "left_at")
     private Instant leftAt;
@@ -87,8 +83,7 @@ public class DepartmentMembership {
      * @param role       rol departamental que desempeñará
      * @param joinedAt   fecha y hora de inicio de la pertenencia
      * @throws NullPointerException     si alguno de los argumentos es null
-     * @throws IllegalArgumentException si el rol no es departamental o el
-     *                                  departamento está inactivo
+     * @throws IllegalArgumentException si el rol no es departamental o el departamento está inactivo
      */
     public DepartmentMembership(User user, Department department, Role role, Instant joinedAt) {
         this.user = Objects.requireNonNull(user, "El usuario es obligatorio.");
@@ -102,8 +97,8 @@ public class DepartmentMembership {
     }
 
     /**
-     * Comprueba la coherencia de las fechas antes de persistir la pertenencia.
-     * Mantiene la fecha de alta recibida por el constructor.
+     * Comprueba la coherencia de las fechas antes de persistir la pertenencia. Mantiene la fecha de alta recibida por
+     * el constructor.
      */
     @PrePersist
     void validateBeforePersist() {

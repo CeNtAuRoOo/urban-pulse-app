@@ -4,17 +4,23 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
 import javax.sql.DataSource;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+
 import es.grupo18.urbanpulse.duplicates.service.DuplicateScorer;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 
-/** Selección completa en SQL; solo las veinte mejores proyecciones cruzan JDBC. */
+/**
+ * Selección completa en SQL; solo las veinte mejores proyecciones cruzan JDBC.
+ */
 @Repository
 public class DuplicateCandidateRepository {
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public DuplicateCandidateRepository(DataSource source) {
@@ -24,21 +30,19 @@ public class DuplicateCandidateRepository {
     }
 
     /**
-     * La banda de latitud es conservadora en toda la esfera, incluso polos y
-     * antimeridiano. Haversine decide la distancia final; ningún LIMIT precede al
-     * filtro y ranking. El índice temporal existente acota el intervalo inicial.
+     * La banda de latitud es conservadora en toda la esfera, incluso polos y antimeridiano. Haversine decide la
+     * distancia final; ningún LIMIT precede al filtro y ranking. El índice temporal existente acota el intervalo
+     * inicial.
      */
     public List<Candidate> bestCandidates(Incident source) {
         var point = source.getLocation().getCoordinates();
-        var args = new MapSqlParameterSource()
-                .addValue("id", source.getId())
+        var args = new MapSqlParameterSource().addValue("id", source.getId())
                 .addValue("time", Timestamp.from(source.getCreatedAt()))
                 .addValue("since", Timestamp.from(source.getCreatedAt().minus(DuplicateScorer.MAX_TIME_DIFFERENCE)))
                 .addValue("until", Timestamp.from(source.getCreatedAt().plus(DuplicateScorer.MAX_TIME_DIFFERENCE)))
                 .addValue("lat", point.getLatitude()).addValue("lon", point.getLongitude())
-                .addValue("band", Math.toDegrees(250.0 / 6_371_000.0) + 1e-10)
-                .addValue("category", source.getCategory() == null ? null : source.getCategory().getName(),
-                        java.sql.Types.VARCHAR);
+                .addValue("band", Math.toDegrees(250.0 / 6_371_000.0) + 1e-10).addValue("category",
+                        source.getCategory() == null ? null : source.getCategory().getName(), java.sql.Types.VARCHAR);
         return jdbc.query("""
                 WITH nearby AS MATERIALIZED (
                     SELECT i.id, i.latitude, i.longitude, i.created_at, c.name AS category,
@@ -67,8 +71,9 @@ public class DuplicateCandidateRepository {
                 SELECT id, latitude, longitude, created_at, category FROM scored
                 ORDER BY score DESC, id ASC LIMIT 20
                 """, args, (rs, n) -> new Candidate(rs.getObject("id", UUID.class), rs.getDouble("latitude"),
-                        rs.getDouble("longitude"), rs.getTimestamp("created_at").toInstant(), rs.getString("category")));
+                rs.getDouble("longitude"), rs.getTimestamp("created_at").toInstant(), rs.getString("category")));
     }
 
-    public record Candidate(UUID id, double latitude, double longitude, Instant createdAt, String category) { }
+    public record Candidate(UUID id, double latitude, double longitude, Instant createdAt, String category) {
+    }
 }

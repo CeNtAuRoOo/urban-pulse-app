@@ -27,6 +27,7 @@ import es.grupo18.urbanpulse.invitations.dto.InvitationRedemptionDTO;
 import es.grupo18.urbanpulse.invitations.dto.InvitationRedemptionRequest;
 import es.grupo18.urbanpulse.invitations.dto.InvitationRequest;
 import es.grupo18.urbanpulse.invitations.service.StaffInvitationService;
+import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 
 /**
@@ -70,9 +71,9 @@ public class StaffInvitationController {
     public ResponseEntity<InvitationPageDTO> list(@AuthenticationPrincipal Jwt jwt,
             @Valid @ModelAttribute InvitationQuery query) {
 
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(invitations.list(
-                DatabaseJwtAuthenticationConverter.subject(jwt),
-                DatabaseJwtAuthenticationConverter.version(jwt), query));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(invitations.list(DatabaseJwtAuthenticationConverter.subject(jwt),
+                        DatabaseJwtAuthenticationConverter.version(jwt), query));
     }
 
     /**
@@ -81,17 +82,14 @@ public class StaffInvitationController {
      * @param jwt          administrador
      * @param invitationId identificador administrativo
      * @return respuesta HTTP 200 con los metadatos de la invitación
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si no dispone
-     *                                                         de permisos (401/403)
-     *                                                         o la invitación no
-     *                                                         existe (404)
+     * @throws ApiException si no dispone de permisos (401/403) o la invitación no existe (404)
      */
     @GetMapping("/staff-invitations/{invitationId}")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('EMAIL_VERIFIED')")
     public ResponseEntity<InvitationDTO> get(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID invitationId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(invitations.get(
-                DatabaseJwtAuthenticationConverter.subject(jwt),
-                DatabaseJwtAuthenticationConverter.version(jwt), invitationId));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(invitations.get(DatabaseJwtAuthenticationConverter.subject(jwt),
+                        DatabaseJwtAuthenticationConverter.version(jwt), invitationId));
     }
 
     /**
@@ -100,12 +98,7 @@ public class StaffInvitationController {
      * @param jwt          administrador
      * @param invitationId identificador administrativo
      * @return respuesta HTTP 204 sin contenido
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si falta
-     *                                                         autorización
-     *                                                         (401/403), no existe
-     *                                                         la invitación (404)
-     *                                                         o no está activa
-     *                                                         (409)
+     * @throws ApiException si falta autorización (401/403), no existe la invitación (404) o no está activa (409)
      */
     @PostMapping("/staff-invitations/{invitationId}/revocations")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('EMAIL_VERIFIED')")
@@ -122,21 +115,16 @@ public class StaffInvitationController {
      * @param jwt     ciudadano verificado
      * @param request código de uso único
      * @return respuesta HTTP 200 con el permiso concedido
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si falta
-     *                                                         autorización
-     *                                                         (401/403), el código
-     *                                                         o departamento no es
-     *                                                         válido
-     *                                                         (422), o el permiso
-     *                                                         ya existe (409)
+     * @throws ApiException si falta autorización (401/403), el código o departamento no es válido (422), o el permiso
+     *                      ya existe (409)
      */
     @PostMapping("/users/me/staff-invitation-redemptions")
     @PreAuthorize("hasRole('CITIZEN') and hasAuthority('EMAIL_VERIFIED')")
     public ResponseEntity<InvitationRedemptionDTO> redeem(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody InvitationRedemptionRequest request) {
 
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(invitations.redeem(
-                DatabaseJwtAuthenticationConverter.subject(jwt),
-                DatabaseJwtAuthenticationConverter.version(jwt), request.invitationCode()));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(invitations.redeem(DatabaseJwtAuthenticationConverter.subject(jwt),
+                        DatabaseJwtAuthenticationConverter.version(jwt), request.invitationCode()));
     }
 }

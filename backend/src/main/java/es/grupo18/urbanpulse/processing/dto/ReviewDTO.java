@@ -15,12 +15,10 @@ import es.grupo18.urbanpulse.processing.model.ReviewDecision;
  * @param id              revisión
  * @param incidentId      incidencia
  * @param decision        decisión
- * @param reason          motivo interno histórico o público de
- *                        rechazo/solicitud
+ * @param reason          motivo interno histórico o público de rechazo/solicitud
  * @param reviewedBy      responsable interno
  * @param reviewedAt      instante
- * @param resultingStatus snapshot; null para filas anteriores a V2 sin
- *                        evidencia
+ * @param resultingStatus snapshot; null para filas anteriores a V2 sin evidencia
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record ReviewDTO(UUID id, UUID incidentId, ReviewDecision decision, String reason, UserSummaryDTO reviewedBy,

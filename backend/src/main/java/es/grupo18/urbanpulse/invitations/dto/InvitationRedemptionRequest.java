@@ -6,8 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Código presentado por el titular; ningún atributo del permiso procede del
- * cliente.
+ * Código presentado por el titular; ningún atributo del permiso procede del cliente.
  *
  * @param invitationCode Base64URL canónico de 256 bits, sin padding
  */

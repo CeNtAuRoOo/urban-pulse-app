@@ -31,8 +31,7 @@ class AdminUpdateUserRequestTest {
     void rejectsNullActive() {
         var request = new AdminUpdateUserRequest(null);
 
-        assertThat(validator.validate(request))
-                .extracting(error -> error.getMessage())
+        assertThat(validator.validate(request)).extracting(error -> error.getMessage())
                 .contains("Debes indicar si la cuenta estará activa.");
     }
 

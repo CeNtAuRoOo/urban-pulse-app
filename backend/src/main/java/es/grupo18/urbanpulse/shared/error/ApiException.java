@@ -3,8 +3,8 @@ package es.grupo18.urbanpulse.shared.error;
 import org.springframework.http.HttpStatus;
 
 /**
- * Representa un error de la API asociado a un estado HTTP y un código
- * identificador, permitiendo devolver respuestas de error uniformes.
+ * Representa un error de la API asociado a un estado HTTP y un código identificador, permitiendo devolver respuestas de
+ * error uniformes.
  */
 public class ApiException extends RuntimeException {
 
@@ -12,8 +12,7 @@ public class ApiException extends RuntimeException {
     private final String code;
 
     /**
-     * Crea una excepción de la API con un estado HTTP, un código
-     * identificador y una descripción del error.
+     * Crea una excepción de la API con un estado HTTP, un código identificador y una descripción del error.
      *
      * @param status estado HTTP asociado al error
      * @param code   código identificador del error de la API

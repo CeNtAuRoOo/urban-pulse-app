@@ -10,17 +10,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Configuración privada de invitaciones; la rotación invalida códigos
- * pendientes.
+ * Configuración privada de invitaciones; la rotación invalida códigos pendientes.
  *
  * @param secret  clave Base64 independiente, al menos 32 bytes
  * @param ttlDays días exactos de 24 horas; por defecto siete, rango 1..30
  */
 @Validated
 @ConfigurationProperties("security.staff-invitation")
-public record StaffInvitationProperties(
-        @NotBlank String secret,
-        @Min(1) @Max(30) int ttlDays) {
+public record StaffInvitationProperties(@NotBlank String secret, @Min(1) @Max(30) int ttlDays) {
 
     /**
      * Valida y decodifica sin incluir la entrada en errores.

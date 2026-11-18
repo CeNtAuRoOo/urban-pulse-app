@@ -27,8 +27,7 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.organization.model.Department;
 
 /**
- * Invitación de un uso ligada a un correo, independiente de la existencia de
- * cuenta.
+ * Invitación de un uso ligada a un correo, independiente de la existencia de cuenta.
  */
 @Entity
 @Table(name = "staff_invitations")
@@ -95,9 +94,8 @@ public class StaffInvitation {
 
         String normalized = User.normalizeEmail(email);
 
-        if (hash == null || hash.length != 32 || normalized == null || normalized.isBlank()
-                || normalized.length() > 254 || role.getCode() == RoleCode.CITIZEN
-                || role.getCode().isDepartmental() != (department != null)
+        if (hash == null || hash.length != 32 || normalized == null || normalized.isBlank() || normalized.length() > 254
+                || role.getCode() == RoleCode.CITIZEN || role.getCode().isDepartmental() != (department != null)
                 || !expires.isAfter(now)) {
             throw new IllegalArgumentException("Invitación no válida.");
         }
@@ -156,12 +154,11 @@ public class StaffInvitation {
     }
 
     /**
-     * Comprueba que la invitación esté activa en el instante indicado y que
-     * dicho instante no sea anterior a su creación.
+     * Comprueba que la invitación esté activa en el instante indicado y que dicho instante no sea anterior a su
+     * creación.
      *
      * @param now instante en el que se comprueba el estado
-     * @throws IllegalStateException si la invitación no está activa o el
-     *                               instante es anterior a su creación
+     * @throws IllegalStateException si la invitación no está activa o el instante es anterior a su creación
      */
     private void requireActive(Instant now) {
         if (now.isBefore(createdAt) || statusAt(now) != InvitationStatus.ACTIVE) {

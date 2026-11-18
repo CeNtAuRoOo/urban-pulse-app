@@ -23,13 +23,16 @@ import org.hibernate.annotations.UuidGenerator;
 import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 
-/** Relación confirmada por personal municipal; no modifica los reportes originales. */
+/**
+ * Relación confirmada por personal municipal; no modifica los reportes originales.
+ */
 @Entity
-@Table(name = "duplicate_links", uniqueConstraints = @UniqueConstraint(name = "uk_duplicate_links_pair",
-        columnNames = { "incident_id", "candidate_incident_id" }))
+@Table(name = "duplicate_links", uniqueConstraints = @UniqueConstraint(name = "uk_duplicate_links_pair", columnNames = {
+        "incident_id", "candidate_incident_id" }))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DuplicateLink {
+
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
@@ -56,8 +59,10 @@ public class DuplicateLink {
     public DuplicateLink(Incident first, Incident second, User actor, Instant now, String reason) {
         Objects.requireNonNull(first);
         Objects.requireNonNull(second);
-        if (first.getId().equals(second.getId())) throw new IllegalArgumentException("An incident cannot duplicate itself");
-        // PostgreSQL ordena UUID por bytes sin signo; UUID.compareTo usa longs con signo.
+        if (first.getId().equals(second.getId()))
+            throw new IllegalArgumentException("An incident cannot duplicate itself");
+        // PostgreSQL ordena UUID por bytes sin signo; UUID.compareTo usa longs con
+        // signo.
         if (first.getId().toString().compareTo(second.getId().toString()) < 0) {
             this.incident = first;
             this.candidateIncident = second;
