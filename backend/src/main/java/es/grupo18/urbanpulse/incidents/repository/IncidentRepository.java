@@ -13,14 +13,13 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 
 /**
- * Consultas paginadas SQL con relaciones to-one; nunca pagina colecciones en
- * memoria.
+ * Consultas paginadas SQL con relaciones to-one; nunca pagina colecciones en memoria.
  */
 public interface IncidentRepository extends JpaRepository<Incident, UUID>, JpaSpecificationExecutor<Incident> {
 
     /**
-     * Serializa altas y bajas de evidencias entre instancias sobre la fila padre.
-     * No carga joins opcionales que PostgreSQL no pueda bloquear.
+     * Serializa altas y bajas de evidencias entre instancias sobre la fila padre. No carga joins opcionales que
+     * PostgreSQL no pueda bloquear.
      *
      * @param id incidencia a bloquear dentro de la transacción del servicio
      * @return fila bloqueada, o vacío
@@ -30,9 +29,8 @@ public interface IncidentRepository extends JpaRepository<Incident, UUID>, JpaSp
     Optional<Incident> findForAttachments(@org.springframework.data.repository.query.Param("id") UUID id);
 
     /**
-     * Carga relaciones to-one para detalle y precondición sin consultas lazy
-     * posteriores.
-     * La visibilidad se comprueba en el servicio, no en este método.
+     * Carga relaciones to-one para detalle y precondición sin consultas lazy posteriores. La visibilidad se comprueba
+     * en el servicio, no en este método.
      *
      * @param id identidad solicitada
      * @return entidad con relaciones del DTO, o vacío si no existe

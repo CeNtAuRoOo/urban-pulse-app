@@ -20,14 +20,13 @@ import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.dto.TokenDTO;
 import es.grupo18.urbanpulse.auth.service.AuthService;
 import es.grupo18.urbanpulse.auth.service.EmailVerificationService;
+import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 
 /**
- * Controlador REST encargado de gestionar la autenticación y verificación
- * del correo electrónico de los usuarios.
- * Expone los endpoints de registro, inicio de sesión, cambio de contraseña,
- * confirmación del correo y solicitud de reenvío del código de verificación,
- * delegando su lógica de negocio en los servicios correspondientes.
+ * Controlador REST encargado de gestionar la autenticación y verificación del correo electrónico de los usuarios.
+ * Expone los endpoints de registro, inicio de sesión, cambio de contraseña, confirmación del correo y solicitud de
+ * reenvío del código de verificación, delegando su lógica de negocio en los servicios correspondientes.
  */
 @RestController
 @RequiredArgsConstructor
@@ -38,19 +37,13 @@ public class AuthController {
     private final EmailVerificationService verification;
 
     /**
-     * Confirma el correo electrónico del usuario autenticado mediante
-     * un código de verificación de ocho dígitos.
-     * Devuelve HTTP 204 cuando la confirmación se realiza correctamente
-     * o cuando la cuenta ya estaba verificada.
+     * Confirma el correo electrónico del usuario autenticado mediante un código de verificación de ocho dígitos.
+     * Devuelve HTTP 204 cuando la confirmación se realiza correctamente o cuando la cuenta ya estaba verificada.
      *
      * @param jwt     token JWT del usuario autenticado
      * @param request código de verificación proporcionado por el usuario
      * @return respuesta HTTP 204 sin contenido
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si el usuario
-     *                                                         no está autorizado o
-     *                                                         el código de
-     *                                                         verificación no es
-     *                                                         válido
+     * @throws ApiException si el usuario no está autorizado o el código de verificación no es válido
      *
      */
     @PostMapping("/auth/email-verifications/confirm")
@@ -64,18 +57,12 @@ public class AuthController {
     }
 
     /**
-     * Solicita el reenvío de un nuevo código de verificación al correo
-     * electrónico del usuario autenticado.
-     * Devuelve HTTP 202 cuando se registra la solicitud de envío
-     * y HTTP 204 cuando la cuenta ya estaba verificada.
+     * Solicita el reenvío de un nuevo código de verificación al correo electrónico del usuario autenticado. Devuelve
+     * HTTP 202 cuando se registra la solicitud de envío y HTTP 204 cuando la cuenta ya estaba verificada.
      *
      * @param jwt token JWT del usuario autenticado
-     * @return respuesta HTTP 202 o 204 sin contenido, según el estado
-     *         de verificación de la cuenta
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException si el usuario
-     *                                                         no está autorizado o
-     *                                                         la cuenta pendiente
-     *                                                         ha caducado
+     * @return respuesta HTTP 202 o 204 sin contenido, según el estado de verificación de la cuenta
+     * @throws ApiException si el usuario no está autorizado o la cuenta pendiente ha caducado
      *
      */
     @PostMapping("/auth/email-verifications/resend")
@@ -87,8 +74,8 @@ public class AuthController {
     }
 
     /**
-     * Registra un nuevo usuario, asignándole el rol global CITIZEN
-     * y creando su solicitud inicial de verificación del correo.
+     * Registra un nuevo usuario, asignándole el rol global CITIZEN y creando su solicitud inicial de verificación del
+     * correo.
      *
      * @param request datos necesarios para registrar al nuevo usuario
      * @return respuesta HTTP 201 con el JWT y los datos públicos del usuario
@@ -99,8 +86,8 @@ public class AuthController {
     }
 
     /**
-     * Autentica a un usuario mediante su correo electrónico y contraseña.
-     * Permite iniciar sesión aunque el correo todavía no esté verificado.
+     * Autentica a un usuario mediante su correo electrónico y contraseña. Permite iniciar sesión aunque el correo
+     * todavía no esté verificado.
      *
      * @param request credenciales de inicio de sesión
      * @return respuesta con el JWT y los datos públicos del usuario autenticado
@@ -111,8 +98,7 @@ public class AuthController {
     }
 
     /**
-     * Cambia la contraseña del usuario autenticado tras comprobar
-     * sus credenciales actuales y la versión del JWT.
+     * Cambia la contraseña del usuario autenticado tras comprobar sus credenciales actuales y la versión del JWT.
      * Permite realizar la operación aunque el correo no esté verificado.
      *
      * @param jwt     token JWT del usuario autenticado

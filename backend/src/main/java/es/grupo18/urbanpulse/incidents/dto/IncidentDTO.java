@@ -12,16 +12,14 @@ import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.organization.dto.DepartmentResponse;
 
 /**
- * Detalle autorizado, independiente de JPA; omite atributos opcionales sin
- * valor. Todo el JSON, incluidos nombres/catálogos vigentes y version, participa
- * en la ETag; version por sí sola no es un validador HTTP.
- * 
+ * Detalle autorizado, independiente de JPA; omite atributos opcionales sin valor. Todo el JSON, incluidos
+ * nombres/catálogos vigentes y version, participa en la ETag; version por sí sola no es un validador HTTP.
+ *
  * @param id                 UUIDv7
  * @param title              título normalizado
  * @param description        descripción normalizada
  * @param reporter           identidad mínima del titular
- * @param category           catálogo compartido opcional, incluso si se
- *                           desactivó posteriormente
+ * @param category           catálogo compartido opcional, incluso si se desactivó posteriormente
  * @param location           coordenadas reales
  * @param status             estado persistido
  * @param priority           ausente hasta una decisión futura
@@ -33,8 +31,7 @@ import es.grupo18.urbanpulse.organization.dto.DepartmentResponse;
  * @param version            versión optimista; distinta de la versión JWT
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record IncidentDTO(UUID id, String title, String description, UserSummaryDTO reporter,
-        CategoryResponse category, LocationDTO location, IncidentStatus status, IncidentPriority priority,
-        DepartmentResponse assignedDepartment, Instant createdAt, Instant updatedAt, Instant resolvedAt,
-        Instant closedAt, long version) {
+public record IncidentDTO(UUID id, String title, String description, UserSummaryDTO reporter, CategoryResponse category,
+        LocationDTO location, IncidentStatus status, IncidentPriority priority, DepartmentResponse assignedDepartment,
+        Instant createdAt, Instant updatedAt, Instant resolvedAt, Instant closedAt, long version) {
 }

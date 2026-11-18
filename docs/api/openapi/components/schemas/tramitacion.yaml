@@ -35,7 +35,8 @@ ReviewDTO:
         - REJECTED
         - AWAITING_INFORMATION
         - null
-      description: Snapshot persistido. null exclusivamente para revisiones anteriores a V2 sin evidencia del estado
+      description:
+        Snapshot persistido. null exclusivamente para revisiones anteriores a V2 sin evidencia del estado
         resultante; nunca se deduce del estado actual.
   required:
     - id
@@ -53,7 +54,8 @@ PriorityRequest:
       $ref: ./incidencias.yaml#/IncidentPriority
     justification: &a2
       type: string
-      description: Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados.
+      description:
+        Obligatorio, no blanco; 3–2000 puntos Unicode después de trim Java. Se rechazan NUL y sustitutos aislados.
         Cuerpo bruto máximo 65536 bytes.
       x-normalized-minLength: 3
       x-normalized-maxLength: 2000
@@ -61,7 +63,8 @@ PriorityRequest:
       type: integer
       format: int64
       minimum: 0
-      description: "Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409
+      description:
+        "Obligatoria. Versión de Incident observada por el cliente; distinta del JWT. Obsoleta: 409
         PROCESSING_VERSION_MISMATCH."
   required:
     - priority
@@ -105,7 +108,8 @@ AssignmentRequest:
   oneOf:
     - $ref: ./tramitacion.yaml#/TeamWorkAssignmentRequest
     - $ref: ./tramitacion.yaml#/TechnicianWorkAssignmentRequest
-  description: "ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador
+  description:
+    "ADR-010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador
     autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro."
 AssignmentDTO:
   type: object
@@ -141,7 +145,8 @@ AssignmentDTO:
     - incidentId
     - assignedBy
     - assignedAt
-  description: Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa como máximo
+  description:
+    Historial de trabajo a equipo o técnico; no representa derivación. Una asignación activa como máximo
     (endedAt ausente).
 StatusChangeRequest:
   type: object
@@ -154,17 +159,20 @@ StatusChangeRequest:
         - ASSIGNED_TO_DEPARTMENT
         - WORK_ASSIGNED
         - CLOSED
-      description: Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o
+      description:
+        Diseño no implementado. Desde RESOLVED se podrá volver directamente a ASSIGNED_TO_DEPARTMENT o
         WORK_ASSIGNED con asignación válida, coherente y motivo obligatorio. CLOSED es definitivo. Validación,
         derivación ordinaria y designación de trabajo tienen sus propias operaciones.
     reason:
       type: string
-      description: El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura
+      description:
+        El futuro servicio exigirá motivo no blanco en reapertura/cierre según la matriz acordada. La estructura
         persistente solo limita a 2000 puntos Unicode y admite null/blancos.
       maxLength: 2000
     resolutionNotes:
       type: string
-      description: El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a
+      description:
+        El futuro servicio exigirá detalle no blanco al pasar a RESOLVED. La estructura persistente solo limita a
         5000 puntos Unicode y admite null/blancos.
       maxLength: 5000
   required:
@@ -198,7 +206,8 @@ StatusChangeDTO:
     - fromStatus
     - toStatus
     - changedAt
-  description: Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin
+  description:
+    Diseño de transiciones futuras; fromStatus siempre existe. El alta se audita mediante INCIDENT_CREATED sin
     StatusChange inicial. changedBy puede omitirse en futuros procesos internos. CLOSED no admite salida.
 CommentRequest:
   type: object

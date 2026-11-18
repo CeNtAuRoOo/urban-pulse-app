@@ -27,8 +27,7 @@ import es.grupo18.urbanpulse.incidents.service.IncidentAccess;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Evidencias privadas: autorización por incidencia, límite coordinado en SQL y
- * compensación S3.
+ * Evidencias privadas: autorización por incidencia, límite coordinado en SQL y compensación S3.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,29 +43,23 @@ public class AttachmentService {
     private final AuditEventRepository audit;
 
     /**
-     * Sanea y sube fuera de SQL; revalida y bloquea usuario → incidencia para
-     * confirmar.
-     * Suspende cualquier transacción del llamador para capturar también fallos de
-     * commit.
+     * Sanea y sube fuera de SQL; revalida y bloquea usuario → incidencia para confirmar. Suspende cualquier transacción
+     * del llamador para capturar también fallos de commit.
      *
      * @param actor       sujeto JWT
      * @param version     versión JWT
-     * @param incidentId  incidencia visible, solo REPORTED/AWAITING_INFORMATION
-     *                    para escritura
+     * @param incidentId  incidencia visible, solo REPORTED/AWAITING_INFORMATION para escritura
      * @param file        fotografía obligatoria, máximo 10 MiB
      * @param description texto nullable, máximo 300 puntos Unicode
      * @return metadatos confirmados, sin clave S3
-     * @throws ApiException 401/403/404 por acceso, 409 sin plaza o con evidencias
-     *                      congeladas, 413 por tamaño,
-     *                      422 por imagen/texto inválido o 503 por almacenamiento
-     *                      no disponible
+     * @throws ApiException 401/403/404 por acceso, 409 sin plaza o con evidencias congeladas, 413 por tamaño, 422 por
+     *                      imagen/texto inválido o 503 por almacenamiento no disponible
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AttachmentDTO attachPhoto(UUID actor, long version, UUID incidentId, MultipartFile file,
             String description) {
-        transactionTemplate
-                .executeWithoutResult(
-                        tx -> writable(access.visible(access.account(actor, version, false), incidentId, false)));
+        transactionTemplate.executeWithoutResult(
+                tx -> writable(access.visible(access.account(actor, version, false), incidentId, false)));
         if (file == null)
             throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_ATTACHMENT", "Debe proporcionar una fotografía.");
         if (file.getSize() > ImageSanitizer.MAX_BYTES)
@@ -102,8 +95,8 @@ public class AttachmentService {
                     throw new ApiException(HttpStatus.CONFLICT, "ATTACHMENT_LIMIT_REACHED",
                             "La incidencia ya tiene cinco evidencias activas.");
                 }
-                Attachment saved = attachments.saveAndFlush(Attachment.create(incident, user, filename, type,
-                        key, sanitized.length, description));
+                Attachment saved = attachments.saveAndFlush(
+                        Attachment.create(incident, user, filename, type, key, sanitized.length, description));
                 record(user, saved, "ATTACHMENT_CREATED");
                 return mapper.toDTO(saved, incident.getReporter().getId());
             });
@@ -114,8 +107,8 @@ public class AttachmentService {
                 failure.addSuppressed(cleanup);
                 // Clave opaca solo en registro interno de reconciliación; nunca en JSON
                 // público.
-                log.error("event=ATTACHMENT_COMPENSATION_FAILED objectKey={} primaryType={} cleanupType={}",
-                        key, failure.getClass().getName(), cleanup.getClass().getName());
+                log.error("event=ATTACHMENT_COMPENSATION_FAILED objectKey={} primaryType={} cleanupType={}", key,
+                        failure.getClass().getName(), cleanup.getClass().getName());
             }
             throw failure;
         }
@@ -134,8 +127,8 @@ public class AttachmentService {
     public List<AttachmentDTO> getAttachments(UUID actor, long version, UUID incidentId) {
         UUID reporterId = access.visible(access.account(actor, version, false), incidentId, false).getReporter()
                 .getId();
-        return attachments.findByIncident_IdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(incidentId)
-                .stream().map(attachment -> mapper.toDTO(attachment, reporterId)).toList();
+        return attachments.findByIncident_IdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(incidentId).stream()
+                .map(attachment -> mapper.toDTO(attachment, reporterId)).toList();
     }
 
     /**
@@ -146,8 +139,7 @@ public class AttachmentService {
      * @param incidentId   incidencia visible
      * @param attachmentId evidencia de esa incidencia
      * @return metadatos activos
-     * @throws ApiException 401/403 por cuenta, 404 por acceso, pareja incorrecta o
-     *                      baja
+     * @throws ApiException 401/403 por cuenta, 404 por acceso, pareja incorrecta o baja
      */
     @Transactional(readOnly = true)
     public AttachmentDTO getAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
@@ -157,16 +149,14 @@ public class AttachmentService {
     }
 
     /**
-     * Autoriza y proyecta dentro de SQL antes de descargar, sin transacción durante
-     * S3.
+     * Autoriza y proyecta dentro de SQL antes de descargar, sin transacción durante S3.
      *
      * @param actor        sujeto JWT
      * @param version      versión JWT
      * @param incidentId   incidencia visible
      * @param attachmentId evidencia activa de esa incidencia
      * @return binario acotado y cabeceras confiables de metadatos
-     * @throws ApiException 401/403/404 por acceso; 503 por fallo/inconsistencia de
-     *                      almacenamiento
+     * @throws ApiException 401/403/404 por acceso; 503 por fallo/inconsistencia de almacenamiento
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AttachmentContent getAttachmentContent(UUID actor, long version, UUID incidentId, UUID attachmentId) {
@@ -189,15 +179,13 @@ public class AttachmentService {
     }
 
     /**
-     * Baja lógica y auditoría atómicas; conserva el objeto, las relaciones y el
-     * estado de incidencia.
+     * Baja lógica y auditoría atómicas; conserva el objeto, las relaciones y el estado de incidencia.
      *
      * @param actor        sujeto JWT
      * @param version      versión JWT
      * @param incidentId   incidencia visible
      * @param attachmentId evidencia activa de esa incidencia
-     * @throws ApiException 401/403/404 por acceso; 409 por estado congelado;
-     *                      repetir una baja devuelve 404
+     * @throws ApiException 401/403/404 por acceso; 409 por estado congelado; repetir una baja devuelve 404
      */
     @Transactional
     public void deleteAttachment(UUID actor, long version, UUID incidentId, UUID attachmentId) {
@@ -211,8 +199,7 @@ public class AttachmentService {
     }
 
     /**
-     * Congela las escrituras ordinarias después de revisión definitiva, sin
-     * excepción administrativa.
+     * Congela las escrituras ordinarias después de revisión definitiva, sin excepción administrativa.
      *
      * @param incident incidencia previamente autorizada y bloqueada al confirmar
      * @throws ApiException 409 si las evidencias están congeladas
@@ -245,6 +232,7 @@ public class AttachmentService {
      * @param action     evento interno, fuera del historial público
      */
     private void record(User actor, Attachment attachment, String action) {
+
         audit.saveAndFlush(new AuditEvent(actor, action, "ATTACHMENT", attachment.getId().toString(),
                 Map.of("incidentId", attachment.getIncidentId().toString()),
                 attachment.getDeletedAt() == null ? attachment.getCreatedAt() : attachment.getDeletedAt()));
@@ -261,12 +249,10 @@ public class AttachmentService {
     }
 
     /**
-     * Descarta rutas, controles, separadores de línea y caracteres de formato;
-     * limita por puntos Unicode.
+     * Descarta rutas, controles, separadores de línea y caracteres de formato; limita por puntos Unicode.
      *
      * @param name nombre no confiable, nunca usado como clave ni ruta
-     * @return nombre seguro de 1 a 128 caracteres, preservando extensión
-     *         fotográfica si existe
+     * @return nombre seguro de 1 a 128 caracteres, preservando extensión fotográfica si existe
      */
     static String sanitizeFilename(String name) {
         if (name == null)
@@ -274,9 +260,11 @@ public class AttachmentService {
         name = name.replace('\\', '/');
         name = name.substring(name.lastIndexOf('/') + 1);
         StringBuilder safe = new StringBuilder();
-        name.codePoints().filter(c -> !Character.isISOControl(c) && Character.getType(c) != Character.FORMAT
-                && Character.getType(c) != Character.SURROGATE && c != 0x2028 && c != 0x2029
-                && c != '"' && c != ':' && c != ';').forEach(safe::appendCodePoint);
+        name.codePoints()
+                .filter(c -> !Character.isISOControl(c) && Character.getType(c) != Character.FORMAT
+                        && Character.getType(c) != Character.SURROGATE && c != 0x2028 && c != 0x2029 && c != '"'
+                        && c != ':' && c != ';')
+                .forEach(safe::appendCodePoint);
         String result = safe.toString().strip();
         if (result.isBlank() || result.equals(".") || result.equals(".."))
             return "attachment";

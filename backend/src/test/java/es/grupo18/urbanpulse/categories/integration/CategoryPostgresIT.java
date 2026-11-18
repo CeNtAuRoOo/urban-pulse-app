@@ -27,8 +27,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
 import es.grupo18.urbanpulse.categories.dto.CategoryResponse;
@@ -37,6 +35,7 @@ import es.grupo18.urbanpulse.categories.dto.PatchCategoryRequest;
 import es.grupo18.urbanpulse.categories.service.CategoryService;
 import es.grupo18.urbanpulse.categories.service.DuplicateCategoryException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,23 +77,21 @@ class CategoryPostgresIT {
     @org.junit.jupiter.api.BeforeAll
     static void initialSchemaContainsAllModulesWithoutCatalogSeeds(@Autowired JdbcTemplate jdbc) {
         assertThat(jdbc.queryForList("select table_name from information_schema.tables where table_schema='public'",
-                String.class))
-                .containsExactlyInAnyOrder("geography_columns", "geometry_columns", "spatial_ref_sys",
-                        "flyway_schema_history", "users", "roles", "user_roles",
-                        "email_verifications", "departments", "department_memberships", "staff_invitations",
-                        "audit_events", "categories", "incidents", "status_changes", "incident_reviews",
-                        "priority_decisions", "incident_information_responses", "attachments", "duplicate_links");
+                String.class)).containsExactlyInAnyOrder("geography_columns", "geometry_columns", "spatial_ref_sys",
+                        "flyway_schema_history", "users", "roles", "user_roles", "email_verifications", "departments",
+                        "department_memberships", "staff_invitations", "audit_events", "categories", "incidents",
+                        "status_changes", "incident_reviews", "priority_decisions", "incident_information_responses",
+                        "attachments", "duplicate_links");
         assertThat(jdbc.queryForObject("select count(*) from categories", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from departments", Integer.class)).isZero();
-        assertThat(jdbc.queryForList("select code from roles", String.class))
-                .containsExactlyInAnyOrder("CITIZEN", "ADMIN", "OPERATOR", "DEPARTMENT_COORDINATOR", "TECHNICIAN");
+        assertThat(jdbc.queryForList("select code from roles", String.class)).containsExactlyInAnyOrder("CITIZEN",
+                "ADMIN", "OPERATOR", "DEPARTMENT_COORDINATOR", "TECHNICIAN");
     }
 
     @Test
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class))
-                .containsExactly("1");
+                String.class)).containsExactly("1");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);
@@ -109,13 +106,8 @@ class CategoryPostgresIT {
         assertThat(reactivated.id()).isEqualTo(created.id());
         assertThat(reactivated.active()).isTrue();
         assertThat(reactivated.description()).isEmpty();
-        assertThat(service.findAll().stream()
-                .map(category -> category.id())
-                .toList())
-                .containsExactlyElementsOf(
-                        jdbc.queryForList(
-                                "select id from categories order by name, id",
-                                UUID.class));
+        assertThat(service.findAll().stream().map(category -> category.id()).toList()).containsExactlyElementsOf(
+                jdbc.queryForList("select id from categories order by name, id", UUID.class));
     }
 
     @Test
@@ -124,14 +116,10 @@ class CategoryPostgresIT {
         assertThat(id.version()).isEqualTo(7);
         assertThat(service.findById(id).active()).isTrue();
         assertThat(service.findById(id).description()).isNull();
-        for (String sql : List.of(
-                "insert into categories(name) values ('sql CATEGORY')",
-                "insert into categories(name) values (null)",
-                "insert into categories(name) values ('')",
-                "insert into categories(name) values (' ')",
-                "insert into categories(name) values ('x')",
-                "insert into categories(name) values ('🚦')",
-                "insert into categories(name) values (U&'\\2003 \\2003')",
+        for (String sql : List.of("insert into categories(name) values ('sql CATEGORY')",
+                "insert into categories(name) values (null)", "insert into categories(name) values ('')",
+                "insert into categories(name) values (' ')", "insert into categories(name) values ('x')",
+                "insert into categories(name) values ('🚦')", "insert into categories(name) values (U&'\\2003 \\2003')",
                 "insert into categories(name) values (repeat('x',101))",
                 "insert into categories(name) values (' SQL category ')",
                 "insert into categories(name) values (E'\\tSQL category\\n')",
@@ -166,16 +154,14 @@ class CategoryPostgresIT {
         String location = result.getResponse().getHeader("Location");
         assertThat(location).isNotNull();
         mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                .content("{\"active\":false}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.active").value(false));
+                .content("{\"active\":false}")).andExpect(status().isOk()).andExpect(jsonPath("$.active").value(false));
         mvc.perform(get(location).header("Authorization", bearer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
         mvc.perform(post(url).header("Authorization", bearer).contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CATEGORY_DUPLICATE"));
         jdbc.update("delete from user_roles where user_id=? and role_code='ADMIN'", token.user().id());
         mvc.perform(patch(location).header("Authorization", bearer).contentType(APPLICATION_JSON)
-                .content("{\"active\":true}"))
-                .andExpect(status().isForbidden());
+                .content("{\"active\":true}")).andExpect(status().isForbidden());
         jdbc.update("update users set token_version=token_version+1 where id=?", token.user().id());
         mvc.perform(get(url).header("Authorization", bearer)).andExpect(status().isUnauthorized());
         mvc.perform(get(url).header("Authorization", "Bearer invalid.jwt.signature"))
@@ -261,8 +247,8 @@ class CategoryPostgresIT {
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
                 boolean blocked;
                 do {
-                    blocked = Boolean.TRUE.equals(jdbc.queryForObject(
-                            "select ? = any(pg_blocking_pids(?))", Boolean.class, blocker, waiter));
+                    blocked = Boolean.TRUE.equals(
+                            jdbc.queryForObject("select ? = any(pg_blocking_pids(?))", Boolean.class, blocker, waiter));
                     if (blocked || second.isDone())
                         break;
                     Thread.sleep(20);

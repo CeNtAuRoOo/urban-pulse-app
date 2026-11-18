@@ -15,9 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Representa la clave primaria compuesta de la entidad UserRole.
- * Identifica de forma única la asignación de un rol global a un usuario
- * mediante su identificador y el código del rol.
+ * Representa la clave primaria compuesta de la entidad UserRole. Identifica de forma única la asignación de un rol
+ * global a un usuario mediante su identificador y el código del rol.
  */
 @Embeddable
 @Getter

@@ -53,16 +53,14 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
 
 /**
- * Ciclo completo de invitaciones. Orden de bloqueos: usuario, invitación,
- * departamento.
- * El usuario serializa incluso códigos diferentes que conceden el mismo
- * permiso.
- * Cada operación pública entra por el proxy transaccional; no hay
+ * Ciclo completo de invitaciones. Orden de bloqueos: usuario, invitación, departamento. El usuario serializa incluso
+ * códigos diferentes que conceden el mismo permiso. Cada operación pública entra por el proxy transaccional; no hay
  * autoinvocación.
  */
 @Service
 @RequiredArgsConstructor
 public class StaffInvitationService {
+
     private final StaffInvitationRepository invitations;
     private final UserRepository users;
     private final UserRoleRepository userRoles;
@@ -78,8 +76,7 @@ public class StaffInvitationService {
     private final Clock clock;
 
     /**
-     * Emite una invitación y su auditoría, sin crear ni buscar la cuenta
-     * destinataria.
+     * Emite una invitación y su auditoría, sin crear ni buscar la cuenta destinataria.
      *
      * @param actor   identificador ADMIN del JWT
      * @param version versión JWT que se revalida bajo bloqueo
@@ -130,8 +127,7 @@ public class StaffInvitationService {
     }
 
     /**
-     * Filtra en SQL antes de paginar; usa un solo instante para estado y
-     * proyección.
+     * Filtra en SQL antes de paginar; usa un solo instante para estado y proyección.
      *
      * @param actor   ADMIN solicitante
      * @param version versión JWT
@@ -151,8 +147,8 @@ public class StaffInvitationService {
 
         Instant now = clock.instant();
 
-        var page = invitations.findAll(filters(query, now), PageRequest.of(query.page() - 1, query.pageSize(),
-                Sort.by(Sort.Direction.DESC, "createdAt", "id")));
+        var page = invitations.findAll(filters(query, now),
+                PageRequest.of(query.page() - 1, query.pageSize(), Sort.by(Sort.Direction.DESC, "createdAt", "id")));
 
         return new InvitationPageDTO(page.getContent().stream().map(i -> InvitationDTO.from(i, now)).toList(),
                 new PageMetadata(query.page(), query.pageSize(), page.getTotalElements(), page.getTotalPages()));
@@ -182,18 +178,15 @@ public class StaffInvitationService {
     }
 
     /**
-     * Canjea una invitación activa de un solo uso para el titular autenticado.
-     * Comprueba la identidad, el destinatario, el estado de la invitación y
-     * la ausencia de un permiso equivalente antes de concederlo y auditarlo.
+     * Canjea una invitación activa de un solo uso para el titular autenticado. Comprueba la identidad, el destinatario,
+     * el estado de la invitación y la ausencia de un permiso equivalente antes de concederlo y auditarlo.
      *
      * @param actor   identificador del usuario autenticado
      * @param version versión del JWT presentada por el usuario
      * @param code    código de invitación recibido en el cuerpo de la petición
      * @return datos del permiso concedido y el instante del canje
-     * @throws ApiException si la cuenta o su versión no son válidas (401),
-     *                      falta verificar el correo (403), la invitación
-     *                      o el departamento no son válidos (422), o el
-     *                      usuario ya posee el permiso (409)
+     * @throws ApiException si la cuenta o su versión no son válidas (401), falta verificar el correo (403), la
+     *                      invitación o el departamento no son válidos (422), o el usuario ya posee el permiso (409)
      */
     @Transactional
     public InvitationRedemptionDTO redeem(UUID actor, long version, String code) {
@@ -233,16 +226,14 @@ public class StaffInvitationService {
     }
 
     /**
-     * Bloquea la cuenta y vuelve a comprobar su estado, versión de token
-     * y roles actuales en la base de datos. Exige correo verificado y,
-     * cuando se solicita, rol global ADMIN.
+     * Bloquea la cuenta y vuelve a comprobar su estado, versión de token y roles actuales en la base de datos. Exige
+     * correo verificado y, cuando se solicita, rol global ADMIN.
      *
      * @param id            identificador del usuario autenticado
      * @param version       versión presentada por el JWT previamente validado
      * @param adminRequired indica si debe exigirse el rol ADMIN
      * @return cuenta bloqueada y autorizada para continuar
-     * @throws ApiException si la cuenta o versión no son válidas (401),
-     *                      o falta verificación o autorización (403)
+     * @throws ApiException si la cuenta o versión no son válidas (401), o falta verificación o autorización (403)
      */
     private User account(UUID id, long version, boolean adminRequired) {
         User user = users.findForEmailVerification(id).orElseThrow(ApiException::unauthorized);
@@ -264,26 +255,22 @@ public class StaffInvitationService {
     }
 
     /**
-     * Recupera y bloquea un departamento que debe existir y estar activo
-     * para emitir o canjear una invitación departamental.
+     * Recupera y bloquea un departamento que debe existir y estar activo para emitir o canjear una invitación
+     * departamental.
      *
      * @param id identificador del departamento
      * @return departamento activo recuperado bajo bloqueo
      * @throws ApiException si el departamento no existe o está inactivo (422)
      */
     private Department activeDepartment(UUID id) {
-        return departments.findForInvitation(id)
-                .filter(department -> department.isActive())
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.UNPROCESSABLE_CONTENT,
-                        "INVALID_DEPARTMENT",
+        return departments.findForInvitation(id).filter(department -> department.isActive())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_DEPARTMENT",
                         "El departamento no está disponible."));
     }
 
     /**
-     * Concede un rol global o una pertenencia departamental si el usuario
-     * todavía no posee ese permiso. Inserta y fuerza la escritura para
-     * detectar también duplicados protegidos por restricciones SQL.
+     * Concede un rol global o una pertenencia departamental si el usuario todavía no posee ese permiso. Inserta y
+     * fuerza la escritura para detectar también duplicados protegidos por restricciones SQL.
      *
      * @param user       titular al que se concede el permiso
      * @param role       rol concedido
@@ -292,10 +279,9 @@ public class StaffInvitationService {
      * @throws ApiException si ya existe un permiso equivalente (409)
      */
     private void grant(User user, Role role, Department department, Instant now) {
-        boolean present = department == null
-                ? userRoles.existsById(new UserRoleId(user.getId(), role.getCode()))
-                : memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(
-                        user.getId(), department.getId(), role.getCode());
+        boolean present = department == null ? userRoles.existsById(new UserRoleId(user.getId(), role.getCode()))
+                : memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(user.getId(), department.getId(),
+                        role.getCode());
         if (present) {
             throw duplicatePermission();
         }
@@ -321,8 +307,8 @@ public class StaffInvitationService {
     }
 
     /**
-     * Registra un evento de auditoría de invitaciones sin incluir el código
-     * original ni su HMAC. Conserva el rol y, cuando procede, el departamento.
+     * Registra un evento de auditoría de invitaciones sin incluir el código original ni su HMAC. Conserva el rol y,
+     * cuando procede, el departamento.
      *
      * @param actor      usuario que realiza la operación
      * @param action     código de la acción auditada
@@ -339,14 +325,13 @@ public class StaffInvitationService {
             details.put("departmentId", invitation.getDepartment().getId().toString());
         }
 
-        audit.saveAndFlush(new AuditEvent(actor, action, "StaffInvitation",
-                invitation.getId().toString(), details, now));
+        audit.saveAndFlush(
+                new AuditEvent(actor, action, "StaffInvitation", invitation.getId().toString(), details, now));
     }
 
     /**
-     * Construye los predicados SQL para filtrar las invitaciones antes de
-     * paginarlas. Calcula ACTIVE y EXPIRED respecto a un mismo instante;
-     * la igualdad con expiresAt corresponde a EXPIRED.
+     * Construye los predicados SQL para filtrar las invitaciones antes de paginarlas. Calcula ACTIVE y EXPIRED respecto
+     * a un mismo instante; la igualdad con expiresAt corresponde a EXPIRED.
      *
      * @param filter filtros opcionales de estado, destinatario, rol y departamento
      * @param now    instante usado para determinar los estados temporales
@@ -371,10 +356,10 @@ public class StaffInvitationService {
             if (filter.status() != null) {
                 Predicate pending = cb.and(cb.isNull(root.get("redeemedAt")), cb.isNull(root.get("revokedAt")));
                 predicates.add(switch (filter.status()) {
-                    case ACTIVE -> cb.and(pending, cb.greaterThan(root.get("expiresAt"), now));
-                    case EXPIRED -> cb.and(pending, cb.lessThanOrEqualTo(root.get("expiresAt"), now));
-                    case REDEEMED -> cb.isNotNull(root.get("redeemedAt"));
-                    case REVOKED -> cb.isNotNull(root.get("revokedAt"));
+                case ACTIVE -> cb.and(pending, cb.greaterThan(root.get("expiresAt"), now));
+                case EXPIRED -> cb.and(pending, cb.lessThanOrEqualTo(root.get("expiresAt"), now));
+                case REDEEMED -> cb.isNotNull(root.get("redeemedAt"));
+                case REVOKED -> cb.isNotNull(root.get("revokedAt"));
                 });
             }
 
@@ -383,8 +368,7 @@ public class StaffInvitationService {
     }
 
     /**
-     * Comprueba que la solicitud no sea nula y que cumpla las restricciones
-     * de Bean Validation declaradas en su tipo.
+     * Comprueba que la solicitud no sea nula y que cumpla las restricciones de Bean Validation declaradas en su tipo.
      *
      * @param request objeto que se desea validar
      * @throws ApiException si es nulo o incumple alguna restricción (422)
@@ -405,14 +389,14 @@ public class StaffInvitationService {
     }
 
     /**
-     * Construye un error no enumerable para un código de invitación no válido,
-     * caducado, revocado, utilizado o perteneciente a otra identidad.
+     * Construye un error no enumerable para un código de invitación no válido, caducado, revocado, utilizado o
+     * perteneciente a otra identidad.
      *
      * @return excepción HTTP 422 con código INVALID_INVITATION_CODE
      */
     private static ApiException invalidCode() {
-        return new ApiException(HttpStatus.UNPROCESSABLE_CONTENT,
-                "INVALID_INVITATION_CODE", "El código de invitación no es válido.");
+        return new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_INVITATION_CODE",
+                "El código de invitación no es válido.");
     }
 
     /**

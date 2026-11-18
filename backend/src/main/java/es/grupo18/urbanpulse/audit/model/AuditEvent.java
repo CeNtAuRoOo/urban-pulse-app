@@ -25,8 +25,7 @@ import org.hibernate.type.SqlTypes;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Registro funcional persistente, sin secretos ni datos innecesarios del
- * destinatario.
+ * Registro funcional persistente, sin secretos ni datos innecesarios del destinatario.
  */
 @Entity
 @Table(name = "audit_events")
@@ -68,13 +67,11 @@ public class AuditEvent {
     /**
      * Crea un evento mínimo, reutilizable por otros módulos.
      *
-     * @param actor        cuenta responsable, opcional para futuros eventos del
-     *                     sistema
+     * @param actor        cuenta responsable, opcional para futuros eventos del sistema
      * @param action       código estable de acción
      * @param resourceType tipo lógico de recurso
      * @param resourceId   identificador lógico, no FK con borrado en cascada
-     * @param details      metadatos permitidos por el servicio; nunca secretos ni
-     *                     email
+     * @param details      metadatos permitidos por el servicio; nunca secretos ni email
      * @param occurredAt   instante de la acción
      */
     public AuditEvent(User actor, String action, String resourceType, String resourceId, Map<String, String> details,

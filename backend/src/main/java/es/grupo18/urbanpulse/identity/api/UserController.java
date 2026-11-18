@@ -29,10 +29,8 @@ import es.grupo18.urbanpulse.identity.service.UserService;
 import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 
 /**
- * Controlador REST encargado de gestionar los endpoints relacionados
- * con los usuarios de UrbanPulse.
- * Permite consultar y modificar el perfil propio, así como realizar
- * operaciones administrativas sobre otros usuarios.
+ * Controlador REST encargado de gestionar los endpoints relacionados con los usuarios de UrbanPulse. Permite consultar
+ * y modificar el perfil propio, así como realizar operaciones administrativas sobre otros usuarios.
  */
 @RestController
 @RequiredArgsConstructor
@@ -40,14 +38,12 @@ import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 public class UserController {
 
     /**
-     * Servicio que contiene la lógica de negocio
-     * relacionada con la gestión de usuarios.
+     * Servicio que contiene la lógica de negocio relacionada con la gestión de usuarios.
      */
     private final UserService userService;
 
     /**
-     * Obtiene el perfil del usuario autenticado.
-     * El identificador se extrae del JWT recibido en la petición.
+     * Obtiene el perfil del usuario autenticado. El identificador se extrae del JWT recibido en la petición.
      *
      * @param jwt token JWT del usuario autenticado
      * @return DTO con los datos del perfil y sus roles
@@ -61,8 +57,7 @@ public class UserController {
     }
 
     /**
-     * Actualiza el perfil del usuario autenticado.
-     * Valida los datos recibidos antes de enviarlos al servicio.
+     * Actualiza el perfil del usuario autenticado. Valida los datos recibidos antes de enviarlos al servicio.
      *
      * @param jwt     token JWT del usuario autenticado
      * @param request datos necesarios para actualizar el perfil
@@ -71,9 +66,7 @@ public class UserController {
     @PatchMapping("/me")
     @PreAuthorize("hasAuthority('EMAIL_VERIFIED')")
     @ResponseStatus(HttpStatus.OK)
-    public UserDTO updateMe(
-            @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody UpdateMyProfileRequest request) {
+    public UserDTO updateMe(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UpdateMyProfileRequest request) {
 
         UUID userId = DatabaseJwtAuthenticationConverter.subject(jwt);
 
@@ -81,8 +74,7 @@ public class UserController {
     }
 
     /**
-     * Obtiene los datos de un usuario concreto.
-     * Este endpoint requiere que el usuario autenticado tenga el rol ADMIN.
+     * Obtiene los datos de un usuario concreto. Este endpoint requiere que el usuario autenticado tenga el rol ADMIN.
      *
      * @param userId identificador del usuario que se desea consultar
      * @return DTO con los datos del usuario y sus roles
@@ -94,8 +86,7 @@ public class UserController {
     }
 
     /**
-     * Actualiza el estado de actividad de un usuario.
-     * Esta operación está restringida a usuarios con el rol ADMIN.
+     * Actualiza el estado de actividad de un usuario. Esta operación está restringida a usuarios con el rol ADMIN.
      *
      * @param userId  identificador del usuario que se desea modificar
      * @param request datos necesarios para actualizar su estado
@@ -103,34 +94,26 @@ public class UserController {
      */
     @PatchMapping("/{userId}")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('EMAIL_VERIFIED')")
-    public UserDTO updateUser(
-            @PathVariable UUID userId,
-            @Valid @RequestBody AdminUpdateUserRequest request) {
+    public UserDTO updateUser(@PathVariable UUID userId, @Valid @RequestBody AdminUpdateUserRequest request) {
 
         return userService.updateUser(userId, request);
     }
 
     /**
-     * Obtiene un listado paginado de usuarios.
-     * Permite aplicar filtros opcionales por rol global, rol departamental activo
-     * y estado de actividad.
-     * Este endpoint requiere permisos de administrador.
+     * Obtiene un listado paginado de usuarios. Permite aplicar filtros opcionales por rol global, rol departamental
+     * activo y estado de actividad. Este endpoint requiere permisos de administrador.
      *
      * @param page     número de página solicitado, comenzando por 1
      * @param pageSize cantidad de usuarios por página
-     * @param role     rol global o departamental utilizado como filtro, si se
-     *                 especifica
+     * @param role     rol global o departamental utilizado como filtro, si se especifica
      * @param active   estado de actividad utilizado como filtro, si se especifica
      * @return DTO con los usuarios, sus roles, pertenencias y datos de paginación
-     * @throws ResponseStatusException si los parámetros de paginación no son
-     *                                 válidos
+     * @throws ResponseStatusException si los parámetros de paginación no son válidos
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('EMAIL_VERIFIED')")
-    public UsersPageDTO getUsers(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize,
-            @RequestParam(required = false) RoleCode role,
+    public UsersPageDTO getUsers(@RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize, @RequestParam(required = false) RoleCode role,
             @RequestParam(required = false) Boolean active) {
 
         UserService.validatePagination(page, pageSize);

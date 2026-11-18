@@ -31,6 +31,7 @@ import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 @PreAuthorize("hasAuthority('EMAIL_VERIFIED') and hasAnyRole('OPERATOR','ADMIN')")
 @RequiredArgsConstructor
 public class DuplicateController {
+
     private final DuplicateService service;
 
     @GetMapping("/duplicate-candidates")
@@ -39,8 +40,8 @@ public class DuplicateController {
     }
 
     @PostMapping("/duplicate-links")
-    public ResponseEntity<DuplicateLinkDTO> link(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @Valid @RequestBody DuplicateLinkRequest request) {
+    public ResponseEntity<DuplicateLinkDTO> link(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @Valid @RequestBody DuplicateLinkRequest request) {
         DuplicateLinkDTO result = service.link(incidentId, DatabaseJwtAuthenticationConverter.subject(jwt), request);
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(result);
     }

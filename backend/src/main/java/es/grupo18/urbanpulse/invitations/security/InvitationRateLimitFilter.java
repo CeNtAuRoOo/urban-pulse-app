@@ -67,15 +67,14 @@ public class InvitationRateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Intenta consumir una cuota de peticiones para la clave indicada.
-     * Si no quedan tokens, responde con HTTP 429 y la cabecera Retry-After.
+     * Intenta consumir una cuota de peticiones para la clave indicada. Si no quedan tokens, responde con HTTP 429 y la
+     * cabecera Retry-After.
      *
      * @param key      identificador del bucket de limitación
      * @param policy   política de capacidad y reposición aplicable
      * @param request  petición HTTP recibida
      * @param response respuesta HTTP en la que se comunica el rechazo
-     * @return {@code true} si la petición puede continuar; {@code false} si
-     *         se ha rechazado por exceso de peticiones
+     * @return {@code true} si la petición puede continuar; {@code false} si se ha rechazado por exceso de peticiones
      * @throws IOException si falla la escritura de la respuesta HTTP
      */
     private boolean consume(String key, RateLimitProperties.Policy policy, HttpServletRequest request,

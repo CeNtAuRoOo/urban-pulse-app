@@ -24,9 +24,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
- * Gestiona globalmente las excepciones producidas durante las peticiones REST.
- * Transforma los errores de negocio, validación y acceso en respuestas
- * HTTP uniformes mediante objetos ProblemDetail.
+ * Gestiona globalmente las excepciones producidas durante las peticiones REST. Transforma los errores de negocio,
+ * validación y acceso en respuestas HTTP uniformes mediante objetos ProblemDetail.
  */
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -50,16 +49,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Trata identificadores o parámetros cuyo tipo no puede interpretarse, sin
-     * devolver el valor recibido ni convertir un error de entrada en HTTP 500.
+     * Trata identificadores o parámetros cuyo tipo no puede interpretarse, sin devolver el valor recibido ni convertir
+     * un error de entrada en HTTP 500.
      *
      * @param ex      fallo de conversión de un parámetro MVC
      * @param request petición recibida
      * @return HTTP 400 con ProblemDetail genérico
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ProblemDetail> parameterType(
-            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> parameterType(MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Parámetro no interpretable.", request);
     }
 
@@ -76,8 +75,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Gestiona los errores de validación de los datos recibidos.
-     * Devuelve un estado HTTP 422 con los campos que incumplen las restricciones.
+     * Gestiona los errores de validación de los datos recibidos. Devuelve un estado HTTP 422 con los campos que
+     * incumplen las restricciones.
      *
      * @param ex      excepción producida por la validación
      * @param request petición HTTP que ha provocado el error
@@ -88,18 +87,18 @@ public class GlobalExceptionHandler {
         var problem = problems.create(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", "Los datos no son válidos.",
                 request.getRequestURI());
 
-        problem.setProperty("errors", ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ProblemDetailFactory.FieldError(error.getField(),
-                        error.getCode() == null ? "INVALID" : error.getCode(), "Valor no válido."))
-                .toList());
+        problem.setProperty("errors",
+                ex.getBindingResult().getFieldErrors().stream()
+                        .map(error -> new ProblemDetailFactory.FieldError(error.getField(),
+                                error.getCode() == null ? "INVALID" : error.getCode(), "Valor no válido."))
+                        .toList());
 
         return ResponseEntity.unprocessableContent().contentType(MediaType.APPLICATION_PROBLEM_JSON).body(problem);
     }
 
     /**
-     * Gestiona los errores de lectura y deserialización del cuerpo HTTP.
-     * Devuelve 422 para propiedades JSON desconocidas y 400 para
-     * el resto de errores de interpretación.
+     * Gestiona los errores de lectura y deserialización del cuerpo HTTP. Devuelve 422 para propiedades JSON
+     * desconocidas y 400 para el resto de errores de interpretación.
      *
      * @param ex      excepción producida al interpretar el cuerpo de la petición
      * @param request petición HTTP que ha provocado el error
@@ -113,8 +112,7 @@ public class GlobalExceptionHandler {
                         "La petición contiene campos no admitidos.", request.getRequestURI());
 
                 problem.setProperty("errors",
-                        List.of(new ProblemDetailFactory.FieldError("body", "UNKNOWN_PROPERTY",
-                                "Campo no admitido.")));
+                        List.of(new ProblemDetailFactory.FieldError("body", "UNKNOWN_PROPERTY", "Campo no admitido.")));
 
                 return ResponseEntity.unprocessableContent().contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body(problem);
@@ -137,11 +135,9 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Gestiona las excepciones no tratadas por otros manejadores.
-     * Conserva el estado de los errores HTTP de cliente reconocidos
-     * y devuelve 503 para indisponibilidad de PostgreSQL o 500 para otros errores.
-     * Registra solo el tipo de excepción, sin mensajes, causas ni datos de
-     * petición.
+     * Gestiona las excepciones no tratadas por otros manejadores. Conserva el estado de los errores HTTP de cliente
+     * reconocidos y devuelve 503 para indisponibilidad de PostgreSQL o 500 para otros errores. Registra solo el tipo de
+     * excepción, sin mensajes, causas ni datos de petición.
      *
      * @param ex      excepción producida durante la petición
      * @param request petición HTTP que ha provocado el error
@@ -165,8 +161,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Construye una respuesta HTTP de error utilizando ProblemDetail.
-     * Añade la cabecera WWW-Authenticate cuando el estado es 401.
+     * Construye una respuesta HTTP de error utilizando ProblemDetail. Añade la cabecera WWW-Authenticate cuando el
+     * estado es 401.
      *
      * @param status  estado HTTP de la respuesta
      * @param code    código identificador del error
@@ -195,14 +191,8 @@ public class GlobalExceptionHandler {
      * @return respuesta HTTP 404
      */
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ProblemDetail> notFound(
-            EntityNotFoundException ex,
-            HttpServletRequest request) {
-        return response(
-                HttpStatus.NOT_FOUND,
-                "NOT_FOUND",
-                "El recurso solicitado no existe.",
-                request);
+    public ResponseEntity<ProblemDetail> notFound(EntityNotFoundException ex, HttpServletRequest request) {
+        return response(HttpStatus.NOT_FOUND, "NOT_FOUND", "El recurso solicitado no existe.", request);
     }
 
 }

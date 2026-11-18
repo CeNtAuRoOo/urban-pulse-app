@@ -74,9 +74,9 @@ class StaffInvitationMvcTest {
     void setup() {
         user = UUID.randomUUID();
         state(true, RoleCode.CITIZEN, RoleCode.ADMIN);
-        when(service.create(any(), anyLong(), any())).thenReturn(new InvitationDTO(invitationId,
-                "person@example.org", RoleCode.ADMIN, null, InvitationStatus.ACTIVE, user, null, null,
-                Instant.now(), Instant.now().plusSeconds(604800), null, null));
+        when(service.create(any(), anyLong(), any())).thenReturn(
+                new InvitationDTO(invitationId, "person@example.org", RoleCode.ADMIN, null, InvitationStatus.ACTIVE,
+                        user, null, null, Instant.now(), Instant.now().plusSeconds(604800), null, null));
     }
 
     private void state(boolean verified, RoleCode... roles) {
@@ -117,9 +117,7 @@ class StaffInvitationMvcTest {
 
     @Test
     void rejectsMissingEmailCitizenWrongScopeExpiryAndUnknownProperties() throws Exception {
-        for (String body : List.of(
-                "{\"role\":\"ADMIN\"}",
-                "{\"role\":\"CITIZEN\",\"email\":\"person@example.org\"}",
+        for (String body : List.of("{\"role\":\"ADMIN\"}", "{\"role\":\"CITIZEN\",\"email\":\"person@example.org\"}",
                 "{\"role\":\"TECHNICIAN\",\"email\":\"person@example.org\"}",
                 "{\"role\":\"TECHNICIAN\",\"email\":\"person@example.org\",\"departmentId\":null}",
                 "{\"role\":\"ADMIN\",\"email\":\"person@example.org\",\"departmentId\":null}",
@@ -166,8 +164,7 @@ class StaffInvitationMvcTest {
         mvc.perform(post(REDEEM).header("Authorization", bearer()).with(r -> {
             r.setRemoteAddr(user.toString());
             return r;
-        })
-                .contentType(MediaType.APPLICATION_JSON).content(CODE_BODY.replace("}", ",\"role\":\"ADMIN\"}")))
+        }).contentType(MediaType.APPLICATION_JSON).content(CODE_BODY.replace("}", ",\"role\":\"ADMIN\"}")))
                 .andExpect(status().isUnprocessableContent());
         verifyNoInteractions(service);
     }
@@ -181,8 +178,8 @@ class StaffInvitationMvcTest {
                     .andExpect(status().isUnprocessableContent());
         }
         when(service.get(any(), anyLong(), any())).thenThrow(new DataAccessResourceFailureException("PRIVATE_DB"));
-        mvc.perform(get(CREATE + "/not-a-uuid").header("Authorization", bearer()))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+        mvc.perform(get(CREATE + "/not-a-uuid").header("Authorization", bearer())).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
         mvc.perform(get(CREATE + "/" + invitationId).header("Authorization", bearer()))
                 .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
                 .andExpect(header().doesNotExist("WWW-Authenticate"));
@@ -195,8 +192,7 @@ class StaffInvitationMvcTest {
                     .content(" ".repeat(16385))).andExpect(status().isBadRequest());
         }
         mvc.perform(post(CREATE + "/" + invitationId + "/revocations").header("Authorization", bearer())
-                .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isBadRequest());
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
 
@@ -204,12 +200,10 @@ class StaffInvitationMvcTest {
     void realUserBucketRejectsEleventhAttemptWithRetryAfterAndNewUserIsIndependent() throws Exception {
         String ip = UUID.randomUUID().toString();
         for (int i = 0; i < 11; i++) {
-            var result = mvc.perform(post(REDEEM).header("Authorization", bearer())
-                    .with(r -> {
-                        r.setRemoteAddr(ip);
-                        return r;
-                    })
-                    .contentType(MediaType.APPLICATION_JSON).content(CODE_BODY));
+            var result = mvc.perform(post(REDEEM).header("Authorization", bearer()).with(r -> {
+                r.setRemoteAddr(ip);
+                return r;
+            }).contentType(MediaType.APPLICATION_JSON).content(CODE_BODY));
             if (i < 10)
                 result.andExpect(status().isOk());
             else
@@ -222,8 +216,7 @@ class StaffInvitationMvcTest {
         mvc.perform(post(REDEEM).header("Authorization", bearer()).with(r -> {
             r.setRemoteAddr(ip);
             return r;
-        })
-                .contentType(MediaType.APPLICATION_JSON).content(CODE_BODY)).andExpect(status().isOk());
+        }).contentType(MediaType.APPLICATION_JSON).content(CODE_BODY)).andExpect(status().isOk());
     }
 
     @Test
@@ -236,8 +229,7 @@ class StaffInvitationMvcTest {
                     .with(r -> {
                         r.setRemoteAddr(ip);
                         return r;
-                    })
-                    .contentType(MediaType.APPLICATION_JSON).content(CODE_BODY))
+                    }).contentType(MediaType.APPLICATION_JSON).content(CODE_BODY))
                     .andExpect(status().is(i < 30 ? 200 : 429));
         }
         verify(service, times(30)).redeem(any(), anyLong(), anyString());

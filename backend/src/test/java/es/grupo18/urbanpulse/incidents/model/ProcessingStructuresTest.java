@@ -30,8 +30,7 @@ class ProcessingStructuresTest {
                         .isInstanceOf(ApiException.class);
             }
             assertThat(new IncidentReview(incident, actor, decision, " abc ", now).getReason()).isEqualTo("abc");
-            assertThat(new IncidentReview(incident, actor, decision, "🚦".repeat(2000), now).getReason())
-                    .hasSize(4000);
+            assertThat(new IncidentReview(incident, actor, decision, "🚦".repeat(2000), now).getReason()).hasSize(4000);
         }
         for (ReviewDecision decision : List.of(ReviewDecision.REJECT, ReviewDecision.REQUEST_INFORMATION)) {
             assertThatThrownBy(() -> new IncidentReview(incident, actor, decision, null, now))
@@ -61,8 +60,8 @@ class ProcessingStructuresTest {
             assertThatThrownBy(() -> new StatusChange(incident, IncidentStatus.CLOSED, target, actor, null, null, now))
                     .isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> new StatusChange(incident, IncidentStatus.REPORTED, IncidentStatus.REPORTED,
-                actor, null, null, now)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new StatusChange(incident, IncidentStatus.REPORTED, IncidentStatus.REPORTED, actor,
+                null, null, now)).isInstanceOf(IllegalArgumentException.class);
         assertThat(List.of(IncidentStatus.values())).extracting((IncidentStatus status) -> status.name())
                 .doesNotContain("REOPENED");
     }
@@ -74,17 +73,18 @@ class ProcessingStructuresTest {
         }
         assertThat(priority(" abc ").getJustification()).isEqualTo("abc");
         assertThat(priority("🚦".repeat(2000)).getJustification()).hasSize(4000);
-        assertThatThrownBy(() -> new PriorityDecision(incident, null, IncidentPriority.HIGH,
-                PrioritySource.MANUAL, "abc", now)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new PriorityDecision(incident, actor, null,
-                PrioritySource.MANUAL, "abc", now)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new PriorityDecision(incident, actor, IncidentPriority.HIGH,
-                null, "abc", now)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(
+                () -> new PriorityDecision(incident, null, IncidentPriority.HIGH, PrioritySource.MANUAL, "abc", now))
+                        .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new PriorityDecision(incident, actor, null, PrioritySource.MANUAL, "abc", now))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new PriorityDecision(incident, actor, IncidentPriority.HIGH, null, "abc", now))
+                .isInstanceOf(NullPointerException.class);
     }
 
     private StatusChange transition(String reason, String notes) {
-        return new StatusChange(incident, IncidentStatus.RESOLVED, IncidentStatus.WORK_ASSIGNED,
-                null, reason, notes, now);
+        return new StatusChange(incident, IncidentStatus.RESOLVED, IncidentStatus.WORK_ASSIGNED, null, reason, notes,
+                now);
     }
 
     private PriorityDecision priority(String text) {

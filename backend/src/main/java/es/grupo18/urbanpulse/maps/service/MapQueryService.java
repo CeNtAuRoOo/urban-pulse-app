@@ -1,12 +1,15 @@
 package es.grupo18.urbanpulse.maps.service;
 
 import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.dto.MapIncidentsDTO;
 import es.grupo18.urbanpulse.maps.repository.MapIncidentRepository;
@@ -15,11 +18,14 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 @Service
 @RequiredArgsConstructor
 public class MapQueryService {
+
     private final MapVisibilityPolicy visibility;
     private final MapIncidentRepository incidents;
     private final MapTitlePolicy titles;
 
-    /** Permissions and data share a database snapshot; no partial successful responses. */
+    /**
+     * Permissions and data share a database snapshot; no partial successful responses.
+     */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public MapIncidentsDTO find(UUID actor, long tokenVersion, MapQuery query) {
         var access = visibility.authorize(actor, tokenVersion);

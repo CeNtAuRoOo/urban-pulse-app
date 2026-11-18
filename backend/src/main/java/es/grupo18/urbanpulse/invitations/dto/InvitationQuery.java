@@ -12,8 +12,7 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.invitations.model.InvitationStatus;
 
 /**
- * Filtros exactos y paginación aplicados en SQL antes de proyectar los
- * resultados.
+ * Filtros exactos y paginación aplicados en SQL antes de proyectar los resultados.
  *
  * @param status       estado opcional
  * @param email        correo exacto normalizado opcional
@@ -22,13 +21,8 @@ import es.grupo18.urbanpulse.invitations.model.InvitationStatus;
  * @param page         primera página 1
  * @param pageSize     tamaño entre 1 y 100, por defecto 20
  */
-public record InvitationQuery(
-        InvitationStatus status,
-        @Email @Size(max = 254) String email,
-        RoleCode role,
-        UUID departmentId,
-        @Min(1) Integer page,
-        @Min(1) @Max(100) Integer pageSize) {
+public record InvitationQuery(InvitationStatus status, @Email @Size(max = 254) String email, RoleCode role,
+        UUID departmentId, @Min(1) Integer page, @Min(1) @Max(100) Integer pageSize) {
 
     /** Aplica defaults compartidos y normalización antes de Bean Validation. */
     public InvitationQuery {

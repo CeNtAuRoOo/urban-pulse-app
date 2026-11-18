@@ -20,8 +20,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.identity.model.Role;
 import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.model.User;
@@ -31,14 +29,14 @@ import es.grupo18.urbanpulse.organization.model.Department;
 import es.grupo18.urbanpulse.organization.model.DepartmentMembership;
 import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pruebas de integración de las pertenencias departamentales sobre PostgreSQL.
- * Verifica el mapeo JPA, la recuperación de departamento y rol, la conservación
- * del historial y las restricciones de unicidad y ámbito aplicadas por Flyway.
+ * Pruebas de integración de las pertenencias departamentales sobre PostgreSQL. Verifica el mapeo JPA, la recuperación
+ * de departamento y rol, la conservación del historial y las restricciones de unicidad y ámbito aplicadas por Flyway.
  */
 @SpringBootTest
 @TestPropertySource("classpath:auth-test.properties")
@@ -81,8 +79,8 @@ class DepartmentMembershipPostgresIT {
     es.grupo18.urbanpulse.organization.service.DepartmentMembershipService service;
 
     /**
-     * Elimina las pertenencias y usuarios creados por cada prueba.
-     * Crea su propio departamento y conserva los cinco roles del catálogo.
+     * Elimina las pertenencias y usuarios creados por cada prueba. Crea su propio departamento y conserva los cinco
+     * roles del catálogo.
      */
     @BeforeEach
     void cleanDatabase() {
@@ -96,8 +94,8 @@ class DepartmentMembershipPostgresIT {
     }
 
     /**
-     * Inserta un usuario mínimo directamente en PostgreSQL para aislar
-     * las pruebas de pertenencias del flujo de registro y autenticación.
+     * Inserta un usuario mínimo directamente en PostgreSQL para aislar las pruebas de pertenencias del flujo de
+     * registro y autenticación.
      *
      * @param email correo electrónico único del usuario de prueba
      * @return identificador del usuario insertado
@@ -113,20 +111,14 @@ class DepartmentMembershipPostgresIT {
                     created_at, updated_at
                 )
                 values (?, ?, ?, ?, true, true, 0, ?, ?)
-                """,
-                id,
-                "Usuario de prueba",
-                email,
-                "x".repeat(60),
-                Timestamp.from(now),
-                Timestamp.from(now));
+                """, id, "Usuario de prueba", email, "x".repeat(60), Timestamp.from(now), Timestamp.from(now));
 
         return id;
     }
 
     /**
-     * Inserta una pertenencia mediante SQL para comprobar directamente
-     * las restricciones de integridad definidas en la migración.
+     * Inserta una pertenencia mediante SQL para comprobar directamente las restricciones de integridad definidas en la
+     * migración.
      *
      * @param userId       identificador del usuario
      * @param departmentId identificador del departamento
@@ -134,37 +126,28 @@ class DepartmentMembershipPostgresIT {
      * @param joinedAt     fecha de alta
      * @param leftAt       fecha de baja, o null si permanece activa
      */
-    private void insertMembership(
-            UUID userId,
-            UUID departmentId,
-            RoleCode roleCode,
-            Instant joinedAt,
-            Instant leftAt) {
+    private void insertMembership(UUID userId, UUID departmentId, RoleCode roleCode, Instant joinedAt, Instant leftAt) {
 
         jdbc.update("""
                 insert into department_memberships (
                     id, user_id, department_id, role_code, joined_at, left_at
                 )
                 values (uuidv7(), ?, ?, ?, ?, ?)
-                """,
-                userId,
-                departmentId,
-                roleCode.name(),
-                Timestamp.from(joinedAt),
+                """, userId, departmentId, roleCode.name(), Timestamp.from(joinedAt),
                 leftAt == null ? null : Timestamp.from(leftAt));
     }
 
     /**
-     * Comprueba que JPA persiste una pertenencia y recupera sus relaciones
-     * con el departamento y el rol sin consultas posteriores por cada campo.
+     * Comprueba que JPA persiste una pertenencia y recupera sus relaciones con el departamento y el rol sin consultas
+     * posteriores por cada campo.
      */
     @Test
     @Transactional
     void savesAndLoadsMembershipWithDepartmentAndRole() {
         UUID userId = insertUser("membership@example.org");
         User user = users.findById(userId).orElseThrow();
-        Department department = departments.findById(
-                UUID.fromString("0199f6de-0001-7000-8000-000000000001")).orElseThrow();
+        Department department = departments.findById(UUID.fromString("0199f6de-0001-7000-8000-000000000001"))
+                .orElseThrow();
         Role role = roles.findById(RoleCode.TECHNICIAN).orElseThrow();
         Instant joinedAt = Instant.parse("2026-01-10T09:00:00Z");
 
@@ -182,8 +165,8 @@ class DepartmentMembershipPostgresIT {
     }
 
     /**
-     * Comprueba que la consulta devuelve tanto las pertenencias finalizadas
-     * como la adscripción activa más reciente del mismo usuario.
+     * Comprueba que la consulta devuelve tanto las pertenencias finalizadas como la adscripción activa más reciente del
+     * mismo usuario.
      */
     @Test
     void returnsActiveAndHistoricalMembershipsInChronologicalOrder() {
@@ -207,8 +190,7 @@ class DepartmentMembershipPostgresIT {
     }
 
     /**
-     * Comprueba que PostgreSQL impide dos pertenencias activas con la misma
-     * combinación de usuario, departamento y rol.
+     * Comprueba que PostgreSQL impide dos pertenencias activas con la misma combinación de usuario, departamento y rol.
      */
     @Test
     void rejectsDuplicateActiveMembershipForSameUserDepartmentAndRole() {
@@ -218,14 +200,14 @@ class DepartmentMembershipPostgresIT {
 
         insertMembership(userId, departmentId, RoleCode.TECHNICIAN, joinedAt, null);
 
-        assertThatThrownBy(() -> insertMembership(
-                userId, departmentId, RoleCode.TECHNICIAN, joinedAt.plusSeconds(60), null))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(
+                () -> insertMembership(userId, departmentId, RoleCode.TECHNICIAN, joinedAt.plusSeconds(60), null))
+                        .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     /**
-     * Comprueba que una nueva pertenencia activa puede crearse después
-     * de finalizar la anterior, conservando ambos registros históricos.
+     * Comprueba que una nueva pertenencia activa puede crearse después de finalizar la anterior, conservando ambos
+     * registros históricos.
      */
     @Test
     void allowsNewActiveMembershipAfterPreviousMembershipHasEnded() {
@@ -238,51 +220,38 @@ class DepartmentMembershipPostgresIT {
         insertMembership(userId, departmentId, RoleCode.TECHNICIAN, firstJoined, firstLeft);
         insertMembership(userId, departmentId, RoleCode.TECHNICIAN, secondJoined, null);
 
-        assertThat(jdbc.queryForObject(
-                "select count(*) from department_memberships where user_id = ?",
-                Integer.class,
+        assertThat(jdbc.queryForObject("select count(*) from department_memberships where user_id = ?", Integer.class,
                 userId)).isEqualTo(2);
     }
 
     /**
-     * Comprueba que la base de datos rechaza roles globales en una pertenencia
-     * departamental, manteniendo la separación definida en ADR-0009.
+     * Comprueba que la base de datos rechaza roles globales en una pertenencia departamental, manteniendo la separación
+     * definida en ADR-0009.
      */
     @Test
     void rejectsGlobalRoleInDepartmentMembership() {
         UUID userId = insertUser("global-role@example.org");
         UUID departmentId = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
 
-        assertThatThrownBy(() -> insertMembership(
-                userId,
-                departmentId,
-                RoleCode.ADMIN,
-                Instant.parse("2026-01-01T09:00:00Z"),
-                null))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> insertMembership(userId, departmentId, RoleCode.ADMIN,
+                Instant.parse("2026-01-01T09:00:00Z"), null)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     /**
-     * Comprueba que la base de datos rechaza fechas de baja anteriores
-     * a la fecha de alta.
+     * Comprueba que la base de datos rechaza fechas de baja anteriores a la fecha de alta.
      */
     @Test
     void rejectsLeftAtBeforeJoinedAt() {
         UUID userId = insertUser("invalid-dates@example.org");
         UUID departmentId = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
 
-        assertThatThrownBy(() -> insertMembership(
-                userId,
-                departmentId,
-                RoleCode.TECHNICIAN,
-                Instant.parse("2026-06-01T09:00:00Z"),
-                Instant.parse("2026-05-01T09:00:00Z")))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> insertMembership(userId, departmentId, RoleCode.TECHNICIAN,
+                Instant.parse("2026-06-01T09:00:00Z"), Instant.parse("2026-05-01T09:00:00Z")))
+                        .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     /**
-     * Comprueba que una misma persona puede desempeñar roles departamentales
-     * distintos dentro del mismo departamento.
+     * Comprueba que una misma persona puede desempeñar roles departamentales distintos dentro del mismo departamento.
      */
     @Test
     void allowsDifferentDepartmentalRolesForSameUserAndDepartment() {
@@ -293,10 +262,9 @@ class DepartmentMembershipPostgresIT {
         insertMembership(userId, departmentId, RoleCode.TECHNICIAN, joinedAt, null);
         insertMembership(userId, departmentId, RoleCode.DEPARTMENT_COORDINATOR, joinedAt, null);
 
-        assertThat(jdbc.queryForObject(
-                "select count(*) from department_memberships where user_id = ? and left_at is null",
-                Integer.class,
-                userId)).isEqualTo(2);
+        assertThat(
+                jdbc.queryForObject("select count(*) from department_memberships where user_id = ? and left_at is null",
+                        Integer.class, userId)).isEqualTo(2);
     }
 
     @Test
@@ -305,19 +273,19 @@ class DepartmentMembershipPostgresIT {
         UUID department = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
         jdbc.update("update users set email_verified=false where id=?", user);
         assertThatThrownBy(() -> service.assign(user, department, RoleCode.TECHNICIAN))
-                .isInstanceOf(es.grupo18.urbanpulse.shared.error.ApiException.class)
-                .extracting("code").isEqualTo("USER_EMAIL_NOT_VERIFIED");
+                .isInstanceOf(es.grupo18.urbanpulse.shared.error.ApiException.class).extracting("code")
+                .isEqualTo("USER_EMAIL_NOT_VERIFIED");
         jdbc.update("update users set email_verified=true,active=false where id=?", user);
-        assertThatThrownBy(() -> service.assign(user, department, RoleCode.TECHNICIAN))
-                .extracting("code").isEqualTo("USER_INACTIVE");
+        assertThatThrownBy(() -> service.assign(user, department, RoleCode.TECHNICIAN)).extracting("code")
+                .isEqualTo("USER_INACTIVE");
         jdbc.update("update users set active=true where id=?", user);
         var first = service.assign(user, department, RoleCode.TECHNICIAN);
-        assertThatThrownBy(() -> service.assign(user, department, RoleCode.TECHNICIAN))
-                .extracting("code").isEqualTo("DEPARTMENT_MEMBERSHIP_DUPLICATE");
+        assertThatThrownBy(() -> service.assign(user, department, RoleCode.TECHNICIAN)).extracting("code")
+                .isEqualTo("DEPARTMENT_MEMBERSHIP_DUPLICATE");
         Instant end = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         service.end(first.getId(), end);
-        assertThatThrownBy(() -> service.end(first.getId(), end.plusSeconds(5)))
-                .extracting("code").isEqualTo("DEPARTMENT_MEMBERSHIP_CANNOT_END");
+        assertThatThrownBy(() -> service.end(first.getId(), end.plusSeconds(5))).extracting("code")
+                .isEqualTo("DEPARTMENT_MEMBERSHIP_CANNOT_END");
         var second = service.assign(user, department, RoleCode.TECHNICIAN);
         assertThat(second.getId()).isNotEqualTo(first.getId());
         assertThat(memberships.findAllForUsers(List.of(user))).hasSize(2);
@@ -342,8 +310,8 @@ class DepartmentMembershipPostgresIT {
             })).toList();
             start.countDown();
             assertThat(List.of(tasks.get(0).get(20, java.util.concurrent.TimeUnit.SECONDS),
-                    tasks.get(1).get(20, java.util.concurrent.TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder("OK", "DEPARTMENT_MEMBERSHIP_DUPLICATE");
+                    tasks.get(1).get(20, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder("OK",
+                            "DEPARTMENT_MEMBERSHIP_DUPLICATE");
             UUID membership = jdbc.queryForObject("select id from department_memberships where user_id=?", UUID.class,
                     user);
             var endStart = new java.util.concurrent.CountDownLatch(1);

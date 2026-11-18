@@ -18,8 +18,7 @@ import es.grupo18.urbanpulse.invitations.config.StaffInvitationProperties;
 import es.grupo18.urbanpulse.shared.security.JwtProperties;
 
 /**
- * Generación de 256 bits y búsqueda por HMAC con separación de claves y
- * propósito.
+ * Generación de 256 bits y búsqueda por HMAC con separación de claves y propósito.
  */
 @Service
 @EnableConfigurationProperties(StaffInvitationProperties.class)
@@ -43,8 +42,7 @@ public class InvitationCodeService {
 
         byte[] bytes = properties.keyBytes();
 
-        if (MessageDigest.isEqual(bytes, jwt.keyBytes())
-                || MessageDigest.isEqual(bytes, verification.keyBytes())) {
+        if (MessageDigest.isEqual(bytes, jwt.keyBytes()) || MessageDigest.isEqual(bytes, verification.keyBytes())) {
             throw new IllegalArgumentException("La clave de invitaciones debe ser independiente.");
         }
 

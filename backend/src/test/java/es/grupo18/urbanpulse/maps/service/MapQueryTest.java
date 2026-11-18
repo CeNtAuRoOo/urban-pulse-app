@@ -3,8 +3,11 @@ package es.grupo18.urbanpulse.maps.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
 import es.grupo18.urbanpulse.shared.error.ApiException;
-import static org.assertj.core.api.Assertions.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MapQueryTest {
     @ParameterizedTest
@@ -15,15 +18,14 @@ class MapQueryTest {
 
     @Test
     void requiresOrderedFiniteCoordinatesAndValidZoom() {
-        for (double[] b : new double[][] { {37,-5,36,-3}, {36,-3,37,-5}, {36,-5,36,-3},
-                {36,-5,37,-5}, {36,-181,37,-3}, {36,-5,37,181}, {36,-5,91,-3},
-                {36,Double.NaN,37,-3}, {36,-5,Double.NaN,-3}, {36,-5,37,Double.NaN} }) {
+        for (double[] b : new double[][] { { 37, -5, 36, -3 }, { 36, -3, 37, -5 }, { 36, -5, 36, -3 },
+                { 36, -5, 37, -5 }, { 36, -181, 37, -3 }, { 36, -5, 37, 181 }, { 36, -5, 91, -3 },
+                { 36, Double.NaN, 37, -3 }, { 36, -5, Double.NaN, -3 }, { 36, -5, 37, Double.NaN } }) {
             assertThatThrownBy(() -> new MapQuery(b[0], b[1], b[2], b[3], 8, null, null))
                     .isInstanceOf(ApiException.class);
         }
-        for (int zoom : new int[] {-1, 23}) {
-            assertThatThrownBy(() -> new MapQuery(36, -6, 38, -3, zoom, null, null))
-                    .isInstanceOf(ApiException.class);
+        for (int zoom : new int[] { -1, 23 }) {
+            assertThatThrownBy(() -> new MapQuery(36, -6, 38, -3, zoom, null, null)).isInstanceOf(ApiException.class);
         }
     }
 

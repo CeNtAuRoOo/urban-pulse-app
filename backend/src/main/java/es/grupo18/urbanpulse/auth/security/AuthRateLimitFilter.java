@@ -22,11 +22,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Filtro de seguridad que limita las peticiones de registro e inicio de sesión.
- * Aplica políticas independientes por dirección IP y correo electrónico,
- * evitando solicitudes excesivas antes de procesarlas en los controladores.
- * Limita además el cuerpo de los cinco POST de autenticación y los tres de
- * invitaciones; solo registro/login consumen tokens de estos buckets.
+ * Filtro de seguridad que limita las peticiones de registro e inicio de sesión. Aplica políticas independientes por
+ * dirección IP y correo electrónico, evitando solicitudes excesivas antes de procesarlas en los controladores. Limita
+ * además el cuerpo de los cinco POST de autenticación y los tres de invitaciones; solo registro/login consumen tokens
+ * de estos buckets.
  */
 @RequiredArgsConstructor
 public class AuthRateLimitFilter extends OncePerRequestFilter {
@@ -49,22 +48,17 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         return !"POST".equals(request.getMethod()) || (!path.equals("/api/v1/auth/login")
                 && !path.equals("/api/v1/auth/register") && !path.equals("/api/v1/users/me/password-changes")
                 && !path.equals("/api/v1/auth/email-verifications/confirm")
-                && !path.equals("/api/v1/auth/email-verifications/resend")
-                && !path.equals("/api/v1/staff-invitations")
+                && !path.equals("/api/v1/auth/email-verifications/resend") && !path.equals("/api/v1/staff-invitations")
                 && !path.equals("/api/v1/users/me/staff-invitation-redemptions")
                 && !path.matches("/api/v1/staff-invitations/[^/]+/revocations"));
     }
 
     /**
-     * Comprueba los límites de peticiones por IP y, en el login, por correo.
-     * Aplica un límite de 16 KiB al cuerpo de los POST de autenticación e
-     * invitaciones,
-     * exigiendo cuerpo vacío para reenvío de verificación y revocación de
-     * invitaciones.
-     * Las operaciones distintas de registro/login no consumen sus buckets;
-     * las cuotas de confirmación, reenvío y canje se aplican en filtros
-     * posteriores.
-     * Conserva el cuerpo de las peticiones admitidas para su lectura posterior.
+     * Comprueba los límites de peticiones por IP y, en el login, por correo. Aplica un límite de 16 KiB al cuerpo de
+     * los POST de autenticación e invitaciones, exigiendo cuerpo vacío para reenvío de verificación y revocación de
+     * invitaciones. Las operaciones distintas de registro/login no consumen sus buckets; las cuotas de confirmación,
+     * reenvío y canje se aplican en filtros posteriores. Conserva el cuerpo de las peticiones admitidas para su lectura
+     * posterior.
      *
      * @param request  petición HTTP recibida
      * @param response respuesta HTTP
@@ -128,8 +122,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Rechaza una petición que ha superado su límite, devolviendo HTTP 429
-     * e indicando el tiempo de espera mediante la cabecera Retry-After.
+     * Rechaza una petición que ha superado su límite, devolviendo HTTP 429 e indicando el tiempo de espera mediante la
+     * cabecera Retry-After.
      *
      * @param request  petición HTTP rechazada
      * @param response respuesta HTTP

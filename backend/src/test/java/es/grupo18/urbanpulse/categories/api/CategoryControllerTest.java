@@ -40,14 +40,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CategoryController.class)
-@Import({
-        es.grupo18.urbanpulse.shared.error.GlobalExceptionHandler.class,
-        SecurityConfig.class,
-        DatabaseJwtAuthenticationConverter.class,
-        RestAuthenticationEntryPoint.class,
-        RestAccessDeniedHandler.class,
-        ProblemDetailFactory.class
-})
+@Import({ es.grupo18.urbanpulse.shared.error.GlobalExceptionHandler.class, SecurityConfig.class,
+        DatabaseJwtAuthenticationConverter.class, RestAuthenticationEntryPoint.class, RestAccessDeniedHandler.class,
+        ProblemDetailFactory.class })
 @TestPropertySource("classpath:auth-test.properties")
 class CategoryControllerTest {
 
@@ -65,14 +60,12 @@ class CategoryControllerTest {
         mockMvc.perform(get(URL + "/" + ID).with(admin())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").hasJsonPath())
                 .andExpect(jsonPath("$.description").value(nullValue()));
-        mockMvc.perform(post(URL).with(admin()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Tráfico\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.description").hasJsonPath())
+        mockMvc.perform(
+                post(URL).with(admin()).contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Tráfico\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.description").hasJsonPath())
                 .andExpect(jsonPath("$.description").value(nullValue()));
         mockMvc.perform(patch(URL + "/" + ID).with(admin()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"active\":true}"))
-                .andExpect(status().isOk())
+                .content("{\"active\":true}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").hasJsonPath())
                 .andExpect(jsonPath("$.description").value(nullValue()));
     }
@@ -80,21 +73,17 @@ class CategoryControllerTest {
     @Test
     void verifiedCitizenCanReadInactiveDetail() throws Exception {
         when(categoryService.findById(ID)).thenReturn(new CategoryResponse(ID, "Tráfico", null, false));
-        mockMvc.perform(get(URL + "/" + ID).with(jwt().authorities(
-                new SimpleGrantedAuthority("ROLE_CITIZEN"), new SimpleGrantedAuthority("EMAIL_VERIFIED"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()))
-                .andExpect(jsonPath("$.name").value("Tráfico"))
-                .andExpect(jsonPath("$.active").value(false))
-                .andExpect(jsonPath("$.code").doesNotExist());
+        mockMvc.perform(get(URL + "/" + ID).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"),
+                new SimpleGrantedAuthority("EMAIL_VERIFIED")))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ID.toString())).andExpect(jsonPath("$.name").value("Tráfico"))
+                .andExpect(jsonPath("$.active").value(false)).andExpect(jsonPath("$.code").doesNotExist());
     }
 
     @Test
     void createNormalizesBeforeValidationAndAllowsDocumentedNulls() throws Exception {
         when(categoryService.create(any())).thenReturn(new CategoryResponse(ID, "ab", null, true));
         mockMvc.perform(post(URL).with(admin()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"  ab  \",\"description\":null,\"active\":null}"))
-                .andExpect(status().isCreated());
+                .content("{\"name\":\"  ab  \",\"description\":null,\"active\":null}")).andExpect(status().isCreated());
         verify(categoryService)
                 .create(new es.grupo18.urbanpulse.categories.dto.CreateCategoryRequest("ab", null, null));
     }
@@ -124,8 +113,8 @@ class CategoryControllerTest {
         }
         for (var request : List.of(post(URL), patch(URL + "/" + ID))) {
             mockMvc.perform(request.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"),
-                    new SimpleGrantedAuthority("EMAIL_VERIFIED"))))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                    new SimpleGrantedAuthority("EMAIL_VERIFIED")))).andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
         }
         org.mockito.Mockito.verifyNoInteractions(categoryService);
     }
@@ -215,50 +204,39 @@ class CategoryControllerTest {
     @Test
     void authenticatedUserCanListCategories() throws Exception {
         UUID id = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
-        when(categoryService.findAll()).thenReturn(List.of(
-                new CategoryResponse(id, "Mantenimiento Urbano", "Conservación", true)));
+        when(categoryService.findAll())
+                .thenReturn(List.of(new CategoryResponse(id, "Mantenimiento Urbano", "Conservación", true)));
 
         mockMvc.perform(get("/api/v1/categories")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].name").value("Mantenimiento Urbano"));
     }
 
     @Test
     void unauthenticatedWriteIsRejected() throws Exception {
-        mockMvc.perform(post("/api/v1/categories")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\"}"))
+        mockMvc.perform(
+                post("/api/v1/categories").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Movilidad\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void nonAdminWriteIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/categories")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\"}"))
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Movilidad\"}"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void adminCanCreateCategoryAndReceivesLocation() throws Exception {
         UUID id = UUID.fromString("0199f6de-0004-7000-8000-000000000004");
-        when(categoryService.create(any())).thenReturn(
-                new CategoryResponse(id, "Movilidad", null, true));
+        when(categoryService.create(any())).thenReturn(new CategoryResponse(id, "Movilidad", null, true));
 
         mockMvc.perform(post("/api/v1/categories")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Movilidad\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Movilidad\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/v1/categories/" + id))
                 .andExpect(jsonPath("$.active").value(true));
@@ -267,17 +245,12 @@ class CategoryControllerTest {
     @Test
     void patchRequiresAdminAndDelegatesToService() throws Exception {
         UUID id = UUID.fromString("0199f6de-0001-7000-8000-000000000001");
-        when(categoryService.patch(eq(id), any())).thenReturn(
-                new CategoryResponse(id, "Limpieza", null, false));
+        when(categoryService.patch(eq(id), any())).thenReturn(new CategoryResponse(id, "Limpieza", null, false));
 
         mockMvc.perform(patch("/api/v1/categories/{categoryId}", id)
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"active\":false}"))
-                .andExpect(status().isOk())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
         verify(categoryService).patch(eq(id), any());
@@ -286,12 +259,9 @@ class CategoryControllerTest {
     @Test
     void invalidRequestReturnsContractValidationStatus() throws Exception {
         mockMvc.perform(post("/api/v1/categories")
-                .with(jwt().authorities(
-                        new SimpleGrantedAuthority(
-                                DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                .with(jwt().authorities(new SimpleGrantedAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                         new SimpleGrantedAuthority("ROLE_ADMIN")))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"X\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"X\"}"))
                 .andExpect(status().isUnprocessableContent());
     }
 }

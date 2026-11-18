@@ -44,16 +44,15 @@ import tools.jackson.databind.json.JsonMapper;
 @PreAuthorize("hasAuthority('EMAIL_VERIFIED')")
 @RequiredArgsConstructor
 public class IncidentController {
+
     private final IncidentService service;
     private final JsonMapper mapper;
 
     /**
-     * Registra un aviso propio y devuelve su URI y el validador de su
-     * representación.
-     * La identidad procede del JWT; el servicio revalida actividad y verificación.
+     * Registra un aviso propio y devuelve su URI y el validador de su representación. La identidad procede del JWT; el
+     * servicio revalida actividad y verificación.
      *
-     * @throws ApiException 401/403 por cuenta no habilitada; 422 por datos
-     *                      inválidos
+     * @throws ApiException 401/403 por cuenta no habilitada; 422 por datos inválidos
      * @param jwt     identidad validada
      * @param request datos de alta
      * @return 201, Location y ETag
@@ -63,15 +62,13 @@ public class IncidentController {
             @RequestBody CreateIncidentRequest request) {
         IncidentDTO result = service.create(subject(jwt), version(jwt), request);
         return ResponseEntity.created(URI.create("/api/v1/incidents/" + result.id()))
-                .cacheControl(CacheControl.noStore())
-                .eTag(IncidentETags.format(mapper, result)).body(result);
+                .cacheControl(CacheControl.noStore()).eTag(IncidentETags.format(mapper, result)).body(result);
     }
 
     /**
      * Consulta administrativa con filtros inclusivos, sin aceptar filtros futuros.
      *
-     * @throws ApiException 400 por paginación/filtros inválidos o 403 sin rol
-     *                      global
+     * @throws ApiException 400 por paginación/filtros inválidos o 403 sin rol global
      * @param jwt         identidad validada con rol global
      * @param page        primera página 1
      * @param pageSize    tamaño por defecto 20
@@ -87,14 +84,10 @@ public class IncidentController {
     @GetMapping
     @PreAuthorize("hasAuthority('EMAIL_VERIFIED') and hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<IncidentPageDTO> list(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize,
-            @RequestParam(required = false) IncidentStatus status,
-            @RequestParam(required = false) UUID categoryId,
-            @RequestParam(required = false) Instant createdFrom,
-            @RequestParam(required = false) Instant createdTo,
-            @RequestParam(required = false) IncidentPriority priority,
-            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) IncidentStatus status, @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) Instant createdFrom, @RequestParam(required = false) Instant createdTo,
+            @RequestParam(required = false) IncidentPriority priority, @RequestParam(required = false) String sort,
             @RequestParam Map<String, String> parameters) {
         allowed(parameters,
                 Set.of("page", "pageSize", "status", "categoryId", "createdFrom", "createdTo", "priority", "sort"));
@@ -114,8 +107,7 @@ public class IncidentController {
      */
     @GetMapping("/mine")
     public ResponseEntity<IncidentPageDTO> mine(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam Map<String, String> parameters) {
         allowed(parameters, Set.of("page", "pageSize"));
         return ok(service.mine(subject(jwt), version(jwt), page, pageSize));
@@ -137,12 +129,11 @@ public class IncidentController {
     }
 
     /**
-     * Corrige REPORTED bajo una ETag fuerte obtenida del servidor. La presencia de
-     * categoría se conserva en el DTO; null desclasifica y omitirla no la cambia.
+     * Corrige REPORTED bajo una ETag fuerte obtenida del servidor. La presencia de categoría se conserva en el DTO;
+     * null desclasifica y omitirla no la cambia.
      *
-     * @throws ApiException 400 por If-Match malformado; 404 sin acceso; 428 sin
-     *                      precondición; 412 si cambió el detalle o hubo carrera;
-     *                      409 por estado; 422 por datos
+     * @throws ApiException 400 por If-Match malformado; 404 sin acceso; 428 sin precondición; 412 si cambió el detalle
+     *                      o hubo carrera; 409 por estado; 422 por datos
      * @param jwt        solicitante
      * @param incidentId recurso
      * @param headers    If-Match obligatorio
@@ -151,8 +142,7 @@ public class IncidentController {
      */
     @PatchMapping("/{incidentId}")
     public ResponseEntity<IncidentDTO> patch(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
-            @RequestHeader HttpHeaders headers,
-            @RequestBody UpdateIncidentRequest request) {
+            @RequestHeader HttpHeaders headers, @RequestBody UpdateIncidentRequest request) {
         String expected = IncidentETags.parse(headers.get(HttpHeaders.IF_MATCH));
         IncidentDTO result = service.patch(subject(jwt), version(jwt), incidentId, expected, request);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag(IncidentETags.format(mapper, result))
@@ -160,11 +150,9 @@ public class IncidentController {
     }
 
     /**
-     * Consulta eventos públicos del recurso autorizado, con orden temporal
-     * ascendente.
+     * Consulta eventos públicos del recurso autorizado, con orden temporal ascendente.
      *
-     * @throws ApiException 404 sin acceso; 400 por paginación o parámetros
-     *                      inválidos
+     * @throws ApiException 404 sin acceso; 400 por paginación o parámetros inválidos
      * @param jwt        solicitante
      * @param incidentId recurso
      * @param page       página
@@ -174,8 +162,7 @@ public class IncidentController {
      */
     @GetMapping("/{incidentId}/history")
     public ResponseEntity<HistoryPageDTO> history(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam Map<String, String> parameters) {
         allowed(parameters, Set.of("page", "pageSize"));
         return ok(service.history(subject(jwt), version(jwt), incidentId, page, pageSize));
@@ -197,8 +184,7 @@ public class IncidentController {
     }
 
     /**
-     * Rechaza filtros futuros y userId arbitrario en vez de aparentar que se
-     * aplicaron.
+     * Rechaza filtros futuros y userId arbitrario en vez de aparentar que se aplicaron.
      *
      * @param parameters parámetros recibidos
      * @param allowed    nombres admitidos por esta ruta

@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import es.grupo18.urbanpulse.shared.ratelimit.RateLimitProperties.Policy;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class InMemoryRateLimiterTest {
     private RateLimitProperties properties(Policy policy, int maxKeys) {

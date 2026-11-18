@@ -64,9 +64,8 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.type.LogicalType;
 
 /**
- * Configura los componentes de seguridad de la aplicación. Incluye
- * autenticación JWT, cifrado de contraseñas, validación JSON, CORS y protección
- * de las rutas mediante Spring Security.
+ * Configura los componentes de seguridad de la aplicación. Incluye autenticación JWT, cifrado de contraseñas,
+ * validación JSON, CORS y protección de las rutas mediante Spring Security.
  */
 @Configuration
 @EnableMethodSecurity
@@ -116,8 +115,8 @@ public class SecurityConfig {
     }
 
     /**
-     * Configura la verificación de firma, emisor y validez temporal de los JWT,
-     * así como la presencia y el formato de los claims necesarios.
+     * Configura la verificación de firma, emisor y validez temporal de los JWT, así como la presencia y el formato de
+     * los claims necesarios.
      *
      * @param key        clave secreta utilizada para verificar la firma
      * @param properties configuración del emisor JWT
@@ -136,8 +135,7 @@ public class SecurityConfig {
                 DatabaseJwtAuthenticationConverter.version(jwt);
 
                 if (jwt.getIssuedAt() == null || jwt.getExpiresAt() == null
-                        || jwt.getIssuedAt().isAfter(clock.instant())
-                        || !jwt.getExpiresAt().isAfter(clock.instant())
+                        || jwt.getIssuedAt().isAfter(clock.instant()) || !jwt.getExpiresAt().isAfter(clock.instant())
                         || !jwt.getExpiresAt().isAfter(jwt.getIssuedAt())) {
                     throw new IllegalArgumentException();
                 }
@@ -157,27 +155,24 @@ public class SecurityConfig {
     }
 
     /**
-     * Configura una deserialización JSON estricta para rechazar propiedades
-     * desconocidas, contenido adicional, claves duplicadas y conversiones
-     * implícitas de tipos no permitidas.
+     * Configura una deserialización JSON estricta para rechazar propiedades desconocidas, contenido adicional, claves
+     * duplicadas y conversiones implícitas de tipos no permitidas.
      *
      * @return personalizador de la configuración de Jackson
      */
     @Bean
     public JsonMapperBuilderCustomizer strictJson() {
-        return builder -> builder
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        return builder -> builder.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
                 .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
-                .withCoercionConfig(LogicalType.Enum, config -> config
-                        .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
-                        .setCoercion(CoercionInputShape.Float, CoercionAction.Fail))
-                .withCoercionConfig(LogicalType.Textual, config -> config
-                        .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
-                        .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
-                        .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail));
+                .withCoercionConfig(LogicalType.Enum,
+                        config -> config.setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+                                .setCoercion(CoercionInputShape.Float, CoercionAction.Fail))
+                .withCoercionConfig(LogicalType.Textual,
+                        config -> config.setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+                                .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
+                                .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail));
     }
 
     /**
@@ -200,14 +195,12 @@ public class SecurityConfig {
     }
 
     /**
-     * Configura la cadena de filtros de seguridad para aplicaciones web.
-     * Permite el registro y login públicos y exige JWT en el resto de rutas.
-     * Por defecto exige correo verificado; confirmación, reenvío y cambio de
-     * contraseña admiten la identidad limitada. Aplica CORS y rate limiting.
+     * Configura la cadena de filtros de seguridad para aplicaciones web. Permite el registro y login públicos y exige
+     * JWT en el resto de rutas. Por defecto exige correo verificado; confirmación, reenvío y cambio de contraseña
+     * admiten la identidad limitada. Aplica CORS y rate limiting.
      *
      * @param http          configurador de seguridad HTTP de Spring
-     * @param converter     conversor de JWT a autenticación con roles de la base de
-     *                      datos
+     * @param converter     conversor de JWT a autenticación con roles de la base de datos
      * @param entryPoint    gestor de errores de autenticación
      * @param deniedHandler gestor de errores por permisos insuficientes
      * @param limiter       limitador de peticiones en memoria
@@ -228,8 +221,8 @@ public class SecurityConfig {
         CorsFilter corsFilter = new CorsFilter(corsConfigurationSource(properties));
         corsFilter.setCorsProcessor(new DefaultCorsProcessor() {
             /**
-             * Rechaza una petición CORS no autorizada devolviendo una respuesta
-             * HTTP 403 con los detalles del error en formato ProblemDetail.
+             * Rechaza una petición CORS no autorizada devolviendo una respuesta HTTP 403 con los detalles del error en
+             * formato ProblemDetail.
              *
              * @param response respuesta HTTP en la que se escribirá el error
              * @throws IOException si se produce un error al escribir la respuesta
@@ -243,47 +236,39 @@ public class SecurityConfig {
             }
         });
 
-        return http.cors(cors -> cors.disable())
-                .addFilterAt(corsFilter, CorsFilter.class)
-                .csrf(csrf -> csrf.disable())
+        return http.cors(cors -> cors.disable()).addFilterAt(corsFilter, CorsFilter.class)
+                // La API utiliza JWT Bearer en Authorization, no cookies de sesión.
+                // Las peticiones REST no necesitan tokens CSRF.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .requestCache(cache -> cache.disable())
-                .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
-                .logout(logout -> logout.disable())
+                .requestCache(cache -> cache.disable()).formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
                         // Registro e inicio de sesión públicos
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/login")
-                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
 
                         // Operaciones de autenticación que requieren identidad
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/auth/email-verifications/confirm",
-                                "/api/v1/auth/email-verifications/resend",
-                                "/api/v1/users/me/password-changes")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/resend", "/api/v1/users/me/password-changes")
                         .authenticated()
 
                         // Consulta de catálogos: usuario con correo verificado
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/departments",
-                                "/api/v1/departments/**",
-                                "/api/v1/categories",
-                                "/api/v1/categories/**")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/departments", "/api/v1/departments/**",
+                                "/api/v1/categories", "/api/v1/categories/**")
                         .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
 
                         // Crear catálogos: administrador con correo verificado
                         .requestMatchers(HttpMethod.POST, "/api/v1/departments", "/api/v1/categories")
                         .access(AuthorizationManagers.allOf(
-                                AuthorityAuthorizationManager.hasAuthority(
-                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager
+                                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
                         // Modificar catálogos: administrador con correo verificado
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/departments/**", "/api/v1/categories/**")
                         .access(AuthorizationManagers.allOf(
-                                AuthorityAuthorizationManager.hasAuthority(
-                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager
+                                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
                         // Perfil propio antes de las rutas administrativas con UUID.
@@ -291,8 +276,8 @@ public class SecurityConfig {
                         .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED)
                         .requestMatchers("/api/v1/users", "/api/v1/users/*")
                         .access(AuthorizationManagers.allOf(
-                                AuthorityAuthorizationManager.hasAuthority(
-                                        DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
+                                AuthorityAuthorizationManager
+                                        .hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED),
                                 AuthorityAuthorizationManager.hasRole("ADMIN")))
 
                         // Colección administrativa exacta; /mine no coincide con este matcher.
@@ -306,13 +291,12 @@ public class SecurityConfig {
                         .anyRequest().hasAuthority(DatabaseJwtAuthenticationConverter.EMAIL_VERIFIED))
                 .exceptionHandling(
                         errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
-                .oauth2ResourceServer(resource -> resource
-                        .authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler)
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
+                .oauth2ResourceServer(resource -> resource.authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(deniedHandler).jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
                         .withObjectPostProcessor(new ObjectPostProcessor<BearerTokenAuthenticationFilter>() {
                             /**
-                             * Personaliza el filtro de autenticación Bearer para utilizar el
-                             * manejador de errores de autenticación configurado por la aplicación.
+                             * Personaliza el filtro de autenticación Bearer para utilizar el manejador de errores de
+                             * autenticación configurado por la aplicación.
                              *
                              * @param <O>    tipo concreto del filtro de autenticación Bearer
                              * @param filter filtro de autenticación que se desea configurar

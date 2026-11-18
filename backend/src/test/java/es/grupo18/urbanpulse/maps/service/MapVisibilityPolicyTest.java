@@ -2,13 +2,18 @@ package es.grupo18.urbanpulse.maps.service;
 
 import java.util.List;
 import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
+
 import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRepository.SecurityState;
 import es.grupo18.urbanpulse.shared.error.ApiException;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class MapVisibilityPolicyTest {
     private final UserRepository users = mock(UserRepository.class);

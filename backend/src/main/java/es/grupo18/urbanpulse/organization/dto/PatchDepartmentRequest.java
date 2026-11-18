@@ -12,19 +12,22 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 
 /**
- * Parche parcial: distingue propiedades omitidas de null explícito y rechaza el
- * objeto vacío.
+ * Parche parcial: distingue propiedades omitidas de null explícito y rechaza el objeto vacío.
  */
 @JsonAutoDetect(getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
 public class PatchDepartmentRequest {
+
     @CodePointLength(min = 2, max = 120)
     @Pattern(regexp = "(?s).*\\S.*")
     private String name;
+
     @Size(min = 2, max = 20)
     @Pattern(regexp = "[A-Za-z0-9_-]+")
     private String code;
+
     @CodePointLength(max = 500)
     private String description;
+
     private Boolean active;
 
     /**
@@ -34,8 +37,7 @@ public class PatchDepartmentRequest {
     }
 
     /**
-     * Construye un parche para uso interno; null representa omisión, mientras JSON
-     * null se rechaza en los setters.
+     * Construye un parche para uso interno; null representa omisión, mientras JSON null se rechaza en los setters.
      *
      * @param name        nombre opcional que se recorta
      * @param code        código opcional que se recorta

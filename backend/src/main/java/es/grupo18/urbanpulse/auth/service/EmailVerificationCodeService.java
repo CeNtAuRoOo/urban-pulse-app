@@ -17,11 +17,9 @@ import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 import es.grupo18.urbanpulse.shared.security.JwtProperties;
 
 /**
- * Servicio encargado de generar y proteger los códigos de verificación
- * del correo electrónico.
- * Utiliza SecureRandom para generar códigos numéricos y HMAC-SHA256
- * para calcular y comprobar sus hashes, asociándolos al usuario
- * y al propósito de verificación.
+ * Servicio encargado de generar y proteger los códigos de verificación del correo electrónico. Utiliza SecureRandom
+ * para generar códigos numéricos y HMAC-SHA256 para calcular y comprobar sus hashes, asociándolos al usuario y al
+ * propósito de verificación.
  */
 @Service
 public class EmailVerificationCodeService {
@@ -31,14 +29,12 @@ public class EmailVerificationCodeService {
     private final SecretKeySpec key;
 
     /**
-     * Inicializa el servicio con la clave secreta de verificación.
-     * Comprueba que la clave sea válida e independiente de la utilizada
-     * para firmar los tokens JWT.
+     * Inicializa el servicio con la clave secreta de verificación. Comprueba que la clave sea válida e independiente de
+     * la utilizada para firmar los tokens JWT.
      *
      * @param properties configuración de seguridad de la verificación
      * @param jwt        configuración de seguridad de los tokens JWT
-     * @throws IllegalArgumentException si la clave de verificación no es válida
-     *                                  o coincide con la clave JWT
+     * @throws IllegalArgumentException si la clave de verificación no es válida o coincide con la clave JWT
      */
     public EmailVerificationCodeService(EmailVerificationProperties properties, JwtProperties jwt) {
         byte[] bytes = properties.keyBytes();
@@ -51,8 +47,7 @@ public class EmailVerificationCodeService {
     }
 
     /**
-     * Genera un código de verificación aleatorio de exactamente
-     * ocho dígitos decimales ASCII mediante SecureRandom.
+     * Genera un código de verificación aleatorio de exactamente ocho dígitos decimales ASCII mediante SecureRandom.
      * Conserva los ceros iniciales del código generado.
      *
      * @return código numérico de verificación de ocho caracteres
@@ -62,9 +57,8 @@ public class EmailVerificationCodeService {
     }
 
     /**
-     * Calcula el HMAC-SHA256 de un código de verificación, asociándolo
-     * al identificador del usuario y al propósito de verificación.
-     * Valida previamente que el código tenga exactamente ocho dígitos ASCII.
+     * Calcula el HMAC-SHA256 de un código de verificación, asociándolo al identificador del usuario y al propósito de
+     * verificación. Valida previamente que el código tenga exactamente ocho dígitos ASCII.
      *
      * @param userId identificador del usuario propietario del código
      * @param code   código numérico de verificación en texto plano
@@ -94,15 +88,13 @@ public class EmailVerificationCodeService {
     }
 
     /**
-     * Comprueba si un código de verificación coincide con el HMAC esperado.
-     * Calcula el HMAC asociado al usuario y utiliza una comparación
-     * de bytes resistente a diferencias temporales.
+     * Comprueba si un código de verificación coincide con el HMAC esperado. Calcula el HMAC asociado al usuario y
+     * utiliza una comparación de bytes resistente a diferencias temporales.
      *
      * @param userId   identificador del usuario propietario del código
      * @param code     código de verificación que se desea comprobar
      * @param expected HMAC almacenado con el que se realizará la comparación
-     * @return true si el código coincide con el HMAC esperado; false en caso
-     *         contrario
+     * @return true si el código coincide con el HMAC esperado; false en caso contrario
      * @throws IllegalArgumentException si el código no tiene el formato requerido
      */
     public boolean matches(UUID userId, String code, byte[] expected) {

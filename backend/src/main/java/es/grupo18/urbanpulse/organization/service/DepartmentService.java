@@ -18,8 +18,7 @@ import es.grupo18.urbanpulse.organization.model.Department;
 import es.grupo18.urbanpulse.organization.repository.DepartmentRepository;
 
 /**
- * Administración transaccional del catálogo municipal con normalización y
- * control de concurrencia.
+ * Administración transaccional del catálogo municipal con normalización y control de concurrencia.
  */
 @Service
 public class DepartmentService {
@@ -42,9 +41,7 @@ public class DepartmentService {
      */
     @Transactional(readOnly = true)
     public List<DepartmentResponse> findAll() {
-        return departmentRepository.findAllByOrderByNameAsc().stream()
-                .map(this::toResponse)
-                .toList();
+        return departmentRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     /**
@@ -65,8 +62,7 @@ public class DepartmentService {
      * @param request alta validada; active omitido o null equivale a true
      * @return unidad persistida con UUIDv7
      * @throws DuplicateDepartmentException si nombre o código ya están ocupados
-     * @throws InvalidDepartmentException   si la longitud del nombre normalizado no
-     *                                      es válida
+     * @throws InvalidDepartmentException   si la longitud del nombre normalizado no es válida
      */
     @Transactional
     public DepartmentResponse create(CreateDepartmentRequest request) {
@@ -80,17 +76,14 @@ public class DepartmentService {
     }
 
     /**
-     * Bloquea la unidad hasta finalizar la transacción para conservar cambios
-     * concurrentes y coordinarse con
+     * Bloquea la unidad hasta finalizar la transacción para conservar cambios concurrentes y coordinarse con
      * Invitaciones.
      *
      * @param id      UUID de departamento
-     * @param request parche validado; null en la representación Java significa
-     *                campo omitido
+     * @param request parche validado; null en la representación Java significa campo omitido
      * @return proyección actualizada; desactivar conserva historial y pertenencias
      * @throws DepartmentNotFoundException  si no existe
-     * @throws DuplicateDepartmentException si el nombre o código está ocupado por
-     *                                      otra unidad
+     * @throws DuplicateDepartmentException si el nombre o código está ocupado por otra unidad
      */
     @Transactional
     public DepartmentResponse patch(UUID id, PatchDepartmentRequest request) {
@@ -112,24 +105,20 @@ public class DepartmentService {
     }
 
     /**
-     * Fuerza el flush para detectar carreras SQL; solo traduce 23505 de los dos
-     * índices conocidos a
+     * Fuerza el flush para detectar carreras SQL; solo traduce 23505 de los dos índices conocidos a
      * DuplicateDepartmentException.
      *
      * @param department entidad que se guarda
      * @return proyección persistida
-     * @throws DuplicateDepartmentException    si un índice único conocido detecta
-     *                                         una carrera
-     * @throws DataIntegrityViolationException para las demás infracciones de
-     *                                         integridad
+     * @throws DuplicateDepartmentException    si un índice único conocido detecta una carrera
+     * @throws DataIntegrityViolationException para las demás infracciones de integridad
      */
     private DepartmentResponse persist(Department department) {
         try {
             return toResponse(departmentRepository.saveAndFlush(department));
         } catch (DataIntegrityViolationException exception) {
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-                if (cause instanceof ConstraintViolationException violation
-                        && "23505".equals(violation.getSQLState())
+                if (cause instanceof ConstraintViolationException violation && "23505".equals(violation.getSQLState())
                         && Set.of("uk_departments_name_normalized", "uk_departments_code_normalized")
                                 .contains(violation.getConstraintName() == null ? "" : violation.getConstraintName())) {
                     throw new DuplicateDepartmentException("nombre o código", "indicado");
@@ -140,21 +129,18 @@ public class DepartmentService {
     }
 
     /**
-     * Resuelve una entidad sin solicitar bloqueo de escritura; lanza
-     * DepartmentNotFoundException si no existe.
+     * Resuelve una entidad sin solicitar bloqueo de escritura; lanza DepartmentNotFoundException si no existe.
      *
      * @param id UUID solicitado
      * @return entidad existente
      * @throws DepartmentNotFoundException si no existe la unidad
      */
     private Department findEntity(UUID id) {
-        return departmentRepository.findById(id)
-                .orElseThrow(() -> new DepartmentNotFoundException(id));
+        return departmentRepository.findById(id).orElseThrow(() -> new DepartmentNotFoundException(id));
     }
 
     /**
-     * Detecta duplicados anticipadamente; los índices SQL siguen protegiendo las
-     * carreras concurrentes.
+     * Detecta duplicados anticipadamente; los índices SQL siguen protegiendo las carreras concurrentes.
      *
      * @param name nombre normalizado
      * @param code código normalizado
@@ -162,15 +148,13 @@ public class DepartmentService {
      * @throws DuplicateDepartmentException si otra unidad ocupa el nombre o código
      */
     private void assertUnique(String name, String code, UUID id) {
-        boolean duplicatedName = id == null
-                ? departmentRepository.existsByNameIgnoreCase(name)
+        boolean duplicatedName = id == null ? departmentRepository.existsByNameIgnoreCase(name)
                 : departmentRepository.existsByNameIgnoreCaseAndIdNot(name, id);
         if (duplicatedName) {
             throw new DuplicateDepartmentException("nombre", name);
         }
 
-        boolean duplicatedCode = id == null
-                ? departmentRepository.existsByCodeIgnoreCase(code)
+        boolean duplicatedCode = id == null ? departmentRepository.existsByCodeIgnoreCase(code)
                 : departmentRepository.existsByCodeIgnoreCaseAndIdNot(code, id);
         if (duplicatedCode) {
             throw new DuplicateDepartmentException("código", code);
@@ -178,8 +162,7 @@ public class DepartmentService {
     }
 
     /**
-     * Recorta los extremos sin alterar espacios interiores; admite de 2 a 120
-     * puntos de código Unicode.
+     * Recorta los extremos sin alterar espacios interiores; admite de 2 a 120 puntos de código Unicode.
      *
      * @param name nombre no nulo validado en la entrada
      * @return nombre normalizado
@@ -211,11 +194,7 @@ public class DepartmentService {
      * @return proyección pública
      */
     private DepartmentResponse toResponse(Department department) {
-        return new DepartmentResponse(
-                department.getId(),
-                department.getName(),
-                department.getCode(),
-                department.getDescription(),
-                department.isActive());
+        return new DepartmentResponse(department.getId(), department.getName(), department.getCode(),
+                department.getDescription(), department.isActive());
     }
 }

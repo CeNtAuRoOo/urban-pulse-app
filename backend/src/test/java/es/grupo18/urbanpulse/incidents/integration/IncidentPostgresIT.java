@@ -31,8 +31,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.audit.model.AuditEvent;
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
@@ -60,6 +58,7 @@ import es.grupo18.urbanpulse.processing.repository.PriorityDecisionRepository;
 import es.grupo18.urbanpulse.processing.repository.StatusChangeRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -143,29 +142,28 @@ class IncidentPostgresIT {
     void etagTracksChangesToProjectedResources() throws Exception {
         var owner = account(null);
         var admin = account("ADMIN");
-        var categoryResponse = mvc.perform(post("/api/v1/categories")
-                .header("Authorization", bearer(admin)).contentType(APPLICATION_JSON)
-                .content("{\"name\":\"Categoría " + UUID.randomUUID() + "\"}"))
+        var categoryResponse = mvc
+                .perform(post("/api/v1/categories").header("Authorization", bearer(admin)).contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"Categoría " + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse();
         UUID category = UUID.fromString(json.readTree(categoryResponse.getContentAsString()).get("id").asString());
         var incident = service.create(owner.user().id(), 0, new CreateIncidentRequest("Aviso válido",
                 "Descripción del aviso", new CoordinatesDTO(0.0, 0.0, null), category));
         String path = URL + "/" + incident.id();
-        var before = mvc.perform(get(path).header("Authorization", bearer(owner)))
-                .andExpect(status().isOk()).andReturn().getResponse();
-        mvc.perform(patch("/api/v1/users/me").header("Authorization", bearer(owner))
-                .contentType(APPLICATION_JSON).content("{\"displayName\":\"Nombre actualizado\"}"))
-                .andExpect(status().isOk());
-        var renamed = mvc.perform(get(path).header("Authorization", bearer(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.reporter.displayName").value("Nombre actualizado"))
+        var before = mvc.perform(get(path).header("Authorization", bearer(owner))).andExpect(status().isOk())
                 .andReturn().getResponse();
-        mvc.perform(patch("/api/v1/categories/" + category).header("Authorization", bearer(admin))
-                .contentType(APPLICATION_JSON).content("{\"name\":\"Renombrada " + category
-                        + "\",\"description\":\"Descripción nueva\",\"active\":false}"))
+        mvc.perform(patch("/api/v1/users/me").header("Authorization", bearer(owner)).contentType(APPLICATION_JSON)
+                .content("{\"displayName\":\"Nombre actualizado\"}")).andExpect(status().isOk());
+        var renamed = mvc.perform(get(path).header("Authorization", bearer(owner))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.reporter.displayName").value("Nombre actualizado")).andReturn().getResponse();
+        mvc.perform(
+                patch("/api/v1/categories/" + category).header("Authorization", bearer(admin))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"Renombrada " + category
+                                + "\",\"description\":\"Descripción nueva\",\"active\":false}"))
                 .andExpect(status().isOk());
-        var recategorized = mvc.perform(get(path).header("Authorization", bearer(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.category.active").value(false))
-                .andReturn().getResponse();
+        var recategorized = mvc.perform(get(path).header("Authorization", bearer(owner))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.category.active").value(false)).andReturn().getResponse();
         org.assertj.core.api.SoftAssertions.assertSoftly(check -> {
             check.assertThat(renamed.getContentAsByteArray()).isNotEqualTo(before.getContentAsByteArray());
             check.assertThat(renamed.getHeader("ETag")).isNotEqualTo(before.getHeader("ETag"));
@@ -177,14 +175,13 @@ class IncidentPostgresIT {
                     .contentType(APPLICATION_JSON).content("{\"title\":\"Otro título\"}"))
                     .andExpect(status().isPreconditionFailed());
         }
-        mvc.perform(patch("/api/v1/users/me").header("Authorization", bearer(owner))
-                .contentType(APPLICATION_JSON).content("{\"displayName\":\"Nombre actualizado\"}"))
-                .andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/users/me").header("Authorization", bearer(owner)).contentType(APPLICATION_JSON)
+                .content("{\"displayName\":\"Nombre actualizado\"}")).andExpect(status().isOk());
         mvc.perform(get(path).header("Authorization", bearer(owner))).andExpect(status().isOk())
                 .andExpect(header().string("ETag", recategorized.getHeader("ETag")));
-        mvc.perform(patch(path).header("Authorization", bearer(owner))
-                .header("If-Match", recategorized.getHeader("ETag")).contentType(APPLICATION_JSON)
-                .content("{\"title\":\"Aviso válido\"}"))
+        mvc.perform(
+                patch(path).header("Authorization", bearer(owner)).header("If-Match", recategorized.getHeader("ETag"))
+                        .contentType(APPLICATION_JSON).content("{\"title\":\"Aviso válido\"}"))
                 .andExpect(status().isOk()).andExpect(header().string("ETag", recategorized.getHeader("ETag")));
         assertThat(service.get(owner.user().id(), 0, incident.id()).version()).isZero();
     }
@@ -195,8 +192,9 @@ class IncidentPostgresIT {
         String unicodeBody = BODY.replace("Pavimento deteriorado", "🚦".repeat(5000));
         int bytes = unicodeBody.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
         String boundary = unicodeBody + " ".repeat(65_536 - bytes);
-        var created = mvc.perform(post(URL).header("Authorization", bearer(owner)).contentType(APPLICATION_JSON)
-                .content(boundary)).andExpect(status().isCreated()).andReturn().getResponse();
+        var created = mvc.perform(
+                post(URL).header("Authorization", bearer(owner)).contentType(APPLICATION_JSON).content(boundary))
+                .andExpect(status().isCreated()).andReturn().getResponse();
         String path = created.getHeader("Location");
         String escaped = "{\"description\":\"" + "\\uD83D\\uDEA6".repeat(5000) + "\"}";
         mvc.perform(patch(path).header("Authorization", bearer(owner)).header("If-Match", created.getHeader("ETag"))
@@ -208,8 +206,9 @@ class IncidentPostgresIT {
         mvc.perform(patch(path).header("Authorization", bearer(owner)).header("If-Match", created.getHeader("ETag"))
                 .contentType(APPLICATION_JSON).content(patchBody + " ")).andExpect(status().is(413))
                 .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"));
-        mvc.perform(post(URL).header("Authorization", bearer(owner)).contentType(APPLICATION_JSON)
-                .content(boundary + " ")).andExpect(status().is(413));
+        mvc.perform(
+                post(URL).header("Authorization", bearer(owner)).contentType(APPLICATION_JSON).content(boundary + " "))
+                .andExpect(status().is(413));
     }
 
     @Test
@@ -239,8 +238,8 @@ class IncidentPostgresIT {
                 .andExpect(jsonPath("$.title").value("Bache grande"))
                 .andExpect(jsonPath("$.reporter.id").value(owner.user().id().toString()))
                 .andExpect(jsonPath("$.reporter.email").doesNotExist())
-                .andExpect(jsonPath("$.reporter.roles").doesNotExist())
-                .andExpect(jsonPath("$.category").doesNotExist()).andExpect(jsonPath("$.priority").doesNotExist())
+                .andExpect(jsonPath("$.reporter.roles").doesNotExist()).andExpect(jsonPath("$.category").doesNotExist())
+                .andExpect(jsonPath("$.priority").doesNotExist())
                 .andExpect(jsonPath("$.attachmentCount").doesNotExist())
                 .andExpect(jsonPath("$.contextStatus").doesNotExist())
                 .andExpect(jsonPath("$.location.geocodingStatus").doesNotExist()).andReturn().getResponse();
@@ -248,8 +247,10 @@ class IncidentPostgresIT {
         UUID id = UUID.fromString(json.readTree(response.getContentAsString()).get("id").asString());
         assertThat(id.version()).isEqualTo(7);
         String initialTag = response.getHeader("ETag");
-        assertThat(initialTag).isEqualTo("\"sha256-" + java.util.HexFormat.of().formatHex(
-                java.security.MessageDigest.getInstance("SHA-256").digest(response.getContentAsByteArray())) + "\"");
+        assertThat(initialTag).isEqualTo("\"sha256-"
+                + java.util.HexFormat.of().formatHex(
+                        java.security.MessageDigest.getInstance("SHA-256").digest(response.getContentAsByteArray()))
+                + "\"");
         mvc.perform(get(location).header("Authorization", bearer(owner))).andExpect(status().isOk())
                 .andExpect(header().string("ETag", initialTag));
         mvc.perform(get(location).header("Authorization", bearer(owner)).accept("application/json;charset=UTF-16"))
@@ -264,18 +265,17 @@ class IncidentPostgresIT {
                 .contentType(APPLICATION_JSON).content("{\"title\":\"Bache corregido\"}"))
                 .andExpect(status().isPreconditionFailed());
         mvc.perform(patch(location).header("Authorization", bearer(owner)).header("If-Match", updatedTag)
-                .contentType(APPLICATION_JSON).content("{\"title\":\" Bache corregido \"}"))
-                .andExpect(status().isOk()).andExpect(header().string("ETag", updatedTag));
-        mvc.perform(get(location + "/history").header("Authorization", bearer(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.pagination.totalItems").value(2))
+                .contentType(APPLICATION_JSON).content("{\"title\":\" Bache corregido \"}")).andExpect(status().isOk())
+                .andExpect(header().string("ETag", updatedTag));
+        mvc.perform(get(location + "/history").header("Authorization", bearer(owner))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.pagination.totalItems").value(2))
                 .andExpect(jsonPath("$.data[0].eventType").value("CREATED"))
                 .andExpect(jsonPath("$.data[1].eventType").value("UPDATED"));
         assertThat(count("status_changes", "incident_id", id)).isZero();
         assertThat(count("incident_reviews", "incident_id", id)).isZero();
         assertThat(count("priority_decisions", "incident_id", id)).isZero();
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class))
-                .containsExactly("1");
+                String.class)).containsExactly("1");
     }
 
     @Test
@@ -290,21 +290,22 @@ class IncidentPostgresIT {
         patch.setTitle("Otro título");
         assertThat(
                 service.patch(owner.user().id(), 0, created.id(), tag(owner, created.id()), patch).category().active())
-                .isFalse();
+                        .isFalse();
         patch.setCategoryId(category);
         assertThatThrownBy(() -> service.patch(owner.user().id(), 0, created.id(), tag(owner, created.id()), patch))
                 .isInstanceOf(ApiException.class);
         mvc.perform(patch(URL + "/" + created.id()).header("Authorization", bearer(owner))
-                .header("If-Match", tag(owner, created.id()))
-                .contentType(APPLICATION_JSON)
+                .header("If-Match", tag(owner, created.id())).contentType(APPLICATION_JSON)
                 .content("{\"categoryId\":null,\"coordinates\":{\"latitude\":90,\"longitude\":-180}}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.category").doesNotExist())
                 .andExpect(jsonPath("$.location.coordinates.accuracyMeters").doesNotExist());
         for (UUID invalid : List.of(category, UUID.randomUUID())) {
-            assertThatThrownBy(() -> service.create(owner.user().id(), 0,
-                    new CreateIncidentRequest("Aviso válido", "Descripción del aviso",
-                            new CoordinatesDTO(0.0, 0.0, null), invalid)))
-                    .isInstanceOf(ApiException.class);
+            assertThatThrownBy(
+                    () -> service
+                            .create(owner.user().id(), 0,
+                                    new CreateIncidentRequest("Aviso válido", "Descripción del aviso",
+                                            new CoordinatesDTO(0.0, 0.0, null), invalid)))
+                                                    .isInstanceOf(ApiException.class);
         }
     }
 
@@ -318,8 +319,8 @@ class IncidentPostgresIT {
         mvc.perform(get(URL).header("Authorization", bearer(owner))).andExpect(status().isForbidden());
         for (String role : List.of("TECHNICIAN", "DEPARTMENT_COORDINATOR")) {
             UUID department = jdbc.queryForObject("insert into departments(name,code) values (?,?) returning id",
-                    UUID.class,
-                    UUID.randomUUID().toString(), "D" + UUID.randomUUID().toString().substring(0, 10).toUpperCase());
+                    UUID.class, UUID.randomUUID().toString(),
+                    "D" + UUID.randomUUID().toString().substring(0, 10).toUpperCase());
             jdbc.update(
                     "insert into department_memberships(id,user_id,department_id,role_code,joined_at) values (uuidv7(),?,?,?,now())",
                     other.user().id(), department, role);
@@ -329,8 +330,7 @@ class IncidentPostgresIT {
                     .andExpect(jsonPath("$.code").value("INCIDENT_NOT_FOUND"));
         }
         mvc.perform(patch(path).header("Authorization", bearer(other)).contentType(APPLICATION_JSON)
-                .content("{\"title\":\"Cambio ajeno\"}"))
-                .andExpect(status().isNotFound());
+                .content("{\"title\":\"Cambio ajeno\"}")).andExpect(status().isNotFound());
         mvc.perform(get(URL).header("Authorization", bearer(other))).andExpect(status().isForbidden());
         mvc.perform(get(URL + "/mine").header("Authorization", bearer(other))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.pagination.totalItems").value(0));
@@ -339,10 +339,8 @@ class IncidentPostgresIT {
             mvc.perform(get(path).header("Authorization", bearer(staff))).andExpect(status().isOk());
             mvc.perform(get(path + "/history").header("Authorization", bearer(staff))).andExpect(status().isOk());
             mvc.perform(get(URL).header("Authorization", bearer(staff))).andExpect(status().isOk());
-            assertThat(service
-                    .patch(staff.user().id(), 0, incident.id(), tag(staff, incident.id()),
-                            patchTitle("Edición " + role))
-                    .title()).contains(role);
+            assertThat(service.patch(staff.user().id(), 0, incident.id(), tag(staff, incident.id()),
+                    patchTitle("Edición " + role)).title()).contains(role);
             incident = service.get(owner.user().id(), 0, incident.id());
         }
         jdbc.update("update users set email_verified=false where id=?", owner.user().id());
@@ -358,17 +356,15 @@ class IncidentPostgresIT {
         var incident = create(owner);
         String path = URL + "/" + incident.id();
         mvc.perform(patch(path).header("Authorization", bearer(owner)).contentType(APPLICATION_JSON)
-                .content("{\"title\":\"Cambio válido\"}"))
-                .andExpect(status().is(428));
+                .content("{\"title\":\"Cambio válido\"}")).andExpect(status().is(428));
         for (String tag : List.of("*", "W/\"0\"", "0", "\"0\",\"1\"", "\"9223372036854775808\"")) {
             mvc.perform(patch(path).header("Authorization", bearer(owner)).header("If-Match", tag)
                     .contentType(APPLICATION_JSON).content("{\"title\":\"Cambio válido\"}"))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_IF_MATCH"));
         }
         mvc.perform(patch(path).header("Authorization", bearer(owner))
-                .header("If-Match", "\"sha256-" + "0".repeat(64) + "\"")
-                .contentType(APPLICATION_JSON).content("{\"title\":\"Cambio válido\"}"))
-                .andExpect(status().isPreconditionFailed());
+                .header("If-Match", "\"sha256-" + "0".repeat(64) + "\"").contentType(APPLICATION_JSON)
+                .content("{\"title\":\"Cambio válido\"}")).andExpect(status().isPreconditionFailed());
         String currentTag = tag(owner, incident.id());
         mvc.perform(patch(path).header("Authorization", bearer(owner)).header("If-Match", currentTag, currentTag)
                 .contentType(APPLICATION_JSON).content("{\"title\":\"Cambio válido\"}"))
@@ -385,19 +381,17 @@ class IncidentPostgresIT {
         String path = URL + "/" + create(owner).id();
         for (String body : List.of("{\"title\":null}", "{\"description\":null}", "{\"coordinates\":null}",
                 "{\"title\":3}", "{\"title\":\"Primero\",\"title\":\"Segundo\"}", "{} {}", "null")) {
-            mvc.perform(
-                    patch(path).header("Authorization", bearer(owner)).header("If-Match", tag(owner, incidentId(path)))
-                            .contentType(APPLICATION_JSON).content(body))
+            mvc.perform(patch(path).header("Authorization", bearer(owner))
+                    .header("If-Match", tag(owner, incidentId(path))).contentType(APPLICATION_JSON).content(body))
                     .andExpect(status().isBadRequest());
         }
         for (String body : List.of("{}", "{\"status\":\"RESOLVED\"}", "{\"reporter\":null}", "{\"priority\":null}",
-                "{\"department\":null}", "{\"categoryPresent\":true}", "{\"title\":\"abc\"}",
-                "{\"coordinates\":{}}", "{\"coordinates\":{\"latitude\":91,\"longitude\":0}}",
+                "{\"department\":null}", "{\"categoryPresent\":true}", "{\"title\":\"abc\"}", "{\"coordinates\":{}}",
+                "{\"coordinates\":{\"latitude\":91,\"longitude\":0}}",
                 "{\"coordinates\":{\"latitude\":0,\"longitude\":0,\"accuracyMeters\":-1}}",
                 "{\"coordinates\":{\"latitude\":0,\"longitude\":0,\"unknown\":1}}")) {
-            mvc.perform(
-                    patch(path).header("Authorization", bearer(owner)).header("If-Match", tag(owner, incidentId(path)))
-                            .contentType(APPLICATION_JSON).content(body))
+            mvc.perform(patch(path).header("Authorization", bearer(owner))
+                    .header("If-Match", tag(owner, incidentId(path))).contentType(APPLICATION_JSON).content(body))
                     .andExpect(status().isUnprocessableContent());
         }
         for (String body : List.of("{}", BODY.replace("Bache grande", "a"), BODY.replace("36.7", "null"),
@@ -444,12 +438,11 @@ class IncidentPostgresIT {
         assertThat(service.list(admin.user().id(), 0, 1, 20, null, category, null, null).data()).hasSize(2);
         assertThat(service.list(admin.user().id(), 0, 1, 20, IncidentStatus.REPORTED, category,
                 Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-01T00:00:00Z")).data())
-                .extracting(item -> item.id()).containsExactly(first.id());
-        assertThat(service.list(admin.user().id(), 0, 1, 20, IncidentStatus.VALIDATED, category,
-                null, Instant.parse("2026-01-01T00:00:00Z")).data()).isEmpty();
-        assertThat(service.list(admin.user().id(), 0, 1, 20, null, null,
-                Instant.parse("2026-01-02T00:00:00Z"), null).data())
-                .extracting(item -> item.id()).containsExactly(control.id());
+                        .extracting(item -> item.id()).containsExactly(first.id());
+        assertThat(service.list(admin.user().id(), 0, 1, 20, IncidentStatus.VALIDATED, category, null,
+                Instant.parse("2026-01-01T00:00:00Z")).data()).isEmpty();
+        assertThat(service.list(admin.user().id(), 0, 1, 20, null, null, Instant.parse("2026-01-02T00:00:00Z"), null)
+                .data()).extracting(item -> item.id()).containsExactly(control.id());
         for (String query : List.of("page=0", "pageSize=101", "page=2147483647&pageSize=100",
                 "userId=" + admin.user().id())) {
             mvc.perform(get(URL + "/mine?" + query).header("Authorization", bearer(owner)))
@@ -486,8 +479,7 @@ class IncidentPostgresIT {
     }
 
     /**
-     * PATCH municipal conserva auditoría real y oculta al empleado incluso tras
-     * cambios de cuenta.
+     * PATCH municipal conserva auditoría real y oculta al empleado incluso tras cambios de cuenta.
      */
     @Test
     void municipalCorrectionsNeverExposeEmployeeInPublicHistory() throws Exception {
@@ -506,9 +498,9 @@ class IncidentPostgresIT {
             mvc.perform(patch(path).header("Authorization", bearer(employee)).header("If-Match", beforeTag)
                     .contentType(APPLICATION_JSON).content("{\"title\":\"Intento obsoleto\"}"))
                     .andExpect(status().isPreconditionFailed());
-            assertThat(jdbc.queryForObject("select actor_user_id from audit_events where resource_id=? "
-                    + "and action='INCIDENT_UPDATED'", UUID.class, incident.id().toString()))
-                    .isEqualTo(employee.user().id());
+            assertThat(jdbc.queryForObject(
+                    "select actor_user_id from audit_events where resource_id=? " + "and action='INCIDENT_UPDATED'",
+                    UUID.class, incident.id().toString())).isEqualTo(employee.user().id());
             for (boolean changed : List.of(false, true)) {
                 if (changed) {
                     jdbc.update("update users set active=false,display_name=? where id=?", renamed,
@@ -519,8 +511,7 @@ class IncidentPostgresIT {
                         .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                         .andExpect(jsonPath("$.data[0].actor.id").value(owner.user().id().toString()))
                         .andExpect(jsonPath("$.data[1].eventType").value("UPDATED"))
-                        .andExpect(jsonPath("$.data[1].details.version").value("1"))
-                        .andReturn().getResponse();
+                        .andExpect(jsonPath("$.data[1].details.version").value("1")).andReturn().getResponse();
                 assertThat(json.readTree(response.getContentAsString()).get("data").get(1).has("actor")).isFalse();
                 assertThat(response.getContentAsString()).doesNotContain(employee.user().id().toString(), employeeName,
                         renamed);
@@ -532,11 +523,10 @@ class IncidentPostgresIT {
                     .andExpect(status().isOk()).andExpect(jsonPath("$.pagination.totalItems").value(3))
                     .andExpect(jsonPath("$.data[0].eventType").value("UPDATED"))
                     .andExpect(jsonPath("$.data[0].actor.id").value(owner.user().id().toString()))
-                    .andExpect(jsonPath("$.data[0].details.version").value("2"))
-                    .andReturn().getResponse();
-            assertThat(Instant.parse(json.readTree(own.getContentAsString()).get("data").get(0)
-                    .get("occurredAt").asString()))
-                    .isEqualTo(service.get(owner.user().id(), 0, incident.id()).updatedAt());
+                    .andExpect(jsonPath("$.data[0].details.version").value("2")).andReturn().getResponse();
+            assertThat(Instant
+                    .parse(json.readTree(own.getContentAsString()).get("data").get(0).get("occurredAt").asString()))
+                            .isEqualTo(service.get(owner.user().id(), 0, incident.id()).updatedAt());
             var stranger = account(null);
             for (UUID hidden : List.of(incident.id(), UUID.randomUUID())) {
                 mvc.perform(get(URL + "/" + hidden + "/history").header("Authorization", bearer(stranger)))
@@ -546,8 +536,7 @@ class IncidentPostgresIT {
     }
 
     /**
-     * La proyección no consulta permisos ni carga al informante por cada fila de la
-     * página.
+     * La proyección no consulta permisos ni carga al informante por cada fila de la página.
      */
     @Test
     void publicHistoryQueryCountDoesNotGrowWithDistinctEmployeeActors() {
@@ -555,9 +544,9 @@ class IncidentPostgresIT {
         var incident = create(owner);
         for (int i = 0; i < 10; i++) {
             var employee = account("OPERATOR");
-            new TransactionTemplate(transactions).executeWithoutResult(tx -> audit.saveAndFlush(new AuditEvent(
-                    em.getReference(User.class, employee.user().id()), "INCIDENT_UPDATED", "INCIDENT",
-                    incident.id().toString(), Map.of("version", "1"), incident.createdAt())));
+            new TransactionTemplate(transactions).executeWithoutResult(tx -> audit
+                    .saveAndFlush(new AuditEvent(em.getReference(User.class, employee.user().id()), "INCIDENT_UPDATED",
+                            "INCIDENT", incident.id().toString(), Map.of("version", "1"), incident.createdAt())));
         }
         var statistics = em.getEntityManagerFactory().unwrap(org.hibernate.SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
@@ -585,8 +574,7 @@ class IncidentPostgresIT {
         try {
             assertThatThrownBy(() -> create(owner)).isInstanceOf(DataIntegrityViolationException.class);
             assertThatThrownBy(() -> service.patch(owner.user().id(), 0, incident.id(), tag(owner, incident.id()),
-                    patchTitle("Otro título")))
-                    .isInstanceOf(DataIntegrityViolationException.class);
+                    patchTitle("Otro título"))).isInstanceOf(DataIntegrityViolationException.class);
         } finally {
             jdbc.execute("alter table audit_events drop constraint test_fail_incident_audit");
         }
@@ -650,9 +638,8 @@ class IncidentPostgresIT {
                     .isEqualTo(PrioritySource.MANUAL);
         });
         for (String change : List.of("latitude=91", "longitude=-181", "latitude='NaN'", "accuracy_meters='Infinity'",
-                "accuracy_meters=-1",
-                "status='INVALID'", "priority='INVALID'", "title=null", "title='abcd'", "title=' texto con bordes '",
-                "description=repeat('x',5001)", "version=-1",
+                "accuracy_meters=-1", "status='INVALID'", "priority='INVALID'", "title=null", "title='abcd'",
+                "title=' texto con bordes '", "description=repeat('x',5001)", "version=-1",
                 "reporter_user_id='00000000-0000-0000-0000-000000000000'")) {
             assertThatThrownBy(() -> jdbc.update("update incidents set " + change + " where id=?", incident.id()))
                     .isInstanceOf(DataIntegrityViolationException.class);
@@ -670,8 +657,8 @@ class IncidentPostgresIT {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class)).containsExactly("1");
         assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema='public' "
-                + "and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')", Integer.class))
-                .isEqualTo(16);
+                + "and table_type='BASE TABLE' and table_name not in ('flyway_schema_history','spatial_ref_sys')",
+                Integer.class)).isEqualTo(16);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname='public'", String.class))
                 .contains("incident_reviews_incident_idx", "priority_decisions_incident_idx",
                         "attachments_incident_active_idx");
@@ -693,7 +680,8 @@ class IncidentPostgresIT {
             }
         }
         assertThat(jdbc.update(sql, id, owner.user().id(), "VALIDATE", null, "VALIDATE")).isEqualTo(1);
-        for (String reason : List.of("motivo", "abc", "", " ", "\t", "\u2003".repeat(3), " abc", "abc\t", "🚦".repeat(2001))) {
+        for (String reason : List.of("motivo", "abc", "", " ", "\t", "\u2003".repeat(3), " abc", "abc\t",
+                "🚦".repeat(2001))) {
             assertThatThrownBy(() -> jdbc.update(sql, id, owner.user().id(), "VALIDATE", reason, "VALIDATE"))
                     .isInstanceOf(DataIntegrityViolationException.class);
         }

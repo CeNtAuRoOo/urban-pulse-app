@@ -22,25 +22,22 @@ import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Servicio encargado de gestionar el ciclo de vida de las solicitudes
- * de verificación del correo electrónico.
- * Permite crear, confirmar y reenviar códigos, controlando su caducidad,
- * la validez de la cuenta y la concurrencia entre operaciones.
- * Publica los eventos necesarios para enviar los correos después del commit.
+ * Servicio encargado de gestionar el ciclo de vida de las solicitudes de verificación del correo electrónico. Permite
+ * crear, confirmar y reenviar códigos, controlando su caducidad, la validez de la cuenta y la concurrencia entre
+ * operaciones. Publica los eventos necesarios para enviar los correos después del commit.
  */
 @Service
 @RequiredArgsConstructor
 public class EmailVerificationService {
 
     /**
-     * Vigencia máxima de un código de verificación: diez minutos.
-     * La caducidad efectiva nunca supera el plazo de vida de la cuenta.
+     * Vigencia máxima de un código de verificación: diez minutos. La caducidad efectiva nunca supera el plazo de vida
+     * de la cuenta.
      */
     public static final Duration CODE_LIFETIME = Duration.ofMinutes(10);
 
     /**
-     * Plazo máximo para verificar el correo desde la creación de la cuenta:
-     * veinticuatro horas.
+     * Plazo máximo para verificar el correo desde la creación de la cuenta: veinticuatro horas.
      */
     public static final Duration ACCOUNT_LIFETIME = Duration.ofHours(24);
 
@@ -51,18 +48,11 @@ public class EmailVerificationService {
     private final Clock clock;
 
     /**
-     * Crea la solicitud inicial de verificación para un usuario recién registrado.
-     * Participa obligatoriamente en la transacción de registro existente,
-     * garantizando que el usuario y su solicitud se persistan conjuntamente.
+     * Crea la solicitud inicial de verificación para un usuario recién registrado. Participa obligatoriamente en la
+     * transacción de registro existente, garantizando que el usuario y su solicitud se persistan conjuntamente.
      *
      * @param user usuario recién registrado para el que se emitirá el código
-     * @throws org.springframework.transaction.IllegalTransactionStateException
-     *                                                                          si
-     *                                                                          no
-     *                                                                          existe
-     *                                                                          una
-     *                                                                          transacción
-     *                                                                          activa
+     * @throws org.springframework.transaction.IllegalTransactionStateException si no existe una transacción activa
      *
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -71,18 +61,14 @@ public class EmailVerificationService {
     }
 
     /**
-     * Confirma el correo electrónico de un usuario mediante su código
-     * de verificación vigente.
-     * Bloquea la cuenta para evitar operaciones concurrentes, comprueba
-     * la validez del código y marca el correo como verificado,
-     * eliminando la solicitud en la misma transacción.
-     * No incrementa la versión del token del usuario.
+     * Confirma el correo electrónico de un usuario mediante su código de verificación vigente. Bloquea la cuenta para
+     * evitar operaciones concurrentes, comprueba la validez del código y marca el correo como verificado, eliminando la
+     * solicitud en la misma transacción. No incrementa la versión del token del usuario.
      *
      * @param id      identificador del usuario que desea confirmar su correo
      * @param version versión del JWT presentado por el usuario
      * @param code    código numérico de verificación proporcionado
-     * @throws ApiException si la autenticación no es válida o el código
-     *                      es incorrecto, inexistente o ha caducado
+     * @throws ApiException si la autenticación no es válida o el código es incorrecto, inexistente o ha caducado
      */
     @Transactional
     public void confirm(UUID id, long version, String code) {
@@ -95,8 +81,7 @@ public class EmailVerificationService {
         Instant now = clock.instant();
         var request = verifications.findById(id).orElseThrow(EmailVerificationService::invalidCode);
 
-        if (!now.isBefore(user.getCreatedAt().plus(ACCOUNT_LIFETIME))
-                || !now.isBefore(request.getExpiresAt())
+        if (!now.isBefore(user.getCreatedAt().plus(ACCOUNT_LIFETIME)) || !now.isBefore(request.getExpiresAt())
                 || !codes.matches(id, code, request.getCodeHash())) {
             throw invalidCode();
         }
@@ -107,17 +92,14 @@ public class EmailVerificationService {
     }
 
     /**
-     * Solicita un nuevo código de verificación para el usuario autenticado.
-     * Bloquea la cuenta, comprueba su estado y sustituye la solicitud anterior,
-     * invalidando el código previo y publicando el evento de envío.
-     * No genera un nuevo código si el correo ya está verificado.
+     * Solicita un nuevo código de verificación para el usuario autenticado. Bloquea la cuenta, comprueba su estado y
+     * sustituye la solicitud anterior, invalidando el código previo y publicando el evento de envío. No genera un nuevo
+     * código si el correo ya está verificado.
      *
      * @param id      identificador del usuario que solicita el reenvío
      * @param version versión del JWT presentado por el usuario
-     * @return true si se registra una nueva solicitud de envío; false si
-     *         la cuenta ya estaba verificada
-     * @throws ApiException si la autenticación no es válida o la cuenta
-     *                      pendiente de verificación ha caducado
+     * @return true si se registra una nueva solicitud de envío; false si la cuenta ya estaba verificada
+     * @throws ApiException si la autenticación no es válida o la cuenta pendiente de verificación ha caducado
      */
     @Transactional
     public boolean resend(UUID id, long version) {
@@ -132,15 +114,13 @@ public class EmailVerificationService {
     }
 
     /**
-     * Recupera un usuario aplicando un bloqueo pesimista de escritura.
-     * Comprueba que la cuenta esté activa, que la versión del token
-     * coincida con la almacenada y que conserve el rol global CITIZEN.
+     * Recupera un usuario aplicando un bloqueo pesimista de escritura. Comprueba que la cuenta esté activa, que la
+     * versión del token coincida con la almacenada y que conserve el rol global CITIZEN.
      *
      * @param id      identificador del usuario que se desea bloquear
      * @param version versión del JWT que se debe validar
      * @return usuario bloqueado y autorizado para continuar la operación
-     * @throws ApiException si el usuario no existe, está inactivo,
-     *                      carece de CITIZEN o presenta una versión no válida
+     * @throws ApiException si el usuario no existe, está inactivo, carece de CITIZEN o presenta una versión no válida
      */
     private User lockedAccount(UUID id, long version) {
         User user = users.findForEmailVerification(id).orElseThrow(ApiException::unauthorized);
@@ -153,14 +133,12 @@ public class EmailVerificationService {
     }
 
     /**
-     * Genera y persiste una nueva solicitud de verificación para un usuario.
-     * Calcula la caducidad efectiva del código, limitada a diez minutos
-     * y a las 24 horas desde el registro, sustituyendo cualquier código anterior.
-     * Publica un evento para enviar el nuevo código después del commit.
+     * Genera y persiste una nueva solicitud de verificación para un usuario. Calcula la caducidad efectiva del código,
+     * limitada a diez minutos y a las 24 horas desde el registro, sustituyendo cualquier código anterior. Publica un
+     * evento para enviar el nuevo código después del commit.
      *
      * @param user usuario para el que se generará la solicitud de verificación
-     * @throws ApiException si la cuenta ha superado el plazo máximo
-     *                      permitido para verificar su correo
+     * @throws ApiException si la cuenta ha superado el plazo máximo permitido para verificar su correo
      */
     private void issue(User user) {
         Instant now = clock.instant();
@@ -193,8 +171,7 @@ public class EmailVerificationService {
     }
 
     /**
-     * Crea una excepción uniforme para los códigos de verificación
-     * incorrectos, inexistentes, caducados o invalidados.
+     * Crea una excepción uniforme para los códigos de verificación incorrectos, inexistentes, caducados o invalidados.
      *
      * @return excepción HTTP 422 con el código INVALID_VERIFICATION_CODE
      */

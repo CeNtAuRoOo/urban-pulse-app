@@ -14,8 +14,7 @@ import org.springframework.data.repository.query.Param;
 import es.grupo18.urbanpulse.invitations.model.StaffInvitation;
 
 /**
- * Consultas paginadas SQL y bloqueo de invitaciones sin cargar cuentas
- * destinatarias.
+ * Consultas paginadas SQL y bloqueo de invitaciones sin cargar cuentas destinatarias.
  */
 public interface StaffInvitationRepository
         extends JpaRepository<StaffInvitation, UUID>, JpaSpecificationExecutor<StaffInvitation> {

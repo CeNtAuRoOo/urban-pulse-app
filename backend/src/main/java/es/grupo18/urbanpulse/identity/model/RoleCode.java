@@ -1,16 +1,12 @@
 package es.grupo18.urbanpulse.identity.model;
 
 /**
- * Define los roles disponibles en UrbanPulse.
- * Distingue entre roles globales, aplicables a toda la plataforma,
- * y departamentales, asociados a departamentos concretos.
+ * Define los roles disponibles en UrbanPulse. Distingue entre roles globales, aplicables a toda la plataforma, y
+ * departamentales, asociados a departamentos concretos.
  */
 public enum RoleCode {
-    CITIZEN,
-    OPERATOR,
-    ADMIN,
-    DEPARTMENT_COORDINATOR,
-    TECHNICIAN;
+
+    CITIZEN, OPERATOR, ADMIN, DEPARTMENT_COORDINATOR, TECHNICIAN;
 
     /**
      * Comprueba si el rol tiene ámbito global.
@@ -19,8 +15,8 @@ public enum RoleCode {
      */
     public boolean isGlobal() {
         return switch (this) {
-            case CITIZEN, OPERATOR, ADMIN -> true;
-            case DEPARTMENT_COORDINATOR, TECHNICIAN -> false;
+        case CITIZEN, OPERATOR, ADMIN -> true;
+        case DEPARTMENT_COORDINATOR, TECHNICIAN -> false;
         };
     }
 

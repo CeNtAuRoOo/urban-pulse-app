@@ -10,7 +10,5 @@ import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
  * @param data       resultados ordenados
  * @param pagination metadatos compartidos
  */
-public record InvitationPageDTO(
-        List<InvitationDTO> data,
-        PageMetadata pagination) {
+public record InvitationPageDTO(List<InvitationDTO> data, PageMetadata pagination) {
 }

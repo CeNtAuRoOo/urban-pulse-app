@@ -2,9 +2,9 @@
 
 > **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados**, **Tramitación** (primera fase) y la búsqueda de activos de **Contexto urbano** (`GET /urban-assets`) tienen endpoints backend implementados; las demás operaciones de Contexto urbano, las operaciones de los restantes tags y las fases posteriores de Tramitación describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican una aplicación de la V1 consolidada en Neon.
 
-## 1. Fuente de verdad y artefactos derivados
+## Fuente de verdad y artefactos derivados
 
-La [batería k6](../../k6/README.md) ejercita un subconjunto de operaciones `implemented` con `/api/v1`, autorización vigente y fixtures explícitos. Los scripts están implementados y validados offline en esta integración; no añaden endpoints ni modifican el contrato o sus artefactos generados. Su matriz enlaza las rutas reales y separa métricas de rendimiento de las regresiones funcionales Java. Los validadores k6 tienen regresiones offline de propiedades anidadas, privacidad pública, null/omisiones y ETag SHA-256; no modifican OpenAPI ni acreditan respuestas reales de la API.
+La [batería k6](../../k6/README.md) ejercita un subconjunto de operaciones implementadas.
 
 | Ruta                                                                     | Función                                                                                                                                                   | Edición                        |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
@@ -19,19 +19,7 @@ El servidor local del contrato es `http://localhost:8080/api/v1`, correspondient
 
 La especificación usa OpenAPI 3.0.3, `application/json` y errores `ProblemDetail`. Los identificadores internos públicos apropiados se expresan como UUID; los IDs externos pueden ser cadenas. Los esquemas DTO **no** replican las tablas JPA y pueden tener campos opcionales omitidos (no equivale a `null`). `x-roles` explica la autorización prevista, pero el servidor aplica reglas reales y contextuales.
 
-## 2. Historial de versiones del contrato
-
-- **`0.2.0`**: base documental de dominio compartido por tags (roles, organización, incidencias, asignaciones, identificadores, contexto).
-- **`0.3.0`**: definición del núcleo de autenticación, registro con JWT, cambio de contraseña, invalidación por `tokenVersion` y permisos actuales desde PostgreSQL.
-- **`0.4.0`**: verificación de correo, HMAC, confirmación/reenvío, SMTP local y política de acceso de cuentas pendientes.
-- **`0.5.0`**: implementación de Invitaciones con emisión, consulta/listado, revocación y canje, variantes disjuntas de DTO y `PageMetadata`; retirada del diseño de registro especial de personal. Incorpora los contratos implementados de Usuarios, Departamentos y Categorías, sin cambiar `/api/v1`.
-- **`0.6.0` (histórica)**: seis operaciones de Incidencias, historial paginado, correcciones REPORTED con If-Match, concurrencia optimista, campos futuros opcionales y cierre definitivo.
-- **`0.7.0` (histórica)**: cinco operaciones privadas de Evidencias JPEG/PNG, 10 MiB, cinco activas por incidencia y DELETE lógico.
-- **`0.8.0` (vigente)**: diez operaciones de la primera fase de Tramitación, con revisión municipal, solicitudes y respuestas de información adicional, resultado público de revisión y priorización manual. La integración del 16/11/2026 incorpora además las dos operaciones de Duplicados y la consulta de Mapas sobre esta versión.
-
-La existencia de versiones históricas no implica que los 14 tags se hayan implementado. El panel web consume autenticación, usuarios, invitaciones, catálogos e incidencias; no implementa toda la API objetivo ni las interfaces específicas de Evidencias, Tramitación, Mapas y Duplicados.
-
-## 3. Convenciones y reglas generales
+## Convenciones y reglas generales
 
 - Rutas bajo `/api/v1`, sustantivos de recursos y operaciones HTTP explícitas; las acciones de dominio (revocación/canje) se modelan como recursos de operación.
 - Autenticación Bearer JWT HS256, 7200 segundos, correo verificado para rutas de negocio; las autoridades globales reales se consultan en PostgreSQL y los permisos departamentales requieren contexto.
@@ -40,7 +28,7 @@ La existencia de versiones históricas no implica que los 14 tags se hayan imple
 - La paginación de Invitaciones es por **número de página**, no por cursor: `page` desde 1, `pageSize` por defecto 20/máximo 100, filtros SQL, `PageMetadata`, orden `createdAt DESC, id DESC`.
 - Los contratos de módulos todavía no implementados pueden contener requisitos revisables; no construir código por el mero hecho de que exista un `$ref`.
 
-## 4. Endpoints de Autenticación implementados
+## Endpoints de Autenticación implementados
 
 | Método | Ruta bajo `/api/v1`                 | Estado y comportamiento                                                       |
 | ------ | ----------------------------------- | ----------------------------------------------------------------------------- |
@@ -50,9 +38,9 @@ La existencia de versiones históricas no implica que los 14 tags se hayan imple
 | `POST` | `/auth/email-verifications/confirm` | `204`; código decimal de ocho dígitos protegido por HMAC                      |
 | `POST` | `/auth/email-verifications/resend`  | `202` solicitud de entrega, `204` si ya verificado, `410` si expiró la cuenta |
 
-En el registro el JWT inicial es de acceso limitado hasta confirmar el correo. `EMAIL_VERIFIED` se obtiene de PostgreSQL en cada petición; el mismo JWT funciona tras la confirmación sin cambiar su versión. La verificación usa código de hasta diez minutos, cuenta no verificada hasta 24 horas y correo por `AFTER_COMMIT` con Mailpit exclusivamente local. Cinco POST auth con cuerpos de máximo 16 KiB y cuotas específicas de registro/login/verificación. Véase [autenticación](../auth-design.md).
+En el registro el JWT inicial es de acceso limitado hasta confirmar el correo. `EMAIL_VERIFIED` se obtiene de PostgreSQL en cada petición; el mismo JWT funciona tras la confirmación sin cambiar su versión. La verificación usa código de hasta diez minutos, cuenta no verificada hasta 24 horas y correo por `AFTER_COMMIT` con Mailpit exclusivamente local. Cinco POST auth con cuerpos de máximo 16 KiB y cuotas específicas de registro/login/verificación. Véase [autenticación](../design-docs/DD-001-identidad.md).
 
-## 5. Endpoints de Invitaciones implementados
+## Endpoints de Invitaciones implementados
 
 | Método | Ruta bajo `/api/v1`                             | Autorización                  | Respuesta                       |
 | ------ | ----------------------------------------------- | ----------------------------- | ------------------------------- |
@@ -66,9 +54,9 @@ En el registro el JWT inicial es de acceso limitado hasta confirmar el correo. `
 
 Las respuestas administrativas `201/200` incluyen `Cache-Control: no-store`; sus DTO omiten los campos opcionales no presentes. Los filtros del listado se evalúan en SQL por estado, correo normalizado, rol y departamento; la paginación empieza en `page=1`, tiene `pageSize=20` por defecto (máximo 100), orden `createdAt DESC, id DESC` y metadatos `PageMetadata`. El código aleatorio Base64URL de **256 bits/43 caracteres** se entrega solo por correo, nunca en un DTO administrativo o SQL en claro; se guarda HMAC-SHA256 independiente de los otros secretos y vence a los siete días por defecto. El canje exige JWT y correo verificado coincidente, conserva `CITIZEN` y roles previos, concede `UserRole` o `DepartmentMembership` atómicamente junto al consumo y auditoría. Si el mismo permiso está activo, devuelve `409` y no consume la invitación; si el código es inválido/usado/revocado/caducado/ajeno, responde `422 INVALID_INVITATION_CODE` genérico. Departamento no válido: `422 INVALID_DEPARTMENT`; revocación de invitación no activa: `409 INVITATION_NOT_ACTIVE`.
 
-Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por IP**. Los tres POST de Invitaciones protegen el tamaño de cuerpo (16 KiB), con revocación sin cuerpo. `201` de emisión confirma persistencia, **no recepción SMTP**: el listener entrega `AFTER_COMMIT` y no hay reintentos/outbox. Se eliminaron del contrato `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`. `UserDTO` incluye siempre pertenencias activas e históricas en registro, login, perfil y administración; el canje mantiene su DTO mínimo propio. [ADR-0007: reglas y limitaciones](../adr/0007-invitaciones-personal.md) y [Desarrollo: pruebas](../development.md).
+Canje: cuotas locales independientes **10/900 s por usuario** y **30/900 s por IP**. Los tres POST de Invitaciones protegen el tamaño de cuerpo (16 KiB), con revocación sin cuerpo. `201` de emisión confirma persistencia, **no recepción SMTP**: el listener entrega `AFTER_COMMIT` y no hay reintentos/outbox. Se eliminaron del contrato `/auth/staff-registrations`, `StaffRegistrationRequest` e `InvitationCreatedDTO`. `UserDTO` incluye siempre pertenencias activas e históricas en registro, login, perfil y administración; el canje mantiene su DTO mínimo propio. [ADR-007: reglas y limitaciones](../adr/ADR-007-invitaciones-personal.md) y [Desarrollo: pruebas](../development.md).
 
-### 5.1. Departamentos implementados (Catálogos)
+### Departamentos implementados (Catálogos)
 
 | Método | Ruta bajo `/api/v1`           | Autorización              | Respuesta                                   |
 | ------ | ----------------------------- | ------------------------- | ------------------------------------------- |
@@ -108,13 +96,13 @@ Los errores usan `application/problem+json` y el contrato común `ProblemDetail`
 | 500    | `INTERNAL_ERROR`.                                                                                                                                         |
 | 503    | `SERVICE_UNAVAILABLE`: indisponibilidad tipada de PostgreSQL.                                                                                             |
 
-Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#4-persistencia-y-transacciones) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#verificación-del-backend), sus pruebas.
+Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secretos en las respuestas. La [arquitectura](../architecture.md#persistencia-y-operación) documenta la traducción selectiva de conflictos y la auditoría RF18 pendiente; la [guía de desarrollo](../development.md#verificación-del-backend), sus pruebas.
 
 ## Contexto urbano: búsqueda de activos implementada
 
 `GET /api/v1/urban-assets` consulta la tabla PostGIS `cartografia.contexto_urbano`. Acepta `type` para filtrar por `source_table` y, opcionalmente, el grupo completo `latitude`, `longitude`, `radiusMeters` para una búsqueda espacial métrica. Los tres parámetros de proximidad deben aparecer juntos; latitud y longitud se reciben en WGS84 y el punto se transforma a EPSG:25830 antes de aplicar `ST_DWithin`. El radio permitido es 1–5.000 m; ambos modos limitan a 500 filas en base de datos. El listado se ordena por ID y la consulta espacial por distancia e ID. El DTO real contiene un ID numérico, metadatos de origen y `geom` como WKT (sin prefijo SRID; se interpreta como EPSG:25830).
 
-No confundir este endpoint implementado con las rutas futuras de contexto agregado por incidencia, candidatos/asociaciones de activos o consultas de observaciones externas. El esquema conceptual `UrbanAssetDTO` del modelo objetivo no es el DTO real de este endpoint: OpenAPI usa `UrbanAssetRecordDTO` para la respuesta del catálogo. La política de privacidad, los límites del listado y los requisitos de instalación se documentan en [PostGIS y contexto urbano](../postgis-urban-context.md).
+No confundir este endpoint implementado con las rutas futuras de contexto agregado por incidencia, candidatos/asociaciones de activos o consultas de observaciones externas. El esquema conceptual `UrbanAssetDTO` del modelo objetivo no es el DTO real de este endpoint: OpenAPI usa `UrbanAssetRecordDTO` para la respuesta del catálogo. La política de privacidad, los límites del listado y los requisitos de instalación se documentan en [PostGIS y contexto urbano](../design-docs/DD-004-territorio.md).
 
 ## Usuarios implementados
 
@@ -128,38 +116,21 @@ Son cinco operaciones. PATCH propio solo admite `displayName`, con 2–120 punto
 
 El listado usa `page=1`, `pageSize=20` (1–100), offset máximo `2147483647` y orden `createdAt DESC, id ASC`. Filtra `role` global o departamental activo y `active`, con totales en `shared.pagination.PageMetadata`. UUID/enums/parámetros incorrectos producen 400, datos inválidos 422, usuario ausente 404 NOT_FOUND; faltas de identidad/permisos 401/403 y fallos internos/disponibilidad 500/503 saneados. Las respuestas protegidas incluyen `Cache-Control` con `no-store`.
 
-`UserDTO` siempre contiene roles globales y `departmentMemberships` activas e históricas, ordenadas por `joinedAt DESC, id ASC`; registro devuelve `[]`. Login, perfil y administración usan la misma proyección segura. El canje conserva `InvitationRedemptionDTO`. La gestión interna de altas/bajas pertenece a `organization`; no existen endpoints nuevos de pertenencias ni auditoría administrativa completa RF18. [ADR-0012](../adr/0012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-0013](../adr/0013-pertenencias-usuarios-departamentos.md).
+`UserDTO` siempre contiene roles globales y `departmentMemberships` activas e históricas, ordenadas por `joinedAt DESC, id ASC`; registro devuelve `[]`. Login, perfil y administración usan la misma proyección segura. El canje conserva `InvitationRedemptionDTO`. La gestión interna de altas/bajas pertenece a `organization`; no existen endpoints nuevos de pertenencias ni auditoría administrativa completa RF18. [ADR-012](../adr/ADR-012-gestion-usuarios-perfiles-y-administracion.md) y [ADR-013](../adr/ADR-013-pertenencias-usuarios-departamentos.md).
 
-## 6. Revisión del contrato y del dominio por tag
+## Validación y visualización
 
-1. Elegir los casos de uso y contrastar el enunciado, roles y [ADR](../adr/README.md).
-2. Estudiar conjuntamente path/DTO del tag y ambos [diagramas existentes](../diagrams/README.md), comprobando tipos, cardinalidad, nulabilidad, PK/FK, estados y autorización.
-3. Resolver divergencias antes de implementar; actualizar modelo, OpenAPI **modular**, fuentes `.drawio` y ADR cuando corresponda; las exportaciones SVG se actualizan manualmente.
-4. Implementar **solo el alcance del tag**, con Flyway/JPA, servicios, HTTP, tests y revisiones de seguridad. Las páginas de diseño no obligan a crear toda la base de datos anticipadamente.
-5. Ejecutar lint, bundle y generación HTML, revisar diferencias y declarar qué se ha probado realmente.
+Desde la raíz:
 
-## 7. Validación y visualización
-
-El [workflow CI](../../.github/workflows/ci.yml) ejecuta el lint de la fuente modular con Redocly 2.16.0 sin regenerar los artefactos. Bundle y HTML se actualizan solo al modificar el contrato, con los comandos siguientes.
-
-Desde la **raíz** del repositorio:
-
-```bash
+```sh
 npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
 npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
 npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
+npx --yes @redocly/cli@2.16.0 lint docs/api/openapi.yaml
+git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html
 ```
 
-La plantilla [redoc-template.hbs](redoc-template.hbs) conserva el visor Redoc y evita espacios sobrantes del envoltorio predeterminado; el HTML se genera siempre por CLI, sin edición manual.
-
-**Validación histórica del 04/11/2026:** OpenAPI `0.5.0` válido, sin errores y con dos avisos conocidos (`info.license` sin definir y servidor localhost). Bundle YAML y HTML generados desde la fuente modular. Las 23 operaciones implementadas comprenden cinco de Usuarios, cinco de Autenticación, cinco de Invitaciones y cuatro de cada catálogo; los otros tags continúan como diseño. [Pruebas del backend](../development.md#verificación-del-backend).
-
-## 8. Alcance futuro y referencias
-
-Quedan fuera: equipos, API de retirada de permisos, autorización contextual por departamento/asignación, notificaciones de negocio, visor de mapas/contexto y API de auditoría. Los proveedores externos, recuperación de contraseña y bootstrap del primer `ADMIN` requieren diseño específico.
-
-- [Contrato dominio–OpenAPI](domain-openapi.md), [modelo de dominio](../domain-model.md), [diagramas actualizados](../diagrams/README.md).
-- [Arquitectura modular](../architecture.md), [autenticación](../auth-design.md), [ADR-0007 (Invitaciones)](../adr/0007-invitaciones-personal.md) y [desarrollo](../development.md).
+CI comprueba que ambos derivados coinciden con la fuente y la plantilla. Redocly comprueba estructura y referencias. Se retiran las comprobaciones particulares de inventario y casos negativos, y el cotejo automático de capturas HTTP con esquemas de Mapas y Activos. Las suites Java conservan aserciones de autorización, nulabilidad, serialización y privacidad.
 
 ## Incidencias implementadas (desde 0.6.0)
 
@@ -173,11 +144,9 @@ Paginación compartida page=1/pageSize=20 (máximo 100), offset máximo 21474836
 
 El [roadmap técnico](../incidents-implementation-roadmap.md) detalla columnas, errores, DTO, modelo futuro, dependencias y trazabilidad RF. Las rutas de otros tags identificadas como «Diseño futuro» no están implementadas.
 
-**Validación histórica del 05/11/2026:** OpenAPI 0.6.0 válido con Redocly 2.16.0, cero errores y los dos avisos conocidos de licencia/localhost. Bundle y HTML regenerados desde la fuente modular. En aquella versión había 29 operaciones implementadas: las 23 anteriores y seis de Incidencias; los restantes tags conservan diseño futuro.
-
 ### Precondiciones y tamaño del núcleo de Incidencias
 
-POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`. El digest incluye todo el JSON de detalle, version y las proyecciones actuales de informante/categoría/departamento. PATCH exige reenviar esa etiqueta en If-Match; el antiguo formato decimal no es válido. Cambios de datos relacionados pueden causar 412 aunque version no haya cambiado. Un no-op con representación idéntica conserva la etiqueta. Véase [ADR-0014](../adr/0014-incidencias-concurrencia-historial.md).
+POST/GET detalle/PATCH devuelven `ETag: "sha256-<64 hexadecimales minúsculos>"`. El digest incluye todo el JSON de detalle, version y las proyecciones actuales de informante/categoría/departamento. PATCH exige reenviar esa etiqueta en If-Match; el antiguo formato decimal no es válido. Cambios de datos relacionados pueden causar 412 aunque version no haya cambiado. Un no-op con representación idéntica conserva la etiqueta. Véase [ADR-014](../adr/ADR-014-incidencias-concurrencia-historial.md).
 
 El cuerpo bruto de POST/PATCH no puede exceder 65536 bytes, incluidos espacios/escapes JSON; exceso 413 PAYLOAD_TOO_LARGE antes de deserializar. Se admiten 5000 puntos Unicode de descripción incluso escapados. Autenticación/Invitaciones mantienen 16 KiB y sus errores previos. Las cuotas específicas de Incidencias continúan aplazadas.
 
@@ -201,7 +170,7 @@ AttachmentDTO siempre devuelve id, incidentId, originalFilename, contentType (im
 
 Máximo cinco activas en total por incidencia, protegido por bloqueo SQL. La sexta responde 409 ATTACHMENT_LIMIT_REACHED y compensa cualquier objeto subido. DELETE conserva fila y binario; repetir devuelve 404 y libera plaza solo la primera vez. No hay restauración. Los eventos internos no alteran el historial público de Incidencias.
 
-Errores: 400 por parámetros/multipart ausente, 401 por identidad inválida, 403 sin verificar, 404 indistinguible por incidencia ajena/inexistente o evidencia eliminada/pareja incorrecta, 409 por capacidad o ATTACHMENTS_FROZEN, 413 ATTACHMENT_TOO_LARGE incluso antes del controlador, 422 por contenido/descripción y 500/503 saneados. No existe API global de adjuntos. [Decisiones completas](../adr/0015-almacenamiento-evidencias.md).
+Errores: 400 por parámetros/multipart ausente, 401 por identidad inválida, 403 sin verificar, 404 indistinguible por incidencia ajena/inexistente o evidencia eliminada/pareja incorrecta, 409 por capacidad o ATTACHMENTS_FROZEN, 413 ATTACHMENT_TOO_LARGE incluso antes del controlador, 422 por contenido/descripción y 500/503 saneados. No existe API global de adjuntos. [Decisiones completas](../adr/ADR-015-almacenamiento-evidencias.md).
 
 ## API de Tramitación implementada (0.8.0)
 
@@ -264,11 +233,11 @@ actuales, publicación por revisión VALIDATE, privacidad aproximada de 100 m pa
 ajenas públicas y agrupaciones SQL. Distingue INCIDENT/CLUSTER, count gráfico y
 totalIncidents. Máximo 1000 gráficos, sin truncamiento; errores 400/401/403/422/429/503.
 El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aislado.
-[Guía completa](../maps-backend.md).
+[Guía completa](../design-docs/DD-004-territorio.md).
 
 ## Duplicados y Mapas en la integración actual sobre 0.8.0
 
-El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. La búsqueda de activos urbanos existente se clasifica como implementada; las restantes operaciones de Contexto urbano siguen futuras. El resultado contiene 57 rutas y 77 operaciones (48 implementadas/29 futuras).
+El contrato contiene 57 rutas y 77 operaciones. Las extensiones de operación clasifican 48 como implementadas y 29 como futuras. [Registro de pendientes](../pending.md).
 
 | Método | Ruta                                           | Autorización                                            | Resultado                             |
 | ------ | ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------- |
@@ -277,5 +246,3 @@ El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estab
 | GET    | `/map/incidents`                               | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO                   |
 
 Duplicados aplica ±72 h inclusivas, Haversine ≤250 m y categoría opcional, excluye pares ya vinculados y corta después del ranking. Desempate UUID ascendente sin signo, sin análisis semántico. Timeout SQL 5 s: 503 DUPLICATE_QUERY_TIMEOUT sin resultado parcial. Confirmación manual, única y simétrica, sin autoenlaces; 409 en reintento/carrera, 404 si falta incidencia, 422 en autoenlace/validación. Motivo opcional/null, trim Java y hasta 2000 puntos Unicode; vacío se persiste null, NUL/sustitutos aislados se rechazan. Vínculo y auditoría atómicos, sin modificar originales. No hay desvinculación, fusión ni prevención general de ciclos. Cache-Control no-store.
-
-La CI valida fuente y bundle, analiza paths reales y referencias, regenera YAML/HTML con Redocly 2.16.0 y la plantilla versionada y exige igualdad. Los ejemplos de Mapas y del catálogo de activos capturados por Maven se validan antes de terminar el job backend. [Matriz y evidencia actual](../integration-reconciliation.md).

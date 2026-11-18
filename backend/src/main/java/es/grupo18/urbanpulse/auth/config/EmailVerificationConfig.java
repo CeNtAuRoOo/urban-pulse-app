@@ -7,9 +7,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import es.grupo18.urbanpulse.shared.mail.MailProperties;
 
 /**
- * Configura los componentes necesarios para la verificación del correo
- * electrónico. Habilita las tareas programadas de limpieza y registra
- * las propiedades de verificación y envío de correos.
+ * Configura los componentes necesarios para la verificación del correo electrónico. Habilita las tareas programadas de
+ * limpieza y registra las propiedades de verificación y envío de correos.
  */
 @Configuration
 @EnableScheduling

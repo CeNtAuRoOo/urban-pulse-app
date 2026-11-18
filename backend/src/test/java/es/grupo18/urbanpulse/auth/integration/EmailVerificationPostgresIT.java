@@ -1,33 +1,49 @@
 package es.grupo18.urbanpulse.auth.integration;
 
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.*;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
-import org.springframework.test.context.*;
-import org.springframework.test.context.bean.override.mockito.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.*;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.testcontainers.junit.jupiter.*;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import es.grupo18.urbanpulse.auth.config.EmailVerificationProperties;
 import es.grupo18.urbanpulse.auth.dto.LoginRequest;
@@ -43,14 +59,24 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.mail.EmailMessage;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
 import es.grupo18.urbanpulse.shared.ratelimit.InMemoryRateLimiter;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import tools.jackson.databind.json.JsonMapper;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -116,11 +142,10 @@ class EmailVerificationPostgresIT {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             // Otra conexión comprueba visibilidad del commit; no reutiliza recursos de la
             // transacción del alta.
-            try (var connection = dataSource.getConnection();
-                    var query = connection.prepareStatement("""
-                            select count(*) from users u join email_verifications v on v.user_id=u.id
-                            join user_roles r on r.user_id=u.id and r.role_code='CITIZEN' where u.email=?
-                            """)) {
+            try (var connection = dataSource.getConnection(); var query = connection.prepareStatement("""
+                    select count(*) from users u join email_verifications v on v.user_id=u.id
+                    join user_roles r on r.user_id=u.id and r.role_code='CITIZEN' where u.email=?
+                    """)) {
                 query.setString(1, message.to());
                 try (var result = query.executeQuery()) {
                     result.next();
@@ -144,9 +169,8 @@ class EmailVerificationPostgresIT {
 
     private void confirmHttp(TokenDTO token, String code, int status) throws Exception {
         mvc.perform(post("/api/v1/auth/email-verifications/confirm")
-                .header("Authorization", "Bearer " + token.accessToken())
-                .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"" + code + "\"}"))
-                .andExpect(status().is(status));
+                .header("Authorization", "Bearer " + token.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"" + code + "\"}")).andExpect(status().is(status));
     }
 
     @Test
@@ -186,23 +210,22 @@ class EmailVerificationPostgresIT {
         TokenDTO token = mapper.readValue(response, TokenDTO.class);
         byte[] previous = requests.findById(token.user().id()).orElseThrow().getCodeHash();
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization",
-                "Bearer " + token.accessToken()))
-                .andExpect(status().isAccepted()).andExpect(content().string(""));
+                "Bearer " + token.accessToken())).andExpect(status().isAccepted()).andExpect(content().string(""));
         assertThat(requests.findById(token.user().id()).orElseThrow().getCodeHash()).isNotEqualTo(previous);
         assertThat(auth.login(new LoginRequest("person@example.org", "password-123")).user().emailVerified()).isFalse();
-        assertThat(output.getAll()).contains("event=VERIFICATION_EMAIL_FAILED")
-                .doesNotContain("PRIVATE_SMTP", "PRIVATE_SECRET", token.accessToken(), "person@example.org");
+        assertThat(output.getAll()).contains("event=VERIFICATION_EMAIL_FAILED").doesNotContain("PRIVATE_SMTP",
+                "PRIVATE_SECRET", token.accessToken(), "person@example.org");
     }
 
     @Test
     void confirmationChangesAuthorizationOnNextReadUsingTheSameJwtAndIsIdempotent() throws Exception {
         TokenDTO token = register();
         String bearer = "Bearer " + token.accessToken();
-        mvc.perform(get("/_test/verified-business").header("Authorization", bearer))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+        mvc.perform(get("/_test/verified-business").header("Authorization", bearer)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.org\",\"password\":\"password-123\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.user.emailVerified").value(false));
+                .content("{\"email\":\"person@example.org\",\"password\":\"password-123\"}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.emailVerified").value(false));
         String good = code();
         String wrong = good.equals("00000000") ? "99999999" : "00000000";
         mvc.perform(post("/api/v1/auth/email-verifications/confirm").header("Authorization", bearer)
@@ -228,8 +251,7 @@ class EmailVerificationPostgresIT {
         TokenDTO token = register();
         String old = code();
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization",
-                "Bearer " + token.accessToken()))
-                .andExpect(status().isAccepted());
+                "Bearer " + token.accessToken())).andExpect(status().isAccepted());
         assertThat(requests.count()).isEqualTo(1);
         confirmHttp(token, old, 422);
         String fresh = code();
@@ -252,8 +274,8 @@ class EmailVerificationPostgresIT {
         when(clock.instant()).thenReturn(deadline);
         TokenDTO renewed = auth.login(new LoginRequest("person@example.org", "password-123"));
         mvc.perform(post("/api/v1/auth/email-verifications/resend").header("Authorization",
-                "Bearer " + renewed.accessToken()))
-                .andExpect(status().isGone()).andExpect(jsonPath("$.code").value("VERIFICATION_ACCOUNT_EXPIRED"));
+                "Bearer " + renewed.accessToken())).andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value("VERIFICATION_ACCOUNT_EXPIRED"));
         confirmHttp(renewed, code(), 422);
         assertThat(messages).hasSize(2);
     }
@@ -269,8 +291,8 @@ class EmailVerificationPostgresIT {
                     insert into users(id,display_name,email,password_hash,created_at,updated_at,email_verified)
                     values(?,?,?, ?,?,?,?)
                     """, id, "Cleanup", "cleanup" + i + "@example.org", "x".repeat(60),
-                    java.sql.Timestamp.from(now.minus(Duration.ofHours(i == 4 ? 1 : 25))),
-                    java.sql.Timestamp.from(now), i == 3);
+                    java.sql.Timestamp.from(now.minus(Duration.ofHours(i == 4 ? 1 : 25))), java.sql.Timestamp.from(now),
+                    i == 3);
             jdbc.update("insert into user_roles values (?, 'CITIZEN')", id);
             jdbc.update("insert into email_verifications values (?, ?, ?, ?)", id, new byte[32],
                     java.sql.Timestamp.from(now.minusSeconds(1200)), java.sql.Timestamp.from(now.minusSeconds(600)));
@@ -286,8 +308,7 @@ class EmailVerificationPostgresIT {
         assertThat(users.findByEmail("cleanup4@example.org")).isPresent();
         assertThat(requests.count()).isZero();
         assertThat(auth.register(new RegisterRequest("New owner", "cleanup0@example.org", "password-123")).user()
-                .emailVerified())
-                .isFalse();
+                .emailVerified()).isFalse();
         assertThat(cleanup.clean()).isEqualTo(new EmailVerificationCleanup.Result(0, 0));
     }
 
@@ -337,8 +358,8 @@ class EmailVerificationPostgresIT {
                 release.countDown();
             }
             resend.get(10, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> confirm.get(10, TimeUnit.SECONDS))
-                    .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(ApiException.class);
+            assertThatThrownBy(() -> confirm.get(10, TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(ApiException.class);
         }
         assertThat(users.findById(token.user().id()).orElseThrow().isEmailVerified()).isFalse();
         verification.confirm(token.user().id(), 0, code());
@@ -391,20 +412,20 @@ class EmailVerificationPostgresIT {
         UUID id = token.user().id();
         assertThatThrownBy(
                 () -> jdbc.update("update email_verifications set code_hash=? where user_id=?", new byte[31], id))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(
                 () -> jdbc.update("update email_verifications set expires_at=created_at where user_id=?", id))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update(
                 "update email_verifications set expires_at=created_at + interval '11 minutes' where user_id=?", id))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc
                 .update("insert into email_verifications select * from email_verifications where user_id=?", id))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThatThrownBy(
                 () -> jdbc.update("insert into email_verifications values (?, ?, now(), now() + interval '1 minute')",
                         UUID.randomUUID(), new byte[32]))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     @Test

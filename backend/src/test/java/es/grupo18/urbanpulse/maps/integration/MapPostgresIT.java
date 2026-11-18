@@ -1,7 +1,5 @@
 package es.grupo18.urbanpulse.maps.integration;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,17 +28,16 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
+import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapQueryService;
-import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.processing.dto.InformationResponseRequest;
 import es.grupo18.urbanpulse.processing.dto.ReviewRequest;
 import es.grupo18.urbanpulse.processing.model.ReviewDecision;
 import es.grupo18.urbanpulse.processing.service.ProcessingService;
 import es.grupo18.urbanpulse.shared.mail.EmailSender;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -51,8 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Real JWT, current DB permissions, Flyway and native PostgreSQL geometry. No
- * shared database.
+ * Real JWT, current DB permissions, Flyway and native PostgreSQL geometry. No shared database.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -91,7 +87,8 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute("truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute(
+                "truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -110,13 +107,16 @@ class MapPostgresIT {
     @Test
     void actualDatabaseLockTimeoutReturns503WithoutPartialMap() throws Exception {
         UUID actor = account("OPERATOR");
-        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
             connection.setAutoCommit(false);
             connection.createStatement().execute("lock table incidents in access exclusive mode");
-            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port
-                    + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
+            var request = java.net.http.HttpRequest
+                    .newBuilder(java.net.URI.create(
+                            "http://127.0.0.1:" + port + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
                     .header("Authorization", bearer(actor)).timeout(java.time.Duration.ofSeconds(15)).build();
-            var response = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            var response = java.net.http.HttpClient.newHttpClient().send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(503);
             assertThat(json.readTree(response.body()).get("code").asString()).isEqualTo("MAP_QUERY_TIMEOUT");
             connection.rollback();
@@ -155,8 +155,8 @@ class MapPostgresIT {
             request.setReason("Motivo interno de integración");
             request.setExpectedIncidentVersion(cycle * 2);
             processing.review(operator, 0, id, request);
-            var awaiting = new MapQuery(CLOSE.minLat(), CLOSE.minLon(), CLOSE.maxLat(), CLOSE.maxLon(),
-                    CLOSE.zoom(), IncidentStatus.AWAITING_INFORMATION, null);
+            var awaiting = new MapQuery(CLOSE.minLat(), CLOSE.minLon(), CLOSE.maxLat(), CLOSE.maxLon(), CLOSE.zoom(),
+                    IncidentStatus.AWAITING_INFORMATION, null);
             assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
             for (UUID privileged : List.of(author, operator, admin)) {
                 var marker = (MapFeatureDTO.IncidentFeature) maps.find(privileged, 0, awaiting).items().getFirst();
@@ -164,9 +164,8 @@ class MapPostgresIT {
                 assertThat(marker.coordinatePrecision()).isEqualTo("EXACT");
                 assertThat(marker.canAccessPrivateDetail()).isTrue();
             }
-            mvc.perform(request(CLOSE).param("status", "AWAITING_INFORMATION")
-                    .header("Authorization", bearer(author))).andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalIncidents").value(1));
+            mvc.perform(request(CLOSE).param("status", "AWAITING_INFORMATION").header("Authorization", bearer(author)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalIncidents").value(1));
             processing.respond(author, 0, id,
                     new InformationResponseRequest("Respuesta privada de integración", cycle * 2 + 1));
             assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
@@ -176,8 +175,10 @@ class MapPostgresIT {
         var finalReview = new ReviewRequest();
         finalReview.setDecision(ReviewDecision.valueOf(decision));
         finalReview.setExpectedIncidentVersion(4L);
-        if (decision.equals("VALIDATE")) finalReview.setCategoryId(category);
-        else finalReview.setReason("Motivo interno de rechazo");
+        if (decision.equals("VALIDATE"))
+            finalReview.setCategoryId(category);
+        else
+            finalReview.setReason("Motivo interno de rechazo");
         processing.review(operator, 0, id, finalReview);
         assertThat(jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Long.class, id))
                 .isEqualTo(3);
@@ -227,8 +228,8 @@ class MapPostgresIT {
                 operator = account("OPERATOR");
         jdbc.update("insert into departments(id,name,code) values(?,?,?)", department, "Map " + department,
                 "M" + department.toString().replace("-", "").substring(0, 15).toUpperCase(java.util.Locale.ROOT));
-        jdbc.update("insert into department_memberships values(?,?,?,?,now(),null)",
-                UUID.randomUUID(), staff, department, role);
+        jdbc.update("insert into department_memberships values(?,?,?,?,now(),null)", UUID.randomUUID(), staff,
+                department, role);
         incident(author, 36.7213, -4.4214, "REPORTED", null);
         UUID published = incident(author, 36.7214, -4.4213, "VALIDATED", null);
         validate(published, operator);
@@ -308,8 +309,8 @@ class MapPostgresIT {
         boolean left = inside(lat + dx / norm * 0.00001, lon - dy / norm * 0.0000125);
         boolean right = inside(lat - dx / norm * 0.00001, lon + dy / norm * 0.0000125);
         assertThat(left).isNotEqualTo(right);
-        Boolean publicInside = jdbc.queryForObject("select map_public_point_v1(?,?) <@ map_outline_v1()",
-                Boolean.class, lat, lon);
+        Boolean publicInside = jdbc.queryForObject("select map_public_point_v1(?,?) <@ map_outline_v1()", Boolean.class,
+                lat, lon);
         assertThat(publicInside).isTrue();
         UUID author = account(null), reader = account(null), operator = account("OPERATOR");
         UUID id = incident(author, lat, lon, "VALIDATED", null);
@@ -335,12 +336,12 @@ class MapPostgresIT {
         assertThat(((MapFeatureDTO.ClusterFeature) low.items().getFirst()).incidentCount()).isEqualTo(4);
         assertThat(maps.find(reader, 0, PROVINCE)).isEqualTo(low);
         assertThat(maps.find(reader, 0, CLOSE).count()).isEqualTo(4);
-        assertThat(maps.find(reader, 0, CLOSE).items()).extracting(MapFeatureDTO::coordinates)
+        assertThat(maps.find(reader, 0, CLOSE).items()).extracting((MapFeatureDTO feature) -> feature.coordinates())
                 .contains(low.items().getFirst().coordinates());
         int previousCount = 0;
         for (int zoom : new int[] { 8, 12, 15, 17, 18 }) {
-            var step = maps.find(reader, 0, new MapQuery(CLOSE.minLat(), CLOSE.minLon(), CLOSE.maxLat(),
-                    CLOSE.maxLon(), zoom, null, null));
+            var step = maps.find(reader, 0,
+                    new MapQuery(CLOSE.minLat(), CLOSE.minLon(), CLOSE.maxLat(), CLOSE.maxLon(), zoom, null, null));
             assertThat(step.totalIncidents()).isEqualTo(4);
             assertThat(step.count()).isGreaterThanOrEqualTo(previousCount);
             previousCount = step.count();
@@ -358,15 +359,15 @@ class MapPostgresIT {
         mvc.perform(get(URL).header("Authorization", token)).andExpect(status().isBadRequest());
         for (String suffix : List.of("&userId=" + UUID.randomUUID(), "&zoom=9", "&priority=HIGH", "&status=",
                 "&status=BOGUS", "&categoryId=wrong", "&categoryId=1-1-1-1-1")) {
-            mvc.perform(get(URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8" + suffix)
-                    .header("Authorization", token)).andExpect(status().isBadRequest());
+            mvc.perform(get(URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8" + suffix).header("Authorization",
+                    token)).andExpect(status().isBadRequest());
         }
         for (String min : List.of("NaN", "Infinity", "-Infinity", "39", "hello")) {
-            mvc.perform(get(URL + "?minLat=" + min + "&minLon=-6&maxLat=38&maxLon=-3&zoom=8")
-                    .header("Authorization", token)).andExpect(status().isBadRequest());
+            mvc.perform(get(URL + "?minLat=" + min + "&minLon=-6&maxLat=38&maxLon=-3&zoom=8").header("Authorization",
+                    token)).andExpect(status().isBadRequest());
         }
-        mvc.perform(get(URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=23")
-                .header("Authorization", token)).andExpect(status().isBadRequest());
+        mvc.perform(get(URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=23").header("Authorization", token))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -385,32 +386,29 @@ class MapPostgresIT {
     }
 
     @Test
-    void jsonVariantsOmitPrivateFieldsAndCaptureRealHttpExamples() throws Exception {
+    void jsonVariantsOmitPrivateFieldsOverHttp() throws Exception {
         UUID author = account(null), reader = account(null), operator = account("OPERATOR");
         UUID id = incident(author, 36.7213, -4.4214, "VALIDATED", null);
         validate(id, operator);
-        var marker = mvc.perform(request(CLOSE).header("Authorization", bearer(reader)))
-                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+        var marker = mvc.perform(request(CLOSE).header("Authorization", bearer(reader))).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.items[0].type").value("INCIDENT"))
                 .andExpect(jsonPath("$.items[0].title").value("Incidencia " + id))
                 .andExpect(jsonPath("$.items[0].category").doesNotExist())
                 .andExpect(jsonPath("$.items[0].priority").doesNotExist())
                 .andExpect(jsonPath("$.items[0].clusterId").doesNotExist())
-                .andExpect(jsonPath("$.items[0].createdAt").exists())
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.items[0].createdAt").exists()).andReturn().getResponse().getContentAsString();
         assertThat(marker).doesNotContain("Título privado", "Descripción privada", "reporter", "email",
                 "accuracyMeters");
         UUID second = incident(author, 36.7214, -4.4213, "VALIDATED", null);
         validate(second, operator);
-        var cluster = mvc.perform(request(PROVINCE).header("Authorization", bearer(reader)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(1))
-                .andExpect(jsonPath("$.totalIncidents").value(2))
+        var cluster = mvc.perform(request(PROVINCE).header("Authorization", bearer(reader))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1)).andExpect(jsonPath("$.totalIncidents").value(2))
                 .andExpect(jsonPath("$.items[0].type").value("CLUSTER"))
                 .andExpect(jsonPath("$.items[0].incidentCount").value(2))
                 .andExpect(jsonPath("$.items[0].incidentId").doesNotExist())
-                .andExpect(jsonPath("$.items[0].coordinatePrecision").doesNotExist())
-                .andReturn().getResponse().getContentAsString();
-        Files.createDirectories(Path.of("target/maps-examples"));
+                .andExpect(jsonPath("$.items[0].coordinatePrecision").doesNotExist()).andReturn().getResponse()
+                .getContentAsString();
         // Capture actual HTTP over the running server as well as asserting MockMvc
         // serialization.
         // Restrict the first response by deleting the second synthetic fixture before
@@ -421,14 +419,12 @@ class MapPostgresIT {
         jdbc.update("delete from incidents where id=?", second);
         var markerHttp = http(reader, CLOSE);
         assertThat(json.readTree(markerHttp)).isEqualTo(json.readTree(marker));
-        Files.writeString(Path.of("target/maps-examples/incident.json"), markerHttp);
-        Files.writeString(Path.of("target/maps-examples/cluster.json"), clusterHttp);
     }
 
     @Test
     void mapMigrationAndBothSpatialIndexesAreInstalled() {
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history "
-                + "where success and version='1'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history " + "where success and version='1'",
+                Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForList("select indexname from pg_indexes where indexname like 'maps_%'", String.class))
                 .containsExactlyInAnyOrder("maps_exact_location_idx", "maps_public_location_idx",
                         "maps_validated_review_idx");
@@ -436,31 +432,41 @@ class MapPostgresIT {
 
     @Test
     void consolidatedSchemaRebuildsIndexesOverImportedDataAndWorksOutsideItsSchemaSearchPath() {
-        // Una segunda instalación completa necesita otra base: cartografia tiene nombre fijo.
+        // Una segunda instalación completa necesita otra base: cartografia tiene nombre
+        // fijo.
         jdbc.execute("create database maps_schema_regression");
         String url = POSTGRES.getJdbcUrl().replace("/" + POSTGRES.getDatabaseName(), "/maps_schema_regression");
-        var isolated = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
-                url, POSTGRES.getUsername(), POSTGRES.getPassword()));
+        var isolated = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url,
+                POSTGRES.getUsername(), POSTGRES.getPassword()));
         try {
             var migration = org.flywaydb.core.Flyway.configure()
-                    .dataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword())
-                    .schemas("map_upgrade").defaultSchema("map_upgrade").load();
+                    .dataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword()).schemas("map_upgrade")
+                    .defaultSchema("map_upgrade").load();
             assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
             UUID author = UUID.randomUUID(), id = UUID.randomUUID();
-            isolated.update("insert into map_upgrade.users(id,display_name,email,password_hash,created_at,updated_at) "
-                    + "values (?,'Usuario sintético','map-schema@example.test',repeat('x',60),now(),now())", author);
-            isolated.update("insert into map_upgrade.incidents(id,reporter_user_id,title,description,latitude,longitude,status,created_at,updated_at) "
-                    + "values (?,?,'Aviso sintético','Descripción suficiente',36.7213,-4.4214,'REPORTED',now(),now())", id, author);
+            isolated.update(
+                    "insert into map_upgrade.users(id,display_name,email,password_hash,created_at,updated_at) "
+                            + "values (?,'Usuario sintético','map-schema@example.test',repeat('x',60),now(),now())",
+                    author);
+            isolated.update(
+                    "insert into map_upgrade.incidents(id,reporter_user_id,title,description,latitude,longitude,status,created_at,updated_at) "
+                            + "values (?,?,'Aviso sintético','Descripción suficiente',36.7213,-4.4214,'REPORTED',now(),now())",
+                    id, author);
             assertThat(migration.migrate().migrationsExecuted).isZero();
             migration.validate();
             isolated.execute("reindex index map_upgrade.maps_exact_location_idx");
             isolated.execute("reindex index map_upgrade.maps_public_location_idx");
             assertThat(isolated.queryForList("select version from map_upgrade.flyway_schema_history "
-                    + "where success and version is not null order by installed_rank", String.class)).containsExactly("1");
-            assertThat(isolated.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id)).isEqualTo(36.7213);
-            assertThat(isolated.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class)).isTrue();
-            assertThat(isolated.queryForObject("select map_upgrade.map_public_point_v1(36.7213,-4.4214) "
-                    + "<@ map_upgrade.map_outline_v1()", Boolean.class)).isTrue();
+                    + "where success and version is not null order by installed_rank", String.class))
+                            .containsExactly("1");
+            assertThat(
+                    isolated.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id))
+                            .isEqualTo(36.7213);
+            assertThat(isolated.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class))
+                    .isTrue();
+            assertThat(isolated.queryForObject(
+                    "select map_upgrade.map_public_point_v1(36.7213,-4.4214) " + "<@ map_upgrade.map_outline_v1()",
+                    Boolean.class)).isTrue();
         } finally {
             jdbc.execute("drop database maps_schema_regression with (force)");
         }
@@ -535,25 +541,28 @@ class MapPostgresIT {
     }
 
     private void validate(UUID id, UUID operator) {
-        jdbc.update("insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
-                + "values(?,?,?,'VALIDATE',now(),'VALIDATED')", UUID.randomUUID(), id, operator);
+        jdbc.update(
+                "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
+                        + "values(?,?,?,'VALIDATE',now(),'VALIDATED')",
+                UUID.randomUUID(), id, operator);
     }
 
     private String bearer(UUID id) {
         Instant now = Instant.now();
-        var claims = JwtClaimsSet.builder().issuer("urbanpulse-tests").subject(id.toString())
-                .issuedAt(now).expiresAt(now.plusSeconds(300)).claim("ver", 0L)
-                .claim("roles", List.of("ADMIN")).build(); // deliberately untrusted claim
-        return "Bearer " + encoder.encode(JwtEncoderParameters.from(
-                JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+        var claims = JwtClaimsSet.builder().issuer("urbanpulse-tests").subject(id.toString()).issuedAt(now)
+                .expiresAt(now.plusSeconds(300)).claim("ver", 0L).claim("roles", List.of("ADMIN")).build(); // deliberately
+                                                                                                            // untrusted
+                                                                                                            // claim
+        return "Bearer " + encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
     }
 
     private String http(UUID actor, MapQuery q) throws Exception {
-        var uri = java.net.URI.create("http://127.0.0.1:" + port + URL + "?minLat=" + q.minLat()
-                + "&minLon=" + q.minLon() + "&maxLat=" + q.maxLat() + "&maxLon=" + q.maxLon() + "&zoom=" + q.zoom());
+        var uri = java.net.URI.create("http://127.0.0.1:" + port + URL + "?minLat=" + q.minLat() + "&minLon="
+                + q.minLon() + "&maxLat=" + q.maxLat() + "&maxLon=" + q.maxLon() + "&zoom=" + q.zoom());
         try (var client = java.net.http.HttpClient.newHttpClient()) {
-            var response = client.send(java.net.http.HttpRequest.newBuilder(uri)
-                    .header("Authorization", bearer(actor)).GET().build(),
+            var response = client.send(
+                    java.net.http.HttpRequest.newBuilder(uri).header("Authorization", bearer(actor)).GET().build(),
                     java.net.http.HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");

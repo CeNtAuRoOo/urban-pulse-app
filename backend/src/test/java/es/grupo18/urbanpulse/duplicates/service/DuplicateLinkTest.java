@@ -1,7 +1,5 @@
 package es.grupo18.urbanpulse.duplicates.service;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.UUID;
@@ -13,6 +11,9 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Coordinates;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 import es.grupo18.urbanpulse.incidents.model.Location;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DuplicateLinkTest {
     @Test
@@ -30,8 +31,7 @@ class DuplicateLinkTest {
     void rejectsSelfLink() throws Exception {
         Incident same = incident(UUID.randomUUID());
         User actor = new User("Operador", "operator@example.test", "hash");
-        assertThrows(IllegalArgumentException.class,
-                () -> new DuplicateLink(same, same, actor, Instant.now(), null));
+        assertThrows(IllegalArgumentException.class, () -> new DuplicateLink(same, same, actor, Instant.now(), null));
     }
 
     private static Incident incident(UUID id) throws Exception {

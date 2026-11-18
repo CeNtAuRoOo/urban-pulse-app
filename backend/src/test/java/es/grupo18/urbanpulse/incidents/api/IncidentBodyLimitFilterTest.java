@@ -42,8 +42,8 @@ class IncidentBodyLimitFilterTest {
                 filter.doFilter(request, response, (req, res) -> {
                     throw new AssertionError("No debe llegar a MVC");
                 });
-                verify(problems).write(eq(request), eq(response), eq(HttpStatus.valueOf(413)),
-                        eq("PAYLOAD_TOO_LARGE"), any());
+                verify(problems).write(eq(request), eq(response), eq(HttpStatus.valueOf(413)), eq("PAYLOAD_TOO_LARGE"),
+                        any());
             }
         }
     }
@@ -62,8 +62,7 @@ class IncidentBodyLimitFilterTest {
 
     @Test
     void otherRoutesAndMethodsKeepTheirOwnPolicies() throws Exception {
-        for (var request : new MockHttpServletRequest[] {
-                new MockHttpServletRequest("POST", "/api/v1/auth/register"),
+        for (var request : new MockHttpServletRequest[] { new MockHttpServletRequest("POST", "/api/v1/auth/register"),
                 new MockHttpServletRequest("GET", "/api/v1/incidents"),
                 new MockHttpServletRequest("POST", "/api/v1/incidents/id/attachments"),
                 new MockHttpServletRequest("PATCH", "/api/v1/categories/id") }) {

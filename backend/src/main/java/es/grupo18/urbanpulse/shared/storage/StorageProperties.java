@@ -17,8 +17,5 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties(prefix = "storage.s3")
-public record StorageProperties(
-        @NotNull URI endpoint,
-        @NotBlank String region,
-        @NotBlank String bucket) {
+public record StorageProperties(@NotNull URI endpoint, @NotBlank String region, @NotBlank String bucket) {
 }

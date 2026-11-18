@@ -2,7 +2,9 @@ package es.grupo18.urbanpulse.shared.mail;
 
 import java.util.Properties;
 
-import jakarta.mail.*;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
@@ -17,9 +19,12 @@ import org.mockito.ArgumentCaptor;
 import es.grupo18.urbanpulse.auth.mail.EmailVerificationRequested;
 import es.grupo18.urbanpulse.auth.mail.VerificationEmailListener;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(OutputCaptureExtension.class)
 class SmtpEmailSenderTest {

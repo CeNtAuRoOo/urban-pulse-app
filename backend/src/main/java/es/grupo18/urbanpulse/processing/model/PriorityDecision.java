@@ -24,10 +24,10 @@ import org.hibernate.annotations.UuidGenerator;
 import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 import es.grupo18.urbanpulse.incidents.model.IncidentPriority;
+import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Decisión histórica. ProcessingService actualiza la prioridad del agregado en
- * la misma transacción.
+ * Decisión histórica. ProcessingService actualiza la prioridad del agregado en la misma transacción.
  */
 @Entity
 @Table(name = "priority_decisions")
@@ -70,8 +70,7 @@ public class PriorityDecision {
     private Instant decidedAt;
 
     /**
-     * Conserva responsable y justificación; el servicio coordina autorización,
-     * agregado y auditoría.
+     * Conserva responsable y justificación; el servicio coordina autorización, agregado y auditoría.
      *
      * @param incident      incidencia afectada
      * @param decidedBy     responsable de la decisión
@@ -79,11 +78,8 @@ public class PriorityDecision {
      * @param source        origen manual o asistido
      * @param justification texto obligatorio de 3–2000 puntos Unicode normalizados
      * @param decidedAt     instante de decisión
-     * @throws es.grupo18.urbanpulse.shared.error.ApiException justificación
-     *                                                         inválida (422)
-     * @throws NullPointerException                            referencia,
-     *                                                         prioridad, origen o
-     *                                                         instante ausente
+     * @throws ApiException         justificación inválida (422)
+     * @throws NullPointerException referencia, prioridad, origen o instante ausente
      */
     public PriorityDecision(Incident incident, User decidedBy, IncidentPriority priority, PrioritySource source,
             String justification, Instant decidedAt) {

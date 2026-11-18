@@ -89,7 +89,7 @@ AdminUpdateUserRequest:
       type: boolean
   description: >-
     Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza
-    invitaciones (ADR-0007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio.
+    invitaciones (ADR-007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio.
     No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN).
     La autodesactivación se permite si permanece otro administrador disponible.
   required:
@@ -145,7 +145,7 @@ GlobalRoleCode:
     - OPERATOR
     - ADMIN
   description: >-
-    Roles globales definidos en ADR-0009. CITIZEN es inherente a toda cuenta;
+    Roles globales definidos en ADR-009. CITIZEN es inherente a toda cuenta;
     OPERATOR y ADMIN son privilegios adicionales.
 DepartmentRoleCode:
   type: string

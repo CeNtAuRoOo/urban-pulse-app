@@ -18,11 +18,11 @@ import es.grupo18.urbanpulse.categories.repository.CategoryRepository;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Reglas y transacciones del catálogo; conserva nombres reservados y serializa
- * PATCH por fila.
+ * Reglas y transacciones del catálogo; conserva nombres reservados y serializa PATCH por fila.
  */
 @Service
 public class CategoryService {
+
     private final CategoryRepository repository;
 
     /**
@@ -57,15 +57,12 @@ public class CategoryService {
     }
 
     /**
-     * Normaliza y valida el alta antes de persistir; las categorías inactivas
-     * reservan su nombre.
+     * Normaliza y valida el alta antes de persistir; las categorías inactivas reservan su nombre.
      *
      * @param request datos de alta; descripción y active pueden ser null
      * @return categoría creada con UUIDv7 y active true si se omitió o era null
-     * @throws DuplicateCategoryException si otra fila reserva el nombre, incluida
-     *                                    una carrera SQL
-     * @throws ApiException               si los datos incumplen los límites del
-     *                                    catálogo
+     * @throws DuplicateCategoryException si otra fila reserva el nombre, incluida una carrera SQL
+     * @throws ApiException               si los datos incumplen los límites del catálogo
      */
     @Transactional
     public CategoryResponse create(CreateCategoryRequest request) {
@@ -76,19 +73,15 @@ public class CategoryService {
     }
 
     /**
-     * Bloquea la fila hasta finalizar la transacción y modifica solo los campos
-     * presentes.
-     * El índice único protege también renombrados concurrentes; una infracción
-     * revierte todo el cambio.
+     * Bloquea la fila hasta finalizar la transacción y modifica solo los campos presentes. El índice único protege
+     * también renombrados concurrentes; una infracción revierte todo el cambio.
      *
      * @param id      identidad a conservar
      * @param request campos presentes; descripción vacía limpia el contenido
-     * @return estado resultante, incluidos cambios concurrentes ya confirmados
-     *         antes del bloqueo
+     * @return estado resultante, incluidos cambios concurrentes ya confirmados antes del bloqueo
      * @throws CategoryNotFoundException  si no existe la categoría
      * @throws DuplicateCategoryException si el nombre pertenece a otra categoría
-     * @throws ApiException               si el parche está vacío o incumple las
-     *                                    restricciones
+     * @throws ApiException               si el parche está vacío o incumple las restricciones
      */
     @Transactional
     public CategoryResponse patch(UUID id, PatchCategoryRequest request) {
@@ -112,22 +105,19 @@ public class CategoryService {
     }
 
     /**
-     * Fuerza la escritura dentro de la transacción para detectar carreras.
-     * Solo SQLSTATE 23505 del índice de nombre se traduce a duplicado; las demás
-     * causas se propagan.
+     * Fuerza la escritura dentro de la transacción para detectar carreras. Solo SQLSTATE 23505 del índice de nombre se
+     * traduce a duplicado; las demás causas se propagan.
      *
      * @param category entidad nueva o bloqueada
      * @return proyección de la entidad persistida
-     * @throws DuplicateCategoryException si PostgreSQL rechaza un nombre ya
-     *                                    reservado
+     * @throws DuplicateCategoryException si PostgreSQL rechaza un nombre ya reservado
      */
     private CategoryResponse persist(Category category) {
         try {
             return toResponse(repository.saveAndFlush(category));
         } catch (DataIntegrityViolationException exception) {
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-                if (cause instanceof ConstraintViolationException violation
-                        && "23505".equals(violation.getSQLState())
+                if (cause instanceof ConstraintViolationException violation && "23505".equals(violation.getSQLState())
                         && "uk_categories_name_normalized".equals(violation.getConstraintName())) {
                     throw new DuplicateCategoryException();
                 }
@@ -137,13 +127,12 @@ public class CategoryService {
     }
 
     /**
-     * Comprueba el nombre con el mismo lower de PostgreSQL que usa el índice único.
-     * La comprobación preventiva no sustituye la restricción SQL ante carreras.
+     * Comprueba el nombre con el mismo lower de PostgreSQL que usa el índice único. La comprobación preventiva no
+     * sustituye la restricción SQL ante carreras.
      *
      * @param name nombre normalizado
      * @param id   identidad excluida al modificar; null para un alta
-     * @throws DuplicateCategoryException si otra categoría, activa o inactiva,
-     *                                    reserva el nombre
+     * @throws DuplicateCategoryException si otra categoría, activa o inactiva, reserva el nombre
      */
     private void assertUnique(String name, UUID id) {
         boolean duplicate = id == null ? repository.existsByNormalizedName(name)
@@ -154,8 +143,7 @@ public class CategoryService {
     }
 
     /**
-     * Aplica String.trim, conserva espacios interiores y cuenta puntos de código
-     * Unicode.
+     * Aplica String.trim, conserva espacios interiores y cuenta puntos de código Unicode.
      *
      * @param name nombre de entrada, posiblemente null
      * @return nombre no blanco de 2 a 100 puntos de código

@@ -20,20 +20,22 @@ import es.grupo18.urbanpulse.attachment.model.ContentType;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Decodifica JPEG/PNG y recodifica solo píxeles, sin EXIF/GPS ni metadatos
- * originales.
+ * Decodifica JPEG/PNG y recodifica solo píxeles, sin EXIF/GPS ni metadatos originales.
  */
 @Component
 public class ImageSanitizer {
 
     /** Límite independiente para entrada y resultado almacenado: 10 MiB. */
     public static final int MAX_BYTES = 10 * 1024 * 1024;
+
     /**
      * Dos rasters de hasta unos 64 MB cada uno; evita el antiguo techo de 40 MP.
      */
     public static final long MAX_IMAGE_PIXELS = 16_000_000L;
+
     /** Acota también imágenes extremadamente estrechas o altas. */
     public static final int MAX_DIMENSION = 8192;
+
     private static final byte[] PNG_SIGNATURE = { (byte) 137, 80, 78, 71, 13, 10, 26, 10 };
 
     /**
@@ -41,16 +43,14 @@ public class ImageSanitizer {
      *
      * @param bytes contenido original; nunca se usa el MIME o extensión del cliente
      * @return formato reconocido por firma binaria
-     * @throws ApiException 413 por bytes excesivos; 422 por firma desconocida o
-     *                      vacía
+     * @throws ApiException 413 por bytes excesivos; 422 por firma desconocida o vacía
      */
     public ContentType detectContentType(byte[] bytes) {
         if (bytes == null || bytes.length == 0)
             throw invalid();
         if (bytes.length > MAX_BYTES)
             throw tooLarge();
-        if (bytes.length >= 3 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216
-                && (bytes[2] & 255) == 255)
+        if (bytes.length >= 3 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 && (bytes[2] & 255) == 255)
             return ContentType.IMAGE_JPEG;
         if (bytes.length >= 8 && Arrays.equals(PNG_SIGNATURE, Arrays.copyOf(bytes, 8)))
             return ContentType.IMAGE_PNG;
@@ -58,16 +58,13 @@ public class ImageSanitizer {
     }
 
     /**
-     * Rechaza truncamientos y advertencias del decodificador; acota dimensiones
-     * antes del raster.
-     * Conserva transparencia PNG y recodifica sin copiar metadatos, incluso
-     * perfiles originales.
+     * Rechaza truncamientos y advertencias del decodificador; acota dimensiones antes del raster. Conserva
+     * transparencia PNG y recodifica sin copiar metadatos, incluso perfiles originales.
      *
      * @param bytes imagen de entrada de hasta 10 MiB
      * @param type  formato detectado por firma
      * @return imagen válida, sin metadatos originales, de hasta 10 MiB
-     * @throws ApiException 422 por imagen inválida/dimensiones; 413 por entrada o
-     *                      salida excesiva
+     * @throws ApiException 422 por imagen inválida/dimensiones; 413 por entrada o salida excesiva
      */
     public byte[] sanitize(byte[] bytes, ContentType type) {
         if (detectContentType(bytes) != type)
@@ -134,8 +131,7 @@ public class ImageSanitizer {
     }
 
     /**
-     * ImageIO puede ignorar CRC o IEND ausente: verifica todos los chunks sin
-     * reservar por su longitud.
+     * ImageIO puede ignorar CRC o IEND ausente: verifica todos los chunks sin reservar por su longitud.
      *
      * @param bytes PNG acotado
      * @throws ApiException si hay CRC, longitud, cabecera o terminación inválidos
@@ -181,8 +177,7 @@ public class ImageSanitizer {
     /**
      * Construye el rechazo uniforme de entrada o salida excesiva.
      *
-     * @return error estable de tamaño, también usado por la lectura multipart
-     *         acotada
+     * @return error estable de tamaño, también usado por la lectura multipart acotada
      */
     public static ApiException tooLarge() {
         return new ApiException(HttpStatus.valueOf(413), "ATTACHMENT_TOO_LARGE",
@@ -200,8 +195,7 @@ public class ImageSanitizer {
     }
 
     /**
-     * Acota la caché del escritor antes de asignarla, incluyendo escrituras con
-     * seek.
+     * Acota la caché del escritor antes de asignarla, incluyendo escrituras con seek.
      */
     static final class BoundedImageOutput extends MemoryCacheImageOutputStream {
         /**

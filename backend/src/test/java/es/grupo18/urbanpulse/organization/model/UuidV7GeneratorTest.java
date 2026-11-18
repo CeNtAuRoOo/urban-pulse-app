@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class UuidV7GeneratorTest {
-
     @Test
     void generatesUuidVersionSevenWithRfcVariant() {
         UUID id = org.hibernate.id.uuid.UuidVersion7Strategy.INSTANCE.generateUuid(null);

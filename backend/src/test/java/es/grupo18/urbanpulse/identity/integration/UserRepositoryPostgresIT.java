@@ -23,11 +23,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import es.grupo18.urbanpulse.support.PostgisDePruebas;
-
 import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -74,12 +73,7 @@ class UserRepositoryPostgresIT {
                 "insert into departments(id,name,code) values ('0199f6de-0001-7000-8000-000000000001','Unidad de prueba','MANT')");
     }
 
-    private UUID insertUser(
-            String displayName,
-            String email,
-            boolean active,
-            boolean emailVerified,
-            long tokenVersion,
+    private UUID insertUser(String displayName, String email, boolean active, boolean emailVerified, long tokenVersion,
             Instant createdAt) {
 
         UUID id = UUID.randomUUID();
@@ -91,25 +85,14 @@ class UserRepositoryPostgresIT {
                     created_at, updated_at
                 )
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                id,
-                displayName,
-                email,
-                "x".repeat(60),
-                active,
-                emailVerified,
-                tokenVersion,
-                Timestamp.from(createdAt),
-                Timestamp.from(createdAt));
+                """, id, displayName, email, "x".repeat(60), active, emailVerified, tokenVersion,
+                Timestamp.from(createdAt), Timestamp.from(createdAt));
 
         return id;
     }
 
     private void assignRole(UUID userId, RoleCode role) {
-        jdbc.update(
-                "insert into user_roles (user_id, role_code) values (?, ?)",
-                userId,
-                role.name());
+        jdbc.update("insert into user_roles (user_id, role_code) values (?, ?)", userId, role.name());
     }
 
     /**
@@ -129,21 +112,12 @@ class UserRepositoryPostgresIT {
                     ?, CURRENT_TIMESTAMP - interval '2 hours',
                     case when ? then null else CURRENT_TIMESTAMP - interval '1 hour' end
                 )
-                """,
-                userId,
-                role.name(),
-                active);
+                """, userId, role.name(), active);
     }
 
     @Test
     void findByEmailReturnsUserAndLoadsRoles() {
-        UUID id = insertUser(
-                "Ciudadano",
-                "citizen@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+        UUID id = insertUser("Ciudadano", "citizen@example.org", true, true, 0, Instant.now());
 
         assignRole(id, RoleCode.CITIZEN);
 
@@ -158,16 +132,9 @@ class UserRepositoryPostgresIT {
 
     @Test
     void findForPasswordChangeReturnsUserInsideTransaction() {
-        UUID id = insertUser(
-                "Password",
-                "password@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+        UUID id = insertUser("Password", "password@example.org", true, true, 0, Instant.now());
 
-        User result = new TransactionTemplate(manager).execute(
-                status -> users.findForPasswordChange(id).orElseThrow());
+        User result = new TransactionTemplate(manager).execute(status -> users.findForPasswordChange(id).orElseThrow());
 
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(id);
@@ -175,16 +142,10 @@ class UserRepositoryPostgresIT {
 
     @Test
     void findForEmailVerificationReturnsUserInsideTransaction() {
-        UUID id = insertUser(
-                "Verification",
-                "verification@example.org",
-                true,
-                false,
-                0,
-                Instant.now());
+        UUID id = insertUser("Verification", "verification@example.org", true, false, 0, Instant.now());
 
-        User result = new TransactionTemplate(manager).execute(
-                status -> users.findForEmailVerification(id).orElseThrow());
+        User result = new TransactionTemplate(manager)
+                .execute(status -> users.findForEmailVerification(id).orElseThrow());
 
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(id);
@@ -193,13 +154,7 @@ class UserRepositoryPostgresIT {
 
     @Test
     void findSecurityStateReturnsAccountStateAndRoles() {
-        UUID id = insertUser(
-                "Admin",
-                "admin@example.org",
-                true,
-                true,
-                3,
-                Instant.now());
+        UUID id = insertUser("Admin", "admin@example.org", true, true, 3, Instant.now());
 
         assignRole(id, RoleCode.CITIZEN);
         assignRole(id, RoleCode.ADMIN);
@@ -207,27 +162,19 @@ class UserRepositoryPostgresIT {
         var states = users.findSecurityState(id);
 
         assertThat(states).hasSize(2);
-        assertThat(states)
-                .allSatisfy(state -> {
-                    assertThat(state.getActive()).isTrue();
-                    assertThat(state.getEmailVerified()).isTrue();
-                    assertThat(state.getTokenVersion()).isEqualTo(3);
-                });
+        assertThat(states).allSatisfy(state -> {
+            assertThat(state.getActive()).isTrue();
+            assertThat(state.getEmailVerified()).isTrue();
+            assertThat(state.getTokenVersion()).isEqualTo(3);
+        });
 
-        assertThat(states)
-                .extracting(state -> state.getRoleCode())
-                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.ADMIN);
+        assertThat(states).extracting(state -> state.getRoleCode()).containsExactlyInAnyOrder(RoleCode.CITIZEN,
+                RoleCode.ADMIN);
     }
 
     @Test
     void findSecurityStateReturnsNullRoleWhenUserHasNoRoles() {
-        UUID id = insertUser(
-                "No roles",
-                "noroles@example.org",
-                false,
-                false,
-                0,
-                Instant.now());
+        UUID id = insertUser("No roles", "noroles@example.org", false, false, 0, Instant.now());
 
         var states = users.findSecurityState(id);
 
@@ -239,13 +186,7 @@ class UserRepositoryPostgresIT {
 
     @Test
     void findUserWithRolesByIdReturnsUserAndRoles() {
-        UUID id = insertUser(
-                "Operator",
-                "operator@example.org",
-                true,
-                true,
-                0,
-                Instant.now());
+        UUID id = insertUser("Operator", "operator@example.org", true, true, 0, Instant.now());
 
         assignRole(id, RoleCode.CITIZEN);
         assignRole(id, RoleCode.OPERATOR);
@@ -253,8 +194,7 @@ class UserRepositoryPostgresIT {
         User user = users.findUserWithRolesById(id).orElseThrow();
 
         assertThat(user.getId()).isEqualTo(id);
-        assertThat(user.globalRoles())
-                .containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.OPERATOR);
+        assertThat(user.globalRoles()).containsExactlyInAnyOrder(RoleCode.CITIZEN, RoleCode.OPERATOR);
 
         assertThat(users.findUserWithRolesById(UUID.randomUUID())).isEmpty();
     }
@@ -263,58 +203,26 @@ class UserRepositoryPostgresIT {
     void searchUsersFiltersOrdersAndPaginates() {
         Instant base = Instant.parse("2026-01-01T10:00:00Z");
 
-        UUID first = insertUser(
-                "First",
-                "first@example.org",
-                true,
-                true,
-                0,
-                base);
+        UUID first = insertUser("First", "first@example.org", true, true, 0, base);
 
-        UUID second = insertUser(
-                "Second",
-                "second@example.org",
-                true,
-                true,
-                0,
-                base.plusSeconds(60));
+        UUID second = insertUser("Second", "second@example.org", true, true, 0, base.plusSeconds(60));
 
-        UUID inactive = insertUser(
-                "Inactive",
-                "inactive@example.org",
-                false,
-                true,
-                0,
-                base.plusSeconds(120));
+        UUID inactive = insertUser("Inactive", "inactive@example.org", false, true, 0, base.plusSeconds(120));
 
         assignRole(first, RoleCode.CITIZEN);
         assignRole(second, RoleCode.CITIZEN);
         assignRole(inactive, RoleCode.CITIZEN);
 
-        Page<User> page = users.searchUsers(
-                RoleCode.CITIZEN,
-                true,
-                PageRequest.of(
-                        0,
-                        1,
-                        Sort.by(
-                                Sort.Order.desc("createdAt"),
-                                Sort.Order.asc("id"))));
+        Page<User> page = users.searchUsers(RoleCode.CITIZEN, true,
+                PageRequest.of(0, 1, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"))));
 
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getTotalPages()).isEqualTo(2);
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().getFirst().getId()).isEqualTo(second);
 
-        Page<User> secondPage = users.searchUsers(
-                RoleCode.CITIZEN,
-                true,
-                PageRequest.of(
-                        1,
-                        1,
-                        Sort.by(
-                                Sort.Order.desc("createdAt"),
-                                Sort.Order.asc("id"))));
+        Page<User> secondPage = users.searchUsers(RoleCode.CITIZEN, true,
+                PageRequest.of(1, 1, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"))));
 
         assertThat(secondPage.getContent()).hasSize(1);
         assertThat(secondPage.getContent().getFirst().getId()).isEqualTo(first);
@@ -324,67 +232,34 @@ class UserRepositoryPostgresIT {
     void searchUsersWithoutFiltersReturnsAllUsers() {
         Instant base = Instant.parse("2026-02-01T10:00:00Z");
 
-        insertUser(
-                "Citizen",
-                "citizen2@example.org",
-                true,
-                true,
-                0,
-                base);
+        insertUser("Citizen", "citizen2@example.org", true, true, 0, base);
 
-        insertUser(
-                "Inactive",
-                "inactive2@example.org",
-                false,
-                false,
-                0,
-                base.plusSeconds(60));
+        insertUser("Inactive", "inactive2@example.org", false, false, 0, base.plusSeconds(60));
 
-        Page<User> page = users.searchUsers(
-                null,
-                null,
-                PageRequest.of(0, 20));
+        Page<User> page = users.searchUsers(null, null, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).hasSize(2);
     }
 
     /**
-     * Comprueba que el filtro por rol departamental devuelve únicamente
-     * usuarios con una pertenencia activa de ese rol.
+     * Comprueba que el filtro por rol departamental devuelve únicamente usuarios con una pertenencia activa de ese rol.
      */
     @Test
     void searchUsersFiltersByActiveDepartmentalRole() {
         Instant now = Instant.now();
 
-        UUID technician = insertUser(
-                "Technician",
-                "technician@example.org",
-                true,
-                true,
-                0,
-                now);
+        UUID technician = insertUser("Technician", "technician@example.org", true, true, 0, now);
 
-        UUID citizen = insertUser(
-                "Citizen",
-                "citizen-only@example.org",
-                true,
-                true,
-                0,
-                now.plusSeconds(1));
+        UUID citizen = insertUser("Citizen", "citizen-only@example.org", true, true, 0, now.plusSeconds(1));
 
         assignDepartmentRole(technician, RoleCode.TECHNICIAN, true);
         assignDepartmentRole(citizen, RoleCode.TECHNICIAN, false);
 
-        Page<User> page = users.searchUsers(
-                RoleCode.TECHNICIAN,
-                true,
-                PageRequest.of(0, 20));
+        Page<User> page = users.searchUsers(RoleCode.TECHNICIAN, true, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
-        assertThat(page.getContent())
-                .extracting(user -> user.getId())
-                .containsExactly(technician);
+        assertThat(page.getContent()).extracting(user -> user.getId()).containsExactly(technician);
         assertThat(citizen).isNotEqualTo(technician);
     }
 
@@ -400,8 +275,7 @@ class UserRepositoryPostgresIT {
         try {
             stats.clear();
             new TransactionTemplate(manager).executeWithoutResult(
-                    status -> users.searchUsers(null, null, PageRequest.of(0, 10))
-                            .forEach(user -> user.globalRoles()));
+                    status -> users.searchUsers(null, null, PageRequest.of(0, 10)).forEach(user -> user.globalRoles()));
             long lazyQueries = stats.getPrepareStatementCount();
             stats.clear();
             var page = service.getUsers(1, 10, null, null);
@@ -534,15 +408,13 @@ class UserRepositoryPostgresIT {
         jdbc.update("insert into audit_events(id,actor_user_id,action,resource_type,resource_id,occurred_at) "
                 + "values (uuidv7(),?,'TEST','USER','synthetic',now())", actor);
         for (int n = 0; n < 3; n++)
-            insertUser("Eliminable", "disposable" + n + "@example.org", true, false, 0,
-                    old.plusSeconds(60));
+            insertUser("Eliminable", "disposable" + n + "@example.org", true, false, 0, old.plusSeconds(60));
         var smallBatch = new es.grupo18.urbanpulse.auth.service.EmailVerificationCleanup(jdbc, manager,
                 new es.grupo18.urbanpulse.auth.config.EmailVerificationProperties("unused-test-secret", 1, 10),
                 java.time.Clock.systemUTC());
         assertThat(smallBatch.clean().users()).isEqualTo(3);
-        assertThat(users.findAll())
-                .extracting(user -> user.getId())
-                .containsExactlyInAnyOrder(creator, redeemer, revoker, actor);
+        assertThat(users.findAll()).extracting(user -> user.getId()).containsExactlyInAnyOrder(creator, redeemer,
+                revoker, actor);
         assertThat(jdbc.queryForObject("select count(*) from staff_invitations", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("select count(*) from audit_events", Integer.class)).isEqualTo(1);
     }

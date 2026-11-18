@@ -26,7 +26,7 @@ tags:
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
-    description: Canje y emisión controlados según ADR-0007 (aceptado).
+    description: Canje y emisión controlados según ADR-007 (aceptado).
   - name: Catálogos
     description: Categorías y departamentos.
   - name: Incidencias

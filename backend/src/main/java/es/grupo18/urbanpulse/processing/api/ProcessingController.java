@@ -36,8 +36,7 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.security.DatabaseJwtAuthenticationConverter;
 
 /**
- * Diez operaciones de la primera fase; la autorización real se revalida en el
- * servicio.
+ * Diez operaciones de la primera fase; la autorización real se revalida en el servicio.
  */
 @RestController
 @RequestMapping("/api/v1/incidents/{incidentId}")
@@ -57,8 +56,8 @@ public class ProcessingController {
      * @return 201 tras confirmar la transacción
      */
     @PostMapping("/reviews")
-    public ResponseEntity<ReviewDTO> createReviewDTO(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId, @RequestBody ReviewRequest request) {
+    public ResponseEntity<ReviewDTO> createReviewDTO(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID incidentId,
+            @RequestBody ReviewRequest request) {
         var result = service.review(subject(jwt), version(jwt), incidentId, request);
         return ResponseEntity.created(URI.create("/api/v1/incidents/" + incidentId + "/reviews/" + result.id()))
                 .cacheControl(CacheControl.noStore()).body(result);
@@ -127,9 +126,8 @@ public class ProcessingController {
      */
     @GetMapping("/priority-decisions")
     public ResponseEntity<PriorityDecisionPageDTO> priorities(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
-            @RequestParam Map<String, String> parameters) {
+            @PathVariable UUID incidentId, @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize, @RequestParam Map<String, String> parameters) {
         if (!Set.of("page", "pageSize").containsAll(parameters.keySet())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Parámetro no admitido.");
         }
@@ -179,9 +177,8 @@ public class ProcessingController {
      */
     @GetMapping("/information-responses")
     public ResponseEntity<InformationResponsePageDTO> responses(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
-            @RequestParam Map<String, String> parameters) {
+            @PathVariable UUID incidentId, @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize, @RequestParam Map<String, String> parameters) {
         if (!Set.of("page", "pageSize").containsAll(parameters.keySet())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Parámetro no admitido.");
         }
@@ -198,8 +195,7 @@ public class ProcessingController {
      */
     @GetMapping("/information-responses/{resourceId}")
     public ResponseEntity<InformationResponseDTO> response(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID incidentId,
-            @PathVariable UUID resourceId) {
+            @PathVariable UUID incidentId, @PathVariable UUID resourceId) {
         return ok(service.response(subject(jwt), version(jwt), incidentId, resourceId));
     }
 

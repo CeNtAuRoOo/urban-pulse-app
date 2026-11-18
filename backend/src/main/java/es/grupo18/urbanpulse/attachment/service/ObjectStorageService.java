@@ -16,8 +16,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 /**
- * Acceso al bucket privado; nunca genera URLs públicas ni revela claves en
- * errores HTTP.
+ * Acceso al bucket privado; nunca genera URLs públicas ni revela claves en errores HTTP.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,25 +32,16 @@ public class ObjectStorageService {
      * @param data        contenido acotado
      * @param contentType MIME validado
      */
-    public void upload(
-            String storageKey,
-            byte[] data,
-            String contentType) {
+    public void upload(String storageKey, byte[] data, String contentType) {
 
-        PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(properties.bucket())
-                .key(storageKey)
-                .contentType(contentType)
-                .build();
+        PutObjectRequest request = PutObjectRequest.builder().bucket(properties.bucket()).key(storageKey)
+                .contentType(contentType).build();
 
-        s3Client.putObject(
-                request,
-                RequestBody.fromBytes(data));
+        s3Client.putObject(request, RequestBody.fromBytes(data));
     }
 
     /**
-     * Recupera como máximo 10 MiB; aborta incluso si el servidor declara una
-     * longitud falsa.
+     * Recupera como máximo 10 MiB; aborta incluso si el servidor declara una longitud falsa.
      *
      * @param storageKey clave previamente autorizada
      * @return contenido acotado
@@ -60,10 +50,7 @@ public class ObjectStorageService {
      */
     public byte[] download(String storageKey) {
 
-        GetObjectRequest request = GetObjectRequest.builder()
-                .bucket(properties.bucket())
-                .key(storageKey)
-                .build();
+        GetObjectRequest request = GetObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build();
 
         try (var response = s3Client.getObject(request)) {
             byte[] data = response.readNBytes(ImageSanitizer.MAX_BYTES + 1);
@@ -78,17 +65,13 @@ public class ObjectStorageService {
     }
 
     /**
-     * Elimina únicamente objetos de una compensación; DELETE HTTP no invoca este
-     * método.
+     * Elimina únicamente objetos de una compensación; DELETE HTTP no invoca este método.
      *
      * @param storageKey clave opaca del objeto sobrante
      */
     public void delete(String storageKey) {
 
-        DeleteObjectRequest request = DeleteObjectRequest.builder()
-                .bucket(properties.bucket())
-                .key(storageKey)
-                .build();
+        DeleteObjectRequest request = DeleteObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build();
 
         s3Client.deleteObject(request);
     }

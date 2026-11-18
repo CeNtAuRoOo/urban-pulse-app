@@ -11,16 +11,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 
 /**
- * Envoltorio de una petición HTTP que conserva su cuerpo en memoria,
- * permitiendo que los filtros y controladores posteriores puedan leerlo
- * después de haber sido inspeccionado por el limitador.
+ * Envoltorio de una petición HTTP que conserva su cuerpo en memoria, permitiendo que los filtros y controladores
+ * posteriores puedan leerlo después de haber sido inspeccionado por el limitador.
  */
 public final class CachedBodyRequest extends HttpServletRequestWrapper {
+
     private final byte[] body;
 
     /**
-     * Crea un envoltorio de la petición HTTP que conserva una copia
-     * del cuerpo previamente leído por el filtro.
+     * Crea un envoltorio de la petición HTTP que conserva una copia del cuerpo previamente leído por el filtro.
      *
      * @param request petición HTTP original
      * @param body    contenido del cuerpo almacenado en memoria
@@ -72,12 +71,11 @@ public final class CachedBodyRequest extends HttpServletRequestWrapper {
             }
 
             /**
-             * Rechaza la configuración de un listener de lectura asíncrona,
-             * ya que este flujo solo admite operaciones síncronas.
+             * Rechaza la configuración de un listener de lectura asíncrona, ya que este flujo solo admite operaciones
+             * síncronas.
              *
              * @param listener listener de lectura que se intenta registrar
-             * @throws UnsupportedOperationException siempre, porque no se admite
-             *                                       lectura asíncrona
+             * @throws UnsupportedOperationException siempre, porque no se admite lectura asíncrona
              */
             @Override
             public void setReadListener(ReadListener listener) {

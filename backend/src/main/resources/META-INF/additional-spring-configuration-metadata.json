@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "security.email-verification.cleanup-cron",
+      "type": "java.lang.String",
+      "description": "Expresión cron de Spring de seis campos para la limpieza periódica de verificaciones caducadas. El valor '-' deshabilita la tarea.",
+      "defaultValue": "0 0 * * * *"
+    }
+  ]
+}

@@ -16,11 +16,8 @@ import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 
 /**
- * Transporta un fallo del backend de autenticación hasta el manejador de
- * Security.
- * Conserva únicamente la categoría y el tipo de excepción: no adjunta mensajes
- * ni
- * causas JDBC que los logs internos de Spring podrían revelar.
+ * Transporta un fallo del backend de autenticación hasta el manejador de Security. Conserva únicamente la categoría y
+ * el tipo de excepción: no adjunta mensajes ni causas JDBC que los logs internos de Spring podrían revelar.
  */
 public class AuthenticationBackendException extends AuthenticationServiceException {
 
@@ -28,13 +25,11 @@ public class AuthenticationBackendException extends AuthenticationServiceExcepti
     private final String failureType;
 
     /**
-     * Crea una excepción de autenticación a partir de un fallo interno.
-     * Clasifica si corresponde a indisponibilidad de la base de datos
-     * y conserva únicamente el tipo de la excepción original,
-     * sin adjuntar mensajes ni causas potencialmente sensibles.
+     * Crea una excepción de autenticación a partir de un fallo interno. Clasifica si corresponde a indisponibilidad de
+     * la base de datos y conserva únicamente el tipo de la excepción original, sin adjuntar mensajes ni causas
+     * potencialmente sensibles.
      *
-     * @param failure excepción original producida por el backend
-     *                de autenticación
+     * @param failure excepción original producida por el backend de autenticación
      */
     public AuthenticationBackendException(RuntimeException failure) {
         super("Fallo del backend de autenticación.");
@@ -43,19 +38,16 @@ public class AuthenticationBackendException extends AuthenticationServiceExcepti
     }
 
     /**
-     * Indica si el fallo de autenticación se debe a una indisponibilidad
-     * de la base de datos.
+     * Indica si el fallo de autenticación se debe a una indisponibilidad de la base de datos.
      *
-     * @return true si se ha identificado un fallo de disponibilidad;
-     *         false en caso contrario
+     * @return true si se ha identificado un fallo de disponibilidad; false en caso contrario
      */
     public boolean isUnavailable() {
         return unavailable;
     }
 
     /**
-     * Obtiene el nombre del tipo de excepción que originó el fallo,
-     * sin revelar su mensaje ni sus causas internas.
+     * Obtiene el nombre del tipo de excepción que originó el fallo, sin revelar su mensaje ni sus causas internas.
      *
      * @return nombre completo de la clase de la excepción original
      */
@@ -64,9 +56,8 @@ public class AuthenticationBackendException extends AuthenticationServiceExcepti
     }
 
     /**
-     * Reconoce fallos de recursos/conexión y timeouts, incluidos los envueltos al
-     * abrir o finalizar una transacción. No clasifica errores de sintaxis,
-     * integridad o programación como indisponibilidad.
+     * Reconoce fallos de recursos/conexión y timeouts, incluidos los envueltos al abrir o finalizar una transacción. No
+     * clasifica errores de sintaxis, integridad o programación como indisponibilidad.
      *
      * @param failure excepción de persistencia o su envoltorio transaccional
      * @return true si hay evidencia tipada de indisponibilidad de PostgreSQL
@@ -77,11 +68,9 @@ public class AuthenticationBackendException extends AuthenticationServiceExcepti
         for (Throwable cause = failure; cause != null && visited.add(cause); cause = cause.getCause()) {
             if (cause instanceof DataAccessResourceFailureException
                     || cause instanceof TransientDataAccessResourceException
-                    || cause instanceof RecoverableDataAccessException
-                    || cause instanceof QueryTimeoutException
+                    || cause instanceof RecoverableDataAccessException || cause instanceof QueryTimeoutException
                     || cause instanceof SQLTransientConnectionException
-                    || cause instanceof SQLNonTransientConnectionException
-                    || cause instanceof SQLRecoverableException
+                    || cause instanceof SQLNonTransientConnectionException || cause instanceof SQLRecoverableException
                     || cause instanceof SQLTimeoutException) {
                 return true;
             }

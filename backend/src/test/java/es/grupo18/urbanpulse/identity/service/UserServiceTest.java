@@ -103,9 +103,7 @@ class UserServiceTest {
     void getMeThrowsWhenUserDoesNotExist() {
         when(users.findById(userId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.getMe(userId));
+        assertThrows(EntityNotFoundException.class, () -> userService.getMe(userId));
 
         verify(users).findById(userId);
     }
@@ -132,9 +130,7 @@ class UserServiceTest {
 
         UpdateMyProfileRequest request = new UpdateMyProfileRequest("Nuevo Nombre");
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.updateMe(userId, request));
+        assertThrows(EntityNotFoundException.class, () -> userService.updateMe(userId, request));
 
         verify(user, never()).updateDisplayName(anyString());
     }
@@ -143,8 +139,7 @@ class UserServiceTest {
     void getUserByIdReturnsUser() {
         configureUser();
 
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.of(user));
+        when(users.findUserWithRolesById(userId)).thenReturn(Optional.of(user));
 
         UserDTO result = userService.getUserById(userId);
 
@@ -157,20 +152,16 @@ class UserServiceTest {
 
     @Test
     void getUserByIdThrowsWhenUserDoesNotExist() {
-        when(users.findUserWithRolesById(userId))
-                .thenReturn(Optional.empty());
+        when(users.findUserWithRolesById(userId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.getUserById(userId));
+        assertThrows(EntityNotFoundException.class, () -> userService.getUserById(userId));
     }
 
     @Test
     void updateUserChangesActiveStatus() {
         configureUser();
 
-        when(users.findForEmailVerification(userId))
-                .thenReturn(Optional.of(user));
+        when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
 
         AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
 
@@ -184,14 +175,11 @@ class UserServiceTest {
 
     @Test
     void updateUserThrowsWhenUserDoesNotExist() {
-        when(users.findForEmailVerification(userId))
-                .thenReturn(Optional.empty());
+        when(users.findForEmailVerification(userId)).thenReturn(Optional.empty());
 
         AdminUpdateUserRequest request = new AdminUpdateUserRequest(false);
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> userService.updateUser(userId, request));
+        assertThrows(EntityNotFoundException.class, () -> userService.updateUser(userId, request));
 
         verify(user, never()).setActive(anyBoolean());
     }
@@ -200,19 +188,11 @@ class UserServiceTest {
     void getUsersReturnsPaginatedResults() {
         configureUser();
 
-        Page<User> page = new PageImpl<>(
-                List.of(user),
-                PageRequest.of(0, 20),
-                1);
+        Page<User> page = new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1);
 
-        when(users.searchUsers(
-                isNull(),
-                isNull(),
-                any(Pageable.class)))
-                .thenReturn(page);
+        when(users.searchUsers(isNull(), isNull(), any(Pageable.class))).thenReturn(page);
 
-        UsersPageDTO result = userService.getUsers(
-                1, 20, null, null);
+        UsersPageDTO result = userService.getUsers(1, 20, null, null);
 
         assertNotNull(result);
         assertEquals(1, result.data().size());
@@ -223,51 +203,33 @@ class UserServiceTest {
         assertEquals(1, result.pagination().totalItems());
         assertEquals(1, result.pagination().totalPages());
 
-        verify(users).searchUsers(
-                isNull(),
-                isNull(),
-                any(Pageable.class));
+        verify(users).searchUsers(isNull(), isNull(), any(Pageable.class));
     }
 
     @Test
     void getUsersPassesFiltersAndPagination() {
         configureUser();
 
-        Page<User> page = new PageImpl<>(
-                List.of(user),
-                PageRequest.of(1, 10),
-                11);
+        Page<User> page = new PageImpl<>(List.of(user), PageRequest.of(1, 10), 11);
 
-        when(users.searchUsers(
-                eq(RoleCode.CITIZEN),
-                eq(true),
-                any(Pageable.class)))
-                .thenReturn(page);
+        when(users.searchUsers(eq(RoleCode.CITIZEN), eq(true), any(Pageable.class))).thenReturn(page);
 
-        UsersPageDTO result = userService.getUsers(
-                2, 10, RoleCode.CITIZEN, true);
+        UsersPageDTO result = userService.getUsers(2, 10, RoleCode.CITIZEN, true);
 
         assertEquals(2, result.pagination().page());
         assertEquals(10, result.pagination().pageSize());
         assertEquals(11, result.pagination().totalItems());
         assertEquals(2, result.pagination().totalPages());
 
-        verify(users).searchUsers(
-                eq(RoleCode.CITIZEN),
-                eq(true),
-                argThat(pageable -> pageable.getPageNumber() == 1
-                        && pageable.getPageSize() == 10
-                        && pageable.getSort()
-                                .getOrderFor("createdAt")
-                                .getDirection() == Sort.Direction.DESC
-                        && pageable.getSort()
-                                .getOrderFor("id")
-                                .getDirection() == Sort.Direction.ASC));
+        verify(users).searchUsers(eq(RoleCode.CITIZEN), eq(true),
+                argThat(pageable -> pageable.getPageNumber() == 1 && pageable.getPageSize() == 10
+                        && pageable.getSort().getOrderFor("createdAt").getDirection() == Sort.Direction.DESC
+                        && pageable.getSort().getOrderFor("id").getDirection() == Sort.Direction.ASC));
     }
 
     /**
-     * Comprueba que el perfil del usuario incluye sus pertenencias departamentales
-     * y los datos de departamento y rol asociados.
+     * Comprueba que el perfil del usuario incluye sus pertenencias departamentales y los datos de departamento y rol
+     * asociados.
      */
     @Test
     void getMeIncludesDepartmentMemberships() {

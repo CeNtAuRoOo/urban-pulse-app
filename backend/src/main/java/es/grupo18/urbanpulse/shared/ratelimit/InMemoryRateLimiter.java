@@ -15,10 +15,9 @@ import org.springframework.stereotype.Component;
 import es.grupo18.urbanpulse.shared.ratelimit.RateLimitProperties.Policy;
 
 /**
- * Limita las peticiones mediante buckets de tokens almacenados en memoria.
- * Repone los tokens progresivamente, elimina los buckets inactivos
- * tras el periodo de reposición de su propia política y restringe las claves.
- * No mantiene cuotas compartidas entre instancias ni tras reiniciar el proceso.
+ * Limita las peticiones mediante buckets de tokens almacenados en memoria. Repone los tokens progresivamente, elimina
+ * los buckets inactivos tras el periodo de reposición de su propia política y restringe las claves. No mantiene cuotas
+ * compartidas entre instancias ni tras reiniciar el proceso.
  */
 @Component
 @RequiredArgsConstructor
@@ -28,13 +27,12 @@ public class InMemoryRateLimiter {
     private final LongSupplier ticker;
     private final Map<String, Bucket> buckets = new LinkedHashMap<>(16, 0.75f, true);
 
-    private final NavigableSet<Bucket> expirations = new TreeSet<>(Comparator
-            .comparingLong((Bucket bucket) -> bucket.expiresAt).thenComparing(bucket -> bucket.key));
+    private final NavigableSet<Bucket> expirations = new TreeSet<>(
+            Comparator.comparingLong((Bucket bucket) -> bucket.expiresAt).thenComparing(bucket -> bucket.key));
 
     /**
-     * Crea un limitador de peticiones utilizando las políticas configuradas
-     * y el reloj monotónico del sistema para calcular los intervalos
-     * de reposición y caducidad de los buckets.
+     * Crea un limitador de peticiones utilizando las políticas configuradas y el reloj monotónico del sistema para
+     * calcular los intervalos de reposición y caducidad de los buckets.
      *
      * @param properties configuración de las políticas de limitación
      */
@@ -44,9 +42,8 @@ public class InMemoryRateLimiter {
     }
 
     /**
-     * Intenta consumir un token del bucket asociado a una clave.
-     * Repone los tokens según la política configurada, elimina buckets
-     * inactivos y rechaza peticiones cuando no hay capacidad disponible.
+     * Intenta consumir un token del bucket asociado a una clave. Repone los tokens según la política configurada,
+     * elimina buckets inactivos y rechaza peticiones cuando no hay capacidad disponible.
      *
      * @param key    identificador del bucket que debe utilizarse
      * @param policy política de capacidad y reposición de tokens
@@ -97,8 +94,8 @@ public class InMemoryRateLimiter {
     }
 
     /**
-     * Convierte un intervalo de nanosegundos a segundos, redondeando
-     * hacia arriba y garantizando un resultado mínimo de un segundo.
+     * Convierte un intervalo de nanosegundos a segundos, redondeando hacia arriba y garantizando un resultado mínimo de
+     * un segundo.
      *
      * @param nanos intervalo de tiempo en nanosegundos
      * @return intervalo en segundos, redondeado hacia arriba
@@ -111,18 +108,14 @@ public class InMemoryRateLimiter {
      * Representa el resultado de un intento de consumir un token.
      *
      * @param allowed           indica si la petición puede continuar
-     * @param retryAfterSeconds tiempo de espera en segundos si se rechaza,
-     *                          o cero si se permite
+     * @param retryAfterSeconds tiempo de espera en segundos si se rechaza, o cero si se permite
      */
-    public record Decision(
-            boolean allowed,
-            long retryAfterSeconds) {
+    public record Decision(boolean allowed, long retryAfterSeconds) {
     }
 
     /**
-     * Representa un bucket de tokens asociado a una clave de limitación.
-     * Almacena los tokens disponibles y el instante de su última utilización,
-     * utilizado para calcular la reposición y la expiración por inactividad.
+     * Representa un bucket de tokens asociado a una clave de limitación. Almacena los tokens disponibles y el instante
+     * de su última utilización, utilizado para calcular la reposición y la expiración por inactividad.
      */
     private static final class Bucket {
         private final String key;
@@ -131,8 +124,7 @@ public class InMemoryRateLimiter {
         private long expiresAt;
 
         /**
-         * Crea un bucket de tokens con su identificador, capacidad inicial
-         * e instante de última utilización.
+         * Crea un bucket de tokens con su identificador, capacidad inicial e instante de última utilización.
          *
          * @param key    identificador del bucket
          * @param tokens cantidad inicial de tokens disponibles

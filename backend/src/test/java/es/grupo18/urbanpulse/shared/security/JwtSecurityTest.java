@@ -43,8 +43,8 @@ class JwtSecurityTest {
     private final DatabaseJwtAuthenticationConverter converter = new DatabaseJwtAuthenticationConverter(users);
 
     private String token(Object subject, Object version, String issuer, Instant issued, Instant expires) {
-        var claims = JwtClaimsSet.builder().issuer(issuer).issuedAt(issued).expiresAt(expires)
-                .claim("sub", subject).claim("ver", version).build();
+        var claims = JwtClaimsSet.builder().issuer(issuer).issuedAt(issued).expiresAt(expires).claim("sub", subject)
+                .claim("ver", version).build();
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
     }
@@ -57,8 +57,7 @@ class JwtSecurityTest {
         String tampered = parts[0] + "." + parts[1] + "." + (parts[2].startsWith("A") ? "B" : "A")
                 + parts[2].substring(1);
         assertThatThrownBy(() -> decoder.decode(tampered)).isInstanceOf(JwtException.class);
-        for (String invalid : List.of(
-                token(id.toString(), 0, "other", now, now.plusSeconds(7200)),
+        for (String invalid : List.of(token(id.toString(), 0, "other", now, now.plusSeconds(7200)),
                 token(id.toString(), 0, "test-issuer", now.minusSeconds(8000), now.minusSeconds(1)),
                 token(id.toString(), 0, "test-issuer", now.minusSeconds(7200), now),
                 token("not-a-uuid", 0, "test-issuer", now, now.plusSeconds(7200)),
@@ -105,8 +104,8 @@ class JwtSecurityTest {
         assertThatThrownBy(() -> converter.convert(jwt))
                 .isInstanceOf(org.springframework.security.core.AuthenticationException.class);
         when(users.findSecurityState(id)).thenThrow(new DataAccessResourceFailureException("not exposed"));
-        assertThatThrownBy(() -> converter.convert(jwt))
-                .isInstanceOfSatisfying(AuthenticationBackendException.class, error -> {
+        assertThatThrownBy(() -> converter.convert(jwt)).isInstanceOfSatisfying(AuthenticationBackendException.class,
+                error -> {
                     assertThat(error.isUnavailable()).isTrue();
                     assertThat(error.getCause()).isNull();
                     assertThat(error.getMessage()).doesNotContain("not exposed");

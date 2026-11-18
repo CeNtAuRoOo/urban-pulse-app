@@ -6,21 +6,14 @@ package es.grupo18.urbanpulse.attachment.model;
 
 public enum ContentType {
 
-    /** Fotografía JPEG, incluidas las extensiones jpg y jpeg. */
-    IMAGE_JPEG("image/jpeg"),
+    IMAGE_JPEG("image/jpeg"), IMAGE_PNG("image/png");
 
-    /** Fotografía PNG, con transparencia cuando está presente. */
-    IMAGE_PNG("image/png");
-
-    // MIME público independiente del valor persistido.
     private final String mimeType;
 
     /**
-     * Fija el enumerado a partir del tipo de contenido
-     * expresado en formato MIME.
+     * Fija el enumerado a partir del tipo de contenido expresado en formato MIME.
      *
-     * @param mimeType Tipo de contenido en el formato MIME
-     *                 Ejemplo: "image/jpeg".
+     * @param mimeType Tipo de contenido en el formato MIME Ejemplo: "image/jpeg".
      */
     ContentType(String mimeType) {
         this.mimeType = mimeType;

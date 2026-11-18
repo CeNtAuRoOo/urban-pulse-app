@@ -21,18 +21,14 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("security.jwt")
-public record JwtProperties(
-        @NotBlank String issuer,
-        @NotBlank String secret,
-        @Min(7200) @Max(7200) long ttlSeconds,
+public record JwtProperties(@NotBlank String issuer, @NotBlank String secret, @Min(7200) @Max(7200) long ttlSeconds,
         @NotEmpty List<@NotBlank String> allowedOrigins) {
 
     /**
      * Decodifica la clave secreta JWT y comprueba su longitud mínima.
      *
      * @return clave secreta decodificada en bytes
-     * @throws IllegalArgumentException si la clave no es Base64 válido o contiene
-     *                                  menos de 32 bytes
+     * @throws IllegalArgumentException si la clave no es Base64 válido o contiene menos de 32 bytes
      */
     public byte[] keyBytes() {
         try {

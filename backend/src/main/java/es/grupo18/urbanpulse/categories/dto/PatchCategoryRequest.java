@@ -11,14 +11,15 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 
 /**
- * Actualización parcial: omitir conserva el valor y null explícito se rechaza
- * al deserializar.
+ * Actualización parcial: omitir conserva el valor y null explícito se rechaza al deserializar.
  */
 @JsonAutoDetect(getterVisibility = JsonAutoDetect.Visibility.NONE, isGetterVisibility = JsonAutoDetect.Visibility.NONE)
 public class PatchCategoryRequest {
+
     @CodePointLength(min = 2, max = 100)
     @Pattern(regexp = "(?s).*\\S.*")
     private String name;
+
     @CodePointLength(max = 500)
     private String description;
     private Boolean active;
@@ -28,8 +29,8 @@ public class PatchCategoryRequest {
     }
 
     /**
-     * Construye un parche desde Java; null representa un campo omitido.
-     * Este constructor no se utiliza para deserializar el JSON.
+     * Construye un parche desde Java; null representa un campo omitido. Este constructor no se utiliza para
+     * deserializar el JSON.
      *
      * @param name        nombre que se recorta antes de validar, o null si se omite
      * @param description descripción sin recortar, o null si se omite
@@ -88,8 +89,7 @@ public class PatchCategoryRequest {
     }
 
     /**
-     * Exige al menos un campo presente; esta propiedad interna no pertenece al JSON
-     * de entrada.
+     * Exige al menos un campo presente; esta propiedad interna no pertenece al JSON de entrada.
      *
      * @return true si hay al menos un atributo que actualizar
      */

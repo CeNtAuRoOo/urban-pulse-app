@@ -14,18 +14,18 @@ import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Geometry;
 
 /**
- * Registro del catálogo espacial. La columna de origen identifica el conjunto
- * del que procede el activo.
+ * Registro del catálogo espacial. La columna de origen identifica el conjunto del que procede el activo.
  *
- * La columna geom almacena geometrías en SRID 25830
- * (ETRS89 / UTM zone 30N).
+ * La columna geom almacena geometrías en SRID 25830 (ETRS89 / UTM zone 30N).
  */
 @Entity
 @Table(name = "contexto_urbano", schema = "cartografia")
 @Getter
 public class UrbanAsset {
 
-    /** Constructor de persistencia utilizado por Hibernate al materializar una fila. */
+    /**
+     * Constructor de persistencia utilizado por Hibernate al materializar una fila.
+     */
     protected UrbanAsset() {
     }
 
@@ -61,8 +61,8 @@ public class UrbanAsset {
     /**
      * Geometría espacial almacenada en PostGIS con SRID 25830.
      *
-     * Se indica explícitamente el tipo JDBC para que Hibernate Spatial
-     * gestione correctamente el enlace de geometrías JTS con PostgreSQL.
+     * Se indica explícitamente el tipo JDBC para que Hibernate Spatial gestione correctamente el enlace de geometrías
+     * JTS con PostgreSQL.
      */
     @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geom", nullable = false, columnDefinition = "geometry(Geometry,25830)")
@@ -92,21 +92,14 @@ public class UrbanAsset {
      * @return nueva entidad sin identidad asignada y con copia defensiva de geometría
      * @throws IllegalArgumentException si el origen o la geometría incumplen las invariantes
      */
-    public static UrbanAsset create(
-            String sourceTable,
-            String name,
-            String category,
-            String description,
-            String address,
-            String phone,
-            String email,
-            String url,
-            Geometry geom) {
+    public static UrbanAsset create(String sourceTable, String name, String category, String description,
+            String address, String phone, String email, String url, Geometry geom) {
 
         if (sourceTable == null || sourceTable.isBlank() || sourceTable.codePointCount(0, sourceTable.length()) > 64
-                || !sourceTable.equals(sourceTable.strip()) || sourceTable.codePoints().anyMatch(code ->
-                    Character.isISOControl(code) || (code >= 0xD800 && code <= 0xDFFF))) {
-            throw new IllegalArgumentException("sourceTable debe ser un origen no vacío de hasta 64 puntos Unicode válidos.");
+                || !sourceTable.equals(sourceTable.strip()) || sourceTable.codePoints()
+                        .anyMatch(code -> Character.isISOControl(code) || (code >= 0xD800 && code <= 0xDFFF))) {
+            throw new IllegalArgumentException(
+                    "sourceTable debe ser un origen no vacío de hasta 64 puntos Unicode válidos.");
         }
 
         if (geom == null || geom.isEmpty()) {
@@ -114,13 +107,12 @@ public class UrbanAsset {
         }
 
         if (geom.getSRID() != 25830) {
-            throw new IllegalArgumentException(
-                    "geom debe usar SRID 25830; recibido: " + geom.getSRID());
+            throw new IllegalArgumentException("geom debe usar SRID 25830; recibido: " + geom.getSRID());
         }
 
-        if (!geom.isValid() || java.util.Arrays.stream(geom.getCoordinates()).anyMatch(coordinate ->
-                !Double.isFinite(coordinate.x) || !Double.isFinite(coordinate.y) || !Double.isNaN(coordinate.getZ())
-                || !Double.isNaN(coordinate.getM()))) {
+        if (!geom.isValid() || java.util.Arrays.stream(geom.getCoordinates())
+                .anyMatch(coordinate -> !Double.isFinite(coordinate.x) || !Double.isFinite(coordinate.y)
+                        || !Double.isNaN(coordinate.getZ()) || !Double.isNaN(coordinate.getM()))) {
             throw new IllegalArgumentException("geom debe ser válida, bidimensional y tener coordenadas finitas.");
         }
         UrbanAsset asset = new UrbanAsset();

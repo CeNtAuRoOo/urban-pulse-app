@@ -122,9 +122,7 @@ class CategoryServiceTest {
         UUID id = UUID.randomUUID();
         when(repository.findAllByOrderByNameAscIdAsc()).thenReturn(List.of(inactive));
         when(repository.findById(id)).thenReturn(Optional.of(inactive));
-        assertThat(service.findAll())
-                .extracting(category -> category.active())
-                .containsExactly(false);
+        assertThat(service.findAll()).extracting(category -> category.active()).containsExactly(false);
         assertThat(service.findById(id).active()).isFalse();
         UUID missing = UUID.randomUUID();
         assertThatThrownBy(() -> service.findById(missing)).isInstanceOf(CategoryNotFoundException.class);

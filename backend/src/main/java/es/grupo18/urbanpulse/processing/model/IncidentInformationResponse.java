@@ -23,8 +23,7 @@ import es.grupo18.urbanpulse.identity.model.User;
 import es.grupo18.urbanpulse.incidents.model.Incident;
 
 /**
- * Respuesta inmutable a una solicitud exacta; las fotos siguen perteneciendo a
- * Incident.
+ * Respuesta inmutable a una solicitud exacta; las fotos siguen perteneciendo a Incident.
  */
 @Entity
 @Table(name = "incident_information_responses")

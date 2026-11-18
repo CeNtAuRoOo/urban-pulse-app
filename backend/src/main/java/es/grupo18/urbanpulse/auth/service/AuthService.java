@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,11 +13,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import org.hibernate.exception.ConstraintViolationException;
 
 import es.grupo18.urbanpulse.auth.dto.ChangePasswordRequest;
 import es.grupo18.urbanpulse.auth.dto.LoginRequest;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.dto.TokenDTO;
+import es.grupo18.urbanpulse.identity.dto.DepartmentMembershipDTO;
 import es.grupo18.urbanpulse.identity.dto.UserDTO;
 import es.grupo18.urbanpulse.identity.model.Role;
 import es.grupo18.urbanpulse.identity.model.RoleCode;
@@ -27,16 +28,13 @@ import es.grupo18.urbanpulse.identity.model.UserRole;
 import es.grupo18.urbanpulse.identity.repository.RoleRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRepository;
 import es.grupo18.urbanpulse.identity.repository.UserRoleRepository;
-import es.grupo18.urbanpulse.shared.error.ApiException;
-import es.grupo18.urbanpulse.identity.dto.DepartmentMembershipDTO;
 import es.grupo18.urbanpulse.organization.repository.DepartmentMembershipRepository;
+import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Servicio encargado de gestionar la autenticación de usuarios.
- * Implementa el registro, inicio de sesión y cambio de contraseña,
- * incluyendo el cifrado de credenciales, asignación de roles e invalidación
- * de JWT. Integra la creación transaccional de solicitudes de verificación
- * del correo electrónico durante el registro.
+ * Servicio encargado de gestionar la autenticación de usuarios. Implementa el registro, inicio de sesión y cambio de
+ * contraseña, incluyendo el cifrado de credenciales, asignación de roles e invalidación de JWT. Integra la creación
+ * transaccional de solicitudes de verificación del correo electrónico durante el registro.
  */
 @Service
 public class AuthService {
@@ -52,11 +50,9 @@ public class AuthService {
     private final String dummyHash;
 
     /**
-     * Inicializa el servicio de autenticación con los repositorios,
-     * componentes de seguridad y servicios necesarios para gestionar
-     * usuarios y credenciales.
-     * Configura las transacciones de registro y genera un hash ficticio
-     * para reducir diferencias temporales durante el inicio de sesión.
+     * Inicializa el servicio de autenticación con los repositorios, componentes de seguridad y servicios necesarios
+     * para gestionar usuarios y credenciales. Configura las transacciones de registro y genera un hash ficticio para
+     * reducir diferencias temporales durante el inicio de sesión.
      *
      * @param users                 repositorio de usuarios
      * @param roles                 repositorio del catálogo de roles
@@ -68,9 +64,8 @@ public class AuthService {
      * @param verification          servicio de verificación del correo electrónico
      */
     public AuthService(UserRepository users, RoleRepository roles, UserRoleRepository userRoles,
-            DepartmentMembershipRepository departmentMemberships, PasswordEncoder passwords,
-            JwtTokenService tokens, PlatformTransactionManager manager,
-            EmailVerificationService verification) {
+            DepartmentMembershipRepository departmentMemberships, PasswordEncoder passwords, JwtTokenService tokens,
+            PlatformTransactionManager manager, EmailVerificationService verification) {
 
         this.users = users;
         this.roles = roles;
@@ -84,14 +79,12 @@ public class AuthService {
     }
 
     /**
-     * Registra un nuevo usuario y le asigna el rol global CITIZEN
-     * dentro de una transacción, devolviendo un JWT de acceso. Guarda también
-     * la solicitud de verificación y publica su envío para después del commit.
+     * Registra un nuevo usuario y le asigna el rol global CITIZEN dentro de una transacción, devolviendo un JWT de
+     * acceso. Guarda también la solicitud de verificación y publica su envío para después del commit.
      *
      * @param request datos de registro del nuevo usuario
      * @return respuesta con el token JWT y los datos públicos del usuario
-     * @throws ApiException si el correo ya está registrado o la contraseña supera
-     *                      el límite permitido
+     * @throws ApiException si el correo ya está registrado o la contraseña supera el límite permitido
      */
     public TokenDTO register(RegisterRequest request) {
         checkBcryptLength(request.password());
@@ -122,14 +115,13 @@ public class AuthService {
     }
 
     /**
-     * Autentica a un usuario comprobando sus credenciales y el estado de su cuenta.
-     * Utiliza un hash ficticio cuando el correo no existe para reducir diferencias
-     * en los tiempos de respuesta y devuelve un JWT si la autenticación es válida.
+     * Autentica a un usuario comprobando sus credenciales y el estado de su cuenta. Utiliza un hash ficticio cuando el
+     * correo no existe para reducir diferencias en los tiempos de respuesta y devuelve un JWT si la autenticación es
+     * válida.
      *
      * @param request credenciales de inicio de sesión
      * @return respuesta con el token JWT y los datos públicos del usuario
-     * @throws ApiException si las credenciales no son válidas o la cuenta está
-     *                      inactiva
+     * @throws ApiException si las credenciales no son válidas o la cuenta está inactiva
      */
     @Transactional(readOnly = true)
     public TokenDTO login(LoginRequest request) {
@@ -140,24 +132,20 @@ public class AuthService {
             throw ApiException.unauthorized();
         }
 
-        var memberships = departmentMemberships.findAllForUsers(List.of(user.getId()))
-                .stream()
-                .map(DepartmentMembershipDTO::from)
-                .toList();
+        var memberships = departmentMemberships.findAllForUsers(List.of(user.getId())).stream()
+                .map(DepartmentMembershipDTO::from).toList();
 
         return tokens.issue(user, UserDTO.from(user, user.globalRoles(), memberships));
     }
 
     /**
-     * Cambia la contraseña de un usuario tras verificar su contraseña actual
-     * y la versión del JWT, utilizando un bloqueo pesimista para evitar
-     * conflictos concurrentes e invalidando los tokens anteriores.
+     * Cambia la contraseña de un usuario tras verificar su contraseña actual y la versión del JWT, utilizando un
+     * bloqueo pesimista para evitar conflictos concurrentes e invalidando los tokens anteriores.
      *
      * @param id               identificador del usuario
      * @param presentedVersion versión del JWT utilizado en la petición
      * @param request          datos necesarios para cambiar la contraseña
-     * @throws ApiException si la autenticación no es válida o la nueva contraseña
-     *                      supera el límite permitido
+     * @throws ApiException si la autenticación no es válida o la nueva contraseña supera el límite permitido
      */
     @Transactional
     public void changePassword(UUID id, long presentedVersion, ChangePasswordRequest request) {
@@ -176,9 +164,8 @@ public class AuthService {
     }
 
     /**
-     * Comprueba si una contraseña coincide con su hash BCrypt.
-     * Rechaza contraseñas que superan los 72 bytes, ejecutando igualmente
-     * una comparación ficticia para reducir diferencias temporales.
+     * Comprueba si una contraseña coincide con su hash BCrypt. Rechaza contraseñas que superan los 72 bytes, ejecutando
+     * igualmente una comparación ficticia para reducir diferencias temporales.
      *
      * @param raw  contraseña en texto plano
      * @param hash hash BCrypt contra el que se realiza la comprobación
@@ -194,8 +181,8 @@ public class AuthService {
     }
 
     /**
-     * Comprueba que una contraseña no supere los 72 bytes en UTF-8,
-     * límite de longitud admitido por la implementación de BCrypt.
+     * Comprueba que una contraseña no supere los 72 bytes en UTF-8, límite de longitud admitido por la implementación
+     * de BCrypt.
      *
      * @param raw contraseña en texto plano que se desea validar
      * @throws ApiException si la contraseña supera los 72 bytes

@@ -1,15 +1,19 @@
 {
   "recommendations": [
-    "vscjava.vscode-java-pack",
-    "vmware.vscode-boot-dev-pack",
-    "esbenp.prettier-vscode",
-    "redhat.vscode-yaml",
-    "redhat.vscode-xml",
-    "EditorConfig.EditorConfig",
-    "ms-azuretools.vscode-containers",
     "redocly.openapi-vs-code",
+    "ms-azuretools.vscode-containers",
+    "vscjava.vscode-java-pack",
+    "docker.docker",
+    "editorconfig.editorconfig",
+    "usernamehw.errorlens",
     "expo.vscode-expo-tools",
+    "github.vscode-github-actions",
+    "christian-kohler.path-intellisense",
+    "esbenp.prettier-vscode",
+    "dorianmassoulier.repomix-runner",
+    "vmware.vscode-boot-dev-pack",
     "rangav.vscode-thunder-client",
-    "github.vscode-github-actions"
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml"
   ]
 }

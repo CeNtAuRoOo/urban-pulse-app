@@ -8,9 +8,5 @@ package es.grupo18.urbanpulse.attachment.service;
  * @param sizeBytes   longitud real
  * @param data        imagen saneada
  */
-public record AttachmentContent(
-        String fileName,
-        String contentType,
-        long sizeBytes,
-        byte[] data) {
+public record AttachmentContent(String fileName, String contentType, long sizeBytes, byte[] data) {
 }

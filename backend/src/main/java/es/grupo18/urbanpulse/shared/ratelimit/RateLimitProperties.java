@@ -8,9 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Configura las cuotas de peticiones para registro, inicio de sesión,
- * verificación de correo y canje de invitaciones, así como el máximo
- * de claves que puede conservar el limitador en memoria.
+ * Configura las cuotas de peticiones para registro, inicio de sesión, verificación de correo y canje de invitaciones,
+ * así como el máximo de claves que puede conservar el limitador en memoria.
  *
  * @param registerIp     política de registro por dirección IP
  * @param loginIp        política de inicio de sesión por dirección IP
@@ -18,8 +17,7 @@ import org.springframework.validation.annotation.Validated;
  * @param confirmUser    intentos de confirmación por cuenta
  * @param confirmIp      intentos de confirmación por IP
  * @param resendCooldown enfriamiento del reenvío por cuenta
- * @param resendUser     presupuesto gradual de reenvíos por cuenta, no cuota
- *                       diaria estricta
+ * @param resendUser     presupuesto gradual de reenvíos por cuenta, no cuota diaria estricta
  * @param resendIp       reenvíos por IP
  * @param invitationUser canjes por usuario verificado
  * @param invitationIp   canjes por IP de conexión
@@ -27,18 +25,10 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("security.rate-limit")
-public record RateLimitProperties(
-        @NotNull @Valid Policy registerIp,
-        @NotNull @Valid Policy loginIp,
-        @NotNull @Valid Policy loginEmail,
-        @NotNull @Valid Policy confirmUser,
-        @NotNull @Valid Policy confirmIp,
-        @NotNull @Valid Policy resendCooldown,
-        @NotNull @Valid Policy resendUser,
-        @NotNull @Valid Policy resendIp,
-        @NotNull @Valid Policy invitationUser,
-        @NotNull @Valid Policy invitationIp,
-        @Min(1) int maxKeys) {
+public record RateLimitProperties(@NotNull @Valid Policy registerIp, @NotNull @Valid Policy loginIp,
+        @NotNull @Valid Policy loginEmail, @NotNull @Valid Policy confirmUser, @NotNull @Valid Policy confirmIp,
+        @NotNull @Valid Policy resendCooldown, @NotNull @Valid Policy resendUser, @NotNull @Valid Policy resendIp,
+        @NotNull @Valid Policy invitationUser, @NotNull @Valid Policy invitationIp, @Min(1) int maxKeys) {
 
     /**
      * Define la capacidad y velocidad de reposición de un bucket de tokens.
@@ -46,8 +36,6 @@ public record RateLimitProperties(
      * @param capacity      número máximo de tokens disponibles
      * @param refillSeconds tiempo en segundos para reponer la capacidad completa
      */
-    public record Policy(
-            @Min(1) int capacity,
-            @Min(1) long refillSeconds) {
+    public record Policy(@Min(1) int capacity, @Min(1) long refillSeconds) {
     }
 }

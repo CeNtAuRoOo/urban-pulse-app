@@ -37,9 +37,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pruebas unitarias del ciclo de vida de las pertenencias departamentales.
- * Comprueba las reglas de asignación, la prevención de duplicados y la
- * finalización de pertenencias sin eliminar su historial.
+ * Pruebas unitarias del ciclo de vida de las pertenencias departamentales. Comprueba las reglas de asignación, la
+ * prevención de duplicados y la finalización de pertenencias sin eliminar su historial.
  */
 @ExtendWith(MockitoExtension.class)
 class DepartmentMembershipServiceTest {
@@ -67,8 +66,8 @@ class DepartmentMembershipServiceTest {
     private Role role;
 
     /**
-     * Prepara los identificadores y las entidades simuladas compartidas
-     * por los escenarios de asignación y finalización.
+     * Prepara los identificadores y las entidades simuladas compartidas por los escenarios de asignación y
+     * finalización.
      */
     @BeforeEach
     void setUp() {
@@ -93,13 +92,12 @@ class DepartmentMembershipServiceTest {
         when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
         when(departments.findForUpdate(departmentId)).thenReturn(Optional.of(department));
         when(roles.findById(RoleCode.TECHNICIAN)).thenReturn(Optional.of(role));
-        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(
-                userId, departmentId, RoleCode.TECHNICIAN)).thenReturn(false);
+        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(userId, departmentId,
+                RoleCode.TECHNICIAN)).thenReturn(false);
         when(memberships.saveAndFlush(any(DepartmentMembership.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        DepartmentMembership result = service.assign(
-                userId, departmentId, RoleCode.TECHNICIAN);
+        DepartmentMembership result = service.assign(userId, departmentId, RoleCode.TECHNICIAN);
 
         assertNotNull(result);
         assertEquals(RoleCode.TECHNICIAN, result.getRole().getCode());
@@ -111,9 +109,7 @@ class DepartmentMembershipServiceTest {
      */
     @Test
     void assignRejectsGlobalRole() {
-        assertThrows(
-                ApiException.class,
-                () -> service.assign(userId, departmentId, RoleCode.ADMIN));
+        assertThrows(ApiException.class, () -> service.assign(userId, departmentId, RoleCode.ADMIN));
 
         verify(users, never()).findById(any());
         verify(memberships, never()).saveAndFlush(any());
@@ -127,9 +123,7 @@ class DepartmentMembershipServiceTest {
         when(user.isActive()).thenReturn(false);
         when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
 
-        assertThrows(
-                ApiException.class,
-                () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
+        assertThrows(ApiException.class, () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
 
         verify(departments, never()).findForUpdate(any());
         verify(memberships, never()).saveAndFlush(any());
@@ -146,9 +140,7 @@ class DepartmentMembershipServiceTest {
         when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
         when(departments.findForUpdate(departmentId)).thenReturn(Optional.of(department));
 
-        assertThrows(
-                ApiException.class,
-                () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
+        assertThrows(ApiException.class, () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
 
         verify(memberships, never()).saveAndFlush(any());
     }
@@ -164,20 +156,17 @@ class DepartmentMembershipServiceTest {
         when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
         when(departments.findForUpdate(departmentId)).thenReturn(Optional.of(department));
         when(roles.findById(RoleCode.TECHNICIAN)).thenReturn(Optional.of(role));
-        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(
-                userId, departmentId, RoleCode.TECHNICIAN)).thenReturn(true);
+        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(userId, departmentId,
+                RoleCode.TECHNICIAN)).thenReturn(true);
 
-        assertThrows(
-                ApiException.class,
-                () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
+        assertThrows(ApiException.class, () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
 
         verify(memberships, never()).saveAndFlush(any());
     }
 
     /**
-     * Comprueba que una colisión concurrente con el índice único parcial
-     * se traduce al mismo conflicto de dominio que una duplicidad detectada
-     * antes de persistir.
+     * Comprueba que una colisión concurrente con el índice único parcial se traduce al mismo conflicto de dominio que
+     * una duplicidad detectada antes de persistir.
      */
     @Test
     void assignMapsConcurrentDuplicateConstraintToConflict() {
@@ -188,8 +177,8 @@ class DepartmentMembershipServiceTest {
         when(users.findForEmailVerification(userId)).thenReturn(Optional.of(user));
         when(departments.findForUpdate(departmentId)).thenReturn(Optional.of(department));
         when(roles.findById(RoleCode.TECHNICIAN)).thenReturn(Optional.of(role));
-        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(
-                userId, departmentId, RoleCode.TECHNICIAN)).thenReturn(false);
+        when(memberships.existsByUserIdAndDepartmentIdAndRoleCodeAndLeftAtIsNull(userId, departmentId,
+                RoleCode.TECHNICIAN)).thenReturn(false);
 
         ConstraintViolationException violation = mock(ConstraintViolationException.class);
         when(violation.getSQLState()).thenReturn("23505");
@@ -197,29 +186,25 @@ class DepartmentMembershipServiceTest {
         when(memberships.saveAndFlush(any(DepartmentMembership.class)))
                 .thenThrow(new DataIntegrityViolationException("Duplicated membership", violation));
 
-        ApiException exception = assertThrows(
-                ApiException.class,
+        ApiException exception = assertThrows(ApiException.class,
                 () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
 
         assertEquals("DEPARTMENT_MEMBERSHIP_DUPLICATE", exception.code());
     }
 
     /**
-     * Comprueba que se devuelve un error de recurso inexistente si no existe
-     * el usuario al que se intenta asignar la pertenencia.
+     * Comprueba que se devuelve un error de recurso inexistente si no existe el usuario al que se intenta asignar la
+     * pertenencia.
      */
     @Test
     void assignThrowsWhenUserDoesNotExist() {
         when(users.findForEmailVerification(userId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
+        assertThrows(EntityNotFoundException.class, () -> service.assign(userId, departmentId, RoleCode.TECHNICIAN));
     }
 
     /**
-     * Comprueba que finalizar una pertenencia persiste la fecha de baja
-     * sin eliminar la entidad.
+     * Comprueba que finalizar una pertenencia persiste la fecha de baja sin eliminar la entidad.
      */
     @Test
     void endFinalizesAndPersistsMembership() {
@@ -239,16 +224,14 @@ class DepartmentMembershipServiceTest {
     }
 
     /**
-     * Comprueba que finalizar una pertenencia inexistente devuelve un error 404
-     * de dominio sin intentar modificar ninguna entidad.
+     * Comprueba que finalizar una pertenencia inexistente devuelve un error 404 de dominio sin intentar modificar
+     * ninguna entidad.
      */
     @Test
     void endThrowsWhenMembershipDoesNotExist() {
         when(memberships.findOwnerId(membershipId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> service.end(membershipId, Instant.now()));
+        assertThrows(EntityNotFoundException.class, () -> service.end(membershipId, Instant.now()));
 
         verify(memberships, never()).saveAndFlush(any());
     }

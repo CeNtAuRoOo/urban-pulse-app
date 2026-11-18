@@ -31,45 +31,56 @@ import es.grupo18.urbanpulse.organization.model.Department;
 import es.grupo18.urbanpulse.shared.error.ApiException;
 
 /**
- * Reporte con titular inmutable, corrección limitada a REPORTED y versión
- * optimista. Las fechas del núcleo se truncan a microsegundos antes de
- * persistir
- * para que POST/PATCH y la lectura PostgreSQL representen los mismos instantes.
+ * Reporte con titular inmutable, corrección limitada a REPORTED y versión optimista. Las fechas del núcleo se truncan a
+ * microsegundos antes de persistir para que POST/PATCH y la lectura PostgreSQL representen los mismos instantes.
  */
 @Entity
 @Table(name = "incidents")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Incident {
+
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reporter_user_id", nullable = false, updatable = false)
     private User reporter;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private Category category;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private Department assignedDepartment;
+
     @Column(nullable = false, length = 150)
     private String title;
+
     @Column(nullable = false, length = 5000)
     private String description;
+
     @Embedded
     private Location location;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private IncidentStatus status;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 16)
     private IncidentPriority priority;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
     @Column(nullable = false)
     private Instant updatedAt;
+
     private Instant resolvedAt;
     private Instant closedAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -97,8 +108,7 @@ public class Incident {
     }
 
     /**
-     * Corrige los valores efectivos; el servicio ya resolvió campos omitidos y
-     * permisos.
+     * Corrige los valores efectivos; el servicio ya resolvió campos omitidos y permisos.
      *
      * @param title       título efectivo
      * @param description descripción efectiva
@@ -106,8 +116,7 @@ public class Incident {
      * @param location    posición completa efectiva
      * @param now         instante de la modificación
      * @return true solo si cambió algún valor; un no-op no altera fecha ni versión
-     * @throws ApiException si el estado no permite corregir (409) o el texto es
-     *                      inválido (422)
+     * @throws ApiException si el estado no permite corregir (409) o el texto es inválido (422)
      */
     public boolean correct(String title, String description, Category category, Location location, Instant now) {
         if (status != IncidentStatus.REPORTED) {
@@ -158,8 +167,7 @@ public class Incident {
     }
 
     /**
-     * Cambia el nivel antes de derivar; la decisión histórica la guarda
-     * Tramitación.
+     * Cambia el nivel antes de derivar; la decisión histórica la guarda Tramitación.
      *
      * @param next nivel obligatorio distinto del vigente
      * @param now  instante de decisión
@@ -190,9 +198,8 @@ public class Incident {
     }
 
     /**
-     * Aplica trim de Java y cuenta puntos Unicode; conserva formato interior y
-     * acentos.
-     * Rechaza NUL y sustitutos aislados, que PostgreSQL UTF-8 no puede representar.
+     * Aplica trim de Java y cuenta puntos Unicode; conserva formato interior y acentos. Rechaza NUL y sustitutos
+     * aislados, que PostgreSQL UTF-8 no puede representar.
      *
      * @param value texto recibido
      * @param min   mínimo normalizado

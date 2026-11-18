@@ -20,6 +20,7 @@ Desktop.ini
 **/.vscode/*
 !/.vscode/settings.json
 !/.vscode/extensions.json
+!/.vscode/java-formatter.xml
 
 # Maven / Java
 **/target/

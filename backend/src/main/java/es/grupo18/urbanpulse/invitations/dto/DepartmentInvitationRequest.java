@@ -14,16 +14,13 @@ import es.grupo18.urbanpulse.identity.model.RoleCode;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Solicitud departamental sin atributos de identidad ni vigencia controlados
- * por cliente.
+ * Solicitud departamental sin atributos de identidad ni vigencia controlados por cliente.
  *
  * @param email        correo obligatorio
  * @param role         rol departamental
  * @param departmentId unidad obligatoria
  */
-public record DepartmentInvitationRequest(
-        @NotBlank @Email @Size(max = 254) String email,
-        @NotNull RoleCode role,
+public record DepartmentInvitationRequest(@NotBlank @Email @Size(max = 254) String email, @NotNull RoleCode role,
         @NotNull UUID departmentId) implements InvitationRequest {
 
     /** Normaliza el correo antes de validar. */

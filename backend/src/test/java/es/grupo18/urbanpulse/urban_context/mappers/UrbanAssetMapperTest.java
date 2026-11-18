@@ -20,10 +20,8 @@ class UrbanAssetMapperTest {
     @Test
     void proyectaNegocioSinPublicarContactosNoAcreditados() {
         Point point = GF.createPoint(new Coordinate(439000.0, 4473000.0));
-        UrbanAsset asset = UrbanAsset.create(
-                "Ferrocarriles", "Estación", "cat", "desc",
-                "Av. de Andalucía 1", "+34954000000", "info@example.com",
-                "https://example.com", point);
+        UrbanAsset asset = UrbanAsset.create("Ferrocarriles", "Estación", "cat", "desc", "Av. de Andalucía 1",
+                "+34954000000", "info@example.com", "https://example.com", point);
 
         UrbanAssetDTO dto = mapper.toDTO(asset);
 
@@ -61,28 +59,22 @@ class UrbanAssetMapperTest {
 
     @Test
     void createRejectsNullGeometry() {
-        assertThatThrownBy(() -> UrbanAsset.create(
-                "Ferrocarriles", null, null, null, null, null, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("geom es obligatoria");
+        assertThatThrownBy(() -> UrbanAsset.create("Ferrocarriles", null, null, null, null, null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("geom es obligatoria");
     }
 
     @Test
     void createRejectsEmptyGeometry() {
         Point empty = GF.createPoint();
-        assertThatThrownBy(() -> UrbanAsset.create(
-                "Ferrocarriles", null, null, null, null, null, null, null, empty))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("geom es obligatoria");
+        assertThatThrownBy(() -> UrbanAsset.create("Ferrocarriles", null, null, null, null, null, null, null, empty))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("geom es obligatoria");
     }
 
     @Test
     void createRejectsBlankSourceTable() {
         Point point = GF.createPoint(new Coordinate(439000.0, 4473000.0));
-        assertThatThrownBy(() -> UrbanAsset.create(
-                "  ", null, null, null, null, null, null, null, point))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("sourceTable debe ser");
+        assertThatThrownBy(() -> UrbanAsset.create("  ", null, null, null, null, null, null, null, point))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("sourceTable debe ser");
     }
 
     @Test

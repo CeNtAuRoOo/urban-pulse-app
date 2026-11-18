@@ -13,8 +13,8 @@ import es.grupo18.urbanpulse.urban_context.model.UrbanAsset;
  * Consultas de solo lectura sobre el catálogo de activos urbanos.
  *
  * <p>
- * {@code geom} es obligatorio por invariante de {@link UrbanAsset#create}, así
- * que las queries no necesitan filtrar {@code geom is not null}.
+ * {@code geom} es obligatorio por invariante de {@link UrbanAsset#create}, así que las queries no necesitan filtrar
+ * {@code geom is not null}.
  * </p>
  */
 public interface UrbanAssetRepository extends JpaRepository<UrbanAsset, Long> {
@@ -26,7 +26,7 @@ public interface UrbanAssetRepository extends JpaRepository<UrbanAsset, Long> {
      * Listado filtrado por tipo (tabla de origen) con tope duro.
      *
      * @param sourceTable tabla de origen; {@code null} para no filtrar
-     * @param page límite aplicado en SQL; el servicio solicita la primera página
+     * @param page        límite aplicado en SQL; el servicio solicita la primera página
      * @return activos ordenados por identidad, acotados antes de materializarlos
      */
     @Query("""
@@ -37,9 +37,8 @@ public interface UrbanAssetRepository extends JpaRepository<UrbanAsset, Long> {
     List<UrbanAsset> searchBySourceTable(@Param("sourceTable") String sourceTable, Pageable page);
 
     /**
-     * Búsqueda por proximidad. El punto se recibe en WGS84 (EPSG:4326) y se
-     * transforma a EPSG:25830 para comparar con {@code geom}. Devuelve como
-     * máximo {@link #MAX_RESULTS} activos.
+     * Búsqueda por proximidad. El punto se recibe en WGS84 (EPSG:4326) y se transforma a EPSG:25830 para comparar con
+     * {@code geom}. Devuelve como máximo {@link #MAX_RESULTS} activos.
      *
      * <p>
      * La tabla debe coincidir con {@code @Table} de {@link UrbanAsset}.
@@ -65,10 +64,6 @@ public interface UrbanAssetRepository extends JpaRepository<UrbanAsset, Long> {
                     ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 25830)), a.id
             limit :maxResults
             """, nativeQuery = true)
-    List<UrbanAsset> searchByProximity(
-            @Param("sourceTable") String sourceTable,
-            @Param("lon") double lon,
-            @Param("lat") double lat,
-            @Param("radius") double radius,
-            @Param("maxResults") int maxResults);
+    List<UrbanAsset> searchByProximity(@Param("sourceTable") String sourceTable, @Param("lon") double lon,
+            @Param("lat") double lat, @Param("radius") double radius, @Param("maxResults") int maxResults);
 }

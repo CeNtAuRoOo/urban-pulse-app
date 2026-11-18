@@ -19,9 +19,8 @@ import es.grupo18.urbanpulse.identity.model.User;
  * @param email correo obligatorio
  * @param role  OPERATOR o ADMIN
  */
-public record GlobalInvitationRequest(
-        @NotBlank @Email @Size(max = 254) String email,
-        @NotNull RoleCode role) implements InvitationRequest {
+public record GlobalInvitationRequest(@NotBlank @Email @Size(max = 254) String email, @NotNull RoleCode role)
+        implements InvitationRequest {
 
     /** Normaliza el correo con la misma política que el registro. */
     public GlobalInvitationRequest {

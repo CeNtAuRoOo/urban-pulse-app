@@ -19,10 +19,8 @@ import lombok.NoArgsConstructor;
 import es.grupo18.urbanpulse.identity.model.User;
 
 /**
- * Representa una solicitud de verificación del correo electrónico
- * asociada a una cuenta de usuario.
- * Almacena el HMAC del código y sus fechas de emisión y caducidad,
- * manteniendo como máximo una solicitud por usuario.
+ * Representa una solicitud de verificación del correo electrónico asociada a una cuenta de usuario. Almacena el HMAC
+ * del código y sus fechas de emisión y caducidad, manteniendo como máximo una solicitud por usuario.
  */
 @Entity
 @Table(name = "email_verifications")
@@ -50,9 +48,8 @@ public class EmailVerification {
     private Instant expiresAt;
 
     /**
-     * Crea una solicitud de verificación asociada a un usuario.
-     * Su identificador se obtiene del usuario mediante la relación
-     * de clave primaria compartida definida con MapsId.
+     * Crea una solicitud de verificación asociada a un usuario. Su identificador se obtiene del usuario mediante la
+     * relación de clave primaria compartida definida con MapsId.
      *
      * @param user usuario propietario de la solicitud de verificación
      */
@@ -61,8 +58,7 @@ public class EmailVerification {
     }
 
     /**
-     * Sustituye los datos de la solicitud de verificación por un nuevo
-     * HMAC y nuevas fechas de emisión y caducidad.
+     * Sustituye los datos de la solicitud de verificación por un nuevo HMAC y nuevas fechas de emisión y caducidad.
      * Conserva una copia independiente del hash proporcionado.
      *
      * @param hash    HMAC del nuevo código de verificación
@@ -76,8 +72,7 @@ public class EmailVerification {
     }
 
     /**
-     * Obtiene una copia del HMAC almacenado para evitar modificaciones
-     * externas del array de bytes de la entidad.
+     * Obtiene una copia del HMAC almacenado para evitar modificaciones externas del array de bytes de la entidad.
      *
      * @return copia del HMAC del código de verificación
      */

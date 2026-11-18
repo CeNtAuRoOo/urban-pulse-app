@@ -51,8 +51,7 @@ import es.grupo18.urbanpulse.shared.error.ApiException;
 import es.grupo18.urbanpulse.shared.pagination.PageMetadata;
 
 /**
- * Casos de uso transaccionales: usuario → incidencia → categoría; nunca
- * llamadas externas.
+ * Casos de uso transaccionales: usuario → incidencia → categoría; nunca llamadas externas.
  */
 @Service
 @RequiredArgsConstructor
@@ -94,8 +93,7 @@ public class ProcessingService {
      * @param id           incidencia
      * @param request      variante estricta
      * @return decisión confirmada al salir del proxy transaccional
-     * @throws ApiException 401/403/404 por acceso, 409 por versión/estado, 422 por
-     *                      datos
+     * @throws ApiException 401/403/404 por acceso, 409 por versión/estado, 422 por datos
      */
     @Transactional
     public ReviewDTO review(UUID actor, long tokenVersion, UUID id, ReviewRequest request) {
@@ -147,8 +145,7 @@ public class ProcessingService {
      * @param id           incidencia
      * @param request      mensaje y versión del agregado
      * @return respuesta única y persistida
-     * @throws ApiException acceso inválido, 409 por solicitud/versión o 422 por
-     *                      mensaje
+     * @throws ApiException acceso inválido, 409 por solicitud/versión o 422 por mensaje
      */
     @Transactional
     public InformationResponseDTO respond(UUID actor, long tokenVersion, UUID id, InformationResponseRequest request) {
@@ -170,8 +167,8 @@ public class ProcessingService {
         var response = new IncidentInformationResponse(pending, user, request.message(), at);
         responses.save(response);
         incident.transition(IncidentStatus.REPORTED, null, at);
-        changes.save(new StatusChange(incident, IncidentStatus.AWAITING_INFORMATION, IncidentStatus.REPORTED,
-                user, null, null, at));
+        changes.save(new StatusChange(incident, IncidentStatus.AWAITING_INFORMATION, IncidentStatus.REPORTED, user,
+                null, null, at));
         flush();
         record(user, incident, "INCIDENT_INFORMATION_RESPONDED",
                 Map.of("reviewId", pending.getId().toString(), "responseId", response.getId().toString()), at);
@@ -186,8 +183,7 @@ public class ProcessingService {
      * @param id           incidencia validada sin derivación
      * @param request      nivel, justificación y versión
      * @return decisión interna
-     * @throws ApiException acceso inválido, 409 por estado/versión/nivel o 422 por
-     *                      texto
+     * @throws ApiException acceso inválido, 409 por estado/versión/nivel o 422 por texto
      */
     @Transactional
     public PriorityDecisionDTO prioritize(UUID actor, long tokenVersion, UUID id, PriorityRequest request) {
@@ -302,14 +298,12 @@ public class ProcessingService {
     }
 
     /**
-     * Devuelve resultado público sin identidad del personal ni motivos históricos
-     * de VALIDATE.
+     * Devuelve resultado público sin identidad del personal ni motivos históricos de VALIDATE.
      *
      * @param actor        sujeto
      * @param tokenVersion JWT
      * @param id           padre
-     * @return resultado público sin identidad del personal ni motivos históricos de
-     *         VALIDATE
+     * @return resultado público sin identidad del personal ni motivos históricos de VALIDATE
      */
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReviewOutcomeDTO outcome(UUID actor, long tokenVersion, UUID id) {
@@ -319,8 +313,7 @@ public class ProcessingService {
                         r.getDecision() == ReviewDecision.VALIDATE ? null : r.getReason(), "Ayuntamiento"))
                 .orElse(null);
         return new ReviewOutcomeDTO(id, incident.getStatus(),
-                incident.getStatus() == IncidentStatus.AWAITING_INFORMATION,
-                latest);
+                incident.getStatus() == IncidentStatus.AWAITING_INFORMATION, latest);
     }
 
     /**
@@ -341,8 +334,7 @@ public class ProcessingService {
     }
 
     /**
-     * Bloquea el agregado y traduce también un snapshot JPA precargado por un
-     * llamador.
+     * Bloquea el agregado y traduce también un snapshot JPA precargado por un llamador.
      *
      * @param user cuenta bloqueada y revalidada
      * @param id   incidencia solicitada

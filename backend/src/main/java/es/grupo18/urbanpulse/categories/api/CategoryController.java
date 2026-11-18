@@ -20,11 +20,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import es.grupo18.urbanpulse.categories.dto.CategoryResponse;
 import es.grupo18.urbanpulse.categories.dto.CreateCategoryRequest;
 import es.grupo18.urbanpulse.categories.dto.PatchCategoryRequest;
+import es.grupo18.urbanpulse.categories.service.CategoryNotFoundException;
 import es.grupo18.urbanpulse.categories.service.CategoryService;
 
 /**
- * Operaciones HTTP del catálogo, con autorización central y DTO independientes
- * de JPA.
+ * Operaciones HTTP del catálogo, con autorización central y DTO independientes de JPA.
  */
 @RestController
 @RequestMapping("/api/v1/categories")
@@ -56,12 +56,7 @@ public class CategoryController {
      *
      * @param categoryId UUID de ruta
      * @return proyección pública
-     * @throws es.grupo18.urbanpulse.categories.service.CategoryNotFoundException
-     *                                                                            si
-     *                                                                            no
-     *                                                                            existe
-     *                                                                            la
-     *                                                                            categoría
+     * @throws CategoryNotFoundException si no existe la categoría
      */
     @GetMapping("/{categoryId}")
     public CategoryResponse findById(@PathVariable UUID categoryId) {
@@ -69,37 +64,28 @@ public class CategoryController {
     }
 
     /**
-     * Da de alta una categoría; la seguridad compartida exige ADMIN global
-     * verificado.
+     * Da de alta una categoría; la seguridad compartida exige ADMIN global verificado.
      *
      * @param request datos normalizados y validados
      * @return HTTP 201 con proyección y URI absoluta en Location
      */
     @PostMapping
-    public ResponseEntity<CategoryResponse> create(
-            @Valid @RequestBody CreateCategoryRequest request) {
+    public ResponseEntity<CategoryResponse> create(@Valid @RequestBody CreateCategoryRequest request) {
         CategoryResponse response = categoryService.create(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{categoryId}")
-                .buildAndExpand(response.id())
-                .toUri();
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .location(location)
-                .body(response);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{categoryId}")
+                .buildAndExpand(response.id()).toUri();
+        return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response);
     }
 
     /**
-     * Modifica los campos presentes; exige ADMIN global verificado y conserva el
-     * UUID.
+     * Modifica los campos presentes; exige ADMIN global verificado y conserva el UUID.
      *
      * @param categoryId identidad del recurso
      * @param request    campos validados; omisión conserva y null JSON se rechaza
      * @return proyección pública actualizada
      */
     @PatchMapping("/{categoryId}")
-    public CategoryResponse patch(
-            @PathVariable UUID categoryId,
-            @Valid @RequestBody PatchCategoryRequest request) {
+    public CategoryResponse patch(@PathVariable UUID categoryId, @Valid @RequestBody PatchCategoryRequest request) {
         return categoryService.patch(categoryId, request);
     }
 }
