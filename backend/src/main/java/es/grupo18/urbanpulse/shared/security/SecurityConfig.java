@@ -236,7 +236,10 @@ public class SecurityConfig {
             }
         });
 
-        return http.cors(cors -> cors.disable()).addFilterAt(corsFilter, CorsFilter.class).csrf(csrf -> csrf.disable())
+        return http.cors(cors -> cors.disable()).addFilterAt(corsFilter, CorsFilter.class)
+                // La API utiliza JWT Bearer en Authorization, no cookies de sesión.
+                // Las peticiones REST no necesitan tokens CSRF.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable()).formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
