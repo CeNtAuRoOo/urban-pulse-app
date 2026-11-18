@@ -1,12 +1,10 @@
 # Guía de desarrollo de UrbanPulse
 
-El desarrollo previsto se ejecuta con Docker Compose: backend Spring Boot, frontend Expo Web, PostgreSQL 18 local y Mailpit. Neon Object Storage de desarrollo conserva las fotografías; Neon PostgreSQL se reserva para producción. Flyway encuentra actualmente V1 (16 tablas de dominio, cinco roles y siete funciones geográficas) y V2 (`CREATE EXTENSION postgis`, esquema `cartografia` y tabla `contexto_urbano`). La aplicación de V2 no está acreditada en Neon. **La imagen `postgres:18-alpine` declarada en Compose no incluye PostGIS**, por lo que el Compose versionado no es compatible con la migración V2 actual hasta que se alinee la imagen o la estrategia de migración. Véase [PostGIS y contexto urbano](postgis-urban-context.md).
+El entorno de desarrollo reúne el backend, Expo Web, PostgreSQL 18 con PostGIS 3.6 y Mailpit en Compose. Neon Object Storage de desarrollo conserva las fotografías. Neon PostgreSQL se reserva para producción.
 
-## 0. Compatibilidad PostGIS pendiente de resolver
+## 0. Base geográfica de desarrollo
 
-`spring.flyway.locations=classpath:db/migration` hace que Flyway descubra las migraciones V1 y V2. V2 ejecuta `CREATE EXTENSION IF NOT EXISTS postgis`; por ello no debe describirse el arranque como una instalación que aplica solo V1. La imagen `postgres:18-alpine` del `compose.yaml` es PostgreSQL estándar y no incorpora la extensión PostGIS. Antes de usar este Compose con el código actual, debe seleccionarse y validar una imagen compatible de PostgreSQL 18 + PostGIS (o definir una estrategia equivalente de instalación de la extensión). No se debe omitir V2 de forma accidental ni editar una migración ya aplicada.
-
-Las suites de integración existentes usan `postgis/postgis:18-3.6-alpine`, pero `UrbanAssetControllerIT` usa `postgis/postgis:16-3.4` y no figura entre los `includes` del perfil `postgres-it`. Además, `backend/pom.xml` declara `jts-core` pero no `hibernate-spatial`; la integración de la entidad `Geometry` con Hibernate debe validarse expresamente. La consulta SQL nativa de proximidad referencia `contexto_urbano` sin el esquema `cartografia`; con el `search_path` habitual puede no resolver la tabla. Los detalles y criterios de verificación están en [PostGIS y contexto urbano](postgis-urban-context.md).
+La única V1 instala 16 tablas de dominio en el esquema principal y el catálogo `cartografia.contexto_urbano`, cinco roles y las siete funciones nativas de Mapas. Compose y las pruebas usan la misma imagen PostGIS fijada por digest. La migración requiere que el rol pueda instalar la extensión o que un administrador la haya instalado en el esquema adecuado. Un volumen con datos o un checksum antiguo necesita respaldo y una transición propia. Para verificar una instalación limpia se utiliza una base nueva y aislada. [Instalación y contrato del catálogo](postgis-urban-context.md).
 
 ## 1. Configuración privada
 
@@ -63,7 +61,7 @@ docker compose logs -f backend
 
 Todos los puertos publicados se vinculan a `127.0.0.1`. Los clientes móviles requieren una configuración de acceso explícita y no forman parte de este procedimiento web.
 
-El backend espera al healthcheck de PostgreSQL. Flyway es la única herramienta de inicialización: descubre V1 y V2 en `classpath:db/migration`; V2 requiere PostGIS. Hibernate valida después con `ddl-auto=validate`. El Compose actual usa PostgreSQL estándar sin la extensión y no debe considerarse compatible hasta alinear la imagen. No se usa `ddl-auto=update` ni SQL de inicialización paralelo. Arrancar la aplicación puede aplicar migraciones pendientes; `spring-boot:run` no ejecuta las suites de pruebas.
+El backend espera al healthcheck de PostgreSQL. Flyway aplica V1 desde `classpath:db/migration` y Hibernate comprueba el esquema con `ddl-auto=validate`. Arrancar la aplicación puede aplicar migraciones. Las suites se ejecutan mediante Maven.
 
 ```bash
 docker compose up -d --wait postgres
@@ -89,7 +87,7 @@ Antes de arrancar una rama diferente, revisar sus migraciones frente al historia
 
 El aislamiento entre equipos **no resuelve colisiones al integrar ramas**:
 
-1. Coordinar la siguiente versión libre y revisar todas las migraciones de `origin/main` antes de integrar; el árbol actual contiene V1 y V2 (PostGIS). No reescribir ninguna migración aplicada y comprobar la disponibilidad de la extensión en cada entorno.
+1. Coordinar la siguiente versión libre y revisar todas las migraciones de `origin/main` antes de integrar; el árbol actual contiene una única V1 con PostGIS. No reescribir ninguna migración aplicada y comprobar la disponibilidad de la extensión en cada entorno.
 2. Si dos ramas introducen distintas V2, acordar el orden según sus dependencias. Solo el trabajo no publicado ni aplicado en bases compartidas puede renumerarse antes de integrar.
 3. Validar la secuencia conjunta sobre una base nueva y, cuando haya cambios incrementales, también desde el esquema compartido anterior. No reutilizar un historial local incompatible ni editarlo a mano.
 4. Una migración aplicada en una base compartida es inmutable. Si hay historiales compartidos en conflicto, detener la integración y preparar una reconciliación revisada, con respaldo y migraciones compatibles.
@@ -120,7 +118,7 @@ El comando del job, desde `backend/`, es:
 mvn -B -ntp clean verify -Ppostgres-it
 ```
 
-Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para catorce suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT, MapPerformancePostgresIT y DuplicatePostgresIT. Usan `postgis/postgis:18-3.6-alpine` (PostgreSQL 18 con PostGIS) mediante Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. La suite `UrbanAssetControllerIT` no está incluida en esas catorce suites. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
+Surefire ejecuta unitarias/MVC; Failsafe ejecuta `integration-test` y `verify` para quince suites: AuthenticationPostgresIT, EmailVerificationPostgresIT, StaffInvitationPostgresIT, UserRepositoryPostgresIT, DepartmentPostgresIT, CategoryPostgresIT, DepartmentMembershipPostgresIT, IncidentPostgresIT, AttachmentServicePostgresIT, ProcessingPostgresIT, ProcessingMigrationPostgresIT, MapPostgresIT, MapPerformancePostgresIT, DuplicatePostgresIT y UrbanAssetControllerIT. Usan `postgis/postgis:18-3.6-alpine` (PostgreSQL 18 con PostGIS) mediante Testcontainers, Flyway y Hibernate validate, independientes de la base persistente de Compose. S3 y SMTP se sustituyen por dobles o configuración local de pruebas. Cualquier fallo de compilación, Docker, migración o test falla el job. Sin el perfil, los `*IT` ordinarios no se ejecutan.
 
 Para repetirlo sin instalar Java/Maven en Windows, desde la raíz con Docker Desktop (PowerShell):
 
@@ -164,6 +162,14 @@ El job copia `backend/.env.example` a `backend/.env.development` y `frontend/.en
 
 El perfil `neon-storage` prueba PUT/GET/DELETE reales con PostgreSQL Testcontainers. Exige `NEON_STORAGE_TEST_AUTHORIZED=true` y configuración S3 de un recurso de pruebas no productivo autorizado; disponer de credenciales de desarrollo no constituye autorización para ejecutarlo. Tampoco pertenece al CI ordinario. Una prueba omitida no acredita conectividad.
 
+### Pruebas de rendimiento k6 preparadas (17/11/2026)
+
+La [guía k6](../k6/README.md) define scripts y comandos PowerShell para una sesión futura, con smoke por rol, carga de lectura, estrés, picos, soak, tasa fija, Mapas y consultas de Tramitación/Duplicados. Un smoke separado crea una única incidencia, lee su ETag y la corrige con If-Match; no hay DELETE de incidencias. **Scripts implementados; validados offline en esta integración.** La incorporación se verifica con análisis estático y regresiones offline con datos sintéticos; no se arranca Compose ni se ejecuta carga para validarla.
+
+Preparar primero un proyecto Compose con base local exclusiva, cuentas activas verificadas mediante Mailpit y los [fixtures reales](../k6/fixtures/README.md). No existe ADMIN inicial automático; el aprovisionamiento de personal requiere el procedimiento explícito de pruebas o invitaciones de un ADMIN existente. Suministrar JWT por entorno, sin login por iteración, y confirmar `K6_ENVIRONMENT=isolated-test`. Escrituras requieren `K6_ENABLE_WRITES=1`; stress/spike/soak y ampliaciones altas requieren `K6_ALLOW_HEAVY=1`.
+
+Mapas utiliza un VU con pausa para respetar la cuota por usuario; un 429 no equivale a saturación SQL. Ningún escenario carga fotografías: PostgreSQL local no aísla Neon Object Storage. Guardar informes solo en `k6/results/` y manifiestos privados en `k6/local/`, ambos ignorados; no introducir carga pesada en CI. Desde la raíz, `./k6/check-syntax.ps1` (PowerShell 7 y Node) analiza los módulos sin ejecutarlos; `node --experimental-vm-modules --test k6/tests/offline.test.mjs` comprueba validadores y recorridos con dobles sin red. Esto no valida el binario k6 ni aporta latencias. Las evidencias Java/SQL fechadas a continuación no se modifican ni se reinterpretan como mediciones k6.
+
 ## 6. Límites y evidencias históricas
 
 **Las secciones siguientes conservan los resultados y procedimientos anteriores a esta integración. V2/V3/V5, outOfOrder y sus cifras no describen la V1 vigente. Los resultados actuales se registran exclusivamente en [el informe de integración](integration-reconciliation.md).**
@@ -180,16 +186,16 @@ Merge local de main 27357ea sobre Mapas b78a6ea. Se conservan Mapas, Evidencias,
 CI y processing. V1 y V2 coinciden con main; V5 y el código de producción de Mapas
 permanecen intactos. No se modifican bases compartidas ni se accede a Neon.
 
-| Comprobación | Resultado |
-| --- | --- |
-| `mvn -B -ntp clean verify -Ppostgres-it` | **351 pruebas correctas: 187 Surefire + 164 Failsafe**, cero fallos, errores u omisiones |
-| Mapas | 12 unitarias + 20 IT funcionales + 4 IT de rendimiento |
-| Evidencias | 19 IT y 8 unitarias de imágenes |
-| Tramitación | 19 IT funcionales + 2 de migración; unitarias incluidas en Surefire |
-| `npm ci`, `npm test`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web` | PASS; cinco pruebas frontend y exportación web local |
-| `docker compose config --quiet` | PASS con copia aislada de compose.yaml y plantillas versionadas |
-| Recurso IGN `--check` | PASS; 12.339 vértices y V5 reproducible |
-| Redocly 2.16.0 | Fuente y bundle válidos; bundle y HTML regenerados con redoc-template.hbs |
+| Comprobación                                                                               | Resultado                                                                                |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `mvn -B -ntp clean verify -Ppostgres-it`                                                   | **351 pruebas correctas: 187 Surefire + 164 Failsafe**, cero fallos, errores u omisiones |
+| Mapas                                                                                      | 12 unitarias + 20 IT funcionales + 4 IT de rendimiento                                   |
+| Evidencias                                                                                 | 19 IT y 8 unitarias de imágenes                                                          |
+| Tramitación                                                                                | 19 IT funcionales + 2 de migración; unitarias incluidas en Surefire                      |
+| `npm ci`, `npm test`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web` | PASS; cinco pruebas frontend y exportación web local                                     |
+| `docker compose config --quiet`                                                            | PASS con copia aislada de compose.yaml y plantillas versionadas                          |
+| Recurso IGN `--check`                                                                      | PASS; 12.339 vértices y V5 reproducible                                                  |
+| Redocly 2.16.0                                                                             | Fuente y bundle válidos; bundle y HTML regenerados con redoc-template.hbs                |
 
 Las trece suites Failsafe ejecutaron: Authentication 8, EmailVerification 12,
 StaffInvitation 24, UserRepository 15, Department 6, Category 6, DepartmentMembership 9,

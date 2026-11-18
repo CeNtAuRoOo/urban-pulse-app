@@ -9,7 +9,7 @@ La documentación separa **funcionalidades implementadas**, **decisiones de dise
 | [Despliegue](deployment.md)                   | Entornos Neon, preparación de producción y límites acreditados.                                                                                                                       |
 | [Diseño de autenticación](auth-design.md)     | JWT, identidad, correo, controles de abuso, limpieza y decisiones de seguridad.                                                                                                       |
 | [Modelo de dominio](domain-model.md)          | Entidades y reglas de negocio; V1 consolidada, módulos implementados y modelo objetivo.                                                                                                 |
-| [PostGIS y contexto urbano](postgis-urban-context.md) | Migración V2, esquema `cartografia`, tabla `contexto_urbano`, SRID 25830, consultas espaciales, API real y bloqueos de despliegue. |
+| [PostGIS y contexto urbano](postgis-urban-context.md) | Migración V1, esquema `cartografia`, tabla `contexto_urbano`, SRID 25830, consultas espaciales, API real y requisitos de despliegue. |
 | [Diagramas](diagrams/README.md)               | Inventario de fuentes `.drawio` actuales y ocho exportaciones SVG manuales de C4, ER01–ER05 y clases.                                                                                 |
 | [Contrato dominio–API](api/domain-openapi.md) | Alineación de modelo lógico, rutas/DTO y contrato vigente OpenAPI `0.8.0`.                                                                                                            |
 | [Diseño de API](api/README.md)                | Fuentes YAML modulares, regeneración Redocly y tags implementados frente a los todavía diseñados.                                                                                     |
@@ -19,7 +19,9 @@ La [CI](../.github/workflows/ci.yml) verifica backend, frontend, OpenAPI y Compo
 
 ## Estado actual
 
-Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias, Evidencias, Mapas, Duplicados y Tramitación fase 1 están implementados. OpenAPI `0.8.0` conserva `/api/v1`. V1 consolida dieciséis tablas funcionales, cinco roles, restricciones de Tramitación, Duplicados y funciones/índices de Mapas; V2 añade PostGIS y `cartografia.contexto_urbano`. No hay usuarios ni catálogos precargados. La configuración Compose actual aún debe alinearse con PostGIS; véase [guía PostGIS](postgis-urban-context.md).
+La [batería Grafana k6](../k6/README.md) añade escenarios smoke/load/stress/spike/soak/tasa fija y lecturas específicas de Mapas/Tramitación/Duplicados. Está implementada, revisada estáticamente y comprobada con regresiones sintéticas offline, **sin mediciones k6 en esta integración**; no amplía los resultados de las suites funcionales Java ni las mediciones SQL históricas. Su guía delimita fixtures, comandos futuros, cuotas, escritura controlada y observabilidad opcional.
+
+Autenticación, Usuarios, Invitaciones, Departamentos, Categorías, Incidencias, Evidencias, Mapas, Duplicados y Tramitación fase 1 están implementados. OpenAPI `0.8.0` conserva `/api/v1`. V1 consolida dieciséis tablas funcionales, cinco roles, restricciones de Tramitación, Duplicados y funciones/índices de Mapas; la misma V1 añade PostGIS y `cartografia.contexto_urbano`. No hay usuarios ni catálogos precargados. Compose incluye PostGIS 3.6. Véase [guía PostGIS](postgis-urban-context.md).
 
 El [informe de integración](integration-reconciliation.md#validación-de-esta-integración) reúne los resultados actuales y la guía de desarrollo conserva los procedimientos e historia. Los catálogos requieren correo verificado para consultar y ADMIN global para escribir. Invitaciones conserva la concesión transaccional de roles y pertenencias, con auditoría propia.
 

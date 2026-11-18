@@ -52,3 +52,7 @@ pnpm-debug.log*
 # Herramientas
 repomix-output.xml
 .repomix/
+
+# k6: informes y manifiestos privados de pruebas
+/k6/results/
+/k6/local/

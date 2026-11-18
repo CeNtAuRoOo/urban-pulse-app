@@ -123,7 +123,12 @@
       por proximidad requiere `latitude`, `longitude` y `radiusMeters`
       conjuntamente; las coordenadas de entrada son WGS84 y se transforman a
       EPSG:25830 para aplicar `ST_DWithin` y ordenar por distancia. La respuesta
-      devuelve `geom` como WKT en SRID 25830. No asocia activos a incidencias.
+      devuelve `geom` como WKT bidimensional válido y no vacío en SRID 25830.
+      Ambas consultas devuelven como máximo 500 filas: ID ascendente sin proximidad,
+      distancia ascendente e ID como desempate con proximidad. Requiere cuenta
+      activa, correo verificado y JWT no revocado; no-store también en respuestas
+      vacías. No incluye ingesta ni asocia activos a incidencias. Los metadatos de
+      contacto se reservan como null mientras no se acredite su publicación.
     operationId: getUrbanAssets
     x-implementation: implemented
     x-roles:
@@ -134,7 +139,8 @@
         required: false
         schema:
           type: string
-        description: Coincidencia exacta con source_table; se recortan espacios exteriores.
+          x-normalized-maxLength: 64
+        description: Coincidencia exacta con source_table; se recortan espacios exteriores. Vacío equivale a ausencia; máximo 64 puntos Unicode normalizados sin controles ni sustitutos aislados.
       - name: latitude
         in: query
         required: false
@@ -166,10 +172,11 @@
           application/json:
             schema:
               type: array
+              maxItems: 500
               items:
                 $ref: "../components/schemas/contexto-urbano.yaml#/UrbanAssetRecordDTO"
       "400":
-        description: Parámetros de proximidad incompletos o fuera de rango.
+        description: Parámetros incompletos, no finitos, fuera de rango, no interpretables o type inválido; códigos INCOMPLETE_PROXIMITY_PARAMETERS, INVALID_LATITUDE, INVALID_LONGITUDE, INVALID_RADIUS, INVALID_PARAMETER o INVALID_TYPE.
         content:
           application/problem+json:
             schema:

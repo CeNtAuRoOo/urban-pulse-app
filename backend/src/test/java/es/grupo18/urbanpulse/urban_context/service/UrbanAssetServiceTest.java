@@ -1,6 +1,7 @@
 package es.grupo18.urbanpulse.urban_context.service;
 
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 
 import org.springframework.http.HttpStatus;
 
@@ -57,7 +58,7 @@ class UrbanAssetServiceTest {
 
     @Test
     void nullTypeDelegatesWithoutFilter() {
-        when(assets.searchBySourceTable(null)).thenReturn(List.of(ENTITY));
+        when(assets.searchBySourceTable(null, PageRequest.of(0, 500))).thenReturn(List.of(ENTITY));
         when(mapper.toDTO(ENTITY)).thenReturn(DTO);
 
         assertThat(service.search(null, null, null, null)).containsExactly(DTO);
@@ -65,25 +66,25 @@ class UrbanAssetServiceTest {
 
     @Test
     void blankTypeIsTreatedAsAbsent() {
-        when(assets.searchBySourceTable(null)).thenReturn(List.of());
+        when(assets.searchBySourceTable(null, PageRequest.of(0, 500))).thenReturn(List.of());
 
         service.search("   ", null, null, null);
 
-        verify(assets).searchBySourceTable(null);
+        verify(assets).searchBySourceTable(null, PageRequest.of(0, 500));
     }
 
     @Test
     void typeIsTrimmedBeforeFiltering() {
-        when(assets.searchBySourceTable("Ferrocarriles")).thenReturn(List.of());
+        when(assets.searchBySourceTable("Ferrocarriles", PageRequest.of(0, 500))).thenReturn(List.of());
 
         service.search("  Ferrocarriles  ", null, null, null);
 
-        verify(assets).searchBySourceTable("Ferrocarriles");
+        verify(assets).searchBySourceTable("Ferrocarriles", PageRequest.of(0, 500));
     }
 
     @Test
     void emptyResultMapsToEmptyList() {
-        when(assets.searchBySourceTable("Nada")).thenReturn(List.of());
+        when(assets.searchBySourceTable("Nada", PageRequest.of(0, 500))).thenReturn(List.of());
 
         assertThat(service.search("Nada", null, null, null)).isEmpty();
     }
@@ -116,6 +117,12 @@ class UrbanAssetServiceTest {
 
     @ParameterizedTest(name = "lat={0}, lon={1}, radius={2} -> {3}")
     @CsvSource({
+            "NaN, -5.98, 1000, INVALID_LATITUDE",
+            "Infinity, -5.98, 1000, INVALID_LATITUDE",
+            "36.7, NaN, 1000, INVALID_LONGITUDE",
+            "36.7, -Infinity, 1000, INVALID_LONGITUDE",
+            "36.7, -4.4, NaN, INVALID_RADIUS",
+            "36.7, -4.4, Infinity, INVALID_RADIUS",
             "91.0,     -5.98,  1000, INVALID_LATITUDE",
             "-90.1,    -5.98,  1000, INVALID_LATITUDE",
             "37.3891,  181.0,  1000, INVALID_LONGITUDE",
@@ -167,5 +174,19 @@ class UrbanAssetServiceTest {
 
         verify(assets).searchByProximity(eq(null), eq(0.0), eq(90.0), eq(100.0),
                 eq(UrbanAssetRepository.MAX_RESULTS));
+    }
+    @Test
+    void rechazaTipoExcesivoControlesYSustitutosAntesDeConsultar() {
+        for (String type : List.of("x".repeat(65), "origen\u0000privado", "\ud800")) {
+            assertThatThrownBy(() -> service.search(type, null, null, null))
+                    .isInstanceOf(ApiException.class).extracting("code").isEqualTo("INVALID_TYPE");
+        }
+        verifyNoInteractions(assets, mapper);
+    }
+
+    @Test
+    void admiteOrigenUnicodeYRadioMinimo() {
+        service.search("  Árboles 🌳  ", 36.72, -4.42, 1.0);
+        verify(assets).searchByProximity("Árboles 🌳", -4.42, 36.72, 1.0, 500);
     }
 }

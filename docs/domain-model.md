@@ -1,6 +1,6 @@
 # Modelo de dominio UrbanPulse: diseño v1 y módulos implementados
 
-> **Estado a 17/11/2026:** V1 inicial consolidada con 16 tablas, respuestas de información y duplicate_links, más funciones/índices nativos de Mapas; V2 añade PostGIS y el catálogo `cartografia.contexto_urbano`. Tramitación fase 1, Duplicados y Mapas tienen backend; derivación/asignación, visor/capas y semántica textual siguen pendientes. El [roadmap](incidents-implementation-roadmap.md) conserva RF01–RF26.
+> **Estado a 17/11/2026:** V1 inicial consolidada con 16 tablas, respuestas de información y duplicate_links, más funciones/índices nativos de Mapas; la propia V1 añade PostGIS y el catálogo `cartografia.contexto_urbano`. Tramitación fase 1, Duplicados y Mapas tienen backend; derivación/asignación, visor/capas y semántica textual siguen pendientes. El [roadmap](incidents-implementation-roadmap.md) conserva RF01–RF26.
 
 ## 1. Fuentes y criterio de interpretación
 
@@ -59,11 +59,11 @@ Una `Assignment` representa **trabajo** concedido temporalmente a un equipo **o*
 
 ### 3.4. Territorio y contexto urbano — persistencia parcial
 
-La migración `V2__create_cartografia.sql` habilita PostGIS, crea el esquema `cartografia`, la tabla `contexto_urbano` y sus índices GiST/B-tree. `UrbanAsset` es una entidad JPA implementada que representa filas de esa tabla. El módulo `urban_context` dispone de `GET /api/v1/urban-assets`, búsqueda opcional por `source_table` y búsqueda por proximidad con `ST_DWithin`/`ST_Distance`; la geometría se serializa como WKT en SRID 25830. Véase [PostGIS y contexto urbano](postgis-urban-context.md).
+La migración `V1__initial_schema.sql` habilita PostGIS, crea el esquema `cartografia`, la tabla `contexto_urbano` y sus índices GiST/B-tree. `UrbanAsset` es una entidad JPA implementada que representa filas de esa tabla. El módulo `urban_context` dispone de `GET /api/v1/urban-assets`, búsqueda opcional por `source_table` y búsqueda por proximidad con `ST_DWithin`/`ST_Distance`; la geometría se serializa como WKT en SRID 25830. Véase [PostGIS y contexto urbano](postgis-urban-context.md).
 
-Esta implementación es un catálogo unificado de activos ya cargados: no es todavía una integración con proveedores. `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` y `UrbanContextViewDTO` continúan siendo conceptos de diseño para vincular activos, fuentes y datos contextuales con incidencias o zonas. `UrbanContextViewDTO` es una **vista**, no una tabla. No hay endpoints implementados de asociación, observaciones externas ni contexto agregado por incidencia. Los ámbitos IA, clasificación, predicción, hotspots y RAG siguen siendo mejoras futuras.
+Esta implementación es un catálogo unificado que se instala vacío: no es todavía una integración con proveedores. `UrbanAssetAssociation`, `ExternalSource`, `ExternalObservation` y `UrbanContextViewDTO` continúan siendo conceptos de diseño para vincular activos, fuentes y datos contextuales con incidencias o zonas. `UrbanContextViewDTO` es una **vista**, no una tabla. No hay endpoints implementados de asociación, observaciones externas ni contexto agregado por incidencia. Los ámbitos IA, clasificación, predicción, hotspots y RAG siguen siendo mejoras futuras.
 
-La migración y el código presentan limitaciones operativas que no deben ocultarse: Compose usa actualmente una imagen PostgreSQL estándar sin PostGIS, la consulta nativa de proximidad no califica el esquema `cartografia` y el test de integración de UrbanAsset no está incluido en el perfil `postgres-it`. Hasta resolver y verificar esos puntos, el código presente no equivale a despliegue validado.
+Compose y Testcontainers utilizan PostgreSQL 18 con PostGIS 3.6. La suite `UrbanAssetControllerIT` recorre HTTP, seguridad, Hibernate Spatial y la tabla calificada en `cartografia` con datos sintéticos.
 
 ## 4. Modelo implementado de Invitaciones (Flyway V1)
 

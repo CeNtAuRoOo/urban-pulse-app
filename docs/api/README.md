@@ -1,8 +1,10 @@
 # Documentación de la API REST UrbanPulse
 
-> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados**, **Tramitación** (primera fase) y la búsqueda de activos de **Contexto urbano** (`GET /urban-assets`) tienen endpoints backend implementados; las demás operaciones de Contexto urbano, las operaciones de los restantes tags y las fases posteriores de Tramitación describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican un aplicación de la V1 consolidada en Neon.
+> **Contrato vigente: OpenAPI `0.8.0`**. Los tags **Autenticación**, **Usuarios**, **Invitaciones**, **Catálogos** (Departamentos y Categorías), **Incidencias**, **Evidencias**, **Mapas**, **Duplicados**, **Tramitación** (primera fase) y la búsqueda de activos de **Contexto urbano** (`GET /urban-assets`) tienen endpoints backend implementados; las demás operaciones de Contexto urbano, las operaciones de los restantes tags y las fases posteriores de Tramitación describen el **diseño futuro** y no deben ofrecerse como rutas ejecutables. El backend tiene una arquitectura modular, pero el prefijo público sigue siendo `/api/v1`. Ni el contrato ni las pruebas aisladas implican una aplicación de la V1 consolidada en Neon.
 
 ## 1. Fuente de verdad y artefactos derivados
+
+La [batería k6](../../k6/README.md) ejercita un subconjunto de operaciones `implemented` con `/api/v1`, autorización vigente y fixtures explícitos. Los scripts están implementados y validados offline en esta integración; no añaden endpoints ni modifican el contrato o sus artefactos generados. Su matriz enlaza las rutas reales y separa métricas de rendimiento de las regresiones funcionales Java. Los validadores k6 tienen regresiones offline de propiedades anidadas, privacidad pública, null/omisiones y ETag SHA-256; no modifican OpenAPI ni acreditan respuestas reales de la API.
 
 | Ruta                                                                     | Función                                                                                                                                                   | Edición                        |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
@@ -110,9 +112,9 @@ Los manejadores comunes no exponen SQL, restricciones internas, tokens ni secret
 
 ## Contexto urbano: búsqueda de activos implementada
 
-`GET /api/v1/urban-assets` consulta la tabla PostGIS `cartografia.contexto_urbano`. Acepta `type` para filtrar por `source_table` y, opcionalmente, el grupo completo `latitude`, `longitude`, `radiusMeters` para una búsqueda espacial métrica. Los tres parámetros de proximidad deben aparecer juntos; latitud y longitud se reciben en WGS84 y el punto se transforma a EPSG:25830 antes de aplicar `ST_DWithin`. El radio permitido es 1–5.000 m; la búsqueda por proximidad ordena por `ST_Distance` y limita a 500 filas. El DTO real contiene un ID numérico, metadatos de origen y `geom` como WKT (sin prefijo SRID; se interpreta como EPSG:25830).
+`GET /api/v1/urban-assets` consulta la tabla PostGIS `cartografia.contexto_urbano`. Acepta `type` para filtrar por `source_table` y, opcionalmente, el grupo completo `latitude`, `longitude`, `radiusMeters` para una búsqueda espacial métrica. Los tres parámetros de proximidad deben aparecer juntos; latitud y longitud se reciben en WGS84 y el punto se transforma a EPSG:25830 antes de aplicar `ST_DWithin`. El radio permitido es 1–5.000 m; ambos modos limitan a 500 filas en base de datos. El listado se ordena por ID y la consulta espacial por distancia e ID. El DTO real contiene un ID numérico, metadatos de origen y `geom` como WKT (sin prefijo SRID; se interpreta como EPSG:25830).
 
-No confundir este endpoint implementado con las rutas futuras de contexto agregado por incidencia, candidatos/asociaciones de activos o consultas de observaciones externas. El esquema conceptual `UrbanAssetDTO` del modelo objetivo no es el DTO real de este endpoint: OpenAPI usa `UrbanAssetRecordDTO` para la respuesta del catálogo. Los límites de listado y los bloqueos de despliegue se documentan en [PostGIS y contexto urbano](../postgis-urban-context.md).
+No confundir este endpoint implementado con las rutas futuras de contexto agregado por incidencia, candidatos/asociaciones de activos o consultas de observaciones externas. El esquema conceptual `UrbanAssetDTO` del modelo objetivo no es el DTO real de este endpoint: OpenAPI usa `UrbanAssetRecordDTO` para la respuesta del catálogo. La política de privacidad, los límites del listado y los requisitos de instalación se documentan en [PostGIS y contexto urbano](../postgis-urban-context.md).
 
 ## Usuarios implementados
 
@@ -268,12 +270,12 @@ El contrato incluye ejemplos capturados con datos sintéticos en PostgreSQL aisl
 
 El contrato conserva `/api/v1` e `info.version: 0.8.0`. Mapas y Duplicados estaban diseñados como futuros en A; esta integración incorpora sus implementaciones, sin atribuirlas retroactivamente a la publicación histórica 0.7.0. La búsqueda de activos urbanos existente se clasifica como implementada; las restantes operaciones de Contexto urbano siguen futuras. El resultado contiene 57 rutas y 77 operaciones (48 implementadas/29 futuras).
 
-| Método | Ruta | Autorización | Resultado |
-|---|---|---|---|
-| GET | `/incidents/{incidentId}/duplicate-candidates` | OPERATOR/ADMIN global, activo y verificado | 200, hasta veinte mejores sugerencias |
-| POST | `/incidents/{incidentId}/duplicate-links` | OPERATOR/ADMIN global, activo y verificado | 201 DuplicateLinkDTO, sin Location |
-| GET | `/map/incidents` | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO |
+| Método | Ruta                                           | Autorización                                            | Resultado                             |
+| ------ | ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------- |
+| GET    | `/incidents/{incidentId}/duplicate-candidates` | OPERATOR/ADMIN global, activo y verificado              | 200, hasta veinte mejores sugerencias |
+| POST   | `/incidents/{incidentId}/duplicate-links`      | OPERATOR/ADMIN global, activo y verificado              | 201 DuplicateLinkDTO, sin Location    |
+| GET    | `/map/incidents`                               | CITIZEN activo/verificado; ámbito según titularidad/rol | 200 MapIncidentsDTO                   |
 
 Duplicados aplica ±72 h inclusivas, Haversine ≤250 m y categoría opcional, excluye pares ya vinculados y corta después del ranking. Desempate UUID ascendente sin signo, sin análisis semántico. Timeout SQL 5 s: 503 DUPLICATE_QUERY_TIMEOUT sin resultado parcial. Confirmación manual, única y simétrica, sin autoenlaces; 409 en reintento/carrera, 404 si falta incidencia, 422 en autoenlace/validación. Motivo opcional/null, trim Java y hasta 2000 puntos Unicode; vacío se persiste null, NUL/sustitutos aislados se rechazan. Vínculo y auditoría atómicos, sin modificar originales. No hay desvinculación, fusión ni prevención general de ciclos. Cache-Control no-store.
 
-La CI valida fuente y bundle, analiza paths reales y referencias, regenera YAML/HTML con Redocly 2.16.0 y la plantilla versionada y exige igualdad. Los ejemplos Mapas capturados por Maven se validan antes de terminar el job backend. [Matriz y evidencia actual](../integration-reconciliation.md).
+La CI valida fuente y bundle, analiza paths reales y referencias, regenera YAML/HTML con Redocly 2.16.0 y la plantilla versionada y exige igualdad. Los ejemplos de Mapas y del catálogo de activos capturados por Maven se validan antes de terminar el job backend. [Matriz y evidencia actual](../integration-reconciliation.md).

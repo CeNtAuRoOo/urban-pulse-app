@@ -42,7 +42,7 @@ AssetId:
   name: assetId
   in: path
   required: true
-  description: "Identificador de entidad en formato UUID (generación UUIDv7 prevista): assetId."
+  description: "UUID del activo conceptual en la futura ruta de detalle. El catálogo de colección devuelve un ID numérico local."
   schema:
     type: string
     format: uuid
@@ -155,7 +155,7 @@ DocumentId:
   name: documentId
   in: path
   required: true
-  description: Identificador del documento
+  description: "Identificador público opaco: documentId."
   schema:
-    type: integer
-    format: int64
+    type: string
+    minLength: 1

@@ -18,7 +18,7 @@ class UrbanAssetMapperTest {
     private final UrbanAssetMapper mapper = new UrbanAssetMapper();
 
     @Test
-    void projectsAllScalarFields() {
+    void proyectaNegocioSinPublicarContactosNoAcreditados() {
         Point point = GF.createPoint(new Coordinate(439000.0, 4473000.0));
         UrbanAsset asset = UrbanAsset.create(
                 "Ferrocarriles", "Estación", "cat", "desc",
@@ -31,10 +31,10 @@ class UrbanAssetMapperTest {
         assertThat(dto.name()).isEqualTo("Estación");
         assertThat(dto.category()).isEqualTo("cat");
         assertThat(dto.description()).isEqualTo("desc");
-        assertThat(dto.address()).isEqualTo("Av. de Andalucía 1");
-        assertThat(dto.phone()).isEqualTo("+34954000000");
-        assertThat(dto.email()).isEqualTo("info@example.com");
-        assertThat(dto.url()).isEqualTo("https://example.com");
+        assertThat(dto.address()).isNull();
+        assertThat(dto.phone()).isNull();
+        assertThat(dto.email()).isNull();
+        assertThat(dto.url()).isNull();
     }
 
     @Test
@@ -64,7 +64,7 @@ class UrbanAssetMapperTest {
         assertThatThrownBy(() -> UrbanAsset.create(
                 "Ferrocarriles", null, null, null, null, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("geom is required");
+                .hasMessageContaining("geom es obligatoria");
     }
 
     @Test
@@ -73,7 +73,7 @@ class UrbanAssetMapperTest {
         assertThatThrownBy(() -> UrbanAsset.create(
                 "Ferrocarriles", null, null, null, null, null, null, null, empty))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("geom is required");
+                .hasMessageContaining("geom es obligatoria");
     }
 
     @Test
@@ -82,7 +82,7 @@ class UrbanAssetMapperTest {
         assertThatThrownBy(() -> UrbanAsset.create(
                 "  ", null, null, null, null, null, null, null, point))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("sourceTable is required");
+                .hasMessageContaining("sourceTable debe ser");
     }
 
     @Test

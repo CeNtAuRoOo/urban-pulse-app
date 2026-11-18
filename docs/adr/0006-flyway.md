@@ -4,7 +4,7 @@
 
 ## Decisión vigente de integración
 
-Esquema inicial consolidado V1: 16 tablas de dominio, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
+Esquema inicial consolidado V1: 16 tablas de dominio en el esquema principal y el catálogo `cartografia.contexto_urbano`, cinco roles y siete funciones geográficas; sin semillas de usuarios ni catálogos. Solo para bases vacías sin historial Flyway previo, conforme a la premisa del responsable. No acredita aplicación en Neon.
 
 La única migración ejecutable es [V1__initial_schema.sql](../../backend/src/main/resources/db/migration/V1__initial_schema.sql). Integra directamente AWAITING_INFORMATION, snapshot obligatorio/coherente de revisión, VALIDATE sin motivo, respuestas con FK compuesta, vínculos canónicos únicos de Duplicados y geografía de Mapas. No hay CHECK NOT VALID ni datos ficticios; solo cinco roles legítimos. Hibernate mantiene validate.
 

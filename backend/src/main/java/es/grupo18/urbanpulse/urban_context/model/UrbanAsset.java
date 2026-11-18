@@ -1,4 +1,3 @@
-
 package es.grupo18.urbanpulse.urban_context.model;
 
 import jakarta.persistence.Column;
@@ -8,19 +7,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Geometry;
 
 /**
- * Asset urbano unificado. Cada fila representa un elemento de alguna de las
- * tablas específicas del dataset (ferrocarriles, aparcamientos, etc.).
- *
- * Las tablas están unificadas en cartografia.contexto_urbano.
+ * Registro del catálogo espacial. La columna de origen identifica el conjunto
+ * del que procede el activo.
  *
  * La columna geom almacena geometrías en SRID 25830
  * (ETRS89 / UTM zone 30N).
@@ -28,8 +23,11 @@ import org.locationtech.jts.geom.Geometry;
 @Entity
 @Table(name = "contexto_urbano", schema = "cartografia")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UrbanAsset {
+
+    /** Constructor de persistencia utilizado por Hibernate al materializar una fila. */
+    protected UrbanAsset() {
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,11 +65,20 @@ public class UrbanAsset {
      * gestione correctamente el enlace de geometrías JTS con PostgreSQL.
      */
     @JdbcTypeCode(SqlTypes.GEOMETRY)
-    @Column(name = "geom", columnDefinition = "geometry(Geometry,25830)")
+    @Column(name = "geom", nullable = false, columnDefinition = "geometry(Geometry,25830)")
     private Geometry geom;
 
     /**
-     * Crea un asset urbano pendiente de persistir.
+     * Evita que un consumidor modifique la geometría persistida fuera de la entidad.
+     *
+     * @return copia de la geometría válida en EPSG:25830
+     */
+    public Geometry getGeom() {
+        return geom.copy();
+    }
+
+    /**
+     * Crea un activo urbano pendiente de persistir.
      *
      * @param sourceTable tabla de origen (no nula)
      * @param name        nombre opcional
@@ -82,7 +89,8 @@ public class UrbanAsset {
      * @param email       email opcional
      * @param url         URL opcional
      * @param geom        geometría en SRID 25830
-     * @return nueva entidad sin identidad asignada
+     * @return nueva entidad sin identidad asignada y con copia defensiva de geometría
+     * @throws IllegalArgumentException si el origen o la geometría incumplen las invariantes
      */
     public static UrbanAsset create(
             String sourceTable,
@@ -95,19 +103,26 @@ public class UrbanAsset {
             String url,
             Geometry geom) {
 
-        if (sourceTable == null || sourceTable.isBlank()) {
-            throw new IllegalArgumentException("sourceTable is required");
+        if (sourceTable == null || sourceTable.isBlank() || sourceTable.codePointCount(0, sourceTable.length()) > 64
+                || !sourceTable.equals(sourceTable.strip()) || sourceTable.codePoints().anyMatch(code ->
+                    Character.isISOControl(code) || (code >= 0xD800 && code <= 0xDFFF))) {
+            throw new IllegalArgumentException("sourceTable debe ser un origen no vacío de hasta 64 puntos Unicode válidos.");
         }
 
         if (geom == null || geom.isEmpty()) {
-            throw new IllegalArgumentException("geom is required in UrbanAsset");
+            throw new IllegalArgumentException("geom es obligatoria y no puede estar vacía.");
         }
 
         if (geom.getSRID() != 25830) {
             throw new IllegalArgumentException(
-                    "geom must use SRID 25830; received: " + geom.getSRID());
+                    "geom debe usar SRID 25830; recibido: " + geom.getSRID());
         }
 
+        if (!geom.isValid() || java.util.Arrays.stream(geom.getCoordinates()).anyMatch(coordinate ->
+                !Double.isFinite(coordinate.x) || !Double.isFinite(coordinate.y) || !Double.isNaN(coordinate.getZ())
+                || !Double.isNaN(coordinate.getM()))) {
+            throw new IllegalArgumentException("geom debe ser válida, bidimensional y tener coordenadas finitas.");
+        }
         UrbanAsset asset = new UrbanAsset();
         asset.sourceTable = sourceTable;
         asset.name = name;
@@ -117,7 +132,7 @@ public class UrbanAsset {
         asset.phone = phone;
         asset.email = email;
         asset.url = url;
-        asset.geom = geom;
+        asset.geom = geom.copy();
 
         return asset;
     }

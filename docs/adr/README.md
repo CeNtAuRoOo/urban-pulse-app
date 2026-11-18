@@ -29,10 +29,11 @@ Cada ADR explica el **contexto**, las alternativas, la **decisión** y sus conse
 | [0015](0015-almacenamiento-evidencias.md)                  | Almacenamiento externo y gestión de evidencias fotográficas           | **Aceptado e implementado** (FK a incidencia y suites de integración verificadas) |
 | [0016](0016-ci-postgresql-local.md)                        | CI y PostgreSQL local para desarrollo con Docker Compose              | Aceptado e implementado; sin CD                                                   |
 | [0017](0017-mapas-provinciales-privacidad.md)              | Mapas provinciales, publicación, privacidad y agrupaciones            | Implementado; títulos aprobados pendientes de Tramitación    |
+| [0018](0018-catalogo-espacial.md) | Catálogo de activos, PostGIS y contrato de lectura | Aceptado |
 
 **Al implementar cada tag**, verificar que el [modelo de dominio base](../domain-model.md), su contrato OpenAPI y los ADR afectados continúan siendo coherentes. Si una decisión cambia materialmente, actualizarla con trazabilidad o crear un ADR sucesor; no modificar decisiones en silencio.
 
-La adopción de Object Storage y su conectividad están comprobadas; la gestión real de fotografías también está implementada. Las entidades `User`, `Role`, `UserRole` y `EmailVerification` del núcleo de autenticación están implementadas; **V1 consolida 16 tablas de identidad, organización, auditoría, catálogos, incidencias, tramitación, evidencias y duplicados, más funciones/índices de Mapas**. JWT, BCrypt, validación de CITIZEN y protección de rutas de auth están implementados en el backend, sin despliegue de la V1 consolidada en Neon confirmado.
+La adopción de Object Storage y su conectividad están comprobadas; la gestión real de fotografías también está implementada. Las entidades `User`, `Role`, `UserRole` y `EmailVerification` del núcleo de autenticación están implementadas; **V1 consolida 16 tablas de identidad, organización, auditoría, catálogos, incidencias, tramitación, evidencias y duplicados, más el catálogo espacial de Contexto Urbano y las funciones/índices de Mapas**. JWT, BCrypt, validación de CITIZEN y protección de rutas de auth están implementados en el backend, sin despliegue de la V1 consolidada en Neon confirmado.
 
 **Ampliación 28/10/2026:** el ADR-0005 recoge la verificación de correo mediante JWT limitado y código HMAC de ocho dígitos; el ADR-0006 registra la ampliación de V1 previa a la primera aplicación. Mailpit es una herramienta de desarrollo, no proveedor SMTP de producción.
 

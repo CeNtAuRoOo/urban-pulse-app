@@ -22,7 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.dto.TokenDTO;
@@ -60,10 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class ProcessingPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName
-                    .parse("postgis/postgis:18-3.6-alpine")
-                    .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {

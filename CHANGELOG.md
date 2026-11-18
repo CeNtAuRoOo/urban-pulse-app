@@ -2,7 +2,21 @@
 
 Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
 
+
+## 2026-11-17 — Catálogo consultable de Contexto Urbano
+
+- V1 instala PostGIS y el catálogo vacío en `cartografia`. Compose y Testcontainers utilizan la misma imagen PostgreSQL 18/PostGIS 3.6.
+- `GET /api/v1/urban-assets` limita ambos modos de consulta a 500 filas. La respuesta conserva el ID numérico y WKT métrico y oculta los contactos de origen. La adquisición de datos municipales queda fuera de esta fase.
+- Integración HTTP con Flyway, Hibernate Spatial y JWT, regresiones del inventario OpenAPI y conservación de las pruebas offline de k6. [Decisión del catálogo](docs/adr/0018-catalogo-espacial.md).
+
 ## [Unreleased]
+
+### Pruebas Grafana k6 (17/11/2026)
+
+- Batería modular de scripts k6 y documentación: smoke por rol, lectura con perfiles load/stress/spike/soak, tasa fija, Mapas, consultas de Tramitación/Duplicados y alta/corrección controlada de una incidencia.
+- Configuración por entorno, fixtures explícitos, JWT provisionados, guardas de aislamiento/carga/escritura, checks y umbrales iniciales configurables; resultados y manifiestos privados ignorados.
+- Validación estricta de proyecciones públicas y objetos anidados, ETag SHA-256, configuración vacía y RUN_ID documentado de forma uniforme. Regresiones offline reproducibles con ejemplos versionados y dobles sin red; smoke exige cero fallos funcionales y conserva latencias sin threshold p95, mientras load/arrival mantienen sus criterios.
+- Guía PowerShell, dashboard/HTML opcionales y comprobación sintáctica sin tráfico. Scripts implementados y aún no ejecutados con k6 real; no hay mediciones k6 ni cambios de negocio, contrato, CI o infraestructura.
 
 ### Integración de Duplicados y Mapas (16–17/11/2026)
 
@@ -202,10 +216,3 @@ Las entregas originales de Autenticación e Invitaciones no incluían administra
 - Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.
-
-## 2026-11-17 — Documentación PostGIS y contexto urbano
-
-- Se documenta la migración V2, el catálogo `cartografia.contexto_urbano`, SRID 25830, índices espaciales y consulta de activos por proximidad.
-- Se alinea OpenAPI con el endpoint Java `GET /api/v1/urban-assets` y su DTO real WKT.
-- Se registran los bloqueos de configuración detectados: Compose PostgreSQL estándar, resolución del esquema en SQL nativo, dependencia Hibernate Spatial y cobertura del test de integración.
-- El contrato conserva 57 rutas y 77 operaciones; el inventario actual pasa a 48 implementadas y 29 futuras.

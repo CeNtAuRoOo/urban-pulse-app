@@ -29,12 +29,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
-import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
+
 import es.grupo18.urbanpulse.maps.dto.MapFeatureDTO;
 import es.grupo18.urbanpulse.maps.service.MapQuery;
 import es.grupo18.urbanpulse.maps.service.MapQueryService;
+import es.grupo18.urbanpulse.incidents.model.IncidentStatus;
 import es.grupo18.urbanpulse.processing.dto.InformationResponseRequest;
 import es.grupo18.urbanpulse.processing.dto.ReviewRequest;
 import es.grupo18.urbanpulse.processing.model.ReviewDecision;
@@ -59,10 +60,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class MapPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName
-                    .parse("postgis/postgis:18-3.6-alpine")
-                    .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry r) {
@@ -93,8 +91,7 @@ class MapPostgresIT {
 
     @BeforeEach
     void cleanIncidents() {
-        jdbc.execute(
-                "truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
+        jdbc.execute("truncate duplicate_links, incident_information_responses, attachments, status_changes, incident_reviews, priority_decisions, incidents, audit_events");
     }
 
     @Test
@@ -113,21 +110,15 @@ class MapPostgresIT {
     @Test
     void actualDatabaseLockTimeoutReturns503WithoutPartialMap() throws Exception {
         UUID actor = account("OPERATOR");
-        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),
-                POSTGRES.getUsername(),
-                POSTGRES.getPassword())) {
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
             connection.setAutoCommit(false);
             connection.createStatement().execute("lock table incidents in access exclusive mode");
-            var request = java.net.http.HttpRequest
-                    .newBuilder(java.net.URI.create("http://127.0.0.1:" + port
-                            + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
-                    .header("Authorization", bearer(actor))
-                    .timeout(java.time.Duration.ofSeconds(15)).build();
-            var response = java.net.http.HttpClient.newHttpClient().send(request,
-                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port
+                    + URL + "?minLat=36&minLon=-6&maxLat=38&maxLon=-3&zoom=8"))
+                    .header("Authorization", bearer(actor)).timeout(java.time.Duration.ofSeconds(15)).build();
+            var response = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(503);
-            assertThat(json.readTree(response.body()).get("code").asString())
-                    .isEqualTo("MAP_QUERY_TIMEOUT");
+            assertThat(json.readTree(response.body()).get("code").asString()).isEqualTo("MAP_QUERY_TIMEOUT");
             connection.rollback();
         }
     }
@@ -152,8 +143,7 @@ class MapPostgresIT {
     @ParameterizedTest
     @ValueSource(strings = { "VALIDATE", "REJECT" })
     void processingInformationCyclesPublishOnlyAfterValidation(String decision) throws Exception {
-        UUID author = account(null), reader = account(null), operator = account("OPERATOR"),
-                admin = account("ADMIN");
+        UUID author = account(null), reader = account(null), operator = account("OPERATOR"), admin = account("ADMIN");
         UUID category = UUID.randomUUID();
         jdbc.update("insert into categories(id,name) values(?,?)", category, "Map integration " + category);
         UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
@@ -169,8 +159,7 @@ class MapPostgresIT {
                     CLOSE.zoom(), IncidentStatus.AWAITING_INFORMATION, null);
             assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
             for (UUID privileged : List.of(author, operator, admin)) {
-                var marker = (MapFeatureDTO.IncidentFeature) maps.find(privileged, 0, awaiting).items()
-                        .getFirst();
+                var marker = (MapFeatureDTO.IncidentFeature) maps.find(privileged, 0, awaiting).items().getFirst();
                 assertThat(marker.coordinates()).isEqualTo(exact);
                 assertThat(marker.coordinatePrecision()).isEqualTo("EXACT");
                 assertThat(marker.canAccessPrivateDetail()).isTrue();
@@ -179,26 +168,20 @@ class MapPostgresIT {
                     .header("Authorization", bearer(author))).andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalIncidents").value(1));
             processing.respond(author, 0, id,
-                    new InformationResponseRequest("Respuesta privada de integración",
-                            cycle * 2 + 1));
+                    new InformationResponseRequest("Respuesta privada de integración", cycle * 2 + 1));
             assertThat(maps.find(reader, 0, CLOSE).totalIncidents()).isZero();
-            assertThat(((MapFeatureDTO.IncidentFeature) maps.find(author, 0, CLOSE).items().getFirst())
-                    .status())
+            assertThat(((MapFeatureDTO.IncidentFeature) maps.find(author, 0, CLOSE).items().getFirst()).status())
                     .isEqualTo(IncidentStatus.REPORTED);
         }
         var finalReview = new ReviewRequest();
         finalReview.setDecision(ReviewDecision.valueOf(decision));
         finalReview.setExpectedIncidentVersion(4L);
-        if (decision.equals("VALIDATE"))
-            finalReview.setCategoryId(category);
-        else
-            finalReview.setReason("Motivo interno de rechazo");
+        if (decision.equals("VALIDATE")) finalReview.setCategoryId(category);
+        else finalReview.setReason("Motivo interno de rechazo");
         processing.review(operator, 0, id, finalReview);
-        assertThat(jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Long.class,
-                id))
+        assertThat(jdbc.queryForObject("select count(*) from incident_reviews where incident_id=?", Long.class, id))
                 .isEqualTo(3);
-        assertThat(jdbc.queryForObject(
-                "select count(*) from incident_information_responses where incident_id=?",
+        assertThat(jdbc.queryForObject("select count(*) from incident_information_responses where incident_id=?",
                 Long.class, id)).isEqualTo(2);
         var publicResult = maps.find(reader, 0, CLOSE);
         assertThat(publicResult.totalIncidents()).isEqualTo(decision.equals("VALIDATE") ? 1 : 0);
@@ -208,12 +191,10 @@ class MapPostgresIT {
             assertThat(marker.coordinatePrecision()).isEqualTo("APPROXIMATE");
             assertThat(marker.canAccessPrivateDetail()).isFalse();
             assertThat(maps.find(reader, 0, PROVINCE).items()).containsExactly(marker);
-            assertThat(json.writeValueAsString(publicResult)).doesNotContain("Título privado",
-                    "Descripción privada",
+            assertThat(json.writeValueAsString(publicResult)).doesNotContain("Título privado", "Descripción privada",
                     "Motivo interno", "Respuesta privada", "reviewedBy", "reporter");
             for (String suffix : List.of("", "/attachments", "/review-outcome", "/information-responses")) {
-                mvc.perform(get("/api/v1/incidents/" + id + suffix).header("Authorization",
-                        bearer(reader)))
+                mvc.perform(get("/api/v1/incidents/" + id + suffix).header("Authorization", bearer(reader)))
                         .andExpect(status().isNotFound());
             }
         }
@@ -245,8 +226,7 @@ class MapPostgresIT {
         UUID department = UUID.randomUUID(), staff = account(null), author = account(null),
                 operator = account("OPERATOR");
         jdbc.update("insert into departments(id,name,code) values(?,?,?)", department, "Map " + department,
-                "M" + department.toString().replace("-", "").substring(0, 15)
-                        .toUpperCase(java.util.Locale.ROOT));
+                "M" + department.toString().replace("-", "").substring(0, 15).toUpperCase(java.util.Locale.ROOT));
         jdbc.update("insert into department_memberships values(?,?,?,?,now(),null)",
                 UUID.randomUUID(), staff, department, role);
         incident(author, 36.7213, -4.4214, "REPORTED", null);
@@ -319,8 +299,7 @@ class MapPostgresIT {
                 ) SELECT map_lat_v1(@@ lseg(a,b)) AS lat, map_lon_v1(@@ lseg(a,b)) AS lon,
                          a[0] AS ax, a[1] AS ay, b[0] AS bx, b[1] AS by FROM edge
                 """);
-        double lat = ((Number) boundary.get("lat")).doubleValue(),
-                lon = ((Number) boundary.get("lon")).doubleValue();
+        double lat = ((Number) boundary.get("lat")).doubleValue(), lon = ((Number) boundary.get("lon")).doubleValue();
         assertThat(inside(lat, lon)).isTrue();
         // Opposite sides within roughly a metre of a real northern boundary segment.
         double dx = ((Number) boundary.get("bx")).doubleValue() - ((Number) boundary.get("ax")).doubleValue();
@@ -369,8 +348,7 @@ class MapPostgresIT {
         var filtered = maps.find(reader, 0, new MapQuery(36, -6, 38, -3, 8,
                 es.grupo18.urbanpulse.incidents.model.IncidentStatus.VALIDATED, category));
         assertThat(filtered.totalIncidents()).isEqualTo(3);
-        assertThat(maps.find(reader, 0, new MapQuery(36, -6, 38, -3, 8, null, UUID.randomUUID()))
-                .totalIncidents())
+        assertThat(maps.find(reader, 0, new MapQuery(36, -6, 38, -3, 8, null, UUID.randomUUID())).totalIncidents())
                 .isZero();
     }
 
@@ -401,10 +379,8 @@ class MapPostgresIT {
                         from generate_series(1,1001)
                         """,
                 author);
-        mvc.perform(request(CLOSE).header("Authorization", bearer(author)))
-                .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.code").value("MAP_RESULT_LIMIT"))
-                .andExpect(jsonPath("$.items").doesNotExist());
+        mvc.perform(request(CLOSE).header("Authorization", bearer(author))).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("MAP_RESULT_LIMIT")).andExpect(jsonPath("$.items").doesNotExist());
         assertThat(maps.find(author, 0, PROVINCE).totalIncidents()).isEqualTo(1001);
     }
 
@@ -453,61 +429,56 @@ class MapPostgresIT {
     void mapMigrationAndBothSpatialIndexesAreInstalled() {
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history "
                 + "where success and version='1'", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForList("select indexname from pg_indexes where indexname like 'maps_%'",
-                String.class))
+        assertThat(jdbc.queryForList("select indexname from pg_indexes where indexname like 'maps_%'", String.class))
                 .containsExactlyInAnyOrder("maps_exact_location_idx", "maps_public_location_idx",
                         "maps_validated_review_idx");
     }
 
     @Test
     void consolidatedSchemaRebuildsIndexesOverImportedDataAndWorksOutsideItsSchemaSearchPath() {
-        UUID author = account(null);
-        UUID id = incident(author, 36.7213, -4.4214, "REPORTED", null);
-        var base = org.flywaydb.core.Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .schemas("map_upgrade").defaultSchema("map_upgrade").target("1").load();
-        assertThat(base.migrate().migrationsExecuted).isEqualTo(1);
+        // Una segunda instalación completa necesita otra base: cartografia tiene nombre fijo.
+        jdbc.execute("create database maps_schema_regression");
+        String url = POSTGRES.getJdbcUrl().replace("/" + POSTGRES.getDatabaseName(), "/maps_schema_regression");
+        var isolated = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                url, POSTGRES.getUsername(), POSTGRES.getPassword()));
         try {
-            jdbc.update("insert into map_upgrade.users select * from public.users where id=?", author);
-            jdbc.update("insert into map_upgrade.incidents select * from public.incidents where id=?", id);
-            var upgrade = org.flywaydb.core.Flyway.configure()
-                    .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
-                            POSTGRES.getPassword())
+            var migration = org.flywaydb.core.Flyway.configure()
+                    .dataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword())
                     .schemas("map_upgrade").defaultSchema("map_upgrade").load();
-            assertThat(upgrade.migrate().migrationsExecuted).isOne();
-            jdbc.execute("reindex index map_upgrade.maps_exact_location_idx");
-            jdbc.execute("reindex index map_upgrade.maps_public_location_idx");
-            assertThat(jdbc.queryForList("select version from map_upgrade.flyway_schema_history "
-                    + "where success and version is not null order by installed_rank",
-                    String.class))
-                    .containsExactly("1", "2");
-            assertThat(jdbc.queryForObject("select latitude from map_upgrade.incidents where id=?",
-                    Double.class, id))
-                    .isEqualTo(36.7213);
-            assertThat(jdbc.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)",
-                    Boolean.class))
-                    .isTrue();
-            assertThat(jdbc.queryForObject("select map_upgrade.map_public_point_v1(36.7213,-4.4214) "
+            assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
+            UUID author = UUID.randomUUID(), id = UUID.randomUUID();
+            isolated.update("insert into map_upgrade.users(id,display_name,email,password_hash,created_at,updated_at) "
+                    + "values (?,'Usuario sintético','map-schema@example.test',repeat('x',60),now(),now())", author);
+            isolated.update("insert into map_upgrade.incidents(id,reporter_user_id,title,description,latitude,longitude,status,created_at,updated_at) "
+                    + "values (?,?,'Aviso sintético','Descripción suficiente',36.7213,-4.4214,'REPORTED',now(),now())", id, author);
+            assertThat(migration.migrate().migrationsExecuted).isZero();
+            migration.validate();
+            isolated.execute("reindex index map_upgrade.maps_exact_location_idx");
+            isolated.execute("reindex index map_upgrade.maps_public_location_idx");
+            assertThat(isolated.queryForList("select version from map_upgrade.flyway_schema_history "
+                    + "where success and version is not null order by installed_rank", String.class)).containsExactly("1");
+            assertThat(isolated.queryForObject("select latitude from map_upgrade.incidents where id=?", Double.class, id)).isEqualTo(36.7213);
+            assertThat(isolated.queryForObject("select map_upgrade.map_in_malaga_v1(36.7213,-4.4214)", Boolean.class)).isTrue();
+            assertThat(isolated.queryForObject("select map_upgrade.map_public_point_v1(36.7213,-4.4214) "
                     + "<@ map_upgrade.map_outline_v1()", Boolean.class)).isTrue();
         } finally {
-            jdbc.execute("drop schema map_upgrade cascade");
+            jdbc.execute("drop database maps_schema_regression with (force)");
         }
     }
 
     @Test
     void coastUsesOneStableBoundaryPointForThePublicCell() {
-        var point = jdbc.queryForMap(
-                """
-                        WITH v AS (SELECT unnest(map_vertices_v1()) AS p), coast AS (
-                          SELECT p FROM v WHERE map_lat_v1(p) BETWEEN 36.65 AND 36.75
-                            AND map_lon_v1(p) BETWEEN -4.6 AND -4.4
-                            AND NOT (point((floor(p[0]/100)+0.5)*100,(floor(p[1]/100)+0.5)*100) <@ map_outline_v1())
-                          LIMIT 1
-                        ), public AS (
-                          SELECT p, map_public_point_v1(map_lat_v1(p),map_lon_v1(p)) AS q FROM coast
-                        ) SELECT q <@ map_outline_v1() AS inside, p <-> q AS distance,
-                                 q ~= map_public_point_v1(map_lat_v1(p),map_lon_v1(p)) AS stable FROM public
-                        """);
+        var point = jdbc.queryForMap("""
+                WITH v AS (SELECT unnest(map_vertices_v1()) AS p), coast AS (
+                  SELECT p FROM v WHERE map_lat_v1(p) BETWEEN 36.65 AND 36.75
+                    AND map_lon_v1(p) BETWEEN -4.6 AND -4.4
+                    AND NOT (point((floor(p[0]/100)+0.5)*100,(floor(p[1]/100)+0.5)*100) <@ map_outline_v1())
+                  LIMIT 1
+                ), public AS (
+                  SELECT p, map_public_point_v1(map_lat_v1(p),map_lon_v1(p)) AS q FROM coast
+                ) SELECT q <@ map_outline_v1() AS inside, p <-> q AS distance,
+                         q ~= map_public_point_v1(map_lat_v1(p),map_lon_v1(p)) AS stable FROM public
+                """);
         assertThat(point.get("inside")).isEqualTo(true);
         assertThat(point.get("stable")).isEqualTo(true);
         assertThat(((Number) point.get("distance")).doubleValue()).isLessThan(142);
@@ -527,8 +498,7 @@ class MapPostgresIT {
                 .andExpect(jsonPath("$.items[0].priority").value("HIGH"));
         boolean limited = false;
         for (int n = 0; n < 100; n++) {
-            var response = mvc.perform(request(CLOSE).header("Authorization", token)).andReturn()
-                    .getResponse();
+            var response = mvc.perform(request(CLOSE).header("Authorization", token)).andReturn().getResponse();
             if (response.getStatus() == 429) {
                 assertThat(response.getHeader("Retry-After")).isNotBlank();
                 assertThat(response.getContentType()).startsWith("application/problem+json");
@@ -546,8 +516,7 @@ class MapPostgresIT {
         jdbc.update("""
                 insert into users(id,display_name,email,password_hash,email_verified,created_at,updated_at)
                 values(?,'Usuario sintético',?, ?,true,now(),now())
-                """,
-                id, id + "@example.org", "x".repeat(60));
+                """, id, id + "@example.org", "x".repeat(60));
         jdbc.update("insert into user_roles values (?,'CITIZEN')", id);
         if (globalRole != null)
             jdbc.update("insert into user_roles values (?,?)", id, globalRole);
@@ -566,10 +535,8 @@ class MapPostgresIT {
     }
 
     private void validate(UUID id, UUID operator) {
-        jdbc.update(
-                "insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
-                        + "values(?,?,?,'VALIDATE',now(),'VALIDATED')",
-                UUID.randomUUID(), id, operator);
+        jdbc.update("insert into incident_reviews(id,incident_id,reviewed_by_user_id,decision,reviewed_at,resulting_status) "
+                + "values(?,?,?,'VALIDATE',now(),'VALIDATED')", UUID.randomUUID(), id, operator);
     }
 
     private String bearer(UUID id) {
@@ -583,8 +550,7 @@ class MapPostgresIT {
 
     private String http(UUID actor, MapQuery q) throws Exception {
         var uri = java.net.URI.create("http://127.0.0.1:" + port + URL + "?minLat=" + q.minLat()
-                + "&minLon=" + q.minLon() + "&maxLat=" + q.maxLat() + "&maxLon=" + q.maxLon() + "&zoom="
-                + q.zoom());
+                + "&minLon=" + q.minLon() + "&maxLat=" + q.maxLat() + "&maxLon=" + q.maxLon() + "&zoom=" + q.zoom());
         try (var client = java.net.http.HttpClient.newHttpClient()) {
             var response = client.send(java.net.http.HttpRequest.newBuilder(uri)
                     .header("Authorization", bearer(actor)).GET().build(),
@@ -596,10 +562,8 @@ class MapPostgresIT {
     }
 
     private MockHttpServletRequestBuilder request(MapQuery q) {
-        return get(URL).param("minLat", Double.toString(q.minLat()))
-                .param("minLon", Double.toString(q.minLon()))
-                .param("maxLat", Double.toString(q.maxLat()))
-                .param("maxLon", Double.toString(q.maxLon()))
+        return get(URL).param("minLat", Double.toString(q.minLat())).param("minLon", Double.toString(q.minLon()))
+                .param("maxLat", Double.toString(q.maxLat())).param("maxLon", Double.toString(q.maxLon()))
                 .param("zoom", Integer.toString(q.zoom()));
     }
 
@@ -608,7 +572,6 @@ class MapPostgresIT {
     }
 
     private boolean inside(double lat, double lon) {
-        return Boolean.TRUE
-                .equals(jdbc.queryForObject("select map_in_malaga_v1(?,?)", Boolean.class, lat, lon));
+        return Boolean.TRUE.equals(jdbc.queryForObject("select map_in_malaga_v1(?,?)", Boolean.class, lat, lon));
     }
 }

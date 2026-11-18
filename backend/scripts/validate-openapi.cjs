@@ -72,6 +72,22 @@ function verify(source, bundle) {
   const expected = operations(source);
   const actual = operations(bundle);
 
+  // Referencia aprobada: 77 operaciones de d3169cf, con GET /urban-assets implementado.
+  // Es independiente de fuente y bundle para detectar cambios coincidentes en ambos.
+  const inventory = require("./openapi-inventory.json");
+  const signature = (list) => list.map((operation) => [operation.key, operation.operationId,
+    operation["x-implementation"], operation["x-roles"]]).sort((a, b) => a[0].localeCompare(b[0], "en"));
+  assert.deepEqual(signature(expected), inventory, "El inventario fuente difiere de la referencia aprobada");
+  assert.deepEqual(signature(actual), inventory, "El inventario bundle difiere de la referencia aprobada");
+  assert.equal(Object.keys(source.paths).length, 57);
+  assert.equal(actual.length, 77);
+  assert.deepEqual(implementationCounts(actual), { implemented: 48, future: 29 });
+  assert.equal(source.openapi, "3.0.3");
+  assert.equal(bundle.openapi, source.openapi);
+  assert.deepEqual(bundle.security, source.security);
+  assert.deepEqual(bundle.servers, source.servers);
+  assert(source.servers.every((server) => new URL(server.url).pathname === "/api/v1"));
+
   assert(expected.length > 0, "El contrato fuente no contiene operaciones");
   assert(actual.length > 0, "El bundle no contiene operaciones");
 
@@ -118,6 +134,7 @@ function verify(source, bundle) {
     "getMapIncidents",
     "getIncidentsIncidentIdDuplicateCandidates",
     "postIncidentsIncidentIdDuplicateLinks",
+    "getUrbanAssets",
   ]) {
     const operation = actual.find((o) => o.operationId === id);
 

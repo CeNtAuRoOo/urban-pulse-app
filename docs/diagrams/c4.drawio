@@ -39,7 +39,7 @@
             <mxGeometry height="120" width="240" x="1080" y="1160" as="geometry" />
           </mxCell>
         </object>
-        <object placeholders="1" c4Name="Inventario de activos&#10;urbanos" c4Type="Software System" c4Description="Sistema externo que proporciona información sobre activos urbanos y su localización" label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="7VpytCAO-yRZ1gwl9Qsy-9">
+        <object placeholders="1" c4Name="Inventario de activos&#10;urbanos" c4Type="Software System" c4Description="Fuente municipal prevista para una futura ingesta de activos" label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="7VpytCAO-yRZ1gwl9Qsy-9">
           <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#8C8496;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#736782;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1">
             <mxGeometry height="120" width="240" x="1360" y="1240" as="geometry" />
           </mxCell>
@@ -153,7 +153,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-      <mxCell id="users-current-scope-Contexto" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fillColor=#e8f0f5;strokeColor=none;fontSize=13;" value="&lt;b&gt;Alcance actual · V1 consolidada · 16 tablas&lt;/b&gt;&lt;br&gt;Backend: autenticación, usuarios, invitaciones, catálogos e incidencias; evidencias privadas.&lt;br&gt;processing, maps y duplicates: backend. Visor/capas: futuro. Derivación/equipos: futuro. SMTP local: Mailpit. Despliegue en Neon y SMTP productivo: pendientes."><mxGeometry x="1080.0" y="100.0" width="1100" height="90" as="geometry" /></mxCell></root>
+      <mxCell id="users-current-scope-Contexto" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fillColor=#e8f0f5;strokeColor=none;fontSize=13;" value="&lt;b&gt;Alcance actual · V1 consolidada · 17 tablas&lt;/b&gt;&lt;br&gt;Backend: autenticación, usuarios, invitaciones, catálogos e incidencias; evidencias privadas.&lt;br&gt;Catálogo PostGIS, Tramitación, Mapas y Duplicados. Visor/capas: futuro. Derivación/equipos: futuro. SMTP local: Mailpit. Despliegue en Neon y SMTP productivo: pendientes."><mxGeometry x="1080.0" y="100.0" width="1100" height="90" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
   <diagram name="Contenedores" id="HEJAyrMPo557E5-UPUyK">
@@ -171,7 +171,7 @@
             <mxGeometry height="120" width="240" x="280" y="480" as="geometry" />
           </mxCell>
         </object>
-        <object placeholders="1" c4Name="Base de datos principal" c4Type="Container" c4Technology="PostgreSQL / Neon" c4Description="V1: 16 tablas; Tramitación y Duplicados; funciones IGN e índices GiST de Mapas." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%: %c4Technology%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#E6E6E6&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="bl8NURNndLRxOYMMHper-3">
+        <object placeholders="1" c4Name="Base de datos principal" c4Type="Container" c4Technology="PostgreSQL / Neon" c4Description="V1: 17 tablas; catálogo PostGIS y Mapas con índices nativos." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%: %c4Technology%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#E6E6E6&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="bl8NURNndLRxOYMMHper-3">
           <mxCell parent="1" style="shape=cylinder3;size=15;whiteSpace=wrap;html=1;boundedLbl=1;rounded=0;labelBackgroundColor=none;fillColor=#23A2D9;fontSize=12;fontColor=#ffffff;align=center;strokeColor=#0E7DAD;metaEdit=1;points=[[0.5,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.5,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];resizable=0;" vertex="1">
             <mxGeometry height="120" width="240" x="120" y="800" as="geometry" />
           </mxCell>
@@ -430,7 +430,7 @@
             <mxGeometry height="120" width="240" x="880" y="240" as="geometry" />
           </mxCell>
         </object>
-      <mxCell id="users-current-scope-Contenedores" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fillColor=#e8f0f5;strokeColor=none;fontSize=13;" value="&lt;b&gt;Alcance actual · V1 consolidada · 16 tablas&lt;/b&gt;&lt;br&gt;Backend: autenticación, usuarios, invitaciones, catálogos e incidencias; evidencias privadas.&lt;br&gt;processing, maps y duplicates: backend. Visor/capas: futuro. Derivación/equipos: futuro. SMTP local: Mailpit. Despliegue en Neon y SMTP productivo: pendientes."><mxGeometry x="-1.0" y="-580.0" width="1100" height="90" as="geometry" /></mxCell></root>
+      <mxCell id="users-current-scope-Contenedores" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fillColor=#e8f0f5;strokeColor=none;fontSize=13;" value="&lt;b&gt;Alcance actual · V1 consolidada · 17 tablas&lt;/b&gt;&lt;br&gt;Backend: autenticación, usuarios, invitaciones, catálogos e incidencias; evidencias privadas.&lt;br&gt;Catálogo PostGIS, Tramitación, Mapas y Duplicados. Visor/capas: futuro. Derivación/equipos: futuro. SMTP local: Mailpit. Despliegue en Neon y SMTP productivo: pendientes."><mxGeometry x="-1.0" y="-580.0" width="1100" height="90" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
 </mxfile>

@@ -9,7 +9,7 @@ import es.grupo18.urbanpulse.urban_context.dto.UrbanAssetDTO;
 import es.grupo18.urbanpulse.urban_context.model.UrbanAsset;
 
 /**
- * Proyección pública de un asset urbano unificado.
+ * Proyección pública de un activo urbano unificado.
  *
  * <p>
  * {@link WKTWriter} no es thread-safe y mantiene estado interno (formato,
@@ -19,14 +19,18 @@ import es.grupo18.urbanpulse.urban_context.model.UrbanAsset;
  *
  * <p>
  * {@code geom} es obligatorio por contrato: {@link UrbanAsset#create} rechaza
- * assets sin geometría. El mapper no contempla {@code null}.
+ * activos sin geometría. El mapper no contempla {@code null}.
  * </p>
  */
 @Component
 public class UrbanAssetMapper {
 
+    /** Construye el componente sin estado compartido entre peticiones. */
+    public UrbanAssetMapper() {
+    }
+
     /**
-     * Proyecta los campos públicos de un asset urbano almacenado en la tabla
+     * Proyecta los campos públicos de un activo urbano almacenado en la tabla
      * unificada.
      *
      * <p>
@@ -45,10 +49,8 @@ public class UrbanAssetMapper {
                 asset.getName(),
                 asset.getCategory(),
                 asset.getDescription(),
-                asset.getAddress(),
-                asset.getPhone(),
-                asset.getEmail(),
-                asset.getUrl(),
+                // No hay procedencia pública acreditada para contactos o enlaces.
+                null, null, null, null,
                 toWkt(asset.getGeom()));
     }
 

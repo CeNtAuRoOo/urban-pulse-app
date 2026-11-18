@@ -2,9 +2,8 @@ package es.grupo18.urbanpulse.urban_context.service;
 
 import java.util.List;
 
-import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +13,9 @@ import es.grupo18.urbanpulse.urban_context.mappers.UrbanAssetMapper;
 import es.grupo18.urbanpulse.urban_context.repository.UrbanAssetRepository;
 
 /**
- * Consulta pública del dataset unificado de activos urbanos. Solo lectura.
- * El dataset es de dominio público; la autorización se limita a JWT válido
- * (gestionado por el filtro de seguridad).
+ * Consulta autenticada del catálogo de activos urbanos. Solo lectura.
+ * La seguridad compartida exige cuenta activa, token vigente y correo verificado.
+ * La existencia de la tabla no acredita ingesta ni licencia de datos municipales.
  *
  * <p>
  * Todos los activos devueltos tienen {@code geom} no nulo: es invariante de
@@ -24,7 +23,6 @@ import es.grupo18.urbanpulse.urban_context.repository.UrbanAssetRepository;
  * </p>
  */
 @Service
-@RequiredArgsConstructor
 public class UrbanAssetService {
 
     private static final double MAX_RADIUS_METERS = 5000.0;
@@ -32,6 +30,17 @@ public class UrbanAssetService {
 
     private final UrbanAssetRepository assets;
     private final UrbanAssetMapper mapper;
+
+    /**
+     * Reúne las consultas acotadas y la proyección de los activos seleccionados.
+     *
+     * @param assets repositorio del catálogo espacial
+     * @param mapper proyección HTTP de un activo
+     */
+    public UrbanAssetService(UrbanAssetRepository assets, UrbanAssetMapper mapper) {
+        this.assets = assets;
+        this.mapper = mapper;
+    }
 
     /**
      * Busca activos urbanos por tipo y, opcionalmente, por proximidad.
@@ -71,7 +80,7 @@ public class UrbanAssetService {
                     .toList();
         }
 
-        return assets.searchBySourceTable(sourceTable)
+        return assets.searchBySourceTable(sourceTable, PageRequest.of(0, UrbanAssetRepository.MAX_RESULTS))
                 .stream()
                 .map(mapper::toDTO)
                 .toList();
@@ -81,19 +90,24 @@ public class UrbanAssetService {
         if (type == null)
             return null;
         String trimmed = type.strip();
+        if (trimmed.codePointCount(0, trimmed.length()) > 64 || trimmed.codePoints().anyMatch(code ->
+                Character.isISOControl(code) || (code >= 0xD800 && code <= 0xDFFF))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_TYPE",
+                    "type admite hasta 64 puntos Unicode válidos, sin controles interiores.");
+        }
         return trimmed.isEmpty() ? null : trimmed;
     }
 
     private static void validateProximity(double latitude, double longitude, double radiusMeters) {
-        if (latitude < -90.0 || latitude > 90.0) {
+        if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_LATITUDE",
                     "latitude debe estar en [-90, 90].");
         }
-        if (longitude < -180.0 || longitude > 180.0) {
+        if (!Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_LONGITUDE",
                     "longitude debe estar en [-180, 180].");
         }
-        if (radiusMeters < MIN_RADIUS_METERS || radiusMeters > MAX_RADIUS_METERS) {
+        if (!Double.isFinite(radiusMeters) || radiusMeters < MIN_RADIUS_METERS || radiusMeters > MAX_RADIUS_METERS) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_RADIUS",
                     "radiusMeters debe estar en [1, 5000].");
         }

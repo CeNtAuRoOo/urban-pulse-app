@@ -26,7 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
 import es.grupo18.urbanpulse.auth.service.AuthService;
@@ -52,10 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class CategoryPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName
-                    .parse("postgis/postgis:18-3.6-alpine")
-                    .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -96,7 +94,7 @@ class CategoryPostgresIT {
     void flywayAndHibernateRoundTripLifecycleAndStableOrdering() {
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
                 String.class))
-                .containsExactly("1", "2");
+                .containsExactly("1");
         var created = service.create(new CreateCategoryRequest(" \tTráfico  urbano \n", null, null));
         assertThat(created.id().version()).isEqualTo(7);
         assertThat(created.id().variant()).isEqualTo(2);

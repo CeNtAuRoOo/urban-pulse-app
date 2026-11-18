@@ -45,7 +45,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+
+import es.grupo18.urbanpulse.support.PostgisDePruebas;
 
 import es.grupo18.urbanpulse.audit.repository.AuditEventRepository;
 import es.grupo18.urbanpulse.auth.dto.RegisterRequest;
@@ -92,10 +93,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(OutputCaptureExtension.class)
 class StaffInvitationPostgresIT {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName
-                    .parse("postgis/postgis:18-3.6-alpine")
-                    .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgisDePruebas.nuevo();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -676,7 +674,7 @@ class StaffInvitationPostgresIT {
         assertThatThrownBy(() -> jdbc.update("delete from users where id=?", admin))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                String.class)).containsExactly("1", "2");
+                String.class)).containsExactly("1");
     }
 
     @Test

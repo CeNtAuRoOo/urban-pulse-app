@@ -10,13 +10,19 @@ UrbanAssetRecordDTO:
   description: >-
     Registro del catálogo PostGIS cartografia.contexto_urbano devuelto por
     GET /urban-assets. geom es WKT sin prefijo SRID; el SRID del contrato es 25830.
-    Implementado en la migración Flyway V2 (PostGIS + cartografia.contexto_urbano).
+    La instalación V1 consolida PostGIS y la tabla; no incluye ingesta ni datos reales.
+    ID numérico local, distinto del UUID conceptual. address, phone, email y url se
+    devuelven siempre null hasta acreditar su procedencia pública; importar solo
+    nombres, categorías y descripciones revisados sin datos personales.
+  additionalProperties: false
   properties:
     id:
       type: integer
       format: int64
+      minimum: 1
     sourceTable:
       type: string
+      minLength: 1
       maxLength: 64
       description: Nombre de la tabla/conjunto de origen.
     name:
@@ -32,21 +38,32 @@ UrbanAssetRecordDTO:
     address:
       type: string
       nullable: true
+      enum: [null]
     phone:
       type: string
       nullable: true
+      enum: [null]
     email:
       type: string
       nullable: true
+      enum: [null]
     url:
       type: string
       nullable: true
+      enum: [null]
     geom:
       type: string
       description: Geometría en WKT, coordenadas métricas EPSG:25830, sin prefijo SRID.
   required:
     - id
     - sourceTable
+    - name
+    - category
+    - description
+    - address
+    - phone
+    - email
+    - url
     - geom
 
 UrbanAssetDTO:
@@ -88,7 +105,7 @@ UrbanAssetCandidateDTO:
   type: object
   properties:
     asset:
-      $ref: "#/UrbanAssetDTO" # ← interno, sin './contexto-urbano.yaml'
+      $ref: "#/UrbanAssetDTO"
     distanceMeters:
       type: number
       minimum: 0
@@ -120,7 +137,7 @@ UrbanAssetAssociationDTO:
   type: object
   properties:
     asset:
-      $ref: "#/UrbanAssetDTO" # ← interno
+      $ref: "#/UrbanAssetDTO"
     distanceMeters:
       type: number
       minimum: 0
@@ -220,11 +237,11 @@ UrbanContextDTO:
     observations:
       type: array
       items:
-        $ref: "#/ExternalObservationDTO" # ← interno
+        $ref: "#/ExternalObservationDTO"
     nearbyAssets:
       type: array
       items:
-        $ref: "#/UrbanAssetCandidateDTO" # ← interno
+        $ref: "#/UrbanAssetCandidateDTO"
     warnings:
       type: array
       items:
