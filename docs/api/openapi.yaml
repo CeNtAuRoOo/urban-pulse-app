@@ -16,7 +16,7 @@ tags:
   - name: Usuarios
     description: Perfil y gestión administrativa de usuarios.
   - name: Invitaciones
-    description: Canje y emisión controlados según ADR-0007 (aceptado).
+    description: Canje y emisión controlados según ADR-007 (aceptado).
   - name: Catálogos
     description: Categorías y departamentos.
   - name: Incidencias
@@ -3352,7 +3352,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT del backend, según ADR-0005. Roles y permisos se verifican en servidor.
+      description: JWT del backend, según ADR-005. Roles y permisos se verifican en servidor.
   schemas:
     ProblemDetail:
       type: object
@@ -3798,7 +3798,7 @@ components:
       properties:
         active:
           type: boolean
-      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-0007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio. No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN). La autodesactivación se permite si permanece otro administrador disponible.
+      description: Permite activar/desactivar cuentas; la concesión de roles privilegiados utiliza invitaciones (ADR-007). La baja interna de pertenencias conserva historial; su exposición HTTP requiere contrato propio. No permite desactivar al último ADMIN activo y verificado (409 LAST_ACTIVE_ADMIN). La autodesactivación se permite si permanece otro administrador disponible.
       required:
         - active
       additionalProperties: false
@@ -3849,7 +3849,7 @@ components:
         - CITIZEN
         - OPERATOR
         - ADMIN
-      description: Roles globales definidos en ADR-0009. CITIZEN es inherente a toda cuenta; OPERATOR y ADMIN son privilegios adicionales.
+      description: Roles globales definidos en ADR-009. CITIZEN es inherente a toda cuenta; OPERATOR y ADMIN son privilegios adicionales.
     DepartmentRoleCode:
       type: string
       enum:
@@ -4342,7 +4342,7 @@ components:
       oneOf:
         - $ref: '#/components/schemas/TeamWorkAssignmentRequest'
         - $ref: '#/components/schemas/TechnicianWorkAssignmentRequest'
-      description: 'ADR-0010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
+      description: 'ADR-010: solo después de derivar a un departamento; exactamente uno de teamId o technicianId. Coordinador autorizado del mismo departamento. Reasignar cierra el trabajo previo y crea otro.'
     AssignmentDTO:
       type: object
       properties:

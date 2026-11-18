@@ -26,7 +26,6 @@ Indica comandos, escenarios y resultados. Si no aplica, justifícalo.
 
 - [ ] El cambio compila o no requiere compilación.
 - [ ] Las pruebas correspondientes se han ejecutado o no aplican; se han revisado los checks de CI.
-- [ ] Si hay migraciones, se han coordinado versiones y validado en PostgreSQL aislado, sin reescribir migraciones compartidas.
 - [ ] La documentación se ha actualizado cuando corresponde.
 - [ ] No se han añadido secretos ni datos personales reales.
 - [ ] Se ha valorado la compatibilidad con la API existente.

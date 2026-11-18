@@ -1,15 +1,24 @@
-# ADR-0011: Identificadores UUIDv7 en el modelo del dominio
+## Título
 
-- **Estado:** Aceptado; UUIDv7 implementado para User, Department, DepartmentMembership, StaffInvitation, AuditEvent, Category, Incident, StatusChange, IncidentReview y PriorityDecision; restantes tipos pendientes.
-- **Fecha:** 2026-10-18.
-- **Revisión:** 2026-11-03.
-- **Ámbito:** Identidad de entidades y persistencia PostgreSQL.
+ADR-011: Identificadores UUIDv7 en el modelo del dominio
+
+## Estado
+
+Aceptado. Aplicado a las entidades de negocio que generan identificadores UUID con Hibernate. El catálogo de activos conserva su identificador numérico local ([ADR-018](ADR-018-catalogo-espacial.md)).
+
+## Fecha
+
+2026-10-18
+
+## Ámbito
+
+Identidad de entidades y persistencia PostgreSQL
 
 ## Contexto
 
 UrbanPulse expone recursos REST y persiste relaciones entre incidencias, usuarios, asignaciones y evidencias. Se precisa un identificador opaco, estable, utilizable desde Java y PostgreSQL, sin duplicar claves internas/públicas injustificadamente.
 
-## Alternativas
+## Opciones consideradas
 
 1. `BIGINT`/secuencia: pequeño y eficiente, pero secuencial y dependiente de generación centralizada.
 2. UUIDv4: descentralizado y opaco, pero aleatorio en índices.
@@ -30,8 +39,4 @@ PostgreSQL 18 también soporta `uuidv7()` como alternativa, pero no se adopta co
 
 **Costes:** 16 bytes por identificador, índices mayores que `BIGINT`, inferencia temporal aproximada y necesidad de probar la estrategia de generación del Hibernate real. `VERSION_7` puede marcarse como API incubadora en algunas versiones de Hibernate; verificar su compatibilidad y versionado al implementar.
 
-## Evidencias y alcance
-
-Las suites PostgreSQL verifican persistencia y UUIDv7 de las entidades implementadas. Department y Category conservan también `uuidv7()` como default SQL para inserciones externas en V1. Category no añade código ni fechas; el UUID no sustituye la auditoría RF18 pendiente. Se conservan identidades, referencias e historial al desactivar o reactivar un catálogo.
-
-[Resultados reproducibles](../development.md#verificación-del-backend), [migración vigente](0006-flyway.md#esquema-inicial-vigente) y [modelo de dominio](../domain-model.md). Los futuros tipos requieren revisar sus claves, restricciones y pruebas al implementarse; las verificaciones aisladas no acreditan despliegue en Neon.
+[Referencia relacionada](../domain-model.md).

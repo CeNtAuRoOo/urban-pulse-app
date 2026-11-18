@@ -2,4 +2,4 @@ BearerAuth:
   type: http
   scheme: bearer
   bearerFormat: JWT
-  description: JWT del backend, según ADR-0005. Roles y permisos se verifican en servidor.
+  description: JWT del backend, según ADR-005. Roles y permisos se verifican en servidor.

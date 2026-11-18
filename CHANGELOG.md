@@ -2,14 +2,20 @@
 
 Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La documentación diferencia el diseño, la implementación versionada, las pruebas ejecutadas y el despliegue real; **ningún cambio descrito aquí implica por sí mismo despliegue en Neon/producción**.
 
-
 ## 2026-11-17 — Catálogo consultable de Contexto Urbano
 
 - V1 instala PostGIS y el catálogo vacío en `cartografia`. Compose y Testcontainers utilizan la misma imagen PostgreSQL 18/PostGIS 3.6.
 - `GET /api/v1/urban-assets` limita ambos modos de consulta a 500 filas. La respuesta conserva el ID numérico y WKT métrico y oculta los contactos de origen. La adquisición de datos municipales queda fuera de esta fase.
-- Integración HTTP con Flyway, Hibernate Spatial y JWT, regresiones del inventario OpenAPI y conservación de las pruebas offline de k6. [Decisión del catálogo](docs/adr/0018-catalogo-espacial.md).
+- Integración HTTP con Flyway, Hibernate Spatial y JWT, regresiones del inventario OpenAPI y conservación de las pruebas offline de k6. [Decisión del catálogo](docs/adr/ADR-018-catalogo-espacial.md).
 
 ## [Unreleased]
+
+### Desarrollo reproducible y documentación
+
+- Compose carga 10.000 incidencias en PostgreSQL desechable después de Flyway. Se conservan las cuentas de integración del cliente y los expedientes de k6. [Desarrollo](docs/development.md).
+- La geografía provincial permanece fija al final de V1. El cambio de checksum requiere recrear las bases locales anteriores. [Procedencia y diseño](docs/design-docs/DD-004-territorio.md).
+- El lanzador local agrupa las pruebas offline, login, lecturas y escritura final. CI comprueba sintaxis y regresiones offline junto a las suites Java y Redocly. [Batería](k6/README.md).
+- La documentación reúne decisiones, diseños de subsistemas y un [registro de pendientes](docs/pending.md).
 
 ### Pruebas Grafana k6 (17/11/2026)
 
@@ -21,11 +27,11 @@ Registro de cambios relevantes de UrbanPulse, inspirado en [Keep a Changelog](ht
 ### Integración de Duplicados y Mapas (16–17/11/2026)
 
 - Merge real de main `b08ad608` sobre Mapas `50d7ed7`, con base histórica `27357ea1`; reconciliación de código, pruebas, contrato y documentación.
-- Backend Mapas provincial IGN, publicación por VALIDATE histórico, permisos vigentes, punto público estable de celda de 100 m, filtros y clustering; límite 1000, 422, timeout 5 s/503 y cuota 429. Conserva rendimiento/equivalencia y ADR-0017; sin visor ni capas urbanas.
+- Backend Mapas provincial IGN, publicación por VALIDATE histórico, permisos vigentes, punto público estable de celda de 100 m, filtros y clustering; límite 1000, 422, timeout 5 s/503 y cuota 429. Conserva rendimiento/equivalencia y ADR-017; sin visor ni capas urbanas.
 - Duplicados: ranking de las veinte mejores sugerencias entre todos los candidatos válidos de ±72 h y 250 m, con timeout SQL 5 s/503 explícito, sin truncado previo a 100. Decisión aprobada en esta integración. Confirmación humana simétrica, auditoría y originales intactos; semántica textual pendiente.
 - Motivo opcional de hasta 2000 puntos Unicode tras trim, par UUID compatible con PostgreSQL y limpieza de cuentas consciente de las nuevas FK.
 - Única V1 ejecutable con 16 tablas y geografía generada intacta. Las antiguas V2/V3/V5 quedan como antecedentes en Git, sin ruta de actualización de bases con datos.
-- Conservadas las regresiones de privacidad y N+1 de A/C; ampliadas pruebas HTTP, ranking, concurrencia, rollback e instalación. Resultados de esta ejecución en [informe de integración](docs/integration-reconciliation.md).
+- Conservadas las regresiones de privacidad y N+1 de A/C; ampliadas pruebas HTTP, ranking, concurrencia, rollback e instalación. Resultados de esta ejecución en [Diseño territorial](docs/design-docs/DD-004-territorio.md).
 - Contrato 0.8.0 conjunto: 77 operaciones, 47 implementadas y 30 futuras; YAML/HTML derivados de fuentes modulares. CI refuerza paridad, generación y ejemplos HTTP.
 - Fuentes .drawio actualizadas; los ocho SVG permanecen idénticos y pendientes de exportación manual. No implica despliegue ni acceso a Neon.
 
@@ -98,7 +104,7 @@ Las entradas siguientes son **históricas**: sus cifras y secuencias de migraci�
 
 - Cinco operaciones de Usuarios en `identity`: perfil propio, consulta administrativa, listado paginado y activación/desactivación. Roles globales y pertenencias activas/históricas en registro, login y consultas; DTO estrictos y sin credenciales.
 - Ciclo interno de altas y bajas departamentales en `organization`, con historial, reingresos y cuenta activa/verificada. Una sola entidad, repositorio e índice parcial compartidos con Invitaciones; sin nuevas rutas de pertenencias.
-- Protección transaccional del último ADMIN activo y verificado; autodesactivación permitida cuando queda otro. ADR-0012/0013 y contrato OpenAPI 0.5.0 actualizados.
+- Protección transaccional del último ADMIN activo y verificado; autodesactivación permitida cuando queda otro. ADR-012, ADR-013 y contrato OpenAPI 0.5.0 actualizados.
 
 ### Corregido
 
@@ -157,7 +163,7 @@ Commits siguientes a la reorganización: `81d8d85` (`feat(backend): implementar 
 - Canje con cuotas independientes por usuario (10/900 s) e IP (30/900 s) y protección de cuerpo de 16 KiB. Respuestas de error uniformes `ProblemDetail` y `429 Retry-After`; consulta paginada `PageMetadata`.
 - OpenAPI modular **0.5.0**: retirada del diseño `/auth/staff-registrations` y de la respuesta con secreto, nuevas respuestas/DTO y GET individual. El bundle `openapi.yaml` y el HTML se generan desde fuentes Redocly.
 - Tests con JUnit/MVC y Testcontainers PostgreSQL 18; el informe histórico describe además un runner HTTP con JAR, PostgreSQL `tmpfs`, Mailpit y fixtures sintéticos, sin Neon. **Los archivos de ese runner no aparecen en el repositorio**, por lo que no se puede dar por reproducible en el árbol actual.
-- Sin frontend de invitaciones, bootstrap productivo del primer ADMIN, retirada de permisos, CRUD de Catálogos/equipos, SMTP público, despliegue real ni migración de Neon. Ver [ADR-0007](docs/adr/0007-invitaciones-personal.md), [API](docs/api/README.md) y [Desarrollo](docs/development.md).
+- Sin frontend de invitaciones, bootstrap productivo del primer ADMIN, retirada de permisos, CRUD de Catálogos/equipos, SMTP público, despliegue real ni migración de Neon. Ver [ADR-007](docs/adr/ADR-007-invitaciones-personal.md), [API](docs/api/README.md) y [Desarrollo](docs/development.md).
 
 ### 2026-10-31 — Documentación y diagramas sincronizados
 
@@ -165,7 +171,7 @@ Documentación de la entrega `56fc44d`:
 
 - Actualizadas arquitectura y desarrollo para reflejar el monolito **modular**, los paquetes y la nueva ubicación de las pruebas.
 - Fuentes `.drawio` y SVG de C4, ER02, ER03 y clases simplificadas **ya actualizadas** para la implementación, la auditoría, el correo y el alcance de fotografías. Se elimina la excepción gráfica y las indicaciones de cambios manuales pendientes.
-- Redistribuida la información del informe temporal de Invitaciones entre documentos **ya existentes**: [ADR-0007](docs/adr/0007-invitaciones-personal.md) (decisiones funcionales), [API](docs/api/README.md) (contrato), [Desarrollo](docs/development.md) (pruebas y diagnóstico), [Arquitectura](docs/architecture.md) (componentes) y [Despliegue](docs/deployment.md) (riesgos). No se mantiene un documento independiente ni referencias al informe temporal de Codex.
+- Redistribuida la información del informe temporal de Invitaciones entre documentos **ya existentes**: [ADR-007](docs/adr/ADR-007-invitaciones-personal.md) (decisiones funcionales), [API](docs/api/README.md) (contrato), [Desarrollo](docs/development.md) (pruebas y diagnóstico), [Arquitectura](docs/architecture.md) (componentes) y [Despliegue](docs/deployment.md) (riesgos). No se mantiene un documento independiente ni referencias al informe temporal de Codex.
 - Actualizados índices y referencias cruzadas del README, API, ADR y guías. Se distingue el último contrato OpenAPI `0.5.0` del diseño histórico `0.2.0`/`0.3.0`/`0.4.0`.
 
 ### Evidencia de validación de la entrega original (30/10/2026)
@@ -212,7 +218,7 @@ Las entregas originales de Autenticación e Invitaciones no incluían administra
 - Completado el subconjunto Department del tag Catálogos: listado/detalle con correo verificado y creación/PATCH con ADMIN global; desactivación sin DELETE.
 - UUIDv7 de Hibernate conforme al ADR-0011, PATCH con omisión diferenciada de null explícito, validación tras trim y bloqueo de fila para conservar cambios concurrentes.
 - ProblemDetail común con códigos de departamentos; solo las violaciones de los índices únicos conocidos se traducen a 409. UUID mal formado devuelve 400.
-- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [contrato de Departamentos](docs/api/README.md#51-departamentos-implementados-catálogos) para comandos y resultados exactos.
+- V2 y semillas conservadas; nuevas pruebas PostgreSQL aisladas para persistencia, restricciones, concurrencia y JWT real. Ver [contrato de Departamentos](docs/api/README.md#departamentos-implementados-catálogos) para comandos y resultados exactos.
 - Contrato modular y artefactos Redocly sincronizados; fuentes y exportaciones de Department actualizadas. Revisión visual manual completada posteriormente en diagrams.net: comprobadas las cuatro páginas del diagrama relacional y la página del diagrama de clases, sin textos cortados ni elementos solapados.
 
 Esta entrada describe la rama de Departamentos antes de la consolidación; las semillas y el esquema se sustituyen por la decisión del 02/11/2026.

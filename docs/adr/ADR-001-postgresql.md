@@ -1,8 +1,18 @@
-# ADR-0001: PostgreSQL como base de datos principal
+## Título
 
-- **Estado:** Aceptado
-- **Fecha:** 2026-10-11
-- **Ámbito:** UrbanPulse
+ADR-001: PostgreSQL como base de datos principal
+
+## Estado
+
+Aceptado
+
+## Fecha
+
+2026-10-11
+
+## Ámbito
+
+UrbanPulse
 
 ## Contexto
 
@@ -24,6 +34,4 @@ Utilizar PostgreSQL como almacén principal de datos estructurados. Spring Boot 
 
 **Costes:** diseño y evolución del esquema; migraciones y mantenimiento de índices. Elegir PostgreSQL no implica que todas las consultas sean realizadas exclusivamente por JPA.
 
-## Consideraciones pendientes
-
-PostGIS está incorporado por `V1__initial_schema.sql` para `cartografia.contexto_urbano`; véase [PostGIS y contexto urbano](../postgis-urban-context.md). Su disponibilidad debe comprobarse en cada entorno y no debe confundirse con el subsistema Mapas.
+[Referencia relacionada](../design-docs/DD-004-territorio.md).
