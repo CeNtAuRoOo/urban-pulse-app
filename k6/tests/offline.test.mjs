@@ -11,8 +11,7 @@ const date = "2026-11-10T19:10:40.166261Z";
 const etag = `"sha256-${"a".repeat(64)}"`;
 const newEtag = `"sha256-${"b".repeat(64)}"`;
 const clone = structuredClone;
-const fixture = (name) =>
-  JSON.parse(readFileSync(new URL(`../../docs/api/examples/${name}`, import.meta.url), "utf8"));
+const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/${name}`, import.meta.url), "utf8"));
 const marker = fixture("maps-incident.json");
 const cluster = fixture("maps-cluster.json");
 const person = { id: owner, displayName: "Informante sintético" };

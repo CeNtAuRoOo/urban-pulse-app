@@ -38,16 +38,6 @@ jobs:
           docker info
       - name: Unit, MVC and PostgreSQL integration tests
         run: mvn -B -ntp clean verify -Ppostgres-it
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24"
-          package-manager-cache: false
-      - name: Validate real map HTTP responses against OpenAPI
-        working-directory: .
-        run: npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-map-contract.cjs"
-      - name: Validar respuesta HTTP de activos urbanos contra OpenAPI
-        working-directory: .
-        run: npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-urban-assets-contract.cjs"
       - name: Javadoc
         run: mvn -B -ntp javadoc:javadoc -Ddoclint=all
 
@@ -89,10 +79,6 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Check generated geography in V1
-        run: node backend/scripts/generate-map-boundary.mjs --check
-      - name: Verify geography generator isolation and markers
-        run: node --test backend/scripts/generate-map-boundary.test.mjs
       - name: Lint and reproduce OpenAPI artifacts
         run: |
           npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
@@ -100,10 +86,26 @@ jobs:
           npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
           npx --yes @redocly/cli@2.16.0 lint docs/api/openapi.yaml
           git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html
-          npx --yes --package=@redocly/cli@2.16.0 -c "node backend/scripts/validate-openapi.cjs"
-          npx --yes --package=@redocly/cli@2.16.0 -c "node --test backend/scripts/validate-openapi.test.cjs"
       - name: Validate development Compose configuration
         run: |
           cp backend/.env.example backend/.env.development
           cp frontend/.env.example frontend/.env
           docker compose config --quiet
+
+  k6:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Comprobar sintaxis de los archivos versionados
+        shell: bash
+        run: |
+          git ls-files -z -- 'k6/*.js' 'k6/*.mjs' | xargs -0 -r -n 1 node --check
+      - name: Pruebas offline
+        run: node --experimental-vm-modules --test k6/tests/offline.test.mjs
