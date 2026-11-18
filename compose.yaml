@@ -2,15 +2,16 @@ name: urban-pulse-app
 
 services:
   postgres:
-    image: postgis/postgis:18-3.6-alpine@sha256:c53a483fc274072dfa02cd491efa79f3c8ae0a10774a0ece6c9c53b6a632cdef
+    image: &postgis postgis/postgis:18-3.6-alpine@sha256:c53a483fc274072dfa02cd491efa79f3c8ae0a10774a0ece6c9c53b6a632cdef
+    command: ["postgres", "-c", "urbanpulse.environment=compose-dev"]
     environment:
       POSTGRES_DB: urban-pulse
       POSTGRES_USER: urbanpulse
       POSTGRES_PASSWORD: password
     ports:
       - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql
+    tmpfs:
+      - /var/lib/postgresql:size=512m
     healthcheck:
       test: ["CMD-SHELL", 'pg_isready -U "urbanpulse" -d "urban-pulse"']
       interval: 5s
@@ -32,6 +33,10 @@ services:
       dockerfile: Dockerfile.dev
     env_file:
       - ./backend/.env.development
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/urban-pulse?ApplicationName=urbanpulse-compose
+      SPRING_DATASOURCE_USERNAME: urbanpulse
+      SPRING_DATASOURCE_PASSWORD: password
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +48,32 @@ services:
       - ./backend:/app
       - maven-cache:/root/.m2
 
+  db-seed:
+    image: *postgis
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      PGPASSWORD: password
+      PGCONNECT_TIMEOUT: "3"
+    volumes:
+      - ./backend/dev/database/seed.sql:/seed.sql:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        for attempt in $$(seq 1 180); do
+          if [ "$$(psql -X -h postgres -U urbanpulse -d urban-pulse -Atqc "SELECT success AND to_regclass('public.incidents') IS NOT NULL FROM public.flyway_schema_history WHERE version='1'" 2>/dev/null)" = t ]; then
+            exec psql -X -v ON_ERROR_STOP=1 -h postgres -U urbanpulse -d urban-pulse -f /seed.sql
+          fi
+          sleep 2
+        done
+        echo "Flyway V1 no ha terminado correctamente en el plazo de espera." >&2
+        exit 1
+
   frontend:
+    depends_on:
+      db-seed:
+        condition: service_completed_successfully
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -56,6 +86,5 @@ services:
       - node-modules:/app/node_modules
 
 volumes:
-  postgres-data:
   maven-cache:
   node-modules:
