@@ -1,5 +1,5 @@
 
-# DD-05 — Microservicio de contexto urbano con actualización periódica de datos.
+# DD-01 — Microservicio de contexto urbano con actualización periódica de datos.
 | Metadato | Valor |
 |---|---|
 | Estado | Borrador |
@@ -46,16 +46,16 @@
 | RF-04 | Funcional | El sistema será capaz de gestionar datos de geolocalización puesto que los datos descargados de contexto urbano contendrán información de geometría.| El sistema realiza la correcta gestión y traducción de formatos de los datos de geometría y localización, como podría ser la correcta gestión de datos "Geometry" de PostGis, como en la implementación actual de la aplicación, o  la traducción de formatos de, por ejemplo, EPSG:4326 a EPSG:25830. (Comprobable mediante pruebas geoespaciales: "geospatial testing") | Media |
 | RQ-01 | Resiliencia | El sistema será capaz de continuar su funcionamiento normal aunque reciba datos con campos inesperados o no pueda descargar ciertos archivos. Este funcionamiento quedará dentro de lo razonablemente posible. | El sistema realiza la descarga y normalización de los datos tratando correctamente cualquier  situación excepcional. (Comprobable mediante pruebas de integración y de transformación que utilicen datos con campos inesperados o fallos simulados de descarga) | Baja |
 | RQ-02 | Mantenibilidad |Las conexiones del microservicio de contexto urbano deberán ser propiamente documentadas y ser simples de entender y utilizar. | Se comprobará mediante la documentación de la interfaz. | Media |
-| RQ-03 | Rendimiento |El microservicio deberá poder responder a las peticiones rápidamente. | Se comprobará mediante la documentación de la interfaz. | Media |
-| RQ-03 | Restricción | [Tecnología, plazo, presupuesto, cumplimiento] | [Cómo se comprueba] | [...] |
-
-> Para requisitos de calidad, describir escenario + condiciones + métrica + umbral + método de validación. Los umbrales deben proceder del enunciado, negociación o medición; no inventarlos como hechos.
+| RQ-03 | Rendimiento |El microservicio deberá poder responder a las peticiones rápidamente. | Se comprobará mediante el uso de una serie de métricas base que serán probadas también al final. (BORRADOR: FALTA CALCULO DE RENDIMIENTO PARA EL BACKEND) | Media |
+| RC-01 | Restricción | Mantener la compatibilidad con los datos geoespaciales de los datos abiertos del Ayuntamiento de Málaga. | Se comprobará mediante los tests geoespaciales mencionados previamente. Además, habrá que comprobar efectivamente que el sistema permite consultar y almacenar estos datos. | Alta |
+| RC-02 | Restricción de Alcance | No se modificará el frontend. | Se comprobará que la implementación no requiere cambios en los components del frontend ni se realizen "commits" en esa parte de la aplicación. | Baja 
+| RC-03 | Restricción | Las modificaciones de la base de datos deberán ser reproducibles en los procesos de normalización de los datos descargados. | Se comprobará con los tests de integración mencionados en los requisitos funcionales. | Alta |
 
 ## 5. Arquitectura actual y dependencias
 
-- **C4 Contexto/Contenedores:** [Enlace a diagrama vigente].
-- **Flujo actual:** [Resumen].
-- **Dependencias y restricciones:** [Servicios internos/externos].
+- **C4 Contexto/Contenedores:** https://github.com/CeNtAuRoOo/urban-pulse-app/blob/main/docs/diagrams/images
+- **Flujo actual:** Se obtienen los datos y estos son normalizados
+- **Dependencias y restricciones:** Se depende del servicio provisto por el Ayuntamiento de Málaga y su portal de Datos Abiertos.
 
 ## 6. Alternativas consideradas
 
@@ -130,7 +130,7 @@ Explicar qué solo puede validarse en cloud real frente a local o simulado.
 | R-1 | Riesgo | [...] | [...] | [Mitigación] |
 | Q-1 | Pregunta | [...] | [...] | [Decisión pendiente] |
 
-## 12. Revisión y resultado
+## 12. Revisión y resultado»
 
 - **Comentarios de revisión:** [Enlaces o resumen de objeciones relevantes].
 - **Resolución:** [Aceptado / pendiente / descartado].
