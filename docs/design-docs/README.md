@@ -8,5 +8,6 @@ Los cuatro diseños describen la implementación presente. Los ADR conservan los
 | [DD-002 Expediente](DD-002-expediente.md) | Versiones, tramitación, auditoría y duplicados                    |
 | [DD-003 Evidencias](DD-003-evidencias.md) | Autorización, saneamiento y compensación entre SQL y S3           |
 | [DD-004 Territorio](DD-004-territorio.md) | Geografía y privacidad provincial, consultas e índices espaciales |
+| [DD-005 Contexto Urbano](DD-005-contexto-urbano.md) | Desarollo del microservicio de contexto urbano |
 
 [Arquitectura y C4](../architecture.md) · [Decisiones](../adr/README.md) · [Cuestiones abiertas](../pending.md).
