@@ -94,8 +94,8 @@ Esta propuesta está determinada por la búsqueda de un equilibrio entre eficien
 
 ### 7.1. Visión y diagramas C4
 
-- **Contexto (L1):** [Enlace o «sin cambios»].
-- **Contenedores (L2):** [Enlace y diferencias].
+- **Contexto (L1):** Sin cambios.
+- **Contenedores (L2):** Se incluye el contenedor diferenciado de microservicio de contexto urbano: (https://github.com/CeNtAuRoOo/urban-pulse-app/blob/documentacion-design-document-contexto-urbano/docs/diagrams/images/DD-005-propuesta-c4-containers.svg)
 - **Componentes (L3):** [Solo si ayuda].
 - **Secuencias / flujo de eventos:** [Enlace o descripción].
 
