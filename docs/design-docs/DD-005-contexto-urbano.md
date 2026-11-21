@@ -82,8 +82,13 @@
 | Uso de PostGIS | Se utiliza una base de datos relacional con tablas específicas para cada tipo de contexto urbano y una tabla completa con claves foráneas a las otras. | Rígida de uso y permite las funcionalidades de geometría de PostGIS. | Creación de muchas tablas que en caso de cambio del formato de los datos puede ser un problema. Además muchos de los campos son de muy reducida utilidad en la aplicación por lo que la utilidad de muchas de estas subpropiedades es debatible. | Se cumple la RC-01 perfectamente, pero el RQ-01 de resiliencia es muy difícil de cumplir puesto que las tablas son muy sensibles a cambios de propiedades. |
 | Uso de MongoDB | Crear tablas documentales para el contexto urbano. | Gran flexibilidad para los atributos y gran capacidad de adaptación a cambios. | Difícil de utilizar cuando se requiere una normalización estricta y habría que buscar una solución para almacenar los valores de geometría. | El RF-04 y el RQ-01 de resiliencia complican el uso de MongoDB ya que se necesitan funciones de geometría y se indica que se necesita una normalización de los datos igualmente.  |
 
-**Criterios de comparación:** [Complejidad, coste, disponibilidad, latencia, evolución, seguridad...].
-**Elección propuesta y justificación:** [Por qué supera las otras opciones respecto a los drivers prioritarios].
+**Criterios de comparación:** Los principales criterios de comparación serán la resiliencia, la latencia y la complejidad de implementación. Lo más prioritario es que el sistema responda rápidamente y trabaje con datos dispares correctamente. También se tendrá en cuenta la integración del frontend y el resto de microservicios con el microservicio de contexto urbano y la disponibilidad de este.
+**Elección propuesta y justificación:** Tras haber considerado las diversas opciones presentadas en aqueste documento se ha procedido a la elección de la siguiente opción:
+
+Se desarrollará un microservicio independiente al servicio principal de incidencias. Este microservicio se centrará en el manejo y obtención de los datos de contexto urbano y la lógica de este se implementará mediante Java y Spring Boot. Además, se utilizará un componente para el proceso de obtención, normalización e inserción en la base de datos de la información de contexto urbano mediante Python.
+El almacenamiento en dicha base de datos se realizará utilizando PostGIS con JSONB para las propiedades variables del conjunto de los datos.
+Para la comunicación y distribución de estos datos para la utilización de estos se implementará una arquitectura híbrida que utilice REST para el acceso de parte directa desde el frontend a la información de contexto urbano y el uso de gRPC para la comunicación interna entre servicios.
+Esta propuesta está determinada por la búsqueda de un equilibrio entre eficiencia y complejidad de desarrollo, pero especialmente está fuertemente marcada por una apuesta por la resiliencia y la disponibilidad de la aplicación.
 
 ## 7. Diseño propuesto
 
