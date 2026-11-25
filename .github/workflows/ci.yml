@@ -77,15 +77,13 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version-file: tools/openapi/.node-version
           package-manager-cache: false
+      - name: Install locked OpenAPI tooling
+        working-directory: tools/openapi
+        run: npm ci
       - name: Lint and reproduce OpenAPI artifacts
-        run: |
-          npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
-          npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-          npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
-          npx --yes @redocly/cli@2.16.0 lint docs/api/openapi.yaml
-          git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html
+        run: npm --prefix tools/openapi run check
       - name: Validate development Compose configuration
         run: |
           cp backend/.env.example backend/.env.development

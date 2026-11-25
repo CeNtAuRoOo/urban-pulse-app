@@ -54,6 +54,17 @@ npx expo export --platform web
 
 Como mantenimiento opcional, `npx expo install --check` consulta las recomendaciones actuales de Expo; puede pedir parches nuevos y no forma parte de los checks obligatorios de CI.
 
+**OpenAPI**, desde la raíz, con Node 24.22.3 y npm 11.19.1:
+
+```bash
+npm --prefix tools/openapi ci
+npm --prefix tools/openapi run check
+```
+
+El paquete de [herramientas OpenAPI](tools/openapi/README.md) tiene su propio lockfile.
+Usar siempre `npm ci` para reproducir artefactos; las actualizaciones de dependencias
+requieren revisión explícita del lockfile, auditoría y comparación de los derivados.
+
 **Backend**, desde `backend/`, con Java 25, Maven y Docker:
 
 ```bash
