@@ -120,17 +120,27 @@ El listado usa `page=1`, `pageSize=20` (1–100), offset máximo `2147483647` y 
 
 ## Validación y visualización
 
-Desde la raíz:
+Utiliza Node **24.22.3** y npm **11.19.1**. Las herramientas están aisladas en
+[`tools/openapi/`](../../tools/openapi/README.md), con Redocly CLI **2.16.0**, un
+override de `styled-components` **6.6.0** y el árbol completo fijado en su lockfile.
+No se instalan dependencias en el frontend ni en el backend.
+
+Desde la raíz, tanto en Windows como en Linux:
 
 ```sh
-npx --yes @redocly/cli@2.16.0 lint docs/api/openapi/base-openapi.yaml
-npx --yes @redocly/cli@2.16.0 bundle docs/api/openapi/base-openapi.yaml -o docs/api/openapi.yaml
-npx --yes @redocly/cli@2.16.0 build-docs docs/api/openapi.yaml -o docs/api/openapi.html --template docs/api/redoc-template.hbs
-npx --yes @redocly/cli@2.16.0 lint docs/api/openapi.yaml
-git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html
+npm --prefix tools/openapi ci
+npm --prefix tools/openapi run check
 ```
 
-CI comprueba que ambos derivados coinciden con la fuente y la plantilla. Redocly comprueba estructura y referencias. Se retiran las comprobaciones particulares de inventario y casos negativos, y el cotejo automático de capturas HTTP con esquemas de Mapas y Activos. Las suites Java conservan aserciones de autorización, nulabilidad, serialización y privacidad.
+`check` conserva el orden de CI: lint de la fuente, generación del YAML y HTML,
+lint del YAML generado y `git diff --exit-code -- docs/api/openapi.yaml docs/api/openapi.html`.
+Un fallo detiene el proceso y conserva su código de salida. Para editar el contrato,
+usa `npm --prefix tools/openapi run generate` y revisa el diff de ambos derivados;
+`npm --prefix tools/openapi run validate` valida la fuente y el YAML existente sin
+regenerarlos. No edites los artefactos a mano ni ejecutes Redocly mediante una
+instalación flotante de `npx`: fijar solo la versión de la CLI no fija sus dependencias.
+
+CI comprueba que ambos derivados coinciden con la fuente y la plantilla. Redocly comprueba estructura y referencias. Se retiran las comprobaciones particulares de inventario y casos negativos, y el cotejo automático de capturas HTTP con esquemas de Mapas y Activos. Las suites Java conservan aserciones de autorización, nulabilidad, serialización y privacidad. La validación de Docker Compose sigue ejecutándose después de las comprobaciones OpenAPI.
 
 ## Incidencias implementadas (desde 0.6.0)
 

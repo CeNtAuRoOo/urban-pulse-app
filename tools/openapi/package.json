@@ -1,0 +1,23 @@
+{
+  "name": "urbanpulse-openapi-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.22.3",
+    "npm": "11.19.1"
+  },
+  "packageManager": "npm@11.19.1",
+  "scripts": {
+    "preinstall": "node run.mjs runtime",
+    "validate": "node run.mjs validate",
+    "generate": "node run.mjs generate",
+    "check": "node run.mjs check"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.16.0"
+  },
+  "overrides": {
+    "styled-components": "6.6.0"
+  }
+}
