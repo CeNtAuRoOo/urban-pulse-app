@@ -1,201 +1,206 @@
+import { useUnsavedChanges } from "../services/form-guard";
+import { Text, View, useWindowDimensions } from "react-native";
+import { colors as c, displayFont } from "../design/tokens";
 import { useState } from "react";
-import { Button, Feedback, Field, NavLink, Panel } from "../components/ui";
+import { Body, Button, Feedback, Field, NavLink, Panel, Row, Stack } from "../components/ui";
 import { useAction } from "../services/hooks";
 import { request } from "../services/http";
 import { useSession } from "../services/session";
 import { displayName, password } from "../services/validation";
 import type { TokenDTO } from "../types/api";
 export function Auth({ register = false }: { register?: boolean }) {
-  const { accept, notice } = useSession();
-  const action = useAction();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [secret, setSecret] = useState("");
+  const wide = useWindowDimensions().width >= 900;
+  const { accept, notice } = useSession(),
+    action = useAction();
+  const [name, setName] = useState(""),
+    [email, setEmail] = useState(""),
+    [secret, setSecret] = useState("");
+  const guard = useUnsavedChanges(register && (!!name || !!email || !!secret));
+  const submit = () =>
+    void action.run(async () => {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.length > 254)
+        throw new Error("Introduce un correo electrónico válido.");
+      const body = register
+        ? {
+            displayName: displayName(name),
+            email: email.trim(),
+            password: password(secret),
+          }
+        : { email: email.trim(), password: secret };
+      const result = await request<TokenDTO>(`/auth/${register ? "register" : "login"}`, {
+        method: "POST",
+        body,
+      });
+      guard.saved();
+      setSecret("");
+      accept(result.data);
+    });
   return (
-    <Panel title={register ? "Crear una cuenta ciudadana" : "Iniciar sesión"}>
-      <p className="muted">Accede con tu cuenta de UrbanPulse para realizar operaciones reales.</p>
-      <Feedback success={notice} error={action.error} />
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void action.run(async () => {
-            const body = register
-              ? { displayName: displayName(name), email: email.trim(), password: password(secret) }
-              : { email: email.trim(), password: secret };
-            try {
-              const response = await request<TokenDTO>(`/auth/${register ? "register" : "login"}`, {
-                method: "POST",
-                body,
-              });
-              accept(response.data);
-            } finally {
-              setSecret("");
-            }
-          });
+    <View style={{ gap: 22 }}>
+      <Text
+        role="heading"
+        aria-level={2}
+        style={{
+          fontFamily: displayFont,
+          color: c.ink,
+          fontSize: wide ? 46 : 34,
+          lineHeight: wide ? 49 : 38,
+          fontWeight: "700",
+          letterSpacing: -1,
         }}
       >
-        <fieldset disabled={action.busy}>
-          {register && (
-            <Field
-              label="Nombre público"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoComplete="name"
-            />
-          )}
-          <Field
-            label="Correo electrónico"
-            type="email"
-            maxLength={254}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-            required
-          />
-          <Field
-            label="Contraseña"
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            autoComplete={register ? "new-password" : "current-password"}
-            required
-          />
-          <Button type="submit">{action.busy ? "Procesando…" : register ? "Registrarse" : "Entrar"}</Button>
-        </fieldset>
-      </form>
-      <p>
-        <NavLink href={register ? "/login" : "/register"}>
-          {register ? "Ya tengo una cuenta" : "Registrar una cuenta ciudadana"}
-        </NavLink>
-      </p>
-    </Panel>
+        {register ? "Tu ciudad te necesita." : "Qué bueno verte."}
+      </Text>
+      <Body muted>
+        {register ? "Comunica incidencias y sigue su evolución." : "Accede a tu espacio en UrbanPulse."}
+      </Body>
+      <Feedback success={notice} error={action.error} />
+      {register ? (
+        <Field
+          label="Nombre público"
+          value={name}
+          onChangeText={setName}
+          autoComplete="name"
+          editable={!action.busy}
+        />
+      ) : null}
+      <Field
+        label="Correo electrónico"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoComplete="email"
+        autoCorrect={false}
+        editable={!action.busy}
+      />
+      <Field
+        label="Contraseña"
+        value={secret}
+        onChangeText={setSecret}
+        secureTextEntry
+        autoComplete={register ? "new-password" : "current-password"}
+        onSubmitEditing={submit}
+        editable={!action.busy}
+        hint={register ? "Al menos 8 caracteres y hasta 72 bytes. Utiliza una contraseña única." : undefined}
+      />
+      <Button disabled={action.busy} onPress={submit}>
+        {action.busy ? "Procesando…" : register ? "Crear cuenta" : "Entrar"}
+      </Button>
+      <NavLink href={register ? "/login" : "/register"}>
+        {register ? "Ya tengo una cuenta" : "Crear una cuenta ciudadana"}
+      </NavLink>
+    </View>
   );
 }
 export function PasswordForm() {
-  const { api, logout } = useSession();
-  const action = useAction();
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
+  const { api, logout } = useSession(),
+    action = useAction();
+  const [current, setCurrent] = useState(""),
+    [next, setNext] = useState("");
+  const guard = useUnsavedChanges(!!current || !!next);
   return (
     <Panel title="Cambiar contraseña">
-      <p className="muted">
-        El cambio invalida las sesiones anteriores. Tendrás que iniciar sesión otra vez.
-      </p>
+      <Body muted>El cambio cerrará tus sesiones. Tendrás que acceder de nuevo.</Body>
       <Feedback error={action.error} />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
+      <Field
+        label="Contraseña actual"
+        secureTextEntry
+        value={current}
+        onChangeText={setCurrent}
+        autoComplete="current-password"
+      />
+      <Field
+        label="Nueva contraseña"
+        secureTextEntry
+        value={next}
+        onChangeText={setNext}
+        autoComplete="new-password"
+      />
+      <Button
+        disabled={action.busy}
+        onPress={() =>
           void action.run(async () => {
             password(next);
-            try {
-              const response = await api("/users/me/password-changes", {
-                method: "POST",
-                body: { currentPassword: current, newPassword: next },
-              });
-              logout(`Contraseña cambiada (HTTP ${response.status}). Inicia sesión de nuevo.`);
-            } finally {
-              setCurrent("");
-              setNext("");
-            }
-          });
-        }}
+            await api("/users/me/password-changes", {
+              method: "POST",
+              body: { currentPassword: current, newPassword: next },
+            });
+            guard.saved();
+            setCurrent("");
+            setNext("");
+            logout("Contraseña actualizada. Inicia sesión de nuevo.");
+          })
+        }
       >
-        <fieldset disabled={action.busy}>
-          <Field
-            label="Contraseña actual"
-            type="password"
-            required
-            value={current}
-            autoComplete="current-password"
-            onChange={(e) => setCurrent(e.target.value)}
-          />
-          <Field
-            label="Nueva contraseña"
-            type="password"
-            required
-            value={next}
-            autoComplete="new-password"
-            onChange={(e) => setNext(e.target.value)}
-          />
-          <Button type="submit">Cambiar contraseña</Button>
-        </fieldset>
-      </form>
+        {action.busy ? "Guardando…" : "Cambiar contraseña"}
+      </Button>
+      <Button
+        secondary
+        disabled={action.busy}
+        onPress={() =>
+          guard.discard(() => {
+            setCurrent("");
+            setNext("");
+          })
+        }
+      >
+        Cancelar cambio de contraseña
+      </Button>
     </Panel>
   );
 }
 export function Verification() {
-  const { api, refresh, session } = useSession();
-  const action = useAction();
+  const { api, refresh, session } = useSession(),
+    action = useAction();
   const [code, setCode] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   return (
-    <>
+    <Stack>
       <Panel title="Verifica tu correo">
-        <p>
-          Introduce el código enviado a <strong>{session?.user.email}</strong>. Hasta verificarlo, el panel no
-          está disponible.
-        </p>
+        <Body>Introduce el código enviado a {session?.user.email}. Caduca a los diez minutos.</Body>
         <Feedback error={action.error} success={action.success} />
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void action.run(async () => {
-              try {
-                const result = await api("/auth/email-verifications/confirm", {
+        <Field
+          label="Código de ocho dígitos"
+          value={code}
+          onChangeText={setCode}
+          keyboardType="number-pad"
+          maxLength={8}
+          autoComplete="one-time-code"
+        />
+        <Row>
+          <Button
+            disabled={action.busy}
+            onPress={() =>
+              void action.run(async () => {
+                if (!/^[0-9]{8}$/.test(code)) throw new Error("El código debe contener ocho dígitos.");
+                await api("/auth/email-verifications/confirm", {
                   method: "POST",
                   body: { code },
                 });
-                setConfirmed(true);
-                action.setSuccess(`Correo confirmado (HTTP ${result.status}).`);
-                await refresh();
-              } finally {
                 setCode("");
-              }
-            });
-          }}
-        >
-          <fieldset disabled={action.busy || confirmed}>
-            <Field
-              label="Código de ocho dígitos"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{8}"
-              maxLength={8}
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            <Button type="submit">Confirmar correo</Button>
-            <Button
-              secondary
-              onClick={() =>
-                void action.run(async () => {
-                  const result = await api("/auth/email-verifications/resend", { method: "POST" });
-                  action.setSuccess(
-                    result.status === 204
-                      ? "El correo ya está verificado (HTTP 204)."
-                      : `Envío solicitado (HTTP ${result.status}). Consulta el correo o Mailpit.`
-                  );
-                  if (result.status === 204) {
-                    setConfirmed(true);
-                    await refresh();
-                  }
-                })
-              }
-            >
-              Reenviar código
-            </Button>
-          </fieldset>
-        </form>
-        {confirmed && (
-          <Button disabled={action.busy} onClick={() => void action.run(refresh)}>
-            Cargar perfil verificado
+                await refresh();
+              })
+            }
+          >
+            Confirmar correo
           </Button>
-        )}
+          <Button
+            secondary
+            disabled={action.busy}
+            onPress={() =>
+              void action.run(async () => {
+                const r = await api("/auth/email-verifications/resend", {
+                  method: "POST",
+                });
+                if (r.status === 204) await refresh();
+                else action.setSuccess("Envío solicitado. Revisa tu bandeja de entrada.");
+              })
+            }
+          >
+            Reenviar código
+          </Button>
+        </Row>
       </Panel>
       <PasswordForm />
-    </>
+    </Stack>
   );
 }

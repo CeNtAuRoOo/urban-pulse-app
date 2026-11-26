@@ -1,1 +1,1 @@
-export { RedeemInvitation as default } from "../../features/Invitations";
+export { Redeem as default } from "../../features/Invitations";

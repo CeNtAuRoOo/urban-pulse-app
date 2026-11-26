@@ -2,13 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "./session";
 import type { ApiResponse, Query } from "./http";
 
-export function useResource<T>(path: string, query?: Query) {
+export function useResource<T>(path: string | null, query?: Query) {
   const { api } = useSession();
   const [revision, setRevision] = useState(0);
   const serialized = JSON.stringify(query || {});
   const key = `${path}:${serialized}:${revision}`;
-  const [state, setState] = useState<{ key: string; result?: ApiResponse<T>; error?: unknown }>();
+  const [state, setState] = useState<{
+    key: string;
+    result?: ApiResponse<T>;
+    error?: unknown;
+  }>();
   useEffect(() => {
+    if (!path) return;
     const controller = new AbortController();
     api<T>(path, { query: JSON.parse(serialized), signal: controller.signal })
       .then((result) => {
@@ -23,7 +28,7 @@ export function useResource<T>(path: string, query?: Query) {
   return {
     result: state?.key === key ? state.result : undefined,
     error: state?.key === key ? state.error : undefined,
-    loading: state?.key !== key,
+    loading: !!path && state?.key !== key,
     reload,
     setResult: (result: ApiResponse<T>) => setState({ key, result }),
   };

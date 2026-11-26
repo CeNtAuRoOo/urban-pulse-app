@@ -1,236 +1,255 @@
+import { useFormNavigation, useUnsavedChanges } from "../services/form-guard";
 import { useState } from "react";
 import {
   Badge,
+  Body,
   Button,
+  Confirm,
+  DataList,
   Details,
   Feedback,
   Field,
+  PageHeading,
   Panel,
   QueryState,
+  Row,
   Select,
-  Textarea,
 } from "../components/ui";
 import { useAction, useResource } from "../services/hooks";
 import { useSession } from "../services/session";
+import { permissions } from "../services/permissions";
 import { nonEmptyPatch, textLength } from "../services/validation";
-import type { Category, Department } from "../types/api";
-type CatalogItem = Category & { code?: string };
+import type { Category } from "../types/api";
+type Item = Category & { code?: string };
 export function Catalog({ department = false }: { department?: boolean }) {
+  const navigation = useFormNavigation();
   const path = department ? "/departments" : "/categories";
-  const { session } = useSession();
-  const admin = !!session?.user.roles.includes("ADMIN");
-  const resource = useResource<CatalogItem[]>(path);
-  const [selected, setSelected] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [revision, setRevision] = useState(0);
-  const [notice, setNotice] = useState("");
-  const changed = (item: CatalogItem, status: number) => {
-    setNotice(`Guardado: ${item.name} · HTTP ${status}`);
-    setCreating(false);
-    setSelected(item.id);
-    setRevision((value) => value + 1);
-    resource.reload();
-  };
+  const resource = useResource<Item[]>(path),
+    { session } = useSession();
+  const admin = permissions(session?.user).admin;
+  const [selected, setSelected] = useState(""),
+    [revision, setRevision] = useState(0);
   return (
     <>
-      <div className="toolbar">
-        <h1>{department ? "Departamentos" : "Categorías"}</h1>
-        {admin && (
-          <Button
-            onClick={() => {
-              setCreating(true);
-              setSelected("");
-              setNotice("");
-            }}
-          >
+      <PageHeading
+        title={department ? "Departamentos" : "Categorías"}
+        description={
+          department
+            ? "Organización municipal y áreas de servicio."
+            : "Una clasificación común para cada incidencia."
+        }
+      >
+        {admin ? (
+          <Button icon="plus" onPress={() => navigation.request(() => setSelected("new"))}>
             Crear {department ? "departamento" : "categoría"}
           </Button>
-        )}
-        <Button secondary disabled={resource.loading} onClick={resource.reload}>
-          Actualizar
-        </Button>
-      </div>
-      <Feedback success={notice} />
-      {creating && admin && (
-        <Panel title="Alta de catálogo">
-          <CatalogForm department={department} onSaved={changed} onCancel={() => setCreating(false)} />
-        </Panel>
-      )}
+        ) : null}
+      </PageHeading>
       <Panel>
         <QueryState {...resource} empty={resource.result?.data.length === 0} />
-        {resource.result && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  {department && <th>Código</th>}
-                  <th>Estado</th>
-                  <th>Consulta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resource.result.data.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.name}</td>
-                    {department && <td>{item.code}</td>}
-                    <td>
-                      <Badge>{item.active ? "Activo" : "Inactivo"}</Badge>
-                    </td>
-                    <td>
-                      <Button
-                        secondary
-                        onClick={() => {
-                          setSelected(item.id);
-                          setCreating(false);
-                        }}
-                      >
-                        Ver detalle
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {resource.result ? (
+          <DataList
+            items={resource.result.data}
+            expanded={(i) =>
+              selected === i.id ? (
+                <CatalogDetail
+                  key={`${selected}-${revision}`}
+                  id={selected}
+                  path={path}
+                  department={department}
+                  admin={admin}
+                  cancel={() => setSelected("")}
+                  changed={() => {
+                    resource.reload();
+                    setRevision((v) => v + 1);
+                    setSelected("");
+                  }}
+                />
+              ) : null
+            }
+            columns={[
+              {
+                label: "Nombre",
+                grow: 2,
+                render: (i) => (
+                  <>
+                    <Body>{i.name}</Body>
+                    {i.code ? <Body muted>{i.code}</Body> : null}
+                  </>
+                ),
+              },
+              {
+                label: "Estado",
+                render: (i) => <Badge>{i.active ? "Activo" : "Inactivo"}</Badge>,
+              },
+              {
+                label: "Acciones",
+                render: (i) => (
+                  <Button
+                    secondary
+                    onPress={() => navigation.request(() => setSelected(selected === i.id ? "" : i.id))}
+                  >
+                    {selected === i.id ? "Cerrar detalle" : "Ver detalle"}
+                  </Button>
+                ),
+              },
+            ]}
+          />
+        ) : null}
       </Panel>
-      {selected && (
+      {selected === "new" ? (
         <CatalogDetail
           key={`${selected}-${revision}`}
           id={selected}
+          path={path}
           department={department}
           admin={admin}
-          onSaved={changed}
+          cancel={() => setSelected("")}
+          changed={() => {
+            resource.reload();
+            setRevision((v) => v + 1);
+            setSelected("");
+          }}
         />
-      )}
+      ) : null}
     </>
   );
 }
 function CatalogDetail({
   id,
+  path,
   department,
   admin,
-  onSaved,
+  cancel,
+  changed,
 }: {
   id: string;
+  path: string;
   department: boolean;
   admin: boolean;
-  onSaved: (item: CatalogItem, status: number) => void;
+  cancel: () => void;
+  changed: () => void;
 }) {
-  const resource = useResource<CatalogItem>(`${department ? "/departments" : "/categories"}/${id}`);
-  const [editing, setEditing] = useState(false);
+  const resource = useResource<Item>(id === "new" ? null : `${path}/${id}`);
+  if (id === "new")
+    return (
+      <Panel title="Nueva ficha">
+        <CatalogForm department={department} path={path} cancel={cancel} changed={changed} />
+      </Panel>
+    );
   return (
     <Panel title="Detalle">
       <QueryState {...resource} />
-      {resource.result && (
+      {resource.result ? (
         <>
           <Details
             entries={[
-              ["Identificador", resource.result.data.id],
               ["Nombre", resource.result.data.name],
-              ...(department ? [["Código", resource.result.data.code] as [string, string | undefined]] : []),
               ["Descripción", resource.result.data.description],
               ["Estado", resource.result.data.active ? "Activo" : "Inactivo"],
             ]}
           />
-          {admin &&
-            (editing ? (
-              <CatalogForm
-                department={department}
-                original={resource.result.data}
-                onSaved={onSaved}
-                onCancel={() => setEditing(false)}
-              />
-            ) : (
-              <p>
-                <Button onClick={() => setEditing(true)}>Editar</Button>
-              </p>
-            ))}
+          {admin ? (
+            <CatalogForm
+              original={resource.result.data}
+              department={department}
+              path={path}
+              cancel={cancel}
+              changed={changed}
+            />
+          ) : (
+            <Button secondary onPress={cancel}>
+              Cerrar detalle
+            </Button>
+          )}
         </>
-      )}
+      ) : null}
     </Panel>
   );
 }
 function CatalogForm({
   original,
   department,
-  onSaved,
-  onCancel,
+  path,
+  cancel,
+  changed,
 }: {
-  original?: CatalogItem;
+  original?: Item;
   department: boolean;
-  onSaved: (item: CatalogItem, status: number) => void;
-  onCancel: () => void;
+  path: string;
+  cancel: () => void;
+  changed: () => void;
 }) {
-  const { api } = useSession();
-  const action = useAction();
-  const [name, setName] = useState(original?.name || "");
-  const [code, setCode] = useState(original?.code || "");
-  const [description, setDescription] = useState(original?.description || "");
-  const [active, setActive] = useState(original?.active ?? true);
+  const { api } = useSession(),
+    action = useAction();
+  const [name, setName] = useState(original?.name || ""),
+    [code, setCode] = useState(original?.code || ""),
+    [description, setDescription] = useState(original?.description || ""),
+    [active, setActive] = useState(original?.active !== false);
+  const guard = useUnsavedChanges(
+    name !== (original?.name || "") ||
+      code !== (original?.code || "") ||
+      description !== (original?.description || "") ||
+      active !== (original?.active !== false)
+  );
+  const save = () =>
+    void action.run(async () => {
+      const body: Record<string, unknown> = {
+        name: textLength(name, 2, department ? 120 : 100, "Nombre"),
+        description: textLength(description, 0, 500, "Descripción"),
+        active,
+      };
+      if (department) {
+        if (!/^[A-Za-z0-9_-]{2,20}$/.test(code.trim()))
+          throw new Error("El código debe tener de 2 a 20 letras, números, guiones o guiones bajos.");
+        body.code = code.trim().toUpperCase();
+      }
+      if (original) {
+        for (const key of Object.keys(body)) if (body[key] === original[key as keyof Item]) delete body[key];
+        nonEmptyPatch(body);
+      }
+      await api(original ? `${path}/${original.id}` : path, {
+        method: original ? "PATCH" : "POST",
+        body,
+      });
+      guard.saved();
+      changed();
+    });
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void action.run(async () => {
-          const values: Partial<Department> = {
-            name: textLength(name, 2, department ? 120 : 100, "Nombre"),
-            description: textLength(description, 0, 500, "Descripción", false),
-            active,
-          };
-          if (department) {
-            if (!/^[A-Za-z0-9_-]{2,20}$/.test(code.trim()))
-              throw new Error("Código: entre 2 y 20 letras ASCII, números, guion o guion bajo.");
-            values.code = code.trim();
-          }
-          const body = original
-            ? Object.fromEntries(
-                Object.entries(values).filter(
-                  ([key, value]) =>
-                    value !== (original[key as keyof CatalogItem] ?? (key === "description" ? "" : undefined))
-                )
-              )
-            : values;
-          nonEmptyPatch(body);
-          const path = department ? "/departments" : "/categories";
-          const response = await api<CatalogItem>(original ? `${path}/${original.id}` : path, {
-            method: original ? "PATCH" : "POST",
-            body,
-          });
-          onSaved(response.data, response.status);
-        });
-      }}
-    >
+    <>
       <Feedback error={action.error} />
-      <fieldset disabled={action.busy}>
-        <div className="grid">
-          <Field label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} />
-          {department && (
-            <Field
-              label="Código (ASCII, 2–20 caracteres)"
-              required
-              pattern="[A-Za-z0-9_\-]{2,20}"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          )}
-        </div>
-        <Textarea
-          label="Descripción (opcional, hasta 500 caracteres)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <Select label="Estado" value={String(active)} onChange={(e) => setActive(e.target.value === "true")}>
-          <option value="true">Activo</option>
-          <option value="false">Inactivo</option>
-        </Select>
-        <p className="hint">Desactivar conserva el registro y su consulta en el catálogo.</p>
-        <Button type="submit">Guardar</Button>
-        <Button secondary onClick={onCancel}>
+      <Field label="Nombre" value={name} onChangeText={setName} />
+      {department ? <Field label="Código" value={code} onChangeText={setCode} maxLength={20} /> : null}
+      <Field label="Descripción" multiline value={description} onChangeText={setDescription} />
+      <Select
+        label="Estado"
+        value={String(active)}
+        onChange={(v) => setActive(v === "true")}
+        options={[
+          { value: "true", label: "Activo" },
+          { value: "false", label: "Inactivo" },
+        ]}
+      />
+      <Row>
+        {original?.active && !active ? (
+          <Confirm
+            title="Desactivar ficha"
+            message="Dejará de estar disponible para nuevas selecciones; se conservará en el historial."
+            danger
+            disabled={action.busy}
+            onConfirm={save}
+          >
+            Guardar cambios
+          </Confirm>
+        ) : (
+          <Button disabled={action.busy} onPress={save}>
+            {action.busy ? "Guardando…" : "Guardar ficha"}
+          </Button>
+        )}
+        <Button secondary disabled={action.busy} onPress={() => guard.discard(cancel)}>
           Cancelar
         </Button>
-      </fieldset>
-    </form>
+      </Row>
+    </>
   );
 }

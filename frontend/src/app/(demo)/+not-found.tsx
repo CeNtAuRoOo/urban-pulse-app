@@ -1,8 +1,9 @@
-import { NavLink } from "../../components/ui";
+import { Body, Heading, NavLink } from "../../components/ui";
 export default function NotFound() {
   return (
     <>
-      <h1>Página no encontrada</h1>
+      <Heading level={1}>Página no encontrada</Heading>
+      <Body>La dirección no corresponde a una sección de UrbanPulse.</Body>
       <NavLink href="/">Volver al inicio</NavLink>
     </>
   );
