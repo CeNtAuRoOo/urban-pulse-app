@@ -29,7 +29,7 @@ export function Tabs({
             role="tab"
             accessibilityState={{ selected: value === item.value }}
             onPress={() => onChange(item.value)}
-            style={({ hovered }) => ({
+            style={({ hovered }: { pressed: boolean; hovered?: boolean }) => ({
               minHeight: 44,
               paddingVertical: 12,
               paddingHorizontal: 20,

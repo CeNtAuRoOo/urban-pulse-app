@@ -146,7 +146,7 @@ export function Button({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed, hovered }) => [
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.button,
         secondary && { backgroundColor: c.surface, borderColor: c.border },
         danger && { backgroundColor: c.danger, borderColor: c.danger },
