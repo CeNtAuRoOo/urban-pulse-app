@@ -2,13 +2,12 @@ import type { TokenDTO } from "../types/api";
 export interface Session extends TokenDTO {
   expiresAt: number;
 }
-const key = "urbanpulse.demo.session";
-// This desktop demo persists credentials only for the current browser tab.
+const key = "urbanpulse.session.v1";
 export function readSession(): Session | null {
   try {
-    const stored = sessionStorage.getItem(key);
-    if (!stored) return null;
-    const value = JSON.parse(stored) as Session;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Session;
     if (
       !value.accessToken ||
       !value.user?.id ||
@@ -23,11 +22,11 @@ export function readSession(): Session | null {
     return null;
   }
 }
-export function saveSession(session: Session | null) {
+export function saveSession(value: Session | null) {
   try {
-    if (session) sessionStorage.setItem(key, JSON.stringify(session));
+    if (value) sessionStorage.setItem(key, JSON.stringify(value));
     else sessionStorage.removeItem(key);
   } catch {
-    /* Memory-only session when storage is unavailable. */
+    /* La sesión continúa solo en memoria si el navegador bloquea el almacenamiento. */
   }
 }

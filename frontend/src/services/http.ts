@@ -36,11 +36,12 @@ export class ApiError extends Error {
   }
 }
 export interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   query?: Query;
   etag?: string;
   signal?: AbortSignal;
+  responseType?: "json" | "blob";
 }
 export async function request<T>(
   path: string,
@@ -51,16 +52,27 @@ export async function request<T>(
   Object.entries(options.query || {}).forEach(([key, value]) => {
     if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
   });
-  const headers = new Headers({ Accept: "application/json" });
+  const headers = new Headers({
+    Accept:
+      options.responseType === "blob"
+        ? "image/jpeg, image/png, application/problem+json"
+        : "application/json",
+  });
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  const multipart = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (options.body !== undefined && !multipart) headers.set("Content-Type", "application/json");
   if (options.etag !== undefined) headers.set("If-Match", options.etag);
   let response: Response;
   try {
     response = await fetch(url, {
       method: options.method || "GET",
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : multipart
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
       signal: options.signal,
       cache: "no-store",
     });
@@ -72,6 +84,15 @@ export async function request<T>(
       "No se pudo conectar con la API. Comprueba el servicio, la URL y el origen CORS."
     );
   }
+  if (response.ok && options.responseType === "blob")
+    return {
+      data: (await response.blob()) as T,
+      status: response.status,
+      headers: response.headers,
+      etag: response.headers.get("ETag"),
+      location: null,
+      retryAfter: null,
+    };
   const raw = await response.text();
   let data: unknown;
   try {

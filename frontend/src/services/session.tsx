@@ -1,17 +1,8 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { AppState, Platform } from "react-native";
 import { ApiError, request, type ApiResponse, type RequestOptions } from "./http";
 import { readSession, saveSession, type Session } from "./storage";
 import type { TokenDTO, User } from "../types/api";
-
 interface SessionContextValue {
   session: Session | null;
   ready: boolean;
@@ -22,20 +13,15 @@ interface SessionContextValue {
   api: <T>(path: string, options?: RequestOptions) => Promise<ApiResponse<T>>;
 }
 const Context = createContext<SessionContextValue | null>(null);
-const subscribeReady = () => () => {};
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(readSession);
-  const current = useRef<Session | null>(session);
-  const ready = useSyncExternalStore(
-    subscribeReady,
-    () => true,
-    () => false
-  );
-  const [notice, setNotice] = useState("");
+  const [session, setSession] = useState<Session | null>(null),
+    [ready, setReady] = useState(false),
+    [notice, setNotice] = useState("");
+  const current = useRef<Session | null>(null);
   const update = useCallback((next: Session | null) => {
     current.current = next;
-    saveSession(next);
     setSession(next);
+    void saveSession(next);
   }, []);
   const logout = useCallback(
     (message = "Has cerrado la sesión.") => {
@@ -45,16 +31,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [update]
   );
   useEffect(() => {
+    let live = true;
+    Promise.resolve(readSession()).then((value) => {
+      if (live) {
+        current.current = value;
+        setSession(value);
+        setReady(true);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
     if (!session) return;
     const expire = () => {
       if (current.current && current.current.expiresAt <= Date.now())
         logout("Tu sesión ha caducado. Inicia sesión de nuevo.");
     };
     const timer = setTimeout(expire, Math.min(Math.max(0, session.expiresAt - Date.now()), 2147483647));
-    window.addEventListener("focus", expire);
+    const sub = AppState.addEventListener("change", expire);
+    if (Platform.OS === "web") window.addEventListener("focus", expire);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("focus", expire);
+      sub.remove();
+      if (Platform.OS === "web") window.removeEventListener("focus", expire);
     };
   }, [session, logout]);
   const api = useCallback(

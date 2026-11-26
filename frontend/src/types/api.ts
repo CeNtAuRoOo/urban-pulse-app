@@ -1,4 +1,5 @@
-export type Role = "CITIZEN" | "ADMIN" | "OPERATOR" | "TECHNICIAN" | "DEPARTMENT_COORDINATOR";
+export type Role =
+  "CITIZEN" | "ADMIN" | "OPERATOR" | "TECHNICIAN" | "DEPARTMENT_COORDINATOR";
 export interface Category {
   id: string;
   name: string;
@@ -16,7 +17,12 @@ export interface User {
   active: boolean;
   createdAt: string;
   roles: Role[];
-  departmentMemberships: { department: Department; role: Role; joinedAt: string; leftAt: string | null }[];
+  departmentMemberships: {
+    department: Department;
+    role: Role;
+    joinedAt: string;
+    leftAt: string | null;
+  }[];
 }
 export interface TokenDTO {
   accessToken: string;
